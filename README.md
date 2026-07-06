@@ -49,17 +49,17 @@ There's no local MusicBrainz Postgres dump for now — a full dump doesn't fit o
    btmt-tunnel   # or: ssh -N <SERVER_HOST>-tunnel
    ```
 
-2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string:
+2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string (replace `<username>` with your DB user; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
-   postgresql://musicbrainz:musicbrainz@127.0.0.1:55433/musicbrainz_db
+   postgresql://<username>@127.0.0.1:55433/musicbrainz_db
    ```
 
 3. Verify:
 
    ```bash
    pg_isready -h 127.0.0.1 -p 55433
-   psql "postgresql://musicbrainz:musicbrainz@127.0.0.1:55433/musicbrainz_db" -c 'select count(*) from artist;'
+   psql "postgresql://<username>@127.0.0.1:55433/musicbrainz_db" -c 'select count(*) from artist;'
    ```
 
 **Known limitation:** this couples local dev to private BTMT infra access — a disk-space workaround, not the target setup. Revisit a self-contained local sample dataset (e.g. `musicbrainz-docker`'s own `createdb.sh -sample`) once disk space allows, so the project is reproducible without VPS access.

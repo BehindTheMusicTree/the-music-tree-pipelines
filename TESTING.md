@@ -2,7 +2,7 @@
 
 This project is a bronze → silver ETL pipeline (Polars + Postgres — no Spark, no dbt, no Gold layer yet; see [README.md#pipeline](README.md#pipeline)). Test categories below follow the standard data-pipeline taxonomy, adapted to this stack: pytest instead of dbt tests/pyspark testing/chispa, Pandera (Polars) instead of Great Expectations/Deequ where a data-quality tool is needed.
 
-Two Postgres sources exist for tests that need real data: the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local/CI Postgres via `musicbrainz-docker`'s `createdb.sh -sample`) and the BTMT `infrastructure` VPS's **live, full-corpus staging mirror** (over an SSH tunnel — see [README.md#data-source](README.md#data-source)). The automated test suite uses the sample; the live mirror is for real pipeline dev/runs only.
+Two Postgres sources exist for tests that need real data: the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local Postgres via `musicbrainz-docker`'s `createdb.sh -sample`; CI wiring is planned) and the BTMT `infrastructure` VPS's **live, full-corpus staging mirror** (over an SSH tunnel — see [README.md#data-source](README.md#data-source)). The automated test suite uses the sample; the live mirror is for real pipeline dev/runs only.
 
 ## Table of Contents
 
@@ -41,7 +41,7 @@ The core of most data projects: assert that the data itself respects rules, inde
 - **Validity** — values within an expected range or set
 - **Referential integrity** — foreign keys resolve (e.g. every `recording_genre.genre_id` exists in `genre_hierarchy`)
 
-Standard tools elsewhere are dbt (`not_null`, `unique`, `accepted_values`), Great Expectations, or Deequ; in this stack the equivalent is [Pandera](https://pandera.readthedocs.io/en/stable/polars.html) schemas over Polars DataFrames. Bronze gets light schema checks only (it's raw); Silver gets the bulk of these, since that's where cleaned, join-able data is expected to hold real invariants.
+Standard tools elsewhere are dbt (`not_null`, `unique`, `accepted_values`), Great Expectations, or Deequ; in this stack a good candidate (once/if it’s added as a dependency) is [Pandera](https://pandera.readthedocs.io/en/stable/polars.html) schemas over Polars DataFrames. Bronze gets light schema checks only (it's raw); Silver gets the bulk of these, since that's where cleaned, join-able data is expected to hold real invariants.
 
 ### 4. Regression tests
 
@@ -86,7 +86,7 @@ This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#p
 
 Unit and E2E/pipeline tests should use small, deterministic Polars DataFrames or hand-built fixture files, purpose-built per bronze/silver stage rather than sampling the full corpus. Prefer `conftest.py` factory fixtures for constructing minimal DataFrames inline; use committed fixture files under `tests/fixtures/` for larger E2E/pipeline inputs.
 
-Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `musicbrainz-docker`'s `createdb.sh -sample` — this gives real schema and real (if reduced) data without touching the live staging mirror.
+Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `musicbrainz-docker`'s `createdb.sh -sample` — this gives real schema and real (if reduced) data without touching the live staging mirror.
 
 ## Running tests
 
