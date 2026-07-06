@@ -52,7 +52,7 @@ There's no local MusicBrainz Postgres dump for now — a full dump doesn't fit o
 2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string:
 
    ```
-   postgresql://musicbrainz:musicbrainz@127.0.0.1:55433/musicbrainz_db
+   postgresql://musicbrainz@127.0.0.1:55433/musicbrainz_db
    ```
 
 3. Verify:
