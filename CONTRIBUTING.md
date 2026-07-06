@@ -9,6 +9,7 @@ This project is in early active development by a solo developer. Contributions, 
   - [Branching](#branching)
   - [Committing](#committing)
   - [Pull Requests](#pull-requests)
+- [Testing](#testing)
 - [Changelog](#changelog)
 - [Code Style](#code-style)
 - [License](#license)
@@ -17,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git, SSH access to the BTMT `infrastructure` VPS (see [README.md#data-source](README.md#data-source) — no local MusicBrainz dump for now, disk space workaround).
+**Prerequisites:** Python 3.12+, Git. SSH access to the BTMT `infrastructure` VPS is needed for real pipeline dev/runs (see [README.md#data-source](README.md#data-source) — no local MusicBrainz dump for now, disk space workaround), but not for running the test suite — see [TESTING.md](TESTING.md).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
@@ -79,7 +80,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 ### Pull Requests
 
 1. Ensure your branch is up to date with `develop`
-2. Run `ruff check . && ruff format --check .` and `pytest` — both must pass
+2. Run `ruff check . && ruff format --check .` and `pytest -m "not integration"` — both must pass (same checks CI runs; see [Testing](#testing))
 3. Update `CHANGELOG.md` under `[Unreleased]`
 4. Open a PR targeting `develop`
 5. Use the same `type(scope): summary` format for the PR title
@@ -89,6 +90,10 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 - [ ] No accidental commits (`.env`, MusicBrainz dumps, large binaries)
 - [ ] `CHANGELOG.md` updated
 - [ ] Branch targets `develop`
+
+## Testing
+
+See [TESTING.md](TESTING.md) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
 
 ## Changelog
 

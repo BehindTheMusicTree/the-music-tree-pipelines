@@ -1,5 +1,11 @@
 # Security
 
+## Table of Contents
+
+- [Reporting issues](#reporting-issues)
+- [Scope](#scope)
+- [Operational hygiene](#operational-hygiene)
+
 ## Reporting issues
 
 If you believe you have found a security vulnerability, please **do not** open a public GitHub issue. Contact the repository maintainer privately (e.g. via GitHub Security Advisories for this repo, if enabled, or the maintainer's preferred channel).
