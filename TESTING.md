@@ -91,7 +91,7 @@ Integration tests should load a disposable Postgres from the official MusicBrain
 ## Running tests
 
 ```bash
-pytest                        # everything, including integration (requires a local sample-loaded Postgres — see above)
+pytest                        # everything; if/when integration tests exist, this requires a local sample-loaded Postgres — see above
 pytest -m "not integration"   # unit + e2e/pipeline only — what CI runs today
 pytest -m integration         # integration only
 ```
