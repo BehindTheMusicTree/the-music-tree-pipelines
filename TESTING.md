@@ -41,7 +41,7 @@ The core of most data projects: assert that the data itself respects rules, inde
 - **Validity** — values within an expected range or set
 - **Referential integrity** — foreign keys resolve (e.g. every `recording_genre.genre_id` exists in `genre_hierarchy`)
 
-Standard tools elsewhere are dbt (`not_null`, `unique`, `accepted_values`), Great Expectations, or Deequ; in this stack the equivalent is [Pandera](https://pandera.readthedocs.io/en/stable/polars.html) schemas over Polars DataFrames. Bronze gets light schema checks only (it's raw); Silver gets the bulk of these, since that's where cleaned, join-able data is expected to hold real invariants.
+Standard tools elsewhere are dbt (`not_null`, `unique`, `accepted_values`), Great Expectations, or Deequ; in this stack a good candidate (once/if it’s added as a dependency) is [Pandera](https://pandera.readthedocs.io/en/stable/polars.html) schemas over Polars DataFrames. Bronze gets light schema checks only (it's raw); Silver gets the bulk of these, since that's where cleaned, join-able data is expected to hold real invariants.
 
 ### 4. Regression tests
 
