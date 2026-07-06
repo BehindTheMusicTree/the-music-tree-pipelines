@@ -17,7 +17,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, a local MusicBrainz Postgres dump (see README), Git.
+**Prerequisites:** Python 3.12+, Git, SSH access to the BTMT `infrastructure` VPS (see [README.md#data-source](README.md#data-source) — no local MusicBrainz dump for now, disk space workaround).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
@@ -26,6 +26,8 @@ python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install -e ".[dev]"
 ```
+
+Then bring up the SSH tunnel to MusicBrainz staging before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
 
 ### Branching
 
