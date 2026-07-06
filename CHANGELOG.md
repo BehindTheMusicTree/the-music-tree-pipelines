@@ -19,3 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+### Added
+
+- Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.
