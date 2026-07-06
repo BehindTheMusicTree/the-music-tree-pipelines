@@ -1,0 +1,21 @@
+# Repo Python venv
+.venv/
+
+# editable pip install -e ".[dev]"
+*.egg-info/
+__pycache__/
+*.py[cod]
+
+.DS_Store
+
+# Local secrets / DB connection
+.env
+
+# MusicBrainz dumps and downloaded Wikidata extracts (local, disposable)
+data/
+*.dump
+*.sql.gz
+
+# Pipeline outputs (bronze/silver parquet)
+bronze/
+silver/
