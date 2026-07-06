@@ -108,6 +108,7 @@ See [CHANGELOG.md](CHANGELOG.md) for format examples.
 - **Fail fast** — raise immediately on missing config or invalid state, no silent fallbacks
 - **No comments** unless the *why* is non-obvious
 - **No dead code** — remove unused variables, imports, and functions
+- **Dependency pinning** — exact-pin (`==`) runtime and dev dependencies for reproducibility; use a minimum constraint (`>=`) for the `[build-system]` backend, since it's only invoked transiently during the build and exact-pinning it risks breakage if that version is yanked
 
 ## License
 
