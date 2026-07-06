@@ -86,7 +86,7 @@ This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#p
 
 Unit and E2E/pipeline tests should use small, deterministic Polars DataFrames or hand-built fixture files, purpose-built per bronze/silver stage rather than sampling the full corpus. Prefer `conftest.py` factory fixtures for constructing minimal DataFrames inline; use committed fixture files under `tests/fixtures/` for larger E2E/pipeline inputs.
 
-Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `musicbrainz-docker`'s `createdb.sh -sample` — this gives real schema and real (if reduced) data without touching the live staging mirror.
+Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `musicbrainz-docker`'s `createdb.sh -sample` — this gives real schema and real (if reduced) data without touching the live staging mirror.
 
 ## Running tests
 
