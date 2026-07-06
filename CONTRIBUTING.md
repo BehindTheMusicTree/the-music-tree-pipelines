@@ -52,7 +52,7 @@ git checkout -b feature/my-feature
 
 ### Committing
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) — every message requires a `type` prefix:
 
 ```
 <type>(<scope>): <summary>
