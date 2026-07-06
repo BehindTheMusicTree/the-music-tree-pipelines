@@ -49,10 +49,10 @@ There's no local MusicBrainz Postgres dump for now — a full dump doesn't fit o
    btmt-tunnel   # or: ssh -N <SERVER_HOST>-tunnel
    ```
 
-2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string:
+2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string (replace `<username>` with your DB user; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
-   postgresql://musicbrainz@127.0.0.1:55433/musicbrainz_db
+   postgresql://<username>@127.0.0.1:55433/musicbrainz_db
    ```
 
 3. Verify:
