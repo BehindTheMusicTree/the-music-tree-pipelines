@@ -13,6 +13,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 - [Consumers](#consumers)
 - [Data source](#data-source)
 - [Setup](#setup)
+- [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -40,32 +41,31 @@ This repo's output (`genre_hierarchy`, `recording_genre_path`) is an **independe
 
 ## Data source
 
-There's no local MusicBrainz Postgres dump for now — a full dump doesn't fit on this dev machine's disk. Instead, bronze ingestion reads over an **SSH tunnel to the BehindTheMusicTree `infrastructure` VPS's MusicBrainz **staging** instance**, which already runs in standalone mode with the sample dataset loaded (see that repo's `CHANGELOG.md` v8.1.0).
+Local dev and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained.
 
-1. Bring up the tunnel from the `infrastructure` repo (requires SSH access already set up per its `docs/guides/users-overview.md`):
+1. Clone `musicbrainz-docker` alongside this repo and bring up its Postgres service with the sample dump loaded — follow that repo's own setup docs for the exact `docker compose` invocation and current flags for `createdb.sh -sample`.
+2. Connect to the resulting local Postgres instance (host/port per `musicbrainz-docker`'s `docker-compose.yml`; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
+
+   ```
+   postgresql://<username>@127.0.0.1:<port>/musicbrainz_db
+   ```
+
+3. Verify (substitute the port `musicbrainz-docker` actually mapped, e.g. `5432`):
 
    ```bash
-   btmt-tunnel   # or: ssh -N <SERVER_HOST>-tunnel
+   pg_isready -h 127.0.0.1 -p <port>
+   psql "postgresql://<username>@127.0.0.1:<port>/musicbrainz_db" -c 'select count(*) from artist;'
    ```
 
-2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string:
-
-   ```
-   postgresql://postgres@127.0.0.1:55433/postgres
-   ```
-
-3. Verify:
-
-   ```bash
-   pg_isready -h 127.0.0.1 -p 55433
-   psql "postgresql://postgres@127.0.0.1:55433/postgres" -c 'select 1'
-   ```
-
-**Known limitation:** this couples local dev to private BTMT infra access and to the staging sample dataset (not the full MusicBrainz corpus). This is a disk-space workaround, not the target setup — revisit a self-contained local sample dataset (e.g. `musicbrainz-docker`'s own `createdb.sh -sample`) once disk space allows, so the project is reproducible without VPS access.
+See [TESTING.md](TESTING.md) for test tiers and conventions, including how to use the sample dataset when running local pipeline development or adding integration tests.
 
 ## Setup
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#setup) for local environment setup.
+
+## Testing
+
+See [TESTING.md](TESTING.md) for test tiers and conventions.
 
 ## Contributing
 

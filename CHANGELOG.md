@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Table of Contents
+
+- [Changelog Best Practices](#changelog-best-practices)
+- [Unreleased](#unreleased)
+
 ## Changelog Best Practices
 
 - Changelogs are for humans, not machines.
@@ -14,3 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+### Added
+
+- Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.

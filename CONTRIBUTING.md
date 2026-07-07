@@ -9,6 +9,7 @@ This project is in early active development by a solo developer. Contributions, 
   - [Branching](#branching)
   - [Committing](#committing)
   - [Pull Requests](#pull-requests)
+- [Testing](#testing)
 - [Changelog](#changelog)
 - [Code Style](#code-style)
 - [License](#license)
@@ -17,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git, SSH access to the BTMT `infrastructure` VPS (see [README.md#data-source](README.md#data-source) — no local MusicBrainz dump for now, disk space workaround).
+**Prerequisites:** Python 3.12+, Git, [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract), [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
@@ -25,9 +26,10 @@ cd root-the-music-tree
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install -e ".[dev]"
+pre-commit install
 ```
 
-Then bring up the SSH tunnel to MusicBrainz staging before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
+Then bring up `musicbrainz-docker` with the sample dataset loaded before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
 
 ### Branching
 
@@ -51,7 +53,7 @@ git checkout -b feature/my-feature
 
 ### Committing
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) — every message requires a `type` prefix:
 
 ```
 <type>(<scope>): <summary>
@@ -79,7 +81,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 ### Pull Requests
 
 1. Ensure your branch is up to date with `develop`
-2. Run `ruff check . && ruff format --check .` and `pytest` — both must pass
+2. Run `pytest -m "not integration"` — `pre-commit` (installed via the setup step above) runs Ruff and `actionlint` on every commit, the same checks CI runs (see [Testing](#testing))
 3. Update `CHANGELOG.md` under `[Unreleased]`
 4. Open a PR targeting `develop`
 5. Use the same `type(scope): summary` format for the PR title
@@ -89,6 +91,10 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 - [ ] No accidental commits (`.env`, MusicBrainz dumps, large binaries)
 - [ ] `CHANGELOG.md` updated
 - [ ] Branch targets `develop`
+
+## Testing
+
+See [TESTING.md](TESTING.md) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
 
 ## Changelog
 
@@ -103,6 +109,7 @@ See [CHANGELOG.md](CHANGELOG.md) for format examples.
 - **Fail fast** — raise immediately on missing config or invalid state, no silent fallbacks
 - **No comments** unless the *why* is non-obvious
 - **No dead code** — remove unused variables, imports, and functions
+- **Dependency pinning** — exact-pin (`==`) runtime and dev dependencies for reproducibility; use a minimum constraint (`>=`) for the `[build-system]` backend, since it's only invoked transiently during the build and exact-pinning it risks breakage if that version is yanked
 
 ## License
 
