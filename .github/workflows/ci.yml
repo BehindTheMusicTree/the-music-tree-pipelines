@@ -87,6 +87,8 @@ jobs:
         run: docker save musicbrainz-docker_db:18 musicbrainz-docker-musicbrainz:latest -o /tmp/mb-docker-images.tar
 
       - name: Run integration tests
+        env:
+          MB_TEST_REQUIRE_DB: "1"
         run: |
           set +e
           pytest -m integration

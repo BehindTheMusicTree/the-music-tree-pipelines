@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterator
 
 import psycopg
@@ -11,6 +12,8 @@ def mb_conn() -> Iterator[psycopg.Connection]:
     try:
         conn = psycopg.connect(MB_DSN, connect_timeout=3)
     except psycopg.OperationalError as exc:
+        if os.environ.get("MB_TEST_REQUIRE_DB"):
+            raise
         pytest.skip(f"MusicBrainz sample database not reachable: {exc}")
     yield conn
     conn.close()
