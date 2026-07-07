@@ -47,14 +47,14 @@ Local dev and pipeline runs use the official MusicBrainz **sample dataset** (`mb
 2. Connect to the resulting local Postgres instance (host/port per `musicbrainz-docker`'s `docker-compose.yml`; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
-   postgresql://<username>@127.0.0.1:5432/musicbrainz_db
+   postgresql://<username>@127.0.0.1:<port>/musicbrainz_db
    ```
 
-3. Verify:
+3. Verify (substitute the port `musicbrainz-docker` actually mapped, e.g. `5432`):
 
    ```bash
-   pg_isready -h 127.0.0.1 -p 5432
-   psql "postgresql://<username>@127.0.0.1:5432/musicbrainz_db" -c 'select count(*) from artist;'
+   pg_isready -h 127.0.0.1 -p <port>
+   psql "postgresql://<username>@127.0.0.1:<port>/musicbrainz_db" -c 'select count(*) from artist;'
    ```
 
 See [TESTING.md](TESTING.md) for how the automated test suite uses this same sample data.
