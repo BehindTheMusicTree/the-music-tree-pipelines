@@ -8,14 +8,16 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Pipeline](#pipeline)
-- [Consumers](#consumers)
-- [Data source](#data-source)
-- [Setup](#setup)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+- [root-the-music-tree](#root-the-music-tree)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Pipeline](#pipeline)
+  - [Consumers](#consumers)
+  - [Data source](#data-source)
+  - [Setup](#setup)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Overview
 
@@ -25,9 +27,9 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 
 ## Pipeline
 
-| Layer | Contents |
-|---|---|
-| Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars |
+| Layer  | Contents                                                                                                                                                               |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars                                                                                              |
 | Silver | `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) |
 
 ## Consumers
@@ -41,16 +43,23 @@ This repo's output (`genre_hierarchy`, `recording_genre_path`) is an **independe
 
 ## Data source
 
-Local dev and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained.
+Local dev, CI, and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained. `musicbrainz-docker` is vendored as a pinned git submodule at `vendor/musicbrainz-docker`, and the same script loads it for both a local contributor and CI.
 
-1. Clone `musicbrainz-docker` alongside this repo and bring up its Postgres service with the sample dump loaded — follow that repo's own setup docs for the exact `docker compose` invocation and current flags for `createdb.sh -sample`.
-2. Connect to the resulting local Postgres instance (host/port per `musicbrainz-docker`'s `docker-compose.yml`; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
+1. `git submodule update --init` (once, after cloning this repo).
+2. `scripts/setup-sample-db.sh` — builds and starts a local Postgres, loads the sample dump if not already loaded, and prints the connection string. Safe to re-run.
+3. Connect to the resulting local Postgres instance (set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
    postgresql://<username>@127.0.0.1:<port>/musicbrainz_db
    ```
 
-3. Verify (substitute the port `musicbrainz-docker` actually mapped, e.g. `5432`):
+   For JDBC-based clients (DBeaver, DataGrip, etc.), use the `jdbc:` form instead — JDBC doesn't support the `user@host` syntax above:
+
+   ```
+   jdbc:postgresql://127.0.0.1:<port>/musicbrainz_db?user=<username>&password=<password>
+   ```
+
+4. Verify (substitute `<port>` and `<username>` with the values `scripts/setup-sample-db.sh` printed):
 
    ```bash
    pg_isready -h 127.0.0.1 -p <port>

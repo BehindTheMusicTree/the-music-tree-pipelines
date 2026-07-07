@@ -52,3 +52,42 @@ jobs:
 
       - name: Run tests
         run: pytest -m "not integration"
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Cache MusicBrainz Docker images
+        id: mb-image-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/mb-docker-images.tar
+          key: mb-docker-images-${{ hashFiles('vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
+
+      - name: Load cached images
+        if: steps.mb-image-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/mb-docker-images.tar
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Load MusicBrainz sample dataset
+        run: scripts/setup-sample-db.sh
+
+      - name: Save image cache
+        if: steps.mb-image-cache.outputs.cache-hit != 'true'
+        run: docker save musicbrainz-docker_db:18 musicbrainz-docker-musicbrainz:latest -o /tmp/mb-docker-images.tar
+
+      - name: Run integration tests
+        env:
+          MB_TEST_REQUIRE_DB: "1"
+          PGPASSWORD: musicbrainz
+        run: pytest -m integration
