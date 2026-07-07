@@ -89,6 +89,7 @@ jobs:
       - name: Run integration tests
         env:
           MB_TEST_REQUIRE_DB: "1"
+          PGPASSWORD: musicbrainz
         run: |
           set +e
           pytest -m integration
