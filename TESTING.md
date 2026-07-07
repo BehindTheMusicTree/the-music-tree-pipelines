@@ -57,7 +57,7 @@ Verify the pipeline scales — execution time, cost, behavior when input volume 
 
 ### 7. Freshness tests
 
-Verify the source data is current — e.g. the staging mirror's last replication timestamp is within an expected window, catching a silently broken replication before a pipeline run trusts stale data. Relevant here specifically because bronze ingestion depends on a continuously-replicated mirror. Not implemented yet; this is a pipeline-runtime check (e.g. asserted before an ingestion run starts) rather than a `pytest` test.
+Verify the source data is current — for the sample-dump-based local Postgres, this typically means periodically refreshing the sample dump used for development. If/when bronze ingestion switches to a continuously-replicated mirror, freshness can instead be enforced by checking the mirror's last replication timestamp is within an expected window before an ingestion run starts. Not implemented yet; this is a pipeline-runtime check rather than a `pytest` test.
 
 ### 8. Business conformance tests
 
@@ -73,7 +73,7 @@ Verify data aligns with business rules rather than technical correctness — e.g
 | 4 | Regression | Output doesn't change unexpectedly after a pipeline change (row counts, means, distributions) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
 | 5 | E2E / pipeline | The whole pipeline, on a fixture, asserting on final output (e.g. `recording_genre_path`) | Bronze → Silver | Own tests, no marker | Yes |
 | 6 | Performance | The pipeline scales — execution time, cost, behavior as volume grows | N/A | Not part of the pytest suite — periodic benchmark | Not implemented |
-| 7 | Freshness | The source data is current (e.g. mirror replication timestamp within window) | Bronze | Not part of the pytest suite — pipeline-runtime check before ingestion | Not implemented |
+| 7 | Freshness | The source data is current (e.g. sample dump refreshed periodically; mirror replication timestamp within window, if/when a live mirror is used) | Bronze | Not part of the pytest suite — pipeline-runtime check before ingestion | Not implemented |
 | 8 | Business conformance | Data matches business rules (e.g. every recording has a root genre, no cycles in `genre_hierarchy`) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
 
 This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#pipeline)) — if one is added later, that's typically where business conformance, E2E, and regression tests carry the most weight, per the usual Bronze/Silver/Gold split. Categories 3, 4, and 8 aren't separate pytest tiers: they describe *what risk a test addresses*, and in practice live as assertions inside the Unit/E2E/Integration tests above rather than a fourth pytest marker.
