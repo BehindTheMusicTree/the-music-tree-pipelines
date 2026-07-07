@@ -31,6 +31,11 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          version: "1.7.12"
+
   test:
     name: Test
     runs-on: ubuntu-latest

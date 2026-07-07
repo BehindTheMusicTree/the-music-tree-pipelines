@@ -18,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git, [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
+**Prerequisites:** Python 3.12+, Git, [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: `bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12`), [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
@@ -26,6 +26,7 @@ cd root-the-music-tree
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install -e ".[dev]"
+pre-commit install
 ```
 
 Then bring up `musicbrainz-docker` with the sample dataset loaded before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
@@ -80,7 +81,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 ### Pull Requests
 
 1. Ensure your branch is up to date with `develop`
-2. Run `ruff check . && ruff format --check .` and `pytest -m "not integration"` — both must pass (same checks CI runs; see [Testing](#testing))
+2. Run `pytest -m "not integration"` — `pre-commit` (installed via the setup step above) runs Ruff and `actionlint` on every commit, the same checks CI runs (see [Testing](#testing))
 3. Update `CHANGELOG.md` under `[Unreleased]`
 4. Open a PR targeting `develop`
 5. Use the same `type(scope): summary` format for the PR title
