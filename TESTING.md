@@ -7,14 +7,16 @@ Tests that need real data use the official MusicBrainz **sample dataset** (`mbdu
 ## Table of Contents
 
 - [Test categories](#test-categories)
-  - [1. Unit tests](#1-unit-tests)
-  - [2. Integration tests](#2-integration-tests)
-  - [3. Data quality tests](#3-data-quality-tests)
-  - [4. Regression tests](#4-regression-tests)
-  - [5. E2E / pipeline tests](#5-e2e--pipeline-tests)
-  - [6. Performance tests](#6-performance-tests)
-  - [7. Freshness tests](#7-freshness-tests)
-  - [8. Business conformance tests](#8-business-conformance-tests)
+  - [Execution tiers](#execution-tiers) — own pytest marker/directory
+    - [1. Unit tests](#1-unit-tests)
+    - [2. Integration tests](#2-integration-tests)
+    - [3. E2E / pipeline tests](#3-e2e--pipeline-tests)
+  - [Risk categories](#risk-categories) — assertions inside the tiers above, no dedicated marker/directory
+    - [4. Data quality tests](#4-data-quality-tests)
+    - [5. Regression tests](#5-regression-tests)
+    - [6. Performance tests](#6-performance-tests)
+    - [7. Freshness tests](#7-freshness-tests)
+    - [8. Business conformance tests](#8-business-conformance-tests)
 - [Summary](#summary)
 - [Directory and naming conventions](#directory-and-naming-conventions)
 - [Fixtures and sample data](#fixtures-and-sample-data)
@@ -23,15 +25,27 @@ Tests that need real data use the official MusicBrainz **sample dataset** (`mbdu
 
 ## Test categories
 
-### 1. Unit tests
+### Execution tiers
+
+Each of these is a distinct pytest tier: own directory (`tests/unit/`, `tests/integration/`, `tests/e2e/`) and, where relevant, own marker.
+
+#### 1. Unit tests
 
 Verify one isolated transformation — a column-cleaning function, a fuzzy-match scoring rule, a business rule (e.g. "a recording needs at least one root genre"). Mostly applies at the **Silver** layer, where cleaning and business logic live. Input is mocked/in-memory, output is asserted exactly, no external dependency.
 
-### 2. Integration tests
+#### 2. Integration tests
 
 Verify that several components work together — reading Bronze output and applying a Silver transformation as one flow, checking the resulting schema, checking joins across tables (e.g. `recording_genre` ⋈ `genre_hierarchy`). This is where a bad column mapping, an incorrect join, or silently dropped rows between Bronze and Silver get caught. Runs against the sample-loaded Postgres (see above), not the live mirror.
 
-### 3. Data quality tests
+#### 3. E2E / pipeline tests
+
+Run the pipeline end-to-end — Bronze → Silver today, Bronze → Silver → Gold if a Gold layer is ever added — against a small, **committed fixture dataset**, asserting on final output (e.g. `recording_genre_path`). This is what actually catches cross-stage bugs like a bad fuzzy genre match silently producing a wrong path; unit tests on individual transforms won't. Because it runs on fixtures rather than a live source, it's CI-safe.
+
+### Risk categories
+
+None of these get their own directory or marker — they describe *what risk a test addresses*, and in practice live as assertions inside the Execution tiers above.
+
+#### 4. Data quality tests
 
 The core of most data projects: assert that the data itself respects rules, independent of any one transformation.
 
@@ -43,50 +57,46 @@ The core of most data projects: assert that the data itself respects rules, inde
 
 Standard tools elsewhere are dbt (`not_null`, `unique`, `accepted_values`), Great Expectations, or Deequ; in this stack a good candidate (once/if it’s added as a dependency) is [Pandera](https://pandera.readthedocs.io/en/stable/polars.html) schemas over Polars DataFrames. Bronze gets light schema checks only (it's raw); Silver gets the bulk of these, since that's where cleaned, join-able data is expected to hold real invariants.
 
-### 4. Regression tests
+#### 5. Regression tests
 
 Catch unexpected changes in output after a pipeline change — row counts staying stable, a column's mean staying close to a prior run, output distribution not shifting unexpectedly. Most valuable during refactors and performance optimizations, where behavior should be provably unchanged. Not implemented yet — there's no Silver output to baseline against until pipeline code exists.
 
-### 5. E2E / pipeline tests
-
-Run the pipeline end-to-end — Bronze → Silver today, Bronze → Silver → Gold if a Gold layer is ever added — against a small, **committed fixture dataset**, asserting on final output (e.g. `recording_genre_path`). This is what actually catches cross-stage bugs like a bad fuzzy genre match silently producing a wrong path; unit tests on individual transforms won't. Because it runs on fixtures rather than a live source, it's CI-safe.
-
-### 6. Performance tests
+#### 6. Performance tests
 
 Verify the pipeline scales — execution time, cost, behavior when input volume doubles. Not relevant yet: there's no pipeline code to benchmark, and the eventual data volume (full MusicBrainz corpus) isn't being processed locally today anyway. Revisit once bronze ingestion against the full corpus is implemented.
 
-### 7. Freshness tests
+#### 7. Freshness tests
 
 Verify the source data is current — for the sample-dump-based local Postgres, this typically means periodically refreshing the sample dump used for development. If/when bronze ingestion switches to a continuously-replicated mirror, freshness can instead be enforced by checking the mirror's last replication timestamp is within an expected window before an ingestion run starts. Not implemented yet; this is a pipeline-runtime check rather than a `pytest` test.
 
-### 8. Business conformance tests
+#### 8. Business conformance tests
 
 Verify data aligns with business rules rather than technical correctness — e.g. every recording resolves to at least one root genre, `genre_hierarchy` has no cycles, the number of root genres roughly matches the expected top-level taxonomy. Not implemented yet; these depend on business rules that don't exist until the Silver transformations do.
 
 ## Summary
 
-| # | Category | Verifies | Primary layer | Pytest mechanism | Runs in CI |
-|---|---|---|---|---|---|
-| 1 | Unit | An isolated transformation (cleaning, scoring, a business rule) | Silver | Own tests, no marker | Yes |
-| 2 | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Yes |
-| 3 | Data quality | The data itself respects rules: schema, nullity, uniqueness, validity, referential integrity | Bronze (light), Silver (heavy) | Assertions inside E2E/pipeline or integration tests — no dedicated marker | Depends on the host test |
-| 4 | Regression | Output doesn't change unexpectedly after a pipeline change (row counts, means, distributions) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
-| 5 | E2E / pipeline | The whole pipeline, on a fixture, asserting on final output (e.g. `recording_genre_path`) | Bronze → Silver | Own tests, no marker | Yes |
-| 6 | Performance | The pipeline scales — execution time, cost, behavior as volume grows | N/A | Not part of the pytest suite — periodic benchmark | Not implemented |
-| 7 | Freshness | The source data is current (e.g. sample dump refreshed periodically; mirror replication timestamp within window, if/when a live mirror is used) | Bronze | Not part of the pytest suite — pipeline-runtime check before ingestion | Not implemented |
-| 8 | Business conformance | Data matches business rules (e.g. every recording has a root genre, no cycles in `genre_hierarchy`) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
+| # | Kind | Category | Verifies | Primary layer | Pytest mechanism | Runs in CI |
+|---|---|---|---|---|---|---|
+| 1 | Execution tier | Unit | An isolated transformation (cleaning, scoring, a business rule) | Silver | Own tests, no marker | Yes |
+| 2 | Execution tier | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Yes |
+| 3 | Execution tier | E2E / pipeline | The whole pipeline, on a fixture, asserting on final output (e.g. `recording_genre_path`) | Bronze → Silver | Own tests, no marker | Yes |
+| 4 | Risk category | Data quality | The data itself respects rules: schema, nullity, uniqueness, validity, referential integrity | Bronze (light), Silver (heavy) | Assertions inside E2E/pipeline or integration tests — no dedicated marker | Depends on the host test |
+| 5 | Risk category | Regression | Output doesn't change unexpectedly after a pipeline change (row counts, means, distributions) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
+| 6 | Risk category | Performance | The pipeline scales — execution time, cost, behavior as volume grows | N/A | Not part of the pytest suite — periodic benchmark | Not implemented |
+| 7 | Risk category | Freshness | The source data is current (e.g. sample dump refreshed periodically; mirror replication timestamp within window, if/when a live mirror is used) | Bronze | Not part of the pytest suite — pipeline-runtime check before ingestion | Not implemented |
+| 8 | Risk category | Business conformance | Data matches business rules (e.g. every recording has a root genre, no cycles in `genre_hierarchy`) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
 
-This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#pipeline)) — if one is added later, that's typically where business conformance, E2E, and regression tests carry the most weight, per the usual Bronze/Silver/Gold split. Categories 3, 4, and 8 aren't separate pytest tiers: they describe *what risk a test addresses*, and in practice live as assertions inside the Unit/E2E/Integration tests above rather than a fourth pytest marker.
+This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#pipeline)) — if one is added later, that's typically where business conformance, E2E, and regression tests carry the most weight, per the usual Bronze/Silver/Gold split. Categories 4, 5, and 8 (the Risk categories) aren't separate pytest tiers: they describe *what risk a test addresses*, and in practice live as assertions inside the Execution-tier tests above rather than a fourth pytest marker.
 
 ## Directory and naming conventions
 
-`tests/` mirrors the `src/root_the_music_tree/` module layout. Test files are `test_*.py`, test functions are `test_*` — standard `pytest` discovery, no custom configuration needed beyond `testpaths` (already set in `pyproject.toml`).
+`tests/` is organized by tier — `unit/`, `integration/`, `e2e/` (created once a first E2E/pipeline test lands) — rather than mirroring `src/root_the_music_tree/` module-for-module. Test files are `test_*.py`, test functions are `test_*` — standard `pytest` discovery, no custom configuration needed beyond `testpaths` (already set in `pyproject.toml`). Fixtures shared only within a tier live in that tier's own `conftest.py` (e.g. `tests/integration/conftest.py`); a root `tests/conftest.py` is only added if a fixture needs to be shared across tiers.
 
 ## Fixtures and sample data
 
 Unit and E2E/pipeline tests should use small, deterministic Polars DataFrames or hand-built fixture files, purpose-built per bronze/silver stage rather than sampling the full corpus. Prefer `conftest.py` factory fixtures for constructing minimal DataFrames inline; use committed fixture files under `tests/fixtures/` for larger E2E/pipeline inputs.
 
-Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `scripts/setup-sample-db.sh` (wraps `musicbrainz-docker`'s `createdb.sh -sample`) — this gives real schema and real (if reduced) data without touching the live staging mirror. `tests/conftest.py`'s `mb_conn` fixture connects via `psycopg` and calls `pytest.skip` instead of failing hard if the database isn't reachable, so contributors without the sample DB loaded aren't blocked — reuse it rather than opening a new connection per test.
+Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `scripts/setup-sample-db.sh` (wraps `musicbrainz-docker`'s `createdb.sh -sample`) — this gives real schema and real (if reduced) data without touching the live staging mirror. `tests/integration/conftest.py`'s `mb_conn` fixture connects via `psycopg` and calls `pytest.skip` instead of failing hard if the database isn't reachable, so contributors without the sample DB loaded aren't blocked — reuse it rather than opening a new connection per test.
 
 ## Running tests
 
@@ -98,4 +108,4 @@ pytest -m integration         # integration only
 
 ## Current state
 
-No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. The sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is built (see [README.md#data-source](README.md#data-source)), and a first `@pytest.mark.integration` test (`tests/test_integration_musicbrainz_db.py`) exercises it end to end — `pytest -m "not integration"` remains what the `test` CI job runs, with a separate `integration` job running `pytest -m integration` against the sample-loaded Postgres. There's no enforced coverage threshold; this is a solo, early-stage project.
+No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. The sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is built (see [README.md#data-source](README.md#data-source)), and a first `@pytest.mark.integration` test (`tests/integration/test_musicbrainz.py`) exercises it end to end — `pytest -m "not integration"` remains what the `test` CI job runs, with a separate `integration` job running `pytest -m integration` against the sample-loaded Postgres. There's no enforced coverage threshold; this is a solo, early-stage project.
