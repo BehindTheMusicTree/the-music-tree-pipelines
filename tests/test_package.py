@@ -1,2 +1,4 @@
 def test_package_importable() -> None:
-    import root_the_music_tree  # noqa: F401
+    import importlib
+
+    importlib.import_module("root_the_music_tree")
