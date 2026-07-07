@@ -68,7 +68,7 @@ Verify data aligns with business rules rather than technical correctness — e.g
 | # | Category | Verifies | Primary layer | Pytest mechanism | Runs in CI |
 |---|---|---|---|---|---|
 | 1 | Unit | An isolated transformation (cleaning, scoring, a business rule) | Silver | Own tests, no marker | Yes |
-| 2 | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Yes (once tests exist) |
+| 2 | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Yes |
 | 3 | Data quality | The data itself respects rules: schema, nullity, uniqueness, validity, referential integrity | Bronze (light), Silver (heavy) | Assertions inside E2E/pipeline or integration tests — no dedicated marker | Depends on the host test |
 | 4 | Regression | Output doesn't change unexpectedly after a pipeline change (row counts, means, distributions) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
 | 5 | E2E / pipeline | The whole pipeline, on a fixture, asserting on final output (e.g. `recording_genre_path`) | Bronze → Silver | Own tests, no marker | Yes |
