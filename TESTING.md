@@ -2,7 +2,7 @@
 
 This project is a bronze → silver ETL pipeline (Polars + Postgres — no Spark, no dbt, no Gold layer yet; see [README.md#pipeline](README.md#pipeline)). Test categories below follow the standard data-pipeline taxonomy, adapted to this stack: pytest instead of dbt tests/pyspark testing/chispa, Pandera (Polars) instead of Great Expectations/Deequ where a data-quality tool is needed.
 
-Tests that need real data use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local Postgres via `musicbrainz-docker`'s `createdb.sh -sample`; CI wiring is planned — see [README.md#data-source](README.md#data-source)). The automated test suite and local pipeline dev both use this sample.
+Tests that need real data use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local Postgres via `musicbrainz-docker`'s `createdb.sh -sample`, run through `scripts/setup-sample-db.sh` — see [README.md#data-source](README.md#data-source)). The automated test suite and local pipeline dev both use this sample; CI loads it in the `integration` job via the same script.
 
 ## Table of Contents
 
@@ -68,7 +68,7 @@ Verify data aligns with business rules rather than technical correctness — e.g
 | # | Category | Verifies | Primary layer | Pytest mechanism | Runs in CI |
 |---|---|---|---|---|---|
 | 1 | Unit | An isolated transformation (cleaning, scoring, a business rule) | Silver | Own tests, no marker | Yes |
-| 2 | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Not yet — planned once the load step is wired up |
+| 2 | Integration | Several components together — Bronze read + Silver transform, joins, resulting schema | Bronze → Silver | `@pytest.mark.integration`, against the sample-loaded Postgres | Yes (once tests exist) |
 | 3 | Data quality | The data itself respects rules: schema, nullity, uniqueness, validity, referential integrity | Bronze (light), Silver (heavy) | Assertions inside E2E/pipeline or integration tests — no dedicated marker | Depends on the host test |
 | 4 | Regression | Output doesn't change unexpectedly after a pipeline change (row counts, means, distributions) | Silver | Assertions inside E2E/pipeline tests (planned) | Not implemented |
 | 5 | E2E / pipeline | The whole pipeline, on a fixture, asserting on final output (e.g. `recording_genre_path`) | Bronze → Silver | Own tests, no marker | Yes |
@@ -86,16 +86,16 @@ This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#p
 
 Unit and E2E/pipeline tests should use small, deterministic Polars DataFrames or hand-built fixture files, purpose-built per bronze/silver stage rather than sampling the full corpus. Prefer `conftest.py` factory fixtures for constructing minimal DataFrames inline; use committed fixture files under `tests/fixtures/` for larger E2E/pipeline inputs.
 
-Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `musicbrainz-docker`'s `createdb.sh -sample` — this gives real schema and real (if reduced) data without touching the live staging mirror.
+Integration tests should load a disposable Postgres from the official MusicBrainz sample dump (`mbdump-sample.tar.xz`, ~336 MB, published at `https://ftp.musicbrainz.org/pub/musicbrainz/data/sample/`) via `scripts/setup-sample-db.sh` (wraps `musicbrainz-docker`'s `createdb.sh -sample`) — this gives real schema and real (if reduced) data without touching the live staging mirror. `tests/conftest.py`'s `mb_conn` fixture connects via `psycopg` and calls `pytest.skip` instead of failing hard if the database isn't reachable, so contributors without the sample DB loaded aren't blocked — reuse it rather than opening a new connection per test.
 
 ## Running tests
 
 ```bash
-pytest                        # everything; if/when integration tests exist, this requires a local sample-loaded Postgres — see above
+pytest                        # everything; requires a local sample-loaded Postgres for the integration tests — see above
 pytest -m "not integration"   # unit + e2e/pipeline only — what CI runs today
 pytest -m integration         # integration only
 ```
 
 ## Current state
 
-No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. Integration tests specifically aren't implemented yet either: the sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is planned but not built, which is why `pytest -m "not integration"` is what CI runs for now. There's no enforced coverage threshold; this is a solo, early-stage project.
+No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. The sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is built (see [README.md#data-source](README.md#data-source)), and a first `@pytest.mark.integration` test (`tests/test_integration_musicbrainz_db.py`) exercises it end to end — `pytest -m "not integration"` remains what the `test` CI job runs, with a separate `integration` job running `pytest -m integration` against the sample-loaded Postgres. There's no enforced coverage threshold; this is a solo, early-stage project.
