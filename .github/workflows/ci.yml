@@ -90,11 +90,4 @@ jobs:
         env:
           MB_TEST_REQUIRE_DB: "1"
           PGPASSWORD: musicbrainz
-        run: |
-          set +e
-          pytest -m integration
-          code=$?
-          set -e
-          # exit 5 = "no tests collected" -- treat as success to keep this job green if no integration tests are present.
-          if [ "$code" = 5 ]; then exit 0; fi
-          exit "$code"
+        run: pytest -m integration
