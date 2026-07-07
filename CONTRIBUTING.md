@@ -18,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git. SSH access to the BTMT `infrastructure` VPS is needed for real pipeline dev/runs (see [README.md#data-source](README.md#data-source) — no local MusicBrainz dump for now, disk space workaround), but not for running the test suite — see [TESTING.md](TESTING.md).
+**Prerequisites:** Python 3.12+, Git, [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
@@ -28,7 +28,7 @@ python3 -m venv .venv
 python3 -m pip install -e ".[dev]"
 ```
 
-Then bring up the SSH tunnel to MusicBrainz staging before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
+Then bring up `musicbrainz-docker` with the sample dataset loaded before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
 
 ### Branching
 

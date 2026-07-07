@@ -41,30 +41,23 @@ This repo's output (`genre_hierarchy`, `recording_genre_path`) is an **independe
 
 ## Data source
 
-There's no local MusicBrainz Postgres dump for now — a full dump doesn't fit on this dev machine's disk. Instead, bronze ingestion reads over an **SSH tunnel to the BehindTheMusicTree `infrastructure` VPS's MusicBrainz db-only mirror (staging)** — a continuously-replicated, full-corpus Postgres mirror (not a sample), on Postgres 18.
+Local dev and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained.
 
-1. Bring up the tunnel from the `infrastructure` repo (requires SSH access already set up per its `docs/guides/users-overview.md`):
-
-   ```bash
-   btmt-tunnel   # or: ssh -N <SERVER_HOST>-tunnel
-   ```
-
-2. This forwards the MB staging Postgres to `127.0.0.1:55433`. Connection string (replace `<username>` with your DB user; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
+1. Clone `musicbrainz-docker` alongside this repo and bring up its Postgres service with the sample dump loaded — follow that repo's own setup docs for the exact `docker compose` invocation and current flags for `createdb.sh -sample`.
+2. Connect to the resulting local Postgres instance (host/port per `musicbrainz-docker`'s `docker-compose.yml`; set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
-   postgresql://<username>@127.0.0.1:55433/musicbrainz_db
+   postgresql://<username>@127.0.0.1:5432/musicbrainz_db
    ```
 
 3. Verify:
 
    ```bash
-   pg_isready -h 127.0.0.1 -p 55433
-   psql "postgresql://<username>@127.0.0.1:55433/musicbrainz_db" -c 'select count(*) from artist;'
+   pg_isready -h 127.0.0.1 -p 5432
+   psql "postgresql://<username>@127.0.0.1:5432/musicbrainz_db" -c 'select count(*) from artist;'
    ```
 
-**Known limitation:** this couples local dev to private BTMT infra access — a disk-space workaround, not the target setup. Revisit a self-contained local sample dataset (e.g. `musicbrainz-docker`'s own `createdb.sh -sample`) once disk space allows, so the project is reproducible without VPS access.
-
-This tunnel is for real pipeline dev/runs only — the automated test suite doesn't need it; see [TESTING.md](TESTING.md) for how tests get their MusicBrainz data instead.
+See [TESTING.md](TESTING.md) for how the automated test suite uses this same sample data.
 
 ## Setup
 

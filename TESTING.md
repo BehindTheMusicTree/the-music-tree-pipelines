@@ -2,7 +2,7 @@
 
 This project is a bronze → silver ETL pipeline (Polars + Postgres — no Spark, no dbt, no Gold layer yet; see [README.md#pipeline](README.md#pipeline)). Test categories below follow the standard data-pipeline taxonomy, adapted to this stack: pytest instead of dbt tests/pyspark testing/chispa, Pandera (Polars) instead of Great Expectations/Deequ where a data-quality tool is needed.
 
-Two Postgres sources exist for tests that need real data: the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local Postgres via `musicbrainz-docker`'s `createdb.sh -sample`; CI wiring is planned) and the BTMT `infrastructure` VPS's **live, full-corpus staging mirror** (over an SSH tunnel — see [README.md#data-source](README.md#data-source)). The automated test suite uses the sample; the live mirror is for real pipeline dev/runs only.
+Tests that need real data use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB, loaded into a disposable local Postgres via `musicbrainz-docker`'s `createdb.sh -sample`; CI wiring is planned — see [README.md#data-source](README.md#data-source)). The automated test suite and local pipeline dev both use this sample.
 
 ## Table of Contents
 
