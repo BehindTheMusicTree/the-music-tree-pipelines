@@ -4,7 +4,9 @@
       "Bash(actionlint .github/workflows/ci.yml)",
       "WebFetch(domain:ftp.musicbrainz.org)",
       "Bash(brew list *)",
-      "Bash(brew search *)"
+      "Bash(brew search *)",
+      "Bash(LOG_LEVEL=info npx --yes --package renovate -- renovate-config-validator renovate.json)",
+      "Bash(LOG_LEVEL=debug npx --yes --package renovate -- renovate --platform=local --dry-run=extract .)"
     ]
   }
 }

@@ -34,6 +34,7 @@ jobs:
       - name: actionlint
         uses: raven-actions/actionlint@v2
         with:
+          # renovate: datasource=github-releases depName=rhysd/actionlint
           version: "1.7.12"
 
   test:
