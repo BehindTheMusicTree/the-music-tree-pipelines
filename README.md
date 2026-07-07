@@ -57,7 +57,7 @@ Local dev and pipeline runs use the official MusicBrainz **sample dataset** (`mb
    psql "postgresql://<username>@127.0.0.1:<port>/musicbrainz_db" -c 'select count(*) from artist;'
    ```
 
-See [TESTING.md](TESTING.md) for how the automated test suite uses this same sample data.
+See [TESTING.md](TESTING.md) for test tiers and conventions, including how to use the sample dataset when running local pipeline development or adding integration tests.
 
 ## Setup
 
