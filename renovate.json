@@ -17,6 +17,10 @@
     {
       "matchPackageNames": ["rhysd/actionlint"],
       "groupName": "actionlint"
+    },
+    {
+      "matchPackageNames": ["ruff", "astral-sh/ruff-pre-commit"],
+      "groupName": "ruff"
     }
   ]
 }
