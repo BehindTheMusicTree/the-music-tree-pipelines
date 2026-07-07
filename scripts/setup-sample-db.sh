@@ -35,7 +35,7 @@ if ! "${COMPOSE[@]}" exec -T db pg_isready -U musicbrainz -d musicbrainz_db >/de
   exit 1
 fi
 
-if "${COMPOSE[@]}" exec -T db psql -U musicbrainz -d musicbrainz_db -c 'select 1 from artist limit 1' >/dev/null 2>&1; then
+if "${COMPOSE[@]}" exec -T db psql -v ON_ERROR_STOP=1 -U musicbrainz -d musicbrainz_db -c 'select 1 from musicbrainz.artist limit 1' >/dev/null 2>&1; then
   echo "sample dataset already loaded, skipping import"
 else
   "${COMPOSE[@]}" run --rm --no-deps musicbrainz createdb.sh -sample -fetch
