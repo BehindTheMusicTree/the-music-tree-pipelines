@@ -18,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git, [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: `bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12`), [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
+**Prerequisites:** Python 3.12+, Git, [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract), [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker) for local MusicBrainz sample data (see [README.md#data-source](README.md#data-source)).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
