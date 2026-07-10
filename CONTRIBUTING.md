@@ -18,7 +18,7 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, Git, Docker (for local MusicBrainz sample data), [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract).
+**Prerequisites:** Python 3.12+, Git, Docker (for local MusicBrainz sample data), [`uv`](https://docs.astral.sh/uv/), [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract).
 
 ```bash
 git clone https://github.com/BehindTheMusicTree/the-music-tree-pipelines.git
