@@ -18,18 +18,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --frozen --all-packages
 
       - name: Ruff check
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
       - name: actionlint
         uses: raven-actions/actionlint@v2
@@ -43,15 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --frozen --all-packages
 
       - name: Run tests
-        run: pytest -m "not integration"
+        run: uv run pytest -m "not integration"
 
   integration:
     name: Integration
@@ -66,21 +66,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/mb-docker-images.tar
-          key: mb-docker-images-${{ hashFiles('vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
+          key: mb-docker-images-${{ hashFiles('pipelines/musicbrainz_to_the_music_tree_api/vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'pipelines/musicbrainz_to_the_music_tree_api/vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
 
       - name: Load cached images
         if: steps.mb-image-cache.outputs.cache-hit == 'true'
         run: docker load -i /tmp/mb-docker-images.tar
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --frozen --all-packages
 
       - name: Load MusicBrainz sample dataset
-        run: scripts/setup-sample-db.sh
+        run: pipelines/musicbrainz_to_the_music_tree_api/scripts/setup-sample-db.sh
 
       - name: Save image cache
         if: steps.mb-image-cache.outputs.cache-hit != 'true'
@@ -90,4 +90,4 @@ jobs:
         env:
           MB_TEST_REQUIRE_DB: "1"
           PGPASSWORD: musicbrainz
-        run: pytest -m integration
+        run: uv run pytest -m integration

@@ -80,7 +80,7 @@ This project doesn't have a Gold layer yet (see [README.md#pipeline](README.md#p
 
 ## Directory and naming conventions
 
-`tests/` mirrors the `src/root_the_music_tree/` module layout. Test files are `test_*.py`, test functions are `test_*` — standard `pytest` discovery, no custom configuration needed beyond `testpaths` (already set in `pyproject.toml`).
+`tests/` mirrors the `src/musicbrainz_to_the_music_tree_api/` module layout. Test files are `test_*.py`, test functions are `test_*` — standard `pytest` discovery, no custom configuration needed beyond `testpaths` (already set in `pyproject.toml`).
 
 ## Fixtures and sample data
 
