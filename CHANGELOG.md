@@ -24,7 +24,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.
 - Automated MusicBrainz sample dataset setup for dev and CI: `musicbrainz-docker` vendored as a pinned git submodule, loaded via `scripts/setup-sample-db.sh`, wired into a new `integration` CI job.
-
-### Changed
-
-- Reorganized the test suite into execution-tier directories (`tests/unit/`, `tests/integration/`) and restructured `TESTING.md` to distinguish execution tiers from cross-cutting risk categories.
