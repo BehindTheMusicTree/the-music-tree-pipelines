@@ -6,7 +6,7 @@ Data pipelines for the [BehindTheMusicTree](https://github.com/BehindTheMusicTre
 
 | Pipeline | Description |
 | --- | --- |
-| [root_the_music_tree](pipelines/root_the_music_tree/README.md) | Reconstructs a genre hierarchy (root genre → subgenre → recording) from MusicBrainz's flat genre list, using Wikidata as a reference taxonomy |
+| [musicbrainz_to_the_music_tree_api](pipelines/musicbrainz_to_the_music_tree_api/README.md) | Reconstructs a genre hierarchy (root genre → subgenre → recording) from MusicBrainz's flat genre list, using Wikidata as a reference taxonomy |
 
 ## Setup
 

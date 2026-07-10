@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/mb-docker-images.tar
-          key: mb-docker-images-${{ hashFiles('pipelines/root_the_music_tree/vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'pipelines/root_the_music_tree/vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
+          key: mb-docker-images-${{ hashFiles('pipelines/musicbrainz_to_the_music_tree_api/vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'pipelines/musicbrainz_to_the_music_tree_api/vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
 
       - name: Load cached images
         if: steps.mb-image-cache.outputs.cache-hit == 'true'
@@ -80,7 +80,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: Load MusicBrainz sample dataset
-        run: pipelines/root_the_music_tree/scripts/setup-sample-db.sh
+        run: pipelines/musicbrainz_to_the_music_tree_api/scripts/setup-sample-db.sh
 
       - name: Save image cache
         if: steps.mb-image-cache.outputs.cache-hit != 'true'
