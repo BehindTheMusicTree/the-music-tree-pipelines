@@ -13,6 +13,7 @@ line-length = 120
 
 [tool.pytest.ini_options]
 testpaths = ["pipelines"]
+addopts = "--ignore-glob=*/vendor/*"
 markers = [
     "integration: requires a local Postgres loaded from the MusicBrainz sample dataset (see the relevant pipeline's TESTING.md)",
 ]
