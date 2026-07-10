@@ -24,3 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.
 - Automated MusicBrainz sample dataset setup for dev and CI: `musicbrainz-docker` vendored as a pinned git submodule, loaded via `scripts/setup-sample-db.sh`, wired into a new `integration` CI job.
+
+### Changed
+
+- Renamed the repo from `root-the-music-tree` to `music-tree-pipelines` and restructured it into a `uv` workspace monorepo, one directory per pipeline (`pipelines/root_the_music_tree/`), to hold every data pipeline in the stack going forward instead of just the genre-hierarchy one. CI now uses `uv sync`/`uv run` instead of `pip install -e ".[dev]"`.

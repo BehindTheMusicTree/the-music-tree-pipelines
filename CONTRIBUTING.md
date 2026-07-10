@@ -21,16 +21,16 @@ This project is in early active development by a solo developer. Contributions, 
 **Prerequisites:** Python 3.12+, Git, Docker (for local MusicBrainz sample data), [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract).
 
 ```bash
-git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
-cd root-the-music-tree
+git clone https://github.com/BehindTheMusicTree/the-music-tree-pipelines.git
+cd the-music-tree-pipelines
 git submodule update --init
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e ".[dev]"
+uv sync --all-packages
 pre-commit install
 ```
 
-Then run `scripts/setup-sample-db.sh` to load the MusicBrainz sample dataset before running any bronze ingestion — see [README.md#data-source](README.md#data-source).
+This is a `uv` workspace: `pipelines/*` are independent packages sharing one lockfile and one dev toolchain (Ruff, pytest, pre-commit) declared at the repo root. Adding a new pipeline means adding a new `pipelines/<name>/` directory with its own `pyproject.toml` (runtime dependencies only — dev tools stay at the workspace root).
+
+Then run each pipeline's `scripts/setup-sample-db.sh` (if it has one) to load its sample dataset before running any bronze ingestion — see [pipelines/root_the_music_tree/README.md#data-source](pipelines/root_the_music_tree/README.md#data-source).
 
 ### Branching
 
@@ -82,7 +82,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 ### Pull Requests
 
 1. Ensure your branch is up to date with `develop`
-2. Run `pytest -m "not integration"` — `pre-commit` (installed via the setup step above) runs Ruff and `actionlint` on every commit, the same checks CI runs (see [Testing](#testing))
+2. Run `uv run pytest -m "not integration"` — `pre-commit` (installed via the setup step above) runs Ruff and `actionlint` on every commit, the same checks CI runs (see [Testing](#testing))
 3. Update `CHANGELOG.md` under `[Unreleased]`
 4. Open a PR targeting `develop`
 5. Use the same `type(scope): summary` format for the PR title
@@ -95,7 +95,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 
 ## Testing
 
-See [TESTING.md](TESTING.md) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
+See each pipeline's own `TESTING.md` (e.g. [pipelines/root_the_music_tree/TESTING.md](pipelines/root_the_music_tree/TESTING.md)) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
 
 ## Changelog
 
