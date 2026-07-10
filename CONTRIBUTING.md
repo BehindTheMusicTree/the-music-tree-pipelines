@@ -25,7 +25,7 @@ git clone https://github.com/BehindTheMusicTree/the-music-tree-pipelines.git
 cd the-music-tree-pipelines
 git submodule update --init
 uv sync --all-packages
-pre-commit install
+uv run pre-commit install
 ```
 
 This is a `uv` workspace: `pipelines/*` are independent packages sharing one lockfile and one dev toolchain (Ruff, pytest, pre-commit) declared at the repo root. Adding a new pipeline means adding a new `pipelines/<name>/` directory with its own `pyproject.toml` (runtime dependencies only — dev tools stay at the workspace root).
