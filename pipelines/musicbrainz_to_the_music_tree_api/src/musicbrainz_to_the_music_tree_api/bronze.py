@@ -5,14 +5,15 @@ import psycopg
 import polars as pl
 
 
-BRONZE_TABLES = ("recording", "artist", "release_tag", "recording_tag", "genre")
+BRONZE_TABLES = ("recording", "artist", "release", "tag", "recording_tag", "genre")
 
 
-def ingest_table(conn: psycopg, table: str, output_dir: Path):
+def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
     if table not in BRONZE_TABLES:
-        raise ValueError(f"Tablre {table} is not part of bronze tables")
+        raise ValueError(f"Table {table} is not part of bronze tables")
 
     df = pl.read_database(f"SELECT * from musicbrainz.{table}", conn)
+
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{table}.parquet"
     df.write_parquet(output_path)
