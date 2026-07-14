@@ -16,6 +16,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
   - [Pipeline](#pipeline)
   - [Consumers](#consumers)
   - [Data source](#data-source)
+  - [Querying bronze output](#querying-bronze-output)
   - [Setup](#setup)
   - [Testing](#testing)
   - [Contributing](#contributing)
@@ -69,6 +70,21 @@ Local dev, CI, and pipeline runs use the official MusicBrainz **sample dataset**
    ```
 
 See [TESTING.md](TESTING.md) for test tiers and conventions, including how to use the sample dataset when running local pipeline development or adding integration tests.
+
+## Querying bronze output
+
+Bronze-layer tables land as Parquet files under `bronze/` (git-ignored — see [Pipeline](#pipeline)), produced by `python -m musicbrainz_to_the_music_tree_api.bronze`. Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed:
+
+```bash
+duckdb -c "SELECT * FROM 'bronze/artist.parquet' LIMIT 10"
+```
+
+For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file in `bronze/`, in a persistent `bronze/bronze.duckdb` — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
+
+```bash
+scripts/setup-duckdb-views.sh
+duckdb bronze/bronze.duckdb -c "SELECT * FROM artist LIMIT 10"
+```
 
 ## Setup
 
