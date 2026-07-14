@@ -28,5 +28,5 @@ def run_bronze_ingestion(conn: psycopg.Connection, output_dir: Path) -> list[Pat
 if __name__ == "__main__":
     from musicbrainz_to_the_music_tree_api import db
 
-    output_dir = Path(os.environ.get("MB_BRONZE_OUTPUT_DIR", "bronze"))
+    output_dir = Path(os.environ["MB_BRONZE_OUTPUT_DIR"])
     run_bronze_ingestion(db.connect(), output_dir)
