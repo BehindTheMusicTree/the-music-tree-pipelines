@@ -12,6 +12,7 @@ requires-python = ">=3.12"
 dependencies = [
     "polars==1.42.1",
     "psycopg[binary]==3.3.4",
+    "common",
 ]
 
 [project.urls]
@@ -19,3 +20,6 @@ Repository = "https://github.com/BehindTheMusicTree/the-music-tree-pipelines"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/musicbrainz_to_the_music_tree_api"]
+
+[tool.uv.sources]
+common = { workspace = true }

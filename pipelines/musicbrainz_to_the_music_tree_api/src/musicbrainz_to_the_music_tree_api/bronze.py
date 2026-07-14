@@ -1,8 +1,8 @@
-import os
 from pathlib import Path
 
 import psycopg
 import polars as pl
+from common.env import require_env
 
 
 BRONZE_TABLES = ("recording", "artist", "release", "tag", "recording_tag", "genre")
@@ -28,5 +28,5 @@ def run_bronze_ingestion(conn: psycopg.Connection, output_dir: Path) -> list[Pat
 if __name__ == "__main__":
     from musicbrainz_to_the_music_tree_api import db
 
-    output_dir = Path(os.environ["MB_BRONZE_OUTPUT_DIR"])
+    output_dir = Path(require_env("MB_BRONZE_OUTPUT_DIR"))
     run_bronze_ingestion(db.connect(), output_dir)

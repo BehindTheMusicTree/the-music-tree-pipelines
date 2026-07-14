@@ -1,14 +1,13 @@
-import os
-
 import psycopg
 import psycopg.types.string
+from common.env import require_env
 
 
 def connect() -> psycopg.Connection:
-    host = os.environ["MB_HOST"]
-    port = os.environ["MB_PORT"]
-    db = os.environ["MB_DB"]
-    user = os.environ["MB_USER"]
+    host = require_env("MB_HOST")
+    port = require_env("MB_PORT")
+    db = require_env("MB_DB")
+    user = require_env("MB_USER")
     dsn = f"postgresql://{user}@{host}:{port}/{db}"
 
     conn = psycopg.connect(dsn, connect_timeout=3)
