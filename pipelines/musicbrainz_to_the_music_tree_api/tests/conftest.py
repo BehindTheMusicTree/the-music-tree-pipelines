@@ -11,7 +11,7 @@ from musicbrainz_to_the_music_tree_api.db import connect
 def mb_conn() -> Iterator[psycopg.Connection]:
     try:
         conn = connect()
-    except psycopg.OperationalError as exc:
+    except (psycopg.OperationalError, KeyError) as exc:
         if os.environ.get("MB_TEST_REQUIRE_DB"):
             raise
         pytest.skip(f"MusicBrainz sample database not reachable: {exc}")
