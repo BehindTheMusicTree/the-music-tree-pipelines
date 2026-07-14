@@ -7,7 +7,9 @@ name = "common"
 version = "0.1.0"
 description = "Shared utilities for the-music-tree-pipelines pipelines."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "python-dotenv==1.2.2",
+]
 
 [project.urls]
 Repository = "https://github.com/BehindTheMusicTree/the-music-tree-pipelines"
