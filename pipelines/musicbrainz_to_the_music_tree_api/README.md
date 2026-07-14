@@ -49,8 +49,9 @@ This repo's output (`genre_hierarchy`, `recording_genre_path`) is an **independe
 Local dev, CI, and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained. `musicbrainz-docker` is vendored as a pinned git submodule at `vendor/musicbrainz-docker` (under this pipeline directory), and the same script loads it for both a local contributor and CI.
 
 1. `git submodule update --init` (once, after cloning this repo).
-2. `scripts/setup-sample-db.sh` — builds and starts a local Postgres, loads the sample dump if not already loaded, and prints the connection string. Safe to re-run.
-3. Connect to the resulting local Postgres instance (set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
+2. `cp .env.example .env` and adjust if needed — required config (`MB_HOST`/`MB_PORT`/`MB_DB`/`MB_USER`/`MB_BRONZE_OUTPUT_DIR`) has no in-code defaults (fail-fast: `musicbrainz_to_the_music_tree_api.db.connect()` and the `bronze` module's entrypoint raise a clear error naming the missing variable if `.env` isn't set up). `.env` is auto-loaded by both — no manual `export`/`source` needed to *run* them. (It is **not** exported to your interactive shell just by existing — see the note in [Querying bronze output](#querying-bronze-output) if you want `$MB_BRONZE_OUTPUT_DIR` available there too.)
+3. `scripts/setup-sample-db.sh` — builds and starts a local Postgres, loads the sample dump if not already loaded, and prints the connection string. Safe to re-run.
+4. Connect to the resulting local Postgres instance (set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
    ```
    postgresql://<username>@127.0.0.1:<port>/musicbrainz_db
@@ -62,7 +63,7 @@ Local dev, CI, and pipeline runs use the official MusicBrainz **sample dataset**
    jdbc:postgresql://127.0.0.1:<port>/musicbrainz_db?user=<username>&password=<password>
    ```
 
-4. Verify (substitute `<port>` and `<username>` with the values `scripts/setup-sample-db.sh` printed):
+5. Verify (substitute `<port>` and `<username>` with the values `scripts/setup-sample-db.sh` printed):
 
    ```bash
    pg_isready -h 127.0.0.1 -p <port>
@@ -73,18 +74,24 @@ See [TESTING.md](TESTING.md) for test tiers and conventions, including how to us
 
 ## Querying bronze output
 
-Bronze-layer tables land as Parquet files under `bronze/` (git-ignored — see [Pipeline](#pipeline)), produced by `python -m musicbrainz_to_the_music_tree_api.bronze`. Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed:
+```bash
+uv run python -m musicbrainz_to_the_music_tree_api.bronze
+```
+
+writes one Parquet file per bronze table (git-ignored) to `MB_BRONZE_OUTPUT_DIR` (see [Data source](#data-source) — required, set in `.env`; not necessarily named `bronze/`, that's just this project's `.env.example` convention value, substitute your own below if you changed it). Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed:
 
 ```bash
 duckdb -c "SELECT * FROM 'bronze/artist.parquet' LIMIT 10"
 ```
 
-For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file in `bronze/`, in a persistent `bronze/bronze.duckdb` — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
+For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file found in `MB_BRONZE_OUTPUT_DIR` (same `.env` var, loaded by the script itself the same way `bronze.py` loads it — no need to export anything in your shell first), in a persistent `bronze.duckdb` alongside them — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
 
 ```bash
 scripts/setup-duckdb-views.sh
 duckdb bronze/bronze.duckdb -c "SELECT * FROM artist LIMIT 10"
 ```
+
+(If you'd rather not retype `bronze/` and want shell tab-completion/`$MB_BRONZE_OUTPUT_DIR` expansion to work directly in ad hoc commands, `set -a; source .env; set +a` once per terminal session first — this exports it to your shell, separately from the auto-loading the scripts above already do for themselves.)
 
 ## Setup
 
