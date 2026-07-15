@@ -7,7 +7,7 @@ from common.env import load_pipeline_env, require_env
 
 logger = logging.getLogger(__name__)
 
-BRONZE_TABLES = ("recording", "artist", "release", "tag", "recording_tag", "genre")
+BRONZE_TABLES = ("recording", "tag", "recording_tag", "genre")
 
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
