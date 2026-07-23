@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.
 - Automated MusicBrainz sample dataset setup for dev and CI: `musicbrainz-docker` vendored as a pinned git submodule, loaded via `pipelines/musicbrainz_to_the_music_tree_api/scripts/setup-sample-db.sh`, wired into a new `integration` CI job.
+- Bronze layer: ingest MusicBrainz `recording`, `tag`, `recording_tag`, and `genre` tables from Postgres to Parquet via Polars (`musicbrainz_to_the_music_tree_api.bronze_musicbrainz`), configured through `BRONZE_OUTPUT_DIR`.
+- Shared `pipelines/common` workspace package (`common.env`) providing fail-fast environment variable loading (`require_env`, `load_pipeline_env`) reusable across pipelines.
+- `scripts/setup-duckdb-views.sh` to auto-generate DuckDB views over bronze Parquet output for ad hoc querying, documented in the pipeline's `README.md`.
+- `SCHEMA.md` documenting the Bronze layer data dictionary and lineage for `musicbrainz_to_the_music_tree_api`.
 
 ### Changed
 
