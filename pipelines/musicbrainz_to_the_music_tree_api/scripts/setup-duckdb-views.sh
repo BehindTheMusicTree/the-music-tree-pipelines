@@ -15,9 +15,10 @@ if [ -f "$PIPELINE_ROOT/.env" ]; then
 fi
 : "${BRONZE_OUTPUT_DIR:?BRONZE_OUTPUT_DIR is required — copy .env.example to .env and set it}"
 
-BRONZE_DIR="$BRONZE_OUTPUT_DIR"
+BRONZE_DIR="$(cd "$BRONZE_OUTPUT_DIR" && pwd)"
 DB_FILE="$BRONZE_DIR/bronze.duckdb"
 
+shopt -s nullglob
 cd "$BRONZE_DIR"
 for f in *.parquet; do
   table="${f%.parquet}"
