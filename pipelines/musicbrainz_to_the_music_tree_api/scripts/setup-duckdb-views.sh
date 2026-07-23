@@ -5,17 +5,17 @@ set -euo pipefail
 
 PIPELINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Same .env as musicbrainz_to_the_music_tree_api.bronze (common.env.load_pipeline_env) —
-# MB_BRONZE_OUTPUT_DIR is the pipeline's actual output dir, not necessarily "bronze/".
+# Same .env as musicbrainz_to_the_music_tree_api.bronze_musicbrainz (common.env.load_pipeline_env) —
+# BRONZE_OUTPUT_DIR is the pipeline's actual output dir, not necessarily "bronze/".
 if [ -f "$PIPELINE_ROOT/.env" ]; then
   set -a
   # shellcheck disable=SC1091
   source "$PIPELINE_ROOT/.env"
   set +a
 fi
-: "${MB_BRONZE_OUTPUT_DIR:?MB_BRONZE_OUTPUT_DIR is required — copy .env.example to .env and set it}"
+: "${BRONZE_OUTPUT_DIR:?BRONZE_OUTPUT_DIR is required — copy .env.example to .env and set it}"
 
-BRONZE_DIR="$MB_BRONZE_OUTPUT_DIR"
+BRONZE_DIR="$BRONZE_OUTPUT_DIR"
 DB_FILE="$BRONZE_DIR/bronze.duckdb"
 
 cd "$BRONZE_DIR"

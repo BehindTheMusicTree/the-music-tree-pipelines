@@ -34,5 +34,5 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
-    output_dir = Path(require_env("MB_BRONZE_OUTPUT_DIR"))
+    output_dir = Path(require_env("BRONZE_OUTPUT_DIR"))
     run_bronze_ingestion(db.connect(), output_dir)
