@@ -89,5 +89,9 @@ jobs:
       - name: Run integration tests
         env:
           MB_TEST_REQUIRE_DB: "1"
+          MB_HOST: 127.0.0.1
+          MB_PORT: "5432"
+          MB_DB: musicbrainz_db
+          MB_USER: musicbrainz
           PGPASSWORD: musicbrainz
         run: uv run pytest -m integration
