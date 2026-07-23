@@ -15,6 +15,11 @@ if [ -f "$PIPELINE_ROOT/.env" ]; then
 fi
 : "${BRONZE_OUTPUT_DIR:?BRONZE_OUTPUT_DIR is required — copy .env.example to .env and set it}"
 
+if [ ! -d "$BRONZE_OUTPUT_DIR" ]; then
+  echo "BRONZE_OUTPUT_DIR directory does not exist: $BRONZE_OUTPUT_DIR (run bronze ingestion first)" >&2
+  exit 1
+fi
+
 BRONZE_DIR="$(cd "$BRONZE_OUTPUT_DIR" && pwd)"
 DB_FILE="$BRONZE_DIR/bronze.duckdb"
 
