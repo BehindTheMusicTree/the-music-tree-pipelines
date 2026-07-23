@@ -83,20 +83,20 @@ See [TESTING.md](TESTING.md) for test tiers and conventions, including how to us
 uv run python -m musicbrainz_to_the_music_tree_api.bronze_musicbrainz
 ```
 
-writes one Parquet file per bronze table (git-ignored) to `BRONZE_OUTPUT_DIR` (see [Data source](#data-source) — required, set in `.env`; not necessarily named `bronze/`, that's just this project's `.env.example` convention value, substitute your own below if you changed it). Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed:
+writes one Parquet file per bronze table (git-ignored) to `BRONZE_OUTPUT_DIR` (see [Data source](#data-source) — required, set in `.env`). Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed — substitute `<BRONZE_OUTPUT_DIR>` below with your actual path:
 
 ```bash
-duckdb -c "SELECT * FROM 'bronze/recording.parquet' LIMIT 10"
+duckdb -c "SELECT * FROM '<BRONZE_OUTPUT_DIR>/recording.parquet' LIMIT 10"
 ```
 
 For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file found in `BRONZE_OUTPUT_DIR` (same `.env` var, loaded by the script itself the same way `bronze_musicbrainz.py` loads it — no need to export anything in your shell first), in a persistent `bronze.duckdb` alongside them — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
 
 ```bash
 scripts/setup-duckdb-views.sh
-duckdb bronze/bronze.duckdb -c "SELECT * FROM recording LIMIT 10"
+duckdb <BRONZE_OUTPUT_DIR>/bronze.duckdb -c "SELECT * FROM recording LIMIT 10"
 ```
 
-(If you'd rather not retype `bronze/` and want shell tab-completion/`$BRONZE_OUTPUT_DIR` expansion to work directly in ad hoc commands, `set -a; source .env; set +a` once per terminal session first — this exports it to your shell, separately from the auto-loading the scripts above already do for themselves.)
+(If you'd rather not retype the full path and want shell tab-completion/`$BRONZE_OUTPUT_DIR` expansion to work directly in ad hoc commands, `set -a; source .env; set +a` once per terminal session first — this exports it to your shell, separately from the auto-loading the scripts above already do for themselves.)
 
 ## Setup
 
