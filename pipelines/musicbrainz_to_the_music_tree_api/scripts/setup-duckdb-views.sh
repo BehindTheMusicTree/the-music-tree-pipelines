@@ -27,9 +27,12 @@ shopt -s nullglob
 cd "$BRONZE_DIR"
 for f in *.parquet; do
   table="${f%.parquet}"
+  parquet_path="${BRONZE_DIR}/${f}"
+  # Escape single quotes for safe embedding in a single-quoted SQL string.
+  parquet_path_sql="${parquet_path//$'\047'/$'\047\047'}"
   # Absolute path: a relative one would only resolve when duckdb is later invoked from
   # inside bronze/, breaking "query bronze.duckdb from anywhere" for anyone else.
-  duckdb "$DB_FILE" -c "CREATE OR REPLACE VIEW \"${table}\" AS SELECT * FROM '${BRONZE_DIR}/${f}'"
+  duckdb "$DB_FILE" -c "CREATE OR REPLACE VIEW \"${table}\" AS SELECT * FROM '${parquet_path_sql}'"
 done
 
 echo "views ready in $DB_FILE:"
