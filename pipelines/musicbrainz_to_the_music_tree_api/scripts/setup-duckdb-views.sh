@@ -5,7 +5,7 @@ set -euo pipefail
 
 PIPELINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Same .env as musicbrainz_to_the_music_tree_api.bronze_musicbrainz (common.env.load_pipeline_env) —
+# Same .env as musicbrainz_to_the_music_tree_api.bronze_musicbrainz —
 # BRONZE_OUTPUT_DIR is the pipeline's actual output dir, not necessarily "bronze/".
 if [ -f "$PIPELINE_ROOT/.env" ]; then
   set -a
