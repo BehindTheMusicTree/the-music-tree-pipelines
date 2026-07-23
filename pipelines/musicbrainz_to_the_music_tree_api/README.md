@@ -89,7 +89,7 @@ writes one Parquet file per bronze table (git-ignored) to `BRONZE_OUTPUT_DIR` (s
 duckdb -c "SELECT * FROM '<BRONZE_OUTPUT_DIR>/recording.parquet' LIMIT 10"
 ```
 
-For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file found in `BRONZE_OUTPUT_DIR` (same `.env` var, loaded by the script itself the same way `bronze_musicbrainz.py` loads it — no need to export anything in your shell first), in a persistent `bronze.duckdb` alongside them — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
+For repeated exploration, `scripts/setup-duckdb-views.sh` (re)creates one named view per Parquet file found in `BRONZE_OUTPUT_DIR` (same `.env` var; the script sources `.env` itself — no need to export anything in your shell first), in a persistent `bronze.duckdb` alongside them — auto-discovers files, safe to re-run, only needed again if a table is added to or removed from `BRONZE_TABLES`:
 
 ```bash
 scripts/setup-duckdb-views.sh
