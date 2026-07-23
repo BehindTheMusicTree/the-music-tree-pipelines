@@ -12,7 +12,7 @@ BRONZE_TABLES = ("recording", "tag", "recording_tag", "genre")
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
     if table not in BRONZE_TABLES:
-        raise ValueError(f"Table {table} is not part of bronze tables")
+        raise ValueError(f"Unknown bronze table: {table!r}. Expected one of: {', '.join(BRONZE_TABLES)}")
 
     logger.info("ingesting table %s", table)
     df = pl.read_database(f"SELECT * from musicbrainz.{table}", conn)
