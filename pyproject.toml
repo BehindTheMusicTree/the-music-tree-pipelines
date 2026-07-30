@@ -6,6 +6,7 @@ dev = [
     "ruff==0.15.20",
     "pytest==9.1.1",
     "pre-commit==4.6.0",
+    "pytest-cov==7.1.0",
 ]
 
 [tool.ruff]
@@ -16,4 +17,17 @@ testpaths = ["pipelines"]
 addopts = "--ignore-glob=*/vendor/*"
 markers = [
     "integration: requires a local Postgres loaded from the MusicBrainz sample dataset (see the relevant pipeline's TESTING.md)",
+]
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+omit = ["*/vendor/*", "*/tests/*"]
+
+[tool.coverage.report]
+skip_empty = true
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
 ]
