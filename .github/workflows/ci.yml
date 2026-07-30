@@ -60,6 +60,7 @@ jobs:
         with:
           name: coverage-data-test
           path: .coverage.test
+          include-hidden-files: true
 
   integration:
     name: Integration
@@ -110,6 +111,7 @@ jobs:
         with:
           name: coverage-data-integration
           path: .coverage.integration
+          include-hidden-files: true
 
   coverage:
     name: Coverage
