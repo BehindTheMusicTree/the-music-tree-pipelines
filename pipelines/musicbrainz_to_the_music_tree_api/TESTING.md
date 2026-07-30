@@ -19,6 +19,7 @@ Tests that need real data use the official MusicBrainz **sample dataset** (`mbdu
 - [Directory and naming conventions](#directory-and-naming-conventions)
 - [Fixtures and sample data](#fixtures-and-sample-data)
 - [Running tests](#running-tests)
+- [Coverage](#coverage)
 - [Current state](#current-state)
 
 ## Test categories
@@ -91,11 +92,28 @@ Integration tests should load a disposable Postgres from the official MusicBrain
 ## Running tests
 
 ```bash
-pytest                        # everything; requires a local sample-loaded Postgres for the integration tests — see above
-pytest -m "not integration"   # unit + e2e/pipeline only — what CI runs today
-pytest -m integration         # integration only
+uv run pytest                        # everything; requires a local sample-loaded Postgres for the integration tests — see above
+uv run pytest -m "not integration"   # unit + e2e/pipeline only — what CI runs today
+uv run pytest -m integration         # integration only
+```
+
+## Coverage
+
+Both the `test` and `integration` CI jobs run with `--cov=pipelines --cov-fail-under=0` (per-job threshold disabled — see below) and each uploads its own coverage data file as an artifact (`.coverage.test`, `.coverage.integration`). A third `coverage` job (`needs: [test, integration]`) downloads both, runs `coverage combine`, and reports on the merged total — this is what real code paths get exercised across the whole suite, not just the dependency-free half. Config lives in `pyproject.toml`:
+
+- `[tool.coverage.report] fail_under = 90` — the combined `coverage` job fails if the merged total drops below 90%. This is a floor across the whole measured set, not a per-file minimum. It's disabled per-job (`--cov-fail-under=0`) so `test`/`integration` don't fail on partial coverage before the merge happens — only the final `coverage` job enforces it.
+- `[tool.coverage.run] relative_files = true` — makes paths recorded by `test` and `integration` match up for `coverage combine`, even though they run as separate checkouts on separate runners.
+- `[tool.coverage.run] omit` excludes `vendor/` and `tests/` themselves.
+- `[tool.coverage.report] exclude_lines` excludes `if __name__ == "__main__":` blocks — thin script entrypoints aren't meaningfully unit-testable and shouldn't count against the floor.
+
+The jobs stay split for unrelated reasons (`integration` needs Docker + a sample-loaded Postgres, `test` doesn't — see [Test categories](#test-categories)); only the coverage *data* gets merged after both finish, not the jobs themselves.
+
+The split/combine dance above is a CI-only concern — `test` and `integration` run as separate jobs on separate runners there, so their coverage data has to be merged after the fact. Locally there's just one process, so one command covers everything (with a sample-loaded Postgres running, per above, this genuinely exercises `db.connect()` too — without it, `test_integration_musicbrainz_db.py` just skips):
+
+```bash
+uv run pytest --cov=pipelines --cov-report=term-missing
 ```
 
 ## Current state
 
-No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. The sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is built (see [README.md#data-source](README.md#data-source)), and a first `@pytest.mark.integration` test (`tests/test_integration_musicbrainz_db.py`) exercises it end to end — `pytest -m "not integration"` remains what the `test` CI job runs, with a separate `integration` job running `pytest -m integration` against the sample-loaded Postgres. There's no enforced coverage threshold; this is a solo, early-stage project.
+No bronze/silver pipeline code exists yet (this repo is still at the project-scaffolding stage) — this document establishes the convention ahead of that code landing, not existing test coverage. Only unit, E2E/pipeline, and integration have a concrete implementation path today; data quality, regression, performance, freshness, and business conformance are documented as categories to grow into, not existing tests. The sample-loading step (Docker service, `createdb.sh -sample`, CI wiring) is built (see [README.md#data-source](README.md#data-source)), and a first `@pytest.mark.integration` test (`tests/test_integration_musicbrainz_db.py`) exercises it end to end — `pytest -m "not integration"` remains what the `test` CI job runs, with a separate `integration` job running `pytest -m integration` against the sample-loaded Postgres. See [Coverage](#coverage) for the enforced threshold.

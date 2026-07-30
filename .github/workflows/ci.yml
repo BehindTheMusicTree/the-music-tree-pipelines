@@ -51,7 +51,15 @@ jobs:
         run: uv sync --frozen --all-packages
 
       - name: Run tests
-        run: uv run pytest -m "not integration"
+        env:
+          COVERAGE_FILE: .coverage.test
+        run: uv run pytest -m "not integration" --cov=pipelines --cov-report=term-missing --cov-fail-under=0
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-test
+          path: .coverage.test
 
   integration:
     name: Integration
@@ -94,4 +102,43 @@ jobs:
           MB_DB: musicbrainz_db
           MB_USER: musicbrainz
           PGPASSWORD: musicbrainz
-        run: uv run pytest -m integration
+          COVERAGE_FILE: .coverage.integration
+        run: uv run pytest -m integration --cov=pipelines --cov-report=term-missing --cov-fail-under=0
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-integration
+          path: .coverage.integration
+
+  coverage:
+    name: Coverage
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+
+      - name: Combine coverage and enforce threshold
+        run: |
+          uv run coverage combine .coverage.test .coverage.integration
+          uv run coverage report -m
+          uv run coverage xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

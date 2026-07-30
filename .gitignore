@@ -22,3 +22,7 @@ silver/
 
 # Local scratch files (e.g. generated PR descriptions)
 .local/
+
+# Coverage reports
+.coverage
+coverage.xml
