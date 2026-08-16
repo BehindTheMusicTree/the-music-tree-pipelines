@@ -30,9 +30,9 @@ uv run pre-commit install
 
 This is a `uv` workspace: `pipelines/*` are independent packages sharing one lockfile and one dev toolchain (Ruff, pytest, pre-commit) declared at the repo root. Adding a new pipeline means adding a new `pipelines/<name>/` directory with its own `pyproject.toml` (runtime dependencies only — dev tools stay at the workspace root).
 
-**Pipeline naming:** each pipeline directory is named `<source>_to_<target>` (e.g. `musicbrainz_to_the_music_tree_api`), where `<source>` is where the data is read from and `<target>` is the system or dataset it's ultimately produced for — not an intermediate reference dataset joined along the way (e.g. Wikidata here is a reference taxonomy, not the target). One pipeline covers one source/target pair as a whole data product, not one pipeline per entity within that pair — split entities into separate bronze/silver stages inside the pipeline instead, since they're usually joined together to produce the final output anyway.
+**Pipeline naming:** name each pipeline directory for what it does — typically just the data source (e.g. `musicbrainz`), and only spell out `<source>_to_<target>` if there's ambiguity or multiple pipelines share a source. `musicbrainz` reads from MusicBrainz and produces a dataset for TheMusicTreeAPI to ingest; Wikidata is a reference taxonomy joined in along the way, not a second target. One pipeline covers one source/target pair as a whole data product, not one pipeline per entity within that pair — split entities into separate bronze/silver stages inside the pipeline instead, since they're usually joined together to produce the final output anyway.
 
-Then run each pipeline's `scripts/setup-sample-db.sh` (if it has one) to load its sample dataset before running any bronze ingestion — see [pipelines/musicbrainz_to_the_music_tree_api/README.md#data-source](pipelines/musicbrainz_to_the_music_tree_api/README.md#data-source).
+Then run each pipeline's `scripts/setup-sample-db.sh` (if it has one) to load its sample dataset before running any bronze ingestion — see [pipelines/musicbrainz/README.md#data-source](pipelines/musicbrainz/README.md#data-source).
 
 ### Branching
 
@@ -97,7 +97,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 
 ## Testing
 
-See each pipeline's own `TESTING.md` (e.g. [pipelines/musicbrainz_to_the_music_tree_api/TESTING.md](pipelines/musicbrainz_to_the_music_tree_api/TESTING.md)) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
+See each pipeline's own `TESTING.md` (e.g. [pipelines/musicbrainz/TESTING.md](pipelines/musicbrainz/TESTING.md)) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
 
 ## Changelog
 

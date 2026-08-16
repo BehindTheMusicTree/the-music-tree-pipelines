@@ -30,7 +30,7 @@ def run_bronze_ingestion(conn: psycopg.Connection, output_dir: Path) -> list[Pat
 
 
 if __name__ == "__main__":
-    from musicbrainz_to_the_music_tree_api import db
+    from musicbrainz import db
 
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)

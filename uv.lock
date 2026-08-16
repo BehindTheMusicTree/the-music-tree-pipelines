@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 [manifest]
 members = [
     "common",
-    "musicbrainz-to-the-music-tree-api",
+    "musicbrainz",
 ]
 
 [manifest.dependency-groups]
@@ -151,9 +151,9 @@ wheels = [
 ]
 
 [[package]]
-name = "musicbrainz-to-the-music-tree-api"
+name = "musicbrainz"
 version = "0.1.0"
-source = { editable = "pipelines/musicbrainz_to_the_music_tree_api" }
+source = { editable = "pipelines/musicbrainz" }
 dependencies = [
     { name = "common" },
     { name = "polars" },

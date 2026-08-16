@@ -4,7 +4,7 @@ from collections.abc import Iterator
 import psycopg
 import pytest
 
-from musicbrainz_to_the_music_tree_api.db import connect
+from musicbrainz.db import connect
 
 
 @pytest.fixture(scope="session")

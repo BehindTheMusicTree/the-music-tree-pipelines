@@ -23,14 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial project scaffolding: package structure, `pyproject.toml`, CI workflow (lint + test), and testing documentation.
-- Automated MusicBrainz sample dataset setup for dev and CI: `musicbrainz-docker` vendored as a pinned git submodule, loaded via `pipelines/musicbrainz_to_the_music_tree_api/scripts/setup-sample-db.sh`, wired into a new `integration` CI job.
-- Bronze layer: ingest MusicBrainz `recording`, `tag`, `recording_tag`, and `genre` tables from Postgres to Parquet via Polars (`musicbrainz_to_the_music_tree_api.bronze_musicbrainz`), configured through `BRONZE_OUTPUT_DIR`.
+- Automated MusicBrainz sample dataset setup for dev and CI: `musicbrainz-docker` vendored as a pinned git submodule, loaded via `pipelines/musicbrainz/scripts/setup-sample-db.sh`, wired into a new `integration` CI job.
+- Bronze layer: ingest MusicBrainz `recording`, `tag`, `recording_tag`, and `genre` tables from Postgres to Parquet via Polars (`musicbrainz.bronze_musicbrainz`), configured through `BRONZE_OUTPUT_DIR`.
 - Shared `pipelines/common` workspace package (`common.env`) providing fail-fast environment variable loading (`require_env`, `load_pipeline_env`) reusable across pipelines.
 - `scripts/setup-duckdb-views.sh` to auto-generate DuckDB views over bronze Parquet output for ad hoc querying, documented in the pipeline's `README.md`.
-- `SCHEMA.md` documenting the Bronze layer data dictionary and lineage for `musicbrainz_to_the_music_tree_api`.
+- `SCHEMA.md` documenting the Bronze layer data dictionary and lineage for `musicbrainz`.
 - Unit tests for `bronze_musicbrainz`, `db`, and `common.env`, plus a combined coverage gate (`pytest-cov`, 90% `fail_under`) enforced across the `test` and `integration` CI jobs — a new `coverage` job merges both jobs' data via `coverage combine` before checking the threshold, so it isn't blind to code only exercised against the real sample database.
 
 ### Changed
 
 - Renamed the repo from `root-the-music-tree` to `the-music-tree-pipelines` and restructured it into a `uv` workspace monorepo, one directory per pipeline (`pipelines/musicbrainz_to_the_music_tree_api/`), to hold every data pipeline in the stack going forward instead of just the genre-hierarchy one. CI now uses `uv sync`/`uv run` instead of `pip install -e ".[dev]"`.
 - Adopted a `<source>_to_<target>` naming convention for pipeline directories, documented in `CONTRIBUTING.md`; the genre-hierarchy pipeline is renamed `root_the_music_tree` → `musicbrainz_to_the_music_tree_api` to match (source: MusicBrainz, target: TheMusicTreeAPI, the eventual consumer of its output dataset).
+- Renamed the pipeline directory and Python package `musicbrainz_to_the_music_tree_api` → `musicbrainz`, since the verbose `<source>_to_<target>` form only earned its keep while disambiguating against other pipelines that don't exist yet.
