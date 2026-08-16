@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from musicbrainz_to_the_music_tree_api import db
+from musicbrainz import db
 
 
 def test_connect_builds_dsn_from_env_and_registers_uuid_loaders(

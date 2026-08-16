@@ -1,6 +1,6 @@
 # Schema
 
-Data dictionary and lineage notes for `musicbrainz_to_the_music_tree_api`. See [README.md#pipeline](README.md#pipeline) for the Bronze/Silver layer overview.
+Data dictionary and lineage notes for `musicbrainz`. See [README.md#pipeline](README.md#pipeline) for the Bronze/Silver layer overview.
 
 ## Table of Contents
 
