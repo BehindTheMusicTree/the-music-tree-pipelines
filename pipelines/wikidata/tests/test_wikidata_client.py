@@ -1,8 +1,16 @@
+import json
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+import tenacity
 
 from wikidata import wikidata_client
+
+
+@pytest.fixture(autouse=True)
+def _fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client.run_query.retry, "wait", tenacity.wait_none())
 
 
 def _mock_response(bindings: list[dict]) -> MagicMock:
@@ -67,3 +75,37 @@ def test_run_query_parses_bindings_and_defaults_unbound_optional_fields_to_none(
             "parentLabel": None,
         },
     ]
+
+
+def test_run_query_retries_transient_errors_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    truncated_response = MagicMock()
+    truncated_response.json.side_effect = json.JSONDecodeError("Unterminated string", "", 0)
+    httpx_get = MagicMock(side_effect=[truncated_response, _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    result = wikidata_client.run_query("SELECT * WHERE {}")
+
+    assert result == []
+    assert httpx_get.call_count == 2
+
+
+def test_run_query_reraises_after_exhausting_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = MagicMock()
+    response.json.side_effect = json.JSONDecodeError("Unterminated string", "", 0)
+    httpx_get = MagicMock(return_value=response)
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    with pytest.raises(json.JSONDecodeError):
+        wikidata_client.run_query("SELECT * WHERE {}")
+
+    assert httpx_get.call_count == wikidata_client.run_query.retry.stop.max_attempt_number
+
+
+def test_run_query_retries_transport_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    httpx_get = MagicMock(side_effect=[httpx.ConnectError("boom"), _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    result = wikidata_client.run_query("SELECT * WHERE {}")
+
+    assert result == []
+    assert httpx_get.call_count == 2

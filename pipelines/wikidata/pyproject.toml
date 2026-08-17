@@ -12,6 +12,7 @@ requires-python = ">=3.12"
 dependencies = [
     "polars==1.42.1",
     "httpx==0.28.1",
+    "tenacity==9.1.2",
     "common",
 ]
 

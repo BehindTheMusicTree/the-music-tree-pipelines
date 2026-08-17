@@ -1,4 +1,7 @@
+import json
+
 import httpx
+import tenacity
 
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/the-music-tree-pipelines)"
@@ -20,6 +23,12 @@ SELECT ?item ?itemLabel ?parent ?parentLabel WHERE {{
 """
 
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
+    wait=tenacity.wait_exponential(multiplier=1, max=10),
+    stop=tenacity.stop_after_attempt(3),
+    reraise=True,
+)
 def run_query(query: str, timeout: float = 60.0) -> list[dict[str, str | None]]:
     response = httpx.get(
         SPARQL_ENDPOINT,
