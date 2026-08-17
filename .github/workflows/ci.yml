@@ -1,0 +1,146 @@
+name: Lint & Test
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          # renovate: datasource=github-releases depName=rhysd/actionlint
+          version: "1.7.12"
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run tests
+        env:
+          COVERAGE_FILE: .coverage.test
+        run: uv run pytest -m "not integration" --cov=pipelines --cov-report=term-missing --cov-fail-under=0
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-test
+          path: .coverage.test
+          include-hidden-files: true
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Cache MusicBrainz Docker images
+        id: mb-image-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/mb-docker-images.tar
+          key: mb-docker-images-${{ hashFiles('pipelines/musicbrainz/vendor/musicbrainz-docker/build/postgres-prebuilt/Dockerfile', 'pipelines/musicbrainz/vendor/musicbrainz-docker/build/musicbrainz-prebuilt/Dockerfile') }}
+
+      - name: Load cached images
+        if: steps.mb-image-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/mb-docker-images.tar
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Load MusicBrainz sample dataset
+        run: pipelines/musicbrainz/scripts/setup-sample-db.sh
+
+      - name: Save image cache
+        if: steps.mb-image-cache.outputs.cache-hit != 'true'
+        run: docker save musicbrainz-docker_db:18 musicbrainz-docker-musicbrainz:latest -o /tmp/mb-docker-images.tar
+
+      - name: Run integration tests
+        env:
+          MB_TEST_REQUIRE_DB: "1"
+          MB_HOST: 127.0.0.1
+          MB_PORT: "5432"
+          MB_DB: musicbrainz_db
+          MB_USER: musicbrainz
+          PGPASSWORD: musicbrainz
+          COVERAGE_FILE: .coverage.integration
+        run: uv run pytest -m integration --cov=pipelines --cov-report=term-missing --cov-fail-under=0
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-integration
+          path: .coverage.integration
+          include-hidden-files: true
+
+  coverage:
+    name: Coverage
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+
+      - name: Combine coverage and enforce threshold
+        run: |
+          uv run coverage combine .coverage.test .coverage.integration
+          uv run coverage report -m
+          uv run coverage xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

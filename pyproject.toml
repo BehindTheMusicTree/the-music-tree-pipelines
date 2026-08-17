@@ -1,0 +1,33 @@
+[tool.uv.workspace]
+members = ["pipelines/*"]
+
+[dependency-groups]
+dev = [
+    "ruff==0.15.20",
+    "pytest==9.1.1",
+    "pre-commit==4.6.0",
+    "pytest-cov==7.1.0",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["pipelines"]
+addopts = "--ignore-glob=*/vendor/* --import-mode=importlib"
+markers = [
+    "integration: requires a live external dependency (a local Postgres loaded from the MusicBrainz sample dataset, or the live Wikidata SPARQL endpoint — see the relevant pipeline's TESTING.md/README.md)",
+]
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+omit = ["*/vendor/*", "*/tests/*"]
+
+[tool.coverage.report]
+skip_empty = true
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

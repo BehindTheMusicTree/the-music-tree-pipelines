@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(actionlint .github/workflows/ci.yml)",
+      "WebFetch(domain:ftp.musicbrainz.org)",
+      "Bash(brew list actionlint)",
+      "Bash(brew search actionlint)",
+      "Bash(pytest -m integration -v)"
+    ]
+  }
+}

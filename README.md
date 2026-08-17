@@ -1,33 +1,17 @@
-# root-the-music-tree
+# the-music-tree-pipelines
 
-Giving MusicBrainz's flat genre list some roots.
+Data pipelines for the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosystem — a `uv` workspace monorepo, one directory per pipeline under [pipelines/](pipelines/).
 
-MusicBrainz stores genres as a flat list (`genre` table: id, name, comment — no parent/child relationship). This project reconstructs a genre hierarchy (root genre → subgenre → recording) using Wikidata as a reference taxonomy, via a Python/Polars/Postgres bronze → silver pipeline.
+## Pipelines
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Pipeline](#pipeline)
-- [Setup](#setup)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Overview
-
-- **Source:** a local MusicBrainz Postgres dump (`recording`, `artist`, `release`, `tag`, `recording_tag`, `genre`)
-- **Reference taxonomy:** genre parent/child relationships from Wikidata (`P279` subclass of, `P136` genre), fuzzy-matched to MusicBrainz genre names
-- **Output:** each recording resolved to its full genre path (root genre → ... → specific genre)
-
-## Pipeline
-
-| Layer | Contents |
-|---|---|
-| Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars |
-| Silver | `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) |
+| Pipeline | Description |
+| --- | --- |
+| [musicbrainz](pipelines/musicbrainz/README.md) | Reconstructs a genre hierarchy (root genre → subgenre → recording) from MusicBrainz's flat genre list, using Wikidata as a reference taxonomy |
+| [wikidata](pipelines/wikidata/README.md) | Ingests Wikidata's music genre taxonomy (`P279` subclass-of tree, rooted at `Q188451`) from the public SPARQL endpoint |
 
 ## Setup
 
-See [CONTRIBUTING.md](CONTRIBUTING.md#setup) for local environment setup, including the MusicBrainz Postgres dump.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local environment setup — each pipeline is an independent `uv` workspace member with its own dependencies, sharing one lockfile and one set of dev tools (Ruff, pytest, pre-commit) declared at the repo root.
 
 ## Contributing
 

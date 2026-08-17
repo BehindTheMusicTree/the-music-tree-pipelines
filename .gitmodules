@@ -1,0 +1,3 @@
+[submodule "pipelines/musicbrainz/vendor/musicbrainz-docker"]
+	path = pipelines/musicbrainz/vendor/musicbrainz-docker
+	url = https://github.com/metabrainz/musicbrainz-docker.git

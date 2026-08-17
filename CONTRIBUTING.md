@@ -9,6 +9,7 @@ This project is in early active development by a solo developer. Contributions, 
   - [Branching](#branching)
   - [Committing](#committing)
   - [Pull Requests](#pull-requests)
+- [Testing](#testing)
 - [Changelog](#changelog)
 - [Code Style](#code-style)
 - [License](#license)
@@ -17,15 +18,21 @@ This project is in early active development by a solo developer. Contributions, 
 
 ### Setup
 
-**Prerequisites:** Python 3.12+, a local MusicBrainz Postgres dump (see README), Git.
+**Prerequisites:** Python 3.12+, Git, Docker (for local MusicBrainz sample data), [`uv`](https://docs.astral.sh/uv/), [`actionlint`](https://github.com/rhysd/actionlint#install) v1.7.12 (matches CI and the pre-commit hook — `brew install actionlint` tracks the latest release, so pin the exact version instead: download the `actionlint_1.7.12_<os>_<arch>.tar.gz` archive and its `.sha256` checksum file from the [v1.7.12 release page](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), verify with `sha256sum -c`, then extract).
 
 ```bash
-git clone https://github.com/BehindTheMusicTree/root-the-music-tree.git
-cd root-the-music-tree
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e ".[dev]"
+git clone https://github.com/BehindTheMusicTree/the-music-tree-pipelines.git
+cd the-music-tree-pipelines
+git submodule update --init
+uv sync --all-packages
+uv run pre-commit install
 ```
+
+This is a `uv` workspace: `pipelines/*` are independent packages sharing one lockfile and one dev toolchain (Ruff, pytest, pre-commit) declared at the repo root. Adding a new pipeline means adding a new `pipelines/<name>/` directory with its own `pyproject.toml` (runtime dependencies only — dev tools stay at the workspace root).
+
+**Pipeline naming:** name each pipeline directory for what it does — typically just the data source (e.g. `musicbrainz`, `wikidata`), and only spell out `<source>_to_<target>` if there's ambiguity or multiple pipelines share a source. `musicbrainz` and `wikidata` each ingest their own source independently today (`wikidata`'s Bronze layer isn't matched against MusicBrainz's genre list yet); if/when a matching step joins the two into one dataset, that's future work to scope separately, not a reason by itself to merge the pipeline directories.
+
+Then run each pipeline's `scripts/setup-sample-db.sh` (if it has one) to load its sample dataset before running any bronze ingestion — see [pipelines/musicbrainz/README.md#data-source](pipelines/musicbrainz/README.md#data-source).
 
 ### Branching
 
@@ -49,7 +56,7 @@ git checkout -b feature/my-feature
 
 ### Committing
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) — every message requires a `type` prefix:
 
 ```
 <type>(<scope>): <summary>
@@ -77,7 +84,7 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 ### Pull Requests
 
 1. Ensure your branch is up to date with `develop`
-2. Run `ruff check . && ruff format --check .` and `pytest` — both must pass
+2. Run `uv run pytest -m "not integration"` — `pre-commit` (installed via the setup step above) runs Ruff and `actionlint` on every commit, the same checks CI runs (see [Testing](#testing))
 3. Update `CHANGELOG.md` under `[Unreleased]`
 4. Open a PR targeting `develop`
 5. Use the same `type(scope): summary` format for the PR title
@@ -87,6 +94,10 @@ Rules: imperative mood, under 70 characters, lowercase type and scope.
 - [ ] No accidental commits (`.env`, MusicBrainz dumps, large binaries)
 - [ ] `CHANGELOG.md` updated
 - [ ] Branch targets `develop`
+
+## Testing
+
+See each pipeline's own `TESTING.md` (e.g. [pipelines/musicbrainz/TESTING.md](pipelines/musicbrainz/TESTING.md)) for test tiers (unit, e2e/pipeline, integration) and fixture conventions.
 
 ## Changelog
 
@@ -101,6 +112,7 @@ See [CHANGELOG.md](CHANGELOG.md) for format examples.
 - **Fail fast** — raise immediately on missing config or invalid state, no silent fallbacks
 - **No comments** unless the *why* is non-obvious
 - **No dead code** — remove unused variables, imports, and functions
+- **Dependency pinning** — exact-pin (`==`) runtime and dev dependencies for reproducibility; use a minimum constraint (`>=`) for the `[build-system]` backend, since it's only invoked transiently during the build and exact-pinning it risks breakage if that version is yanked
 
 ## License
 
