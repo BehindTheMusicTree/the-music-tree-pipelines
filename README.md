@@ -7,6 +7,7 @@ Data pipelines for the [BehindTheMusicTree](https://github.com/BehindTheMusicTre
 | Pipeline | Description |
 | --- | --- |
 | [musicbrainz](pipelines/musicbrainz/README.md) | Reconstructs a genre hierarchy (root genre → subgenre → recording) from MusicBrainz's flat genre list, using Wikidata as a reference taxonomy |
+| [wikidata](pipelines/wikidata/README.md) | Ingests Wikidata's music genre taxonomy (`P279` subclass-of tree, rooted at `Q188451`) from the public SPARQL endpoint |
 
 ## Setup
 

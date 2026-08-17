@@ -14,9 +14,9 @@ line-length = 120
 
 [tool.pytest.ini_options]
 testpaths = ["pipelines"]
-addopts = "--ignore-glob=*/vendor/*"
+addopts = "--ignore-glob=*/vendor/* --import-mode=importlib"
 markers = [
-    "integration: requires a local Postgres loaded from the MusicBrainz sample dataset (see the relevant pipeline's TESTING.md)",
+    "integration: requires a live external dependency (a local Postgres loaded from the MusicBrainz sample dataset, or the live Wikidata SPARQL endpoint — see the relevant pipeline's TESTING.md/README.md)",
 ]
 
 [tool.coverage.run]
