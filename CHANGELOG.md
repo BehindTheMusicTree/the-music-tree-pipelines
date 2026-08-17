@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/setup-duckdb-views.sh` to auto-generate DuckDB views over bronze Parquet output for ad hoc querying, documented in the pipeline's `README.md`.
 - `SCHEMA.md` documenting the Bronze layer data dictionary and lineage for `musicbrainz`.
 - Unit tests for `bronze_musicbrainz`, `db`, and `common.env`, plus a combined coverage gate (`pytest-cov`, 90% `fail_under`) enforced across the `test` and `integration` CI jobs — a new `coverage` job merges both jobs' data via `coverage combine` before checking the threshold, so it isn't blind to code only exercised against the real sample database.
+- New `pipelines/wikidata` pipeline: Bronze layer ingesting Wikidata's music genre tree (every item `P31` "instance of" `Q188451` "music genre", plus each genre's `P279` "subclass of" parent edges) live from the public SPARQL endpoint (`wikidata.wikidata_client`), written as-is to `wikidata_genre_tree.parquet` via `wikidata.bronze_wikidata`. Independent of `musicbrainz`'s genre list for now — not yet matched against it.
 
 ### Changed
 
