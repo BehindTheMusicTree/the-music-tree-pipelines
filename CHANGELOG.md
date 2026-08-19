@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Silver layer, `1_classification`: flags each Bronze genre-tree row `is_genre`/`exclusion_reason`, excluding Wikidata's "music of \<place\>" regional-overview items (~300 of ~6,300) that were being misclassified as music genres by the `P31` source query.
+- `wikidata.profile_silver`: read-only script printing row/item counts and the `exclusion_reason` breakdown for `1_classification.parquet` — see `SCHEMA.md#silver`'s "Data profile" section.
+
 ## [0.1.2] - 2026-08-19
 
 ### Fixed

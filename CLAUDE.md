@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A `uv` workspace monorepo of data pipelines feeding the BTMT (Behind The Music Tree) ecosystem. Each pipeline is an independent workspace member under `pipelines/`, sharing only the `common` package. Today all pipelines implement a **Bronze layer** only (raw extraction to Parquet); Silver/Gold layers (cleaned, joined, hierarchy-built data) are planned but not yet built.
+A `uv` workspace monorepo of data pipelines feeding the BTMT (Behind The Music Tree) ecosystem. Each pipeline is an independent workspace member under `pipelines/`, sharing only the `common` package. All pipelines implement a **Bronze layer** (raw extraction to Parquet); a **Silver layer** (cleaned, joined, hierarchy-built data) has just started for `wikidata` (`1_classification` — see below), and is not yet built for `musicbrainz`. Gold layer is planned but not yet built.
 
 - `pipelines/common` — shared utilities (currently just per-pipeline `.env` loading).
 - `pipelines/musicbrainz` — Bronze ingestion from a Postgres MusicBrainz mirror (4 tables: `recording`, `tag`, `recording_tag`, `genre`).
-- `pipelines/wikidata` — Bronze ingestion of the music-genre tree from the live Wikidata SPARQL endpoint.
+- `pipelines/wikidata` — Bronze ingestion of the music-genre tree from the live Wikidata SPARQL endpoint, plus a Silver `1_classification` step that flags non-genre items (e.g. "music of Kenya") in that tree.
 
 The two pipelines are independent of each other for now (no cross-pipeline joins yet).
 
@@ -25,6 +25,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 ## Commands
 
 - **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.bronze_musicbrainz` / `uv run --package wikidata python -m wikidata.bronze_wikidata`
+- **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver_wikidata` (reads `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet`, writes `SILVER_OUTPUT_DIR/1_classification.parquet`)
 - **Lint (matches CI):** `ruff check .` / format: `ruff format .` (line-length 120)
 - **Unit tests only:** `pytest -m "not integration"`
 - **Integration tests** (needs live Postgres sample DB / live Wikidata SPARQL): `pytest -m integration`
@@ -36,7 +37,10 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 **Bronze layer only, per pipeline:**
 - `musicbrainz`: connects to Postgres via `psycopg`, reads each of the 4 raw tables with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{bronze_musicbrainz.py,db.py}`.
 - `wikidata`: queries the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`) live — no local DB. Pulls every item classified `P31` "instance of" music genre (`Q188451`) plus each genre's direct `P279` "subclass of" parent edges (unfiltered — pruning to genre-only parents is Silver-layer work), writes `wikidata_genre_tree.parquet`. See `pipelines/wikidata/src/wikidata/wikidata_client.py`.
-- Planned Silver layer for `musicbrainz` (`recording_genre`, `genre_hierarchy`, `recording_genre_path`) is not yet built.
+
+**Silver layer, `wikidata` (`pipelines/wikidata/src/wikidata/silver_wikidata.py`):** `1_classification` reads the Bronze genre-tree Parquet and adds `is_genre`/`exclusion_reason` columns, flagging (not dropping) rows whose `item_label` is a Wikidata "music of \<place\>" regional-overview article rather than an actual genre. See `pipelines/wikidata/SCHEMA.md#silver` for the full rule set and rationale. Numbered filename (`1_classification.parquet`) anticipates further Silver steps for this pipeline.
+
+Planned Silver layer for `musicbrainz` (`recording_genre`, `genre_hierarchy`, `recording_genre_path`) is not yet built.
 
 **`common.env.load_pipeline_env(__file__)`** resolves each pipeline's `.env` relative to the calling module's own file path, and `require_env(name)` fails fast (raises) on a missing var rather than silently defaulting — this is why `uv run --package X ...` works identically from any CWD, including from a separately cloned checkout on a server.
 
