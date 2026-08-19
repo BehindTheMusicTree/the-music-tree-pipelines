@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [0.1.2](#012---2026-08-19)
 - [0.1.1](#011---2026-08-19)
 - [0.1.0](#010---2026-08-18)
 
@@ -21,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [0.1.2] - 2026-08-19
+
+### Fixed
+
+- `musicbrainz` Bronze ingestion: pass `infer_schema_length=BATCH_SIZE` to `pl.read_database` — Polars was inferring each batch's column types from only its first 100 rows, so a batch with early-row `NULL`s in a `datetime` column followed by a real value later in the same batch could raise `ComputeError: could not append value ... make sure that all rows have the same schema`. Observed intermittently in production after the batched-read fix landed (0.1.1): 39.4M-row `recording` reads didn't OOM, but roughly 1 in 2 runs hit this schema error on a batch boundary.
 
 ## [0.1.1] - 2026-08-19
 

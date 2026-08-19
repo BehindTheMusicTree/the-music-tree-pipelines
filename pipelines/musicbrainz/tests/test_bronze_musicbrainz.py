@@ -26,7 +26,11 @@ def test_ingest_table_writes_parquet_for_each_bronze_table(
     read_database.assert_called_once()
     query = read_database.call_args.args[0]
     assert query == f"SELECT * from musicbrainz.{table}"
-    assert read_database.call_args.kwargs == {"iter_batches": True, "batch_size": bm.BATCH_SIZE}
+    assert read_database.call_args.kwargs == {
+        "iter_batches": True,
+        "batch_size": bm.BATCH_SIZE,
+        "infer_schema_length": bm.BATCH_SIZE,
+    }
     assert result == output_dir / f"{table}.parquet"
     assert result.exists()
     assert pl.read_parquet(result).equals(pl.concat(batches))

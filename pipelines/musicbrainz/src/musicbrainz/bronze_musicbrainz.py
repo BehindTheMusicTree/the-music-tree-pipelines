@@ -26,7 +26,13 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
     total_rows = 0
     writer: pq.ParquetWriter | None = None
     with conn.cursor(name=f"bronze_{table}") as cur:
-        batches = pl.read_database(f"SELECT * from musicbrainz.{table}", cur, iter_batches=True, batch_size=BATCH_SIZE)
+        batches = pl.read_database(
+            f"SELECT * from musicbrainz.{table}",
+            cur,
+            iter_batches=True,
+            batch_size=BATCH_SIZE,
+            infer_schema_length=BATCH_SIZE,
+        )
         for batch in batches:
             arrow_batch = batch.to_arrow()
             if writer is None:
