@@ -60,7 +60,7 @@ wheels = [
 
 [[package]]
 name = "common"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "pipelines/common" }
 dependencies = [
     { name = "python-dotenv" },
@@ -222,7 +222,7 @@ wheels = [
 
 [[package]]
 name = "musicbrainz"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "pipelines/musicbrainz" }
 dependencies = [
     { name = "common" },
@@ -602,7 +602,7 @@ wheels = [
 
 [[package]]
 name = "wikidata"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "pipelines/wikidata" }
 dependencies = [
     { name = "common" },
