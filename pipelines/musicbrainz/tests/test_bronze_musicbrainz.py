@@ -16,23 +16,24 @@ def test_ingest_table_rejects_unknown_table(tmp_path: Path) -> None:
 def test_ingest_table_writes_parquet_for_each_bronze_table(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, table: str
 ) -> None:
-    df = pl.DataFrame({"id": [1, 2]})
-    read_database = MagicMock(return_value=df)
+    batches = [pl.DataFrame({"id": [1, 2]}), pl.DataFrame({"id": [3]})]
+    read_database = MagicMock(return_value=iter(batches))
     monkeypatch.setattr(bm.pl, "read_database", read_database)
 
     output_dir = tmp_path / "bronze"
     result = bm.ingest_table(MagicMock(), table, output_dir)
 
     read_database.assert_called_once()
-    query, conn = read_database.call_args.args
+    query = read_database.call_args.args[0]
     assert query == f"SELECT * from musicbrainz.{table}"
+    assert read_database.call_args.kwargs == {"iter_batches": True, "batch_size": bm.BATCH_SIZE}
     assert result == output_dir / f"{table}.parquet"
     assert result.exists()
-    assert pl.read_parquet(result).equals(df)
+    assert pl.read_parquet(result).equals(pl.concat(batches))
 
 
 def test_ingest_table_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(bm.pl, "read_database", MagicMock(return_value=pl.DataFrame({"id": [1]})))
+    monkeypatch.setattr(bm.pl, "read_database", MagicMock(return_value=iter([pl.DataFrame({"id": [1]})])))
 
     output_dir = tmp_path / "does" / "not" / "exist"
     bm.ingest_table(MagicMock(), "recording", output_dir)
