@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `musicbrainz` Bronze ingestion: stream each table via a server-side cursor in bounded batches instead of loading it fully into memory before writing — the unbatched `recording` read (2.8M+ rows) was OOM-killing the daily VPS job under swap pressure.
+
 ## [0.1.0] - 2026-08-18
 
 ### Added
