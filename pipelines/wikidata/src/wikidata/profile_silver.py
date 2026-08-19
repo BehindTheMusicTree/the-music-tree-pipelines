@@ -1,0 +1,28 @@
+"""Prints row/item counts and exclusion_reason breakdown for 1_classification.parquet.
+
+Read-only: computes stats from the existing Silver Parquet, no new data is fetched or written.
+"""
+
+from pathlib import Path
+
+import polars as pl
+from common.env import load_pipeline_env, require_env
+
+
+def profile_classification(silver_path: Path) -> None:
+    df = pl.read_parquet(silver_path)
+    genre = df.filter(pl.col("is_genre"))
+    excluded = df.filter(~pl.col("is_genre"))
+
+    print(f"rows: {df.height} ({df.select('item_id').n_unique()} distinct items)")
+    print(f"is_genre=True: {genre.height} rows, {genre.select('item_id').n_unique()} distinct items")
+    print(f"is_genre=False: {excluded.height} rows, {excluded.select('item_id').n_unique()} distinct items")
+    print()
+    print("by exclusion_reason (rows):")
+    print(df.group_by("exclusion_reason").len().sort("len", descending=True))
+
+
+if __name__ == "__main__":
+    load_pipeline_env(__file__)
+    silver_dir = Path(require_env("SILVER_OUTPUT_DIR"))
+    profile_classification(silver_dir / "1_classification.parquet")
