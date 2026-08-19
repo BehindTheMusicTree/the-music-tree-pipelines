@@ -3,11 +3,16 @@ from pathlib import Path
 
 import psycopg
 import polars as pl
+import pyarrow.parquet as pq
 from common.env import load_pipeline_env, require_env
 
 logger = logging.getLogger(__name__)
 
 BRONZE_TABLES = ("recording", "tag", "recording_tag", "genre")
+
+# Rows pulled per batch via a server-side cursor, rather than loading a whole table into
+# memory at once — the `recording` table alone is multiple million rows.
+BATCH_SIZE = 100_000
 
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
@@ -15,13 +20,23 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
         raise ValueError(f"Unknown bronze table: {table!r}. Expected one of: {', '.join(BRONZE_TABLES)}")
 
     logger.info("ingesting table %s", table)
-    df = pl.read_database(f"SELECT * from musicbrainz.{table}", conn)
-
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{table}.parquet"
-    df.write_parquet(output_path)
-    logger.info("wrote %d rows to %s", df.height, output_path)
 
+    total_rows = 0
+    writer: pq.ParquetWriter | None = None
+    with conn.cursor(name=f"bronze_{table}") as cur:
+        batches = pl.read_database(f"SELECT * from musicbrainz.{table}", cur, iter_batches=True, batch_size=BATCH_SIZE)
+        for batch in batches:
+            arrow_batch = batch.to_arrow()
+            if writer is None:
+                writer = pq.ParquetWriter(output_path, arrow_batch.schema)
+            writer.write_table(arrow_batch)
+            total_rows += batch.height
+    if writer is not None:
+        writer.close()
+
+    logger.info("wrote %d rows to %s", total_rows, output_path)
     return output_path
 
 

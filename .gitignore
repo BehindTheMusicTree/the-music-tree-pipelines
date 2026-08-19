@@ -22,6 +22,7 @@ silver/
 
 # Local scratch files (e.g. generated PR descriptions)
 .local/
+.github/pr-descriptions/
 
 # Coverage reports
 .coverage

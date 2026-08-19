@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [0.1.1](#011---2026-08-19)
 - [0.1.0](#010---2026-08-18)
 
 ## Changelog Best Practices
@@ -20,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [0.1.1] - 2026-08-19
+
+### Fixed
+
+- `musicbrainz` Bronze ingestion: stream each table via a server-side cursor in bounded batches instead of loading it fully into memory before writing — the unbatched `recording` read (2.8M+ rows) was OOM-killing the daily VPS job under swap pressure.
+
+### Documentation
+
+- Add `CLAUDE.md`: repo structure, setup/lint/test/coverage commands, Bronze-layer architecture per pipeline, and the cross-repo production deployment via the `infrastructure` repo's `bronze_ingestion` Ansible role.
 
 ## [0.1.0] - 2026-08-18
 
@@ -39,3 +50,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed the repo from `root-the-music-tree` to `the-music-tree-pipelines` and restructured it into a `uv` workspace monorepo, one directory per pipeline (`pipelines/musicbrainz_to_the_music_tree_api/`), to hold every data pipeline in the stack going forward instead of just the genre-hierarchy one. CI now uses `uv sync`/`uv run` instead of `pip install -e ".[dev]"`.
 - Adopted a `<source>_to_<target>` naming convention for pipeline directories, documented in `CONTRIBUTING.md`; the genre-hierarchy pipeline is renamed `root_the_music_tree` → `musicbrainz_to_the_music_tree_api` to match (source: MusicBrainz, target: TheMusicTreeAPI, the eventual consumer of its output dataset).
 - Renamed the pipeline directory and Python package `musicbrainz_to_the_music_tree_api` → `musicbrainz`, since the verbose `<source>_to_<target>` form only earned its keep while disambiguating against other pipelines that don't exist yet.
+- `wikidata.wikidata_client.run_query` now retries transient failures (connection errors, 5xx responses, truncated JSON from the live SPARQL endpoint) with exponential backoff (`tenacity`, up to 3 attempts). The `Integration` CI job also reruns failed `integration`-marked tests once via `pytest-rerunfailures` (`--reruns 2 --reruns-delay 5`), absorbing endpoint flake without mocking the live dependency.
