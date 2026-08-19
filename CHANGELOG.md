@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `musicbrainz` Bronze ingestion: stream each table via a server-side cursor in bounded batches instead of loading it fully into memory before writing — the unbatched `recording` read (2.8M+ rows) was OOM-killing the daily VPS job under swap pressure.
+
 ### Documentation
 
 - Add `CLAUDE.md`: repo structure, setup/lint/test/coverage commands, Bronze-layer architecture per pipeline, and the cross-repo production deployment via the `infrastructure` repo's `bronze_ingestion` Ansible role.
