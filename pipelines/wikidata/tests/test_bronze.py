@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from wikidata import bronze_wikidata as bw
+from wikidata import bronze as bw
 
 ROCK_ROW = {
     "item": "http://www.wikidata.org/entity/Q11399",

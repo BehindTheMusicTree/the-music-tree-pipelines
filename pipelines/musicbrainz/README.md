@@ -54,7 +54,7 @@ This repo's output (`genre_hierarchy`, `recording_genre_path`) is an **independe
 Local dev, CI, and pipeline runs use the official MusicBrainz **sample dataset** (`mbdump-sample.tar.xz`, ~336 MB), loaded into a disposable local Postgres via [`musicbrainz-docker`](https://github.com/metabrainz/musicbrainz-docker)'s `createdb.sh -sample`. This gives real schema and real (if reduced) data, fully self-contained. `musicbrainz-docker` is vendored as a pinned git submodule at `vendor/musicbrainz-docker` (under this pipeline directory), and the same script loads it for both a local contributor and CI.
 
 1. `git submodule update --init` (once, after cloning this repo).
-2. `cp .env.example .env` and adjust if needed — required config (`MB_HOST`/`MB_PORT`/`MB_DB`/`MB_USER`/`BRONZE_OUTPUT_DIR`) has no in-code defaults (fail-fast: `musicbrainz.db.connect()` and the `bronze_musicbrainz` module's entrypoint raise a clear error naming the missing variable if `.env` isn't set up). `.env` is auto-loaded by both — no manual `export`/`source` needed to *run* them. (It is **not** exported to your interactive shell just by existing — see the note in [Querying bronze output](#querying-bronze-output) if you want `$BRONZE_OUTPUT_DIR` available there too.)
+2. `cp .env.example .env` and adjust if needed — required config (`MB_HOST`/`MB_PORT`/`MB_DB`/`MB_USER`/`BRONZE_OUTPUT_DIR`) has no in-code defaults (fail-fast: `musicbrainz.db.connect()` and the `bronze` module's entrypoint raise a clear error naming the missing variable if `.env` isn't set up). `.env` is auto-loaded by both — no manual `export`/`source` needed to *run* them. (It is **not** exported to your interactive shell just by existing — see the note in [Querying bronze output](#querying-bronze-output) if you want `$BRONZE_OUTPUT_DIR` available there too.)
 3. `scripts/setup-sample-db.sh` — builds and starts a local Postgres, loads the sample dump if not already loaded, and prints the connection string. Safe to re-run.
 4. Connect to the resulting local Postgres instance (set credentials via `PGPASSWORD` or `.pgpass` — do not embed passwords in the URI):
 
@@ -80,7 +80,7 @@ See [TESTING.md](TESTING.md) for test tiers and conventions, including how to us
 ## Querying bronze output
 
 ```bash
-uv run python -m musicbrainz.bronze_musicbrainz
+uv run python -m musicbrainz.bronze
 ```
 
 writes one Parquet file per bronze table (git-ignored) to `BRONZE_OUTPUT_DIR` (see [Data source](#data-source) — required, set in `.env`). Query them directly with [DuckDB](https://duckdb.org/) (`brew install duckdb`), no import step needed — substitute `<BRONZE_OUTPUT_DIR>` below with your actual path:

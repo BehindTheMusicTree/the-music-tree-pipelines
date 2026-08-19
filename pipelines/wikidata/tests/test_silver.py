@@ -2,7 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
-from wikidata import silver_wikidata as sw
+from wikidata import silver as sw
 
 BRONZE_ROWS = [
     {"item_id": "Q11399", "item_label": "rock music", "parent_id": "Q9778", "parent_label": "popular music"},

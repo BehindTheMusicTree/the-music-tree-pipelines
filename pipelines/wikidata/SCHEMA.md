@@ -77,7 +77,7 @@ single row with `parent_id`/`parent_label` both null.
 | parent_label  | str?   | English label for `parent_id`, or null                |
 
 **Deliberate deviation from the raw query response**: Wikidata's SPARQL results return full
-entity URIs (`http://www.wikidata.org/entity/Q11399`), not bare QIDs — `bronze_wikidata.py`
+entity URIs (`http://www.wikidata.org/entity/Q11399`), not bare QIDs — `bronze.py`
 strips the `http://www.wikidata.org/entity/` prefix before writing Parquet, since the QID is the
 natural join key and the full URI is otherwise dead weight. Labels are passed through as-is.
 
@@ -91,7 +91,7 @@ A multi-parent item (Wikidata classes aren't a strict tree — a genre can have 
 
 ## Silver
 
-`1_classification.parquet`, produced by `wikidata.silver_wikidata`: the Bronze edge list unchanged,
+`1_classification.parquet`, produced by `wikidata.silver`: the Bronze edge list unchanged,
 plus two columns classifying each row's `item_id` as a real genre or not.
 
 | Column           | Type   | Meaning                                                                 |
