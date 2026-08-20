@@ -7,7 +7,7 @@ written.
 from pathlib import Path
 
 import polars as pl
-from common.env import load_pipeline_env, require_env
+from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import wikidata
 
@@ -49,7 +49,7 @@ def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path) -> None:
 
 if __name__ == "__main__":
     load_pipeline_env(wikidata.__file__)
-    silver_dir = Path(require_env("SILVER_OUTPUT_DIR"))
+    silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
     profile_classification(silver_dir / "1_classification.parquet")
     profile_genre_parents(silver_dir / "2_genre_parents.parquet")
     profile_hierarchy(silver_dir / "2_genre_parents.parquet", silver_dir / "3_hierarchy.parquet")

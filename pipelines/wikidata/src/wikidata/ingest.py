@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
-from common.env import load_pipeline_env, require_env
+from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 from wikidata import wikidata_client
 
@@ -42,5 +42,5 @@ def ingest_genre_tree(output_dir: Path) -> Path:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
-    output_dir = Path(require_env("BRONZE_OUTPUT_DIR"))
+    output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     ingest_genre_tree(output_dir)
