@@ -27,6 +27,7 @@ def ingest_genre_tree(output_dir: Path) -> Path:
             "item_label": [row["itemLabel"] for row in rows],
             "parent_id": [_qid(row["parent"]) for row in rows],
             "parent_label": [row["parentLabel"] for row in rows],
+            "relation_type": [row["relation"] for row in rows],
         }
     )
 
