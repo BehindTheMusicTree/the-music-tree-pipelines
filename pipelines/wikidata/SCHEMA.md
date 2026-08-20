@@ -12,7 +12,7 @@ Data dictionary and lineage notes for `wikidata`. See [README.md#pipeline](READM
 
 ## Wikidata properties used
 
-Wikidata models knowledge as items (`Q...` IDs) connected by properties (`P...` IDs). Two
+Wikidata models knowledge as items (`Q...` IDs) connected by properties (`P...` IDs). Three
 properties drive this pipeline's whole shape:
 
 - **`P31` ("instance of")** — links an item to the class it directly belongs to. `wd:Q11399`
@@ -21,34 +21,43 @@ properties drive this pipeline's whole shape:
   first place (see `GENRE_TREE_QUERY`'s `?item wdt:P31 wd:Q188451` clause).
 - **`P279` ("subclass of")** — links a class to its more general parent class(es), building a
   taxonomy. `wd:Q11399` ("rock music") `wdt:P279` `wd:Q373342` ("popular music") means "rock music
-  is a kind of popular music." This is the edge that builds the genre *hierarchy* — a genre can
-  have more than one `P279` parent, since Wikidata classes aren't a strict tree.
+  is a kind of popular music." This is the main edge that builds the genre _hierarchy_ — a genre
+  can have more than one `P279` parent, since Wikidata classes aren't a strict tree.
+- **`P361` ("part of")** — a meronymic (part-whole, not is-a) edge, used inconsistently across
+  genre items in place of or alongside `P279` for what is still, in practice, subgenre-of-genre
+  information. It's sparser than `P279` (~250 edges vs. ~9,000) and noisier (most `P361` targets
+  aren't themselves a `P31` music genre — e.g. "punk subculture"), but a meaningful minority of
+  edges are hierarchy information `P279` doesn't have at all — e.g. several juke/footwork/ghetto
+  house subgenres are only linked to their parent via `P361`. Bronze ingests the full `P361` edge
+  set raw and unfiltered, just as it already does for `P279`, tagged by `relation_type` (see
+  below) so consumers can tell the two edge types apart rather than silently merging two
+  different semantics into one column.
 
-The two are not interchangeable and don't chain into each other the way you might expect — see
+The three are not interchangeable and don't chain into each other the way you might expect — see
 below.
 
 ## Bronze
 
-One Parquet file, `wikidata_genre_tree.parquet`, one row per (item, parent) edge: every Wikidata
-item classified `P31` ("instance of") `Q188451` ("music genre") — the class extension, ~6,300
-items as of this writing — plus each genre's direct `P279` ("subclass of") parent(s). See
-`wikidata_client.GENRE_TREE_QUERY` for the exact SPARQL.
+One Parquet file, `wikidata_genre_tree.parquet`, one row per (item, parent, relation_type) edge:
+every Wikidata item classified `P31` ("instance of") `Q188451` ("music genre") — the class
+extension, ~6,300 items as of this writing — plus each genre's direct `P279` ("subclass of") and
+`P361` ("part of") parent(s). See `wikidata_client.GENRE_TREE_QUERY` for the exact SPARQL.
 
 **Why `P31`, not a `P279*` walk from `Q188451`:** the intuitive query — "every item transitively
-`P279` subclass-of music genre" — returns only 14 items (verified live), mostly *meta-categories*
+`P279` subclass-of music genre" — returns only 14 items (verified live), mostly _meta-categories_
 rather than actual genres:
 
 > `gharana`, `palo`, `game piece`, `opera genre`, `fusion music genre`, `jazz genre`, `electronic
-> music genre`, `blues genre`, `folk music genre`, `world music genre`, `rock genre`, `music by
-> instrument`, `Shengqiang`, plus `Q188451` itself.
+music genre`, `blues genre`, `folk music genre`, `world music genre`, `rock genre`, `music by
+instrument`, `Shengqiang`, plus `Q188451` itself.
 
-Note the pattern: `"jazz genre"`, `"rock genre"` are *classes of genre*, not genres — not the
+Note the pattern: `"jazz genre"`, `"rock genre"` are _classes of genre_, not genres — not the
 ~6,300 actual genres like "rock music" or "bebop" that Bronze needs.
 
 That's because Wikidata keeps the two relationships separate:
 
 - **Class membership** is `P31` — e.g. `wd:Q11399` "rock music" `wdt:P31` `wd:Q188451` "music genre".
-- **Subgenre hierarchy** is `P279`, but *between genre items* — e.g. `wd:Q11399` "rock music"
+- **Subgenre hierarchy** is `P279`, but _between genre items_ — e.g. `wd:Q11399` "rock music"
   `wdt:P279` `wd:Q373342` "popular music".
 
 That `P279` edge doesn't chain back up to `Q188451`. Confirmed live:
@@ -58,46 +67,44 @@ ASK { wd:Q373342 wdt:P279* wd:Q188451 }   # → false
 ```
 
 So a `P279*` walk from `Q188451` finds only the 14 meta-category items above, and silently misses
-"rock music" and every other real genre — their `P279` parent chains lead to broader *concepts*
-like "popular music", not back to the "music genre" class they're an *instance* of.
+"rock music" and every other real genre — their `P279` parent chains lead to broader _concepts_
+like "popular music", not back to the "music genre" class they're an _instance_ of.
 
-**Parents are not restricted to also being a music genre instance.** A genre's `P279` edges
-routinely point at non-genre classes too — e.g. "opera" (`Q1344`) is `P279` both "classical
+**Parents are not restricted to also being a music genre instance.** A genre's `P279`/`P361`
+edges routinely point at non-genre classes too — e.g. "opera" (`Q1344`) is `P279` both "classical
 music" and "composed musical work" (`Q207628`, not itself `P31` music genre). Bronze ingests this
 raw and unfiltered, consistent with the "as-is" bronze principle used for MusicBrainz's tables
 (see [`../musicbrainz/SCHEMA.md`](../musicbrainz/SCHEMA.md)); pruning to genre-only parents, if
-needed, is Silver-layer work. An item with no `P279` parent at all (a root, ~510 of them) gets a
-single row with `parent_id`/`parent_label` both null.
+needed, is Silver-layer work. An item with neither a `P279` nor a `P361` parent (a root, ~488 of
+them as of this writing — down from ~510 pre-`P361`, since 22 formerly-root items turned out to
+have only a `P361` parent) gets a single row with `parent_id`/`parent_label`/`relation_type` all
+null.
 
-| Column        | Type   | Meaning                                             |
-| ------------- | ------ | ---------------------------------------------------- |
-| item_id       | str    | Wikidata QID of the genre (e.g. `Q11399`)             |
-| item_label    | str    | English label for `item_id` (e.g. "rock music")      |
-| parent_id     | str?   | QID of a direct `P279` parent within the genre tree, or null |
-| parent_label  | str?   | English label for `parent_id`, or null                |
+| Column        | Type | Meaning                                                                          |
+| ------------- | ---- | -------------------------------------------------------------------------------- |
+| item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`)                                        |
+| item_label    | str  | English label for `item_id` (e.g. "rock music")                                  |
+| parent_id     | str? | QID of a direct `P279`/`P361` parent within the genre tree, or null              |
+| parent_label  | str? | English label for `parent_id`, or null                                           |
+| relation_type | str? | `"P279"` or `"P361"` — which property produced this edge, or null for a root row |
 
 **Deliberate deviation from the raw query response**: Wikidata's SPARQL results return full
 entity URIs (`http://www.wikidata.org/entity/Q11399`), not bare QIDs — `ingest.py`
 strips the `http://www.wikidata.org/entity/` prefix before writing Parquet, since the QID is the
 natural join key and the full URI is otherwise dead weight. Labels are passed through as-is.
 
-**Independent of MusicBrainz for now**: this pipeline ingests Wikidata's genre taxonomy on its
-own terms — it is not filtered or matched against `musicbrainz`'s `genre.name` list at this
-stage. That matching (fuzzy name-match, no shared key between the two sources) is a future
-step, not built yet.
-
 A multi-parent item (Wikidata classes aren't a strict tree — a genre can have more than one
-`P279` parent) produces one row per parent, so `item_id` is not unique on its own.
+`P279`/`P361` parent) produces one row per parent, so `item_id` is not unique on its own.
 
 ## Silver
 
 `1_classification.parquet`, produced by `wikidata.silver`: the Bronze edge list unchanged,
 plus two columns classifying each row's `item_id` as a real genre or not.
 
-| Column           | Type   | Meaning                                                                 |
-| ---------------- | ------ | ------------------------------------------------------------------------ |
-| is_genre         | bool   | `False` if `item_label` was classified as not a genre                    |
-| exclusion_reason | str?   | Why `is_genre` is `False` (see below), or null when `is_genre` is `True` |
+| Column           | Type | Meaning                                                                  |
+| ---------------- | ---- | ------------------------------------------------------------------------ |
+| is_genre         | bool | `False` if `item_label` was classified as not a genre                    |
+| exclusion_reason | str? | Why `is_genre` is `False` (see below), or null when `is_genre` is `True` |
 
 **Why classification is needed:** Wikidata's `P31` "instance of" `Q188451` ("music genre") class
 extension — Bronze's source query — is noisy. It includes items that are not themselves genres,
@@ -106,9 +113,9 @@ would pollute any genre hierarchy or genre-matching built on top of this data.
 
 **`exclusion_reason` values:**
 
-| Value                | Rule                                              | Rationale                                                                 |
-| --------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
-| `regional_overview`   | `item_label` starts with `"music of "`             | Wikidata's national/regional music overview articles (e.g. "music of France", "music of Kenya") — ~300 of ~6,300 items as of this writing, always this exact prefix, never a genre name. |
+| Value               | Rule                                   | Rationale                                                                                                                                                                                |
+| ------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `regional_overview` | `item_label` starts with `"music of "` | Wikidata's national/regional music overview articles (e.g. "music of France", "music of Kenya") — ~300 of ~6,300 items as of this writing, always this exact prefix, never a genre name. |
 
 This is a first classification pass covering the single highest-confidence, most mechanical rule
 found during analysis. Other non-genre categories are known to exist in the Bronze data (musical
@@ -121,11 +128,11 @@ never drops data — downstream consumers filter on `is_genre` themselves.
 
 **Data profile (as of this writing):**
 
-| Metric                       | Rows | Distinct `item_id`s |
-| ----------------------------- | ---: | -------------------: |
-| Total                          | 9,490 | 6,335                |
-| `is_genre = true`               | 9,123 | 6,036                |
-| `is_genre = false` (`regional_overview`) | 367  | 299                  |
+| Metric                                   |  Rows | Distinct `item_id`s |
+| ---------------------------------------- | ----: | ------------------: |
+| Total                                    | 9,722 |               6,337 |
+| `is_genre = true`                        | 9,321 |               6,038 |
+| `is_genre = false` (`regional_overview`) |   401 |                 299 |
 
 Regenerate with `uv run --package wikidata python -m wikidata.profile_silver` (reads
 `SILVER_OUTPUT_DIR/1_classification.parquet`, read-only, no new data fetched) — these numbers will

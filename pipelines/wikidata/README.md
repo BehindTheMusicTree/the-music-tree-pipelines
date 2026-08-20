@@ -2,7 +2,7 @@
 
 Part of the [the-music-tree-pipelines](../../README.md) monorepo.
 
-Wikidata's music genre taxonomy (`P279` "subclass of", rooted at `Q188451` "music genre"), ingested from the public [Wikidata Query Service](https://query.wikidata.org/) SPARQL endpoint.
+Wikidata's music genre taxonomy (`P279` "subclass of" and `P361` "part of", rooted at `Q188451` "music genre"), ingested from the public [Wikidata Query Service](https://query.wikidata.org/) SPARQL endpoint.
 
 ## Table of Contents
 
@@ -20,7 +20,7 @@ Wikidata's music genre taxonomy (`P279` "subclass of", rooted at `Q188451` "musi
 ## Overview
 
 - **Source:** the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`), queried live — no local dump or database
-- **Output:** every Wikidata item classified `P31` ("instance of") `Q188451` ("music genre"), plus each genre's direct `P279` ("subclass of") parent edge(s) — see [SCHEMA.md](SCHEMA.md) for why `P31`, not a `P279` walk, is the right root query
+- **Output:** every Wikidata item classified `P31` ("instance of") `Q188451` ("music genre"), plus each genre's direct `P279` ("subclass of") and `P361` ("part of") parent edge(s) — see [SCHEMA.md](SCHEMA.md) for why `P31`, not a `P279` walk, is the right root query
 
 Independent of the [musicbrainz](../musicbrainz/README.md) pipeline for now: this ingests Wikidata's genre taxonomy on its own terms, not yet matched against MusicBrainz's flat genre list. That matching (and the resulting `genre_hierarchy`) is future work, likely landing in one of the two pipelines once scoped — not built yet.
 
@@ -28,7 +28,7 @@ Independent of the [musicbrainz](../musicbrainz/README.md) pipeline for now: thi
 
 | Layer  | Contents                                                                 |
 | ------ | ------------------------------------------------------------------------- |
-| Bronze | Wikidata's music genre tree (`P279` edges), queried live via SPARQL and written as-is to Parquet via Polars |
+| Bronze | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars |
 | Silver | `1_classification`: Bronze edges flagged `is_genre`/`exclusion_reason`, filtering out non-genre items (e.g. "music of Kenya") — see [SCHEMA.md](SCHEMA.md#silver) |
 
 ## Schema
@@ -62,6 +62,17 @@ For row/item counts and the `exclusion_reason` breakdown (see [SCHEMA.md#silver]
 
 ```bash
 uv run python -m wikidata.profile_silver
+```
+
+## Notebooks
+
+`notebooks/explore_genre_tree.ipynb` — tabular and graph exploration of the Bronze genre tree (relation-type breakdown, root/multi-parent items, a `networkx`/`matplotlib` neighborhood plot). Reads the local `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet` — no live SPARQL calls, so run `wikidata.ingest` first (see [Running](#running)).
+
+Install the notebook tooling (a separate `notebook` dependency group, not part of the default/CI install) and launch:
+
+```bash
+uv sync --group notebook
+uv run --group notebook jupyter lab pipelines/wikidata/notebooks/
 ```
 
 ## Testing

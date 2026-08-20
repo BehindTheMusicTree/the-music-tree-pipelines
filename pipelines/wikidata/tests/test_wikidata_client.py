@@ -51,6 +51,7 @@ def test_run_query_parses_bindings_and_defaults_unbound_optional_fields_to_none(
             "itemLabel": {"value": "rock music"},
             "parent": {"value": "http://www.wikidata.org/entity/Q188451"},
             "parentLabel": {"value": "music genre"},
+            "relation": {"value": "P279"},
         },
         {
             "item": {"value": "http://www.wikidata.org/entity/Q188451"},
@@ -67,12 +68,14 @@ def test_run_query_parses_bindings_and_defaults_unbound_optional_fields_to_none(
             "itemLabel": "rock music",
             "parent": "http://www.wikidata.org/entity/Q188451",
             "parentLabel": "music genre",
+            "relation": "P279",
         },
         {
             "item": "http://www.wikidata.org/entity/Q188451",
             "itemLabel": "music genre",
             "parent": None,
             "parentLabel": None,
+            "relation": None,
         },
     ]
 
