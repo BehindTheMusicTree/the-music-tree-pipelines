@@ -10,3 +10,8 @@ repos:
     rev: v1.7.12
     hooks:
       - id: actionlint-system
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.1
+    hooks:
+      - id: nbstripout
