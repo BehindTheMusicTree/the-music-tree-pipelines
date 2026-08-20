@@ -37,12 +37,12 @@ See [SCHEMA.md](SCHEMA.md) for the data dictionary and lineage notes.
 
 ## Setup
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. No credentials needed for this pipeline — `cp .env.example .env` to set `BRONZE_OUTPUT_DIR`/`SILVER_OUTPUT_DIR` (fail-fast: `wikidata.bronze`/`wikidata.silver`'s entrypoints raise a clear error naming the missing variable if `.env` isn't set up).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. No credentials needed for this pipeline — `cp .env.example .env` to set `BRONZE_OUTPUT_DIR`/`SILVER_OUTPUT_DIR` (fail-fast: `wikidata.ingest`/`wikidata.silver`'s entrypoints raise a clear error naming the missing variable if `.env` isn't set up).
 
 ## Running
 
 ```bash
-uv run python -m wikidata.bronze
+uv run python -m wikidata.ingest
 ```
 
 writes `wikidata_genre_tree.parquet` (git-ignored) to `BRONZE_OUTPUT_DIR`. Then:
@@ -66,7 +66,7 @@ uv run python -m wikidata.profile_silver
 
 ## Testing
 
-Unit tests (`tests/test_wikidata_client.py`, `tests/test_bronze.py`, `tests/test_silver.py`) mock the HTTP layer — no network needed. `tests/test_integration_wikidata.py` is marked `@pytest.mark.integration` and calls the live Wikidata endpoint.
+Unit tests (`tests/test_wikidata_client.py`, `tests/test_ingest.py`, `tests/test_silver.py`) mock the HTTP layer — no network needed. `tests/test_integration_wikidata.py` is marked `@pytest.mark.integration` and calls the live Wikidata endpoint.
 
 ```bash
 uv run pytest -m "not integration"   # unit tests, no network needed

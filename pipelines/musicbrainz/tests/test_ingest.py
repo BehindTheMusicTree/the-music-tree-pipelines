@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from musicbrainz import bronze as bm
+from musicbrainz import ingest as bm
 
 
 def test_ingest_table_rejects_unknown_table(tmp_path: Path) -> None:
