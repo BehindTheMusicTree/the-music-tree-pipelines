@@ -77,7 +77,7 @@ single row with `parent_id`/`parent_label` both null.
 | parent_label  | str?   | English label for `parent_id`, or null                |
 
 **Deliberate deviation from the raw query response**: Wikidata's SPARQL results return full
-entity URIs (`http://www.wikidata.org/entity/Q11399`), not bare QIDs — `bronze.py`
+entity URIs (`http://www.wikidata.org/entity/Q11399`), not bare QIDs — `ingest.py`
 strips the `http://www.wikidata.org/entity/` prefix before writing Parquet, since the QID is the
 natural join key and the full URI is otherwise dead weight. Labels are passed through as-is.
 

@@ -24,7 +24,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 
 ## Commands
 
-- **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.bronze` / `uv run --package wikidata python -m wikidata.bronze`
+- **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.ingest` / `uv run --package wikidata python -m wikidata.ingest`
 - **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` (reads `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet`, writes `SILVER_OUTPUT_DIR/1_classification.parquet`)
 - **Lint (matches CI):** `ruff check .` / format: `ruff format .` (line-length 120)
 - **Unit tests only:** `pytest -m "not integration"`
@@ -35,7 +35,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 ## Architecture
 
 **Bronze layer only, per pipeline:**
-- `musicbrainz`: connects to Postgres via `psycopg`, reads each of the 4 raw tables with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{bronze.py,db.py}`.
+- `musicbrainz`: connects to Postgres via `psycopg`, reads each of the 4 raw tables with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{ingest.py,db.py}`.
 - `wikidata`: queries the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`) live — no local DB. Pulls every item classified `P31` "instance of" music genre (`Q188451`) plus each genre's direct `P279` "subclass of" parent edges (unfiltered — pruning to genre-only parents is Silver-layer work), writes `wikidata_genre_tree.parquet`. See `pipelines/wikidata/src/wikidata/wikidata_client.py`.
 
 **Silver layer, `wikidata` (`pipelines/wikidata/src/wikidata/silver.py`):** `1_classification` reads the Bronze genre-tree Parquet and adds `is_genre`/`exclusion_reason` columns, flagging (not dropping) rows whose `item_label` is a Wikidata "music of \<place\>" regional-overview article rather than an actual genre. See `pipelines/wikidata/SCHEMA.md#silver` for the full rule set and rationale. Numbered filename (`1_classification.parquet`) anticipates further Silver steps for this pipeline.
