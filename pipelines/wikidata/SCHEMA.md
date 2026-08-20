@@ -161,3 +161,21 @@ all (e.g. "opera" → "composed musical work").
 still be allowed to count as a legitimate hierarchy parent for some other genre? For now it does
 not — `parent_is_genre` is `False` for such edges — but this is worth revisiting once a concrete
 hierarchy-building step needs the answer.
+
+**Data profile (as of this writing):**
+
+| Metric                           |  Rows |
+| --------------------------------- | ----: |
+| Total                             | 9,722 |
+| `parent_is_genre = true`          | 6,247 |
+| `parent_is_genre = false`         | 2,987 |
+| `parent_is_genre = null` (root, no parent) |   488 |
+
+Non-genre parents span both a genre item excluded by step 1 (e.g. an edge into "music of
+Tanzania") and a parent that was never in Bronze's `P31` "music genre" extension at all (e.g.
+"national song" → "national anthem", "Renaissance music" → "Renaissance art") — both count as
+`parent_is_genre = false` under the rule above.
+
+Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
+`SILVER_OUTPUT_DIR/2_genre_parents.parquet`, read-only, no new data fetched) — these numbers will
+drift as Wikidata's live genre tree changes.
