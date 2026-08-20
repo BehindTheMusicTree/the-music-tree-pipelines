@@ -74,8 +74,9 @@ like "popular music", not back to the "music genre" class they're an _instance_ 
 edges routinely point at non-genre classes too — e.g. "opera" (`Q1344`) is `P279` both "classical
 music" and "composed musical work" (`Q207628`, not itself `P31` music genre). Bronze ingests this
 raw and unfiltered, consistent with the "as-is" bronze principle used for MusicBrainz's tables
-(see [`../musicbrainz/SCHEMA.md`](../musicbrainz/SCHEMA.md)); pruning to genre-only parents, if
-needed, is Silver-layer work. An item with neither a `P279` nor a `P361` parent (a root, ~488 of
+(see [`../musicbrainz/SCHEMA.md`](../musicbrainz/SCHEMA.md)); flagging genre-only parents is
+Silver-layer work — see [`2_genre_parents`](#2_genre_parents) below. An item with neither a `P279`
+nor a `P361` parent (a root, ~488 of
 them as of this writing — down from ~510 pre-`P361`, since 22 formerly-root items turned out to
 have only a `P361` parent) gets a single row with `parent_id`/`parent_label`/`relation_type` all
 null.
@@ -98,8 +99,14 @@ A multi-parent item (Wikidata classes aren't a strict tree — a genre can have 
 
 ## Silver
 
-`1_classification.parquet`, produced by `wikidata.silver`: the Bronze edge list unchanged,
-plus two columns classifying each row's `item_id` as a real genre or not.
+Both steps below are produced by `wikidata.silver` and preserve the Bronze edge-list grain 1:1
+(`item_id` still not unique) — neither drops rows; downstream consumers filter on the added
+columns themselves.
+
+### 1_classification
+
+`1_classification.parquet`: the Bronze edge list unchanged, plus two columns classifying each
+row's `item_id` as a real genre or not.
 
 | Column           | Type | Meaning                                                                  |
 | ---------------- | ---- | ------------------------------------------------------------------------ |
@@ -123,9 +130,6 @@ forms/techniques like "fugue" or "polyphony", ensemble/format labels like "big b
 aren't covered here yet — they don't reduce to one clean, false-positive-free rule the way
 `regional_overview` does, and are left for a later Silver step.
 
-Rows are preserved 1:1 from Bronze (same edge-list grain, `item_id` still not unique) so this step
-never drops data — downstream consumers filter on `is_genre` themselves.
-
 **Data profile (as of this writing):**
 
 | Metric                                   |  Rows | Distinct `item_id`s |
@@ -134,6 +138,44 @@ never drops data — downstream consumers filter on `is_genre` themselves.
 | `is_genre = true`                        | 9,321 |               6,038 |
 | `is_genre = false` (`regional_overview`) |   401 |                 299 |
 
-Regenerate with `uv run --package wikidata python -m wikidata.profile_silver` (reads
+Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/1_classification.parquet`, read-only, no new data fetched) — these numbers will
+drift as Wikidata's live genre tree changes.
+
+### 2_genre_parents
+
+`2_genre_parents.parquet`: `1_classification.parquet` unchanged, plus one column flagging whether
+each row's `parent_id` is itself a real genre.
+
+| Column          | Type  | Meaning                                                                            |
+| --------------- | ----- | ----------------------------------------------------------------------------------- |
+| parent_is_genre | bool? | Whether `parent_id` is `is_genre = True` in `1_classification`; null for root rows (`parent_id` is null) |
+
+**Rule:** a parent counts as a genre only if it is flagged `is_genre = True` by `1_classification`
+— not merely present in Bronze's raw `P31` "music genre" extension. This keeps the two Silver
+steps agreeing with each other: an edge into a `regional_overview` item like "music of Kenya" is
+`parent_is_genre = False`, the same as an edge into a concept that was never `P31` "music genre" at
+all (e.g. "opera" → "composed musical work").
+
+**Open question, not resolved here:** should an item excluded by step 1 (e.g. `regional_overview`)
+still be allowed to count as a legitimate hierarchy parent for some other genre? For now it does
+not — `parent_is_genre` is `False` for such edges — but this is worth revisiting once a concrete
+hierarchy-building step needs the answer.
+
+**Data profile (as of this writing):**
+
+| Metric                           |  Rows |
+| --------------------------------- | ----: |
+| Total                             | 9,722 |
+| `parent_is_genre = true`          | 6,247 |
+| `parent_is_genre = false`         | 2,987 |
+| `parent_is_genre = null` (root, no parent) |   488 |
+
+Non-genre parents span both a genre item excluded by step 1 (e.g. an edge into "music of
+Tanzania") and a parent that was never in Bronze's `P31` "music genre" extension at all (e.g.
+"national song" → "national anthem", "Renaissance music" → "Renaissance art") — both count as
+`parent_is_genre = false` under the rule above.
+
+Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
+`SILVER_OUTPUT_DIR/2_genre_parents.parquet`, read-only, no new data fetched) — these numbers will
 drift as Wikidata's live genre tree changes.

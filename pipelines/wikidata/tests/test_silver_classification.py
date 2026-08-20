@@ -2,7 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
-from wikidata import silver as sw
+from wikidata.silver import classification as sc
 
 BRONZE_ROWS = [
     {"item_id": "Q11399", "item_label": "rock music", "parent_id": "Q9778", "parent_label": "popular music"},
@@ -20,7 +20,7 @@ def test_classify_genre_tree_flags_regional_overview_items(tmp_path: Path) -> No
     bronze_path = _write_bronze(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sw.classify_genre_tree(bronze_path, output_dir)
+    result = sc.classify_genre_tree(bronze_path, output_dir)
 
     assert result == output_dir / "1_classification.parquet"
     rows = pl.read_parquet(result).sort("item_id").to_dicts()
@@ -48,6 +48,6 @@ def test_classify_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     bronze_path = _write_bronze(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sw.classify_genre_tree(bronze_path, output_dir)
+    sc.classify_genre_tree(bronze_path, output_dir)
 
     assert output_dir.is_dir()

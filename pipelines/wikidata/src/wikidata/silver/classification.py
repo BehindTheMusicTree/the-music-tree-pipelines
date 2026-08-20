@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 import polars as pl
-from common.env import load_pipeline_env, require_env
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +29,3 @@ def classify_genre_tree(bronze_path: Path, output_dir: Path) -> Path:
     logger.info("wrote %d rows to %s (%d excluded)", df.height, output_path, df.filter(~pl.col("is_genre")).height)
 
     return output_path
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    load_pipeline_env(__file__)
-    bronze_dir = Path(require_env("BRONZE_OUTPUT_DIR"))
-    silver_dir = Path(require_env("SILVER_OUTPUT_DIR"))
-    classify_genre_tree(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
