@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pipelines/wikidata/notebooks/explore_genre_tree.ipynb`: exploratory notebook over the local Bronze genre tree — `relation_type` breakdown, root/multi-parent items, and a `networkx`/`matplotlib` neighborhood graph plot. New `notebook` uv dependency group (`jupyter`, `ipykernel`, `networkx`, `matplotlib`), kept separate from `dev` so it isn't installed in CI or production.
 - `nbstripout` pre-commit hook: strips notebook cell outputs before commit, so committed `.ipynb` diffs stay limited to actual code/markdown changes instead of churning on re-executed outputs.
 - `wikidata` Silver layer, `2_genre_parents`: adds a `parent_is_genre` column flagging whether each edge's `parent_id` is itself flagged `is_genre = True` by `1_classification` (not just present in Bronze's raw `P31` extension) — lets a later hierarchy-building step filter to genre-only edges without redoing classification. Flag-only, no rows dropped. `wikidata.silver.profile` now also prints its breakdown. See `SCHEMA.md#silver`.
+- `pipelines/wikidata/notebooks/explore_genre_tree.ipynb`: new "Silver exploration" section reading `2_genre_parents.parquet` — `is_genre`/`exclusion_reason` breakdown, sample excluded items, and `parent_is_genre` breakdown with sample non-genre-parent edges.
 
 ### Changed
 
