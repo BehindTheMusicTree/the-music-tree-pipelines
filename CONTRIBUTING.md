@@ -113,6 +113,7 @@ See [CHANGELOG.md](CHANGELOG.md) for format examples.
 - **No comments** unless the *why* is non-obvious
 - **No dead code** — remove unused variables, imports, and functions
 - **Dependency pinning** — exact-pin (`==`) runtime and dev dependencies for reproducibility; use a minimum constraint (`>=`) for the `[build-system]` backend, since it's only invoked transiently during the build and exact-pinning it risks breakage if that version is yanked
+- **One file per Silver step** — each Silver step lives in its own module inside a `<pipeline>/silver/` package, named after what it does (e.g. `wikidata/silver/classification.py`, `wikidata/silver/genre_parents.py`), not lumped into a single catch-all `silver.py`. The module name matches the step's output filename minus its numeric prefix (`classification.py` → `1_classification.parquet`), so the two are easy to correlate. A `silver/__main__.py` chains the steps in order so `python -m <pipeline>.silver` still runs the whole layer in one command. Mirror the split in tests: one `test_silver_<step>.py` per step module.
 
 ## License
 

@@ -19,6 +19,7 @@ data/
 # Pipeline outputs (bronze/silver parquet)
 bronze/
 silver/
+!pipelines/*/src/*/silver/
 
 # Local scratch files (e.g. generated PR descriptions)
 .local/

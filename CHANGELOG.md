@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renamed `musicbrainz.bronze_musicbrainz` → `musicbrainz.ingest`, `wikidata.bronze_wikidata` → `wikidata.ingest`, and `wikidata.silver_wikidata` → `wikidata.silver`. Each pipeline now lives in its own package (`pipelines/musicbrainz`, `pipelines/wikidata`), so the source-disambiguating suffix from when both were modules inside one shared package no longer applies; the Bronze module is further renamed to `ingest` since `bronze` only restated the layer it already lives in.
+- `wikidata.silver` is now a package, one module per Silver step (`silver/classification.py`, `silver/genre_parents.py`) instead of a single flat `silver.py`, with `silver/__main__.py` chaining them so `python -m wikidata.silver` still runs the whole layer. Tests mirror the split (`test_silver_classification.py`, `test_silver_genre_parents.py`). See `CONTRIBUTING.md#code-style` for the naming convention.
 
 ## [0.1.2] - 2026-08-19
 
