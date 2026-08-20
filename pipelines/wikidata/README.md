@@ -64,6 +64,17 @@ For row/item counts and the `exclusion_reason` breakdown (see [SCHEMA.md#silver]
 uv run python -m wikidata.profile_silver
 ```
 
+## Notebooks
+
+`notebooks/explore_genre_tree.ipynb` — tabular and graph exploration of the Bronze genre tree (relation-type breakdown, root/multi-parent items, a `networkx`/`matplotlib` neighborhood plot). Reads the local `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet` — no live SPARQL calls, so run `wikidata.ingest` first (see [Running](#running)).
+
+Install the notebook tooling (a separate `notebook` dependency group, not part of the default/CI install) and launch:
+
+```bash
+uv sync --group notebook
+uv run --group notebook jupyter lab pipelines/wikidata/notebooks/
+```
+
 ## Testing
 
 Unit tests (`tests/test_wikidata_client.py`, `tests/test_ingest.py`, `tests/test_silver.py`) mock the HTTP layer — no network needed. `tests/test_integration_wikidata.py` is marked `@pytest.mark.integration` and calls the live Wikidata endpoint.

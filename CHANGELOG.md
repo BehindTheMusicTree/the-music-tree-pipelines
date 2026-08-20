@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `wikidata` Silver layer, `1_classification`: flags each Bronze genre-tree row `is_genre`/`exclusion_reason`, excluding Wikidata's "music of \<place\>" regional-overview items (~300 of ~6,300) that were being misclassified as music genres by the `P31` source query.
 - `wikidata.profile_silver`: read-only script printing row/item counts and the `exclusion_reason` breakdown for `1_classification.parquet` — see `SCHEMA.md#silver`'s "Data profile" section.
 - `wikidata` Bronze: also ingest each genre's `P361` ("part of") parent edges alongside the existing `P279` ("subclass of") ones, tagged by a new `relation_type` column (`"P279"`/`"P361"`) — `P361` is sparser and noisier than `P279` but captures real subgenre hierarchy `P279` misses entirely (e.g. several juke/footwork/ghetto house subgenres). Root items (no `P279`/`P361` parent) drop from ~510 to ~488, since 22 formerly-root items turn out to have a `P361` parent. See `SCHEMA.md`.
+- `pipelines/wikidata/notebooks/explore_genre_tree.ipynb`: exploratory notebook over the local Bronze genre tree — `relation_type` breakdown, root/multi-parent items, and a `networkx`/`matplotlib` neighborhood graph plot. New `notebook` uv dependency group (`jupyter`, `ipykernel`, `networkx`, `matplotlib`), kept separate from `dev` so it isn't installed in CI or production.
 
 ### Changed
 

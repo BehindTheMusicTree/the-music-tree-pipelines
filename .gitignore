@@ -27,3 +27,6 @@ silver/
 # Coverage reports
 .coverage
 coverage.xml
+
+# Jupyter
+.ipynb_checkpoints/
