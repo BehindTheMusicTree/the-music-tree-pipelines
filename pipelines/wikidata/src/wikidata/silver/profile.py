@@ -9,6 +9,8 @@ from pathlib import Path
 import polars as pl
 from common.env import load_pipeline_env, require_env
 
+import wikidata
+
 
 def profile_classification(silver_path: Path) -> None:
     df = pl.read_parquet(silver_path)
@@ -33,7 +35,7 @@ def profile_genre_parents(silver_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    load_pipeline_env(__file__)
+    load_pipeline_env(wikidata.__file__)
     silver_dir = Path(require_env("SILVER_OUTPUT_DIR"))
     profile_classification(silver_dir / "1_classification.parquet")
     profile_genre_parents(silver_dir / "2_genre_parents.parquet")

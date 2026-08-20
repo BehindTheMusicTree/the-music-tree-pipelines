@@ -138,7 +138,7 @@ aren't covered here yet — they don't reduce to one clean, false-positive-free 
 | `is_genre = true`                        | 9,321 |               6,038 |
 | `is_genre = false` (`regional_overview`) |   401 |                 299 |
 
-Regenerate with `uv run --package wikidata python -m wikidata.profile_silver` (reads
+Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/1_classification.parquet`, read-only, no new data fetched) — these numbers will
 drift as Wikidata's live genre tree changes.
 

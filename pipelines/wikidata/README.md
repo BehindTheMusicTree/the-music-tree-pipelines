@@ -62,7 +62,7 @@ duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/2_genre_parents.parquet' WHERE par
 For row/item counts and the `exclusion_reason`/`parent_is_genre` breakdowns (see [SCHEMA.md#silver](SCHEMA.md#silver)):
 
 ```bash
-uv run python -m wikidata.profile_silver
+uv run python -m wikidata.silver.profile
 ```
 
 ## Notebooks
