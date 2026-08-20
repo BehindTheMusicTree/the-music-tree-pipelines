@@ -29,7 +29,7 @@ Independent of the [musicbrainz](../musicbrainz/README.md) pipeline for now: thi
 | Layer  | Contents                                                                 |
 | ------ | ------------------------------------------------------------------------- |
 | Bronze | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars |
-| Silver | `1_classification`: Bronze edges flagged `is_genre`/`exclusion_reason`, filtering out non-genre items (e.g. "music of Kenya") — see [SCHEMA.md](SCHEMA.md#silver) |
+| Silver | `1_classification`: Bronze edges flagged `is_genre`/`exclusion_reason`, filtering out non-genre items (e.g. "music of Kenya"); `2_genre_parents`: adds `parent_is_genre`, flagging edges whose parent isn't itself a real genre — see [SCHEMA.md](SCHEMA.md#silver) |
 
 ## Schema
 
@@ -51,14 +51,15 @@ writes `wikidata_genre_tree.parquet` (git-ignored) to `BRONZE_OUTPUT_DIR`. Then:
 uv run python -m wikidata.silver
 ```
 
-reads that file and writes `1_classification.parquet` (git-ignored) to `SILVER_OUTPUT_DIR`. Query either directly with [DuckDB](https://duckdb.org/), no import step needed:
+reads that file and writes `1_classification.parquet` and `2_genre_parents.parquet` (git-ignored) to `SILVER_OUTPUT_DIR`. Query any of them directly with [DuckDB](https://duckdb.org/), no import step needed:
 
 ```bash
 duckdb -c "SELECT * FROM '<BRONZE_OUTPUT_DIR>/wikidata_genre_tree.parquet' LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/1_classification.parquet' WHERE is_genre LIMIT 10"
+duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/2_genre_parents.parquet' WHERE parent_is_genre LIMIT 10"
 ```
 
-For row/item counts and the `exclusion_reason` breakdown (see [SCHEMA.md#silver](SCHEMA.md#silver)):
+For row/item counts and the `exclusion_reason`/`parent_is_genre` breakdowns (see [SCHEMA.md#silver](SCHEMA.md#silver)):
 
 ```bash
 uv run python -m wikidata.profile_silver
