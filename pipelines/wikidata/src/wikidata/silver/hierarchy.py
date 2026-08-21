@@ -28,11 +28,12 @@ def _prune_canonical(items: pl.DataFrame) -> pl.DataFrame:
 
 
 def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
-    # Unlike the canonical graph, an item whose parent edges all lead outside the regional set
-    # (typically its `regional_overview` seed, e.g. "music of Cape Verde", which isn't a genre
-    # itself) doesn't vanish — it becomes a root of the regional graph instead, so items like morna
-    # still show up somewhere rather than disappearing silently, same as opera-style items do today
-    # in the canonical graph.
+    # `items` here includes the "music of <place>" seed items themselves (they're now regional
+    # genre nodes in their own right, not dropped) alongside actual regional genres, so most items
+    # keep their real parent chain (e.g. morna -> "music of Cape Verde") instead of losing it. An
+    # item whose parent edges all lead outside the regional set entirely (a genuine top-level seed
+    # with no parent at all, e.g. a continent-level "music of X" with nothing above it) still
+    # becomes a root of the regional graph rather than vanishing.
     is_regional_edge = pl.col("parent_id").is_null() | pl.col("parent_is_regional")
     collapsed = _collapse_to_lowest_qid(items.filter(is_regional_edge))
 
@@ -50,17 +51,24 @@ def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
     return pl.concat([collapsed, orphans])
 
 
-def prune_genre_hierarchy(regional_classification_path: Path, output_dir: Path) -> tuple[Path, Path]:
-    logger.info("pruning genre hierarchy from %s", regional_classification_path)
-    df = pl.read_parquet(regional_classification_path)
+def prune_genre_hierarchy(genre_parents_path: Path, output_dir: Path) -> tuple[Path, Path]:
+    logger.info("pruning genre hierarchy from %s", genre_parents_path)
+    df = pl.read_parquet(genre_parents_path)
 
     parent_is_regional = df.select(
         pl.col("item_id").alias("parent_id"), pl.col("is_regional").alias("parent_is_regional")
     ).unique()
-    genre_items = df.filter(pl.col("is_genre")).join(parent_is_regional, on="parent_id", how="left")
 
-    canonical = _prune_canonical(genre_items.filter(~pl.col("is_regional")))
-    regional = _prune_regional(genre_items.filter(pl.col("is_regional")))
+    # Canonical: real genres that are not regional. Regional: everything flagged `is_regional`,
+    # which now includes the "music of <place>" seed items themselves — they're regional genre
+    # nodes here, not dropped, even though `is_genre` is False for them.
+    canonical_items = df.filter(pl.col("is_genre") & ~pl.col("is_regional")).join(
+        parent_is_regional, on="parent_id", how="left"
+    )
+    regional_items = df.filter(pl.col("is_regional")).join(parent_is_regional, on="parent_id", how="left")
+
+    canonical = _prune_canonical(canonical_items)
+    regional = _prune_regional(regional_items)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     canonical_path = output_dir / "4_hierarchy.parquet"
@@ -68,13 +76,13 @@ def prune_genre_hierarchy(regional_classification_path: Path, output_dir: Path) 
     canonical.write_parquet(canonical_path)
     regional.write_parquet(regional_path)
     logger.info(
-        "wrote %d rows to %s (canonical) and %d rows to %s (regional), from %d genre items (%d regional)",
+        "wrote %d rows to %s (canonical, %d items) and %d rows to %s (regional, %d items)",
         canonical.height,
         canonical_path,
+        canonical_items.select("item_id").n_unique(),
         regional.height,
         regional_path,
-        genre_items.select("item_id").n_unique(),
-        genre_items.filter(pl.col("is_regional")).select("item_id").n_unique(),
+        regional_items.select("item_id").n_unique(),
     )
 
     return canonical_path, regional_path

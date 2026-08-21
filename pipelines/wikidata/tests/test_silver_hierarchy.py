@@ -4,7 +4,7 @@ import polars as pl
 
 from wikidata.silver import hierarchy as sh
 
-REGIONAL_CLASSIFICATION_ROWS = [
+GENRE_PARENTS_ROWS = [
     # rock music -> popular music: genre -> genre parent, kept in canonical
     {
         "item_id": "Q11399",
@@ -13,7 +13,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "popular music",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": True,
         "is_regional": False,
         "regional_reason": None,
@@ -26,7 +26,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": None,
         "relation_type": None,
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": None,
         "is_regional": False,
         "regional_reason": None,
@@ -39,12 +39,13 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "composed musical work",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": False,
         "is_regional": False,
         "regional_reason": None,
     },
-    # music of Kenya: non-genre item, dropped even though it's a root
+    # music of Kenya: seed item, no parent of its own — appears as a root of the regional output
+    # (not dropped, not excluded, just no longer a "genre")
     {
         "item_id": "Q3868594",
         "item_label": "music of Kenya",
@@ -52,12 +53,13 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": None,
         "relation_type": None,
         "is_genre": False,
-        "exclusion_reason": "regional_overview",
+        "classification_reason": "regional_overview",
         "parent_is_genre": None,
-        "is_regional": None,
-        "regional_reason": None,
+        "is_regional": True,
+        "regional_reason": "seed",
     },
-    # some subgenre: one genre parent (kept) + one non-genre parent (dropped)
+    # some subgenre: one genre parent (kept) + one non-genre parent (dropped) — canonical only,
+    # is_regional set directly here (this file tests hierarchy.py in isolation, not the cascade)
     {
         "item_id": "Q999999",
         "item_label": "some subgenre",
@@ -65,7 +67,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "rock music",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": True,
         "is_regional": False,
         "regional_reason": None,
@@ -77,7 +79,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "music of Kenya",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": False,
         "is_regional": False,
         "regional_reason": None,
@@ -91,7 +93,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "a genre parent",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": True,
         "is_regional": False,
         "regional_reason": None,
@@ -103,12 +105,12 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "another genre parent",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": True,
         "is_regional": False,
         "regional_reason": None,
     },
-    # music of Cape Verde: regional_overview seed
+    # music of Cape Verde: seed item, no parent of its own — appears as a root of the regional output
     {
         "item_id": "Q1053970",
         "item_label": "music of Cape Verde",
@@ -116,13 +118,13 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": None,
         "relation_type": None,
         "is_genre": False,
-        "exclusion_reason": "regional_overview",
+        "classification_reason": "regional_overview",
         "parent_is_genre": None,
-        "is_regional": None,
-        "regional_reason": None,
+        "is_regional": True,
+        "regional_reason": "seed",
     },
-    # morna: direct regional genre, only parent is the (non-genre) seed itself — excluded from
-    # canonical, and promoted to a root within the regional output rather than vanishing
+    # morna: direct regional genre, only parent is the seed itself — the seed is now a real node in
+    # the regional output, so morna keeps its real parent edge instead of being promoted to a root
     {
         "item_id": "Q1198360",
         "item_label": "morna",
@@ -130,7 +132,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "music of Cape Verde",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": False,
         "is_regional": True,
         "regional_reason": "direct",
@@ -144,7 +146,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "parent_label": "morna",
         "relation_type": "P279",
         "is_genre": True,
-        "exclusion_reason": None,
+        "classification_reason": None,
         "parent_is_genre": True,
         "is_regional": True,
         "regional_reason": "inherited",
@@ -152,17 +154,17 @@ REGIONAL_CLASSIFICATION_ROWS = [
 ]
 
 
-def _write_regional_classification(tmp_path: Path) -> Path:
-    regional_classification_path = tmp_path / "3_regional_classification.parquet"
-    pl.DataFrame(REGIONAL_CLASSIFICATION_ROWS).write_parquet(regional_classification_path)
-    return regional_classification_path
+def _write_genre_parents(tmp_path: Path) -> Path:
+    genre_parents_path = tmp_path / "3_genre_parents.parquet"
+    pl.DataFrame(GENRE_PARENTS_ROWS).write_parquet(genre_parents_path)
+    return genre_parents_path
 
 
 def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> None:
-    regional_classification_path = _write_regional_classification(tmp_path)
+    genre_parents_path = _write_genre_parents(tmp_path)
     output_dir = tmp_path / "silver"
 
-    canonical_path, regional_path = sh.prune_genre_hierarchy(regional_classification_path, output_dir)
+    canonical_path, regional_path = sh.prune_genre_hierarchy(genre_parents_path, output_dir)
 
     assert canonical_path == output_dir / "4_hierarchy.parquet"
     assert regional_path == output_dir / "4_regional_hierarchy.parquet"
@@ -177,7 +179,7 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
         "Q999999": "Q11399",  # non-genre parent edge dropped, genre parent edge survives
         "Q42": "Q9",  # lowest numeric QID wins over Q100
     }
-    # opera (genre -> non-genre parent) and music of Kenya (non-genre item) both vanish entirely
+    # opera (genre -> non-genre parent) and music of Kenya (seed item) both vanish entirely
     assert "Q1344" not in parent_by_item
     assert "Q3868594" not in parent_by_item
     # regional items never appear in the canonical output
@@ -186,19 +188,21 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
 
 
 def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: Path) -> None:
-    regional_classification_path = _write_regional_classification(tmp_path)
+    genre_parents_path = _write_genre_parents(tmp_path)
     output_dir = tmp_path / "silver"
 
-    _, regional_path = sh.prune_genre_hierarchy(regional_classification_path, output_dir)
+    _, regional_path = sh.prune_genre_hierarchy(genre_parents_path, output_dir)
 
     regional_df = pl.read_parquet(regional_path)
     assert regional_df.columns == sh.OUTPUT_COLUMNS
 
     parent_by_item = {row["item_id"]: row["parent_id"] for row in regional_df.to_dicts()}
     assert parent_by_item == {
-        # morna's only parent is the non-genre seed itself, so it's promoted to a root here
-        # instead of vanishing the way opera does in the canonical graph
-        "Q1198360": None,
+        # both seeds are real root nodes in the regional output now, not dropped
+        "Q3868594": None,
+        "Q1053970": None,
+        # morna keeps its real parent edge into the seed instead of being promoted to a root
+        "Q1198360": "Q1053970",
         "Q182142": "Q1198360",  # fado kept under morna
     }
     # non-regional items never appear in the regional output
@@ -207,9 +211,9 @@ def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: 
 
 
 def test_prune_genre_hierarchy_creates_output_dir(tmp_path: Path) -> None:
-    regional_classification_path = _write_regional_classification(tmp_path)
+    genre_parents_path = _write_genre_parents(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sh.prune_genre_hierarchy(regional_classification_path, output_dir)
+    sh.prune_genre_hierarchy(genre_parents_path, output_dir)
 
     assert output_dir.is_dir()

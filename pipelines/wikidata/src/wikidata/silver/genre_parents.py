@@ -6,9 +6,9 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 
-def flag_genre_parents(classification_path: Path, output_dir: Path) -> Path:
-    logger.info("flagging genre-only parents in %s", classification_path)
-    df = pl.read_parquet(classification_path)
+def flag_genre_parents(regional_classification_path: Path, output_dir: Path) -> Path:
+    logger.info("flagging genre-only parents in %s", regional_classification_path)
+    df = pl.read_parquet(regional_classification_path)
 
     genre_ids = df.filter(pl.col("is_genre")).select("item_id").unique().to_series().to_list()
     df = df.with_columns(
@@ -18,7 +18,7 @@ def flag_genre_parents(classification_path: Path, output_dir: Path) -> Path:
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "2_genre_parents.parquet"
+    output_path = output_dir / "3_genre_parents.parquet"
     df.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d non-genre parent edges flagged)",
