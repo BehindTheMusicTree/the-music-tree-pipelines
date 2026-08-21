@@ -34,17 +34,33 @@ def profile_genre_parents(silver_path: Path) -> None:
     print(df.group_by("parent_is_genre").len().sort("len", descending=True))
 
 
-def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path) -> None:
-    parents_df = pl.read_parquet(genre_parents_path)
+def profile_regional_classification(silver_path: Path) -> None:
+    df = pl.read_parquet(silver_path)
+    genre = df.filter(pl.col("is_genre")).select("item_id", "is_regional", "regional_reason").unique(subset="item_id")
+
+    print()
+    print(f"genre items: {genre.height}")
+    print("by is_regional (distinct items):")
+    print(genre.group_by("is_regional").len().sort("len", descending=True))
+    print("by regional_reason (distinct items):")
+    print(genre.group_by("regional_reason").len().sort("len", descending=True))
+
+
+def profile_hierarchy(regional_classification_path: Path, hierarchy_path: Path, regional_hierarchy_path: Path) -> None:
+    parents_df = pl.read_parquet(regional_classification_path)
     hierarchy_df = pl.read_parquet(hierarchy_path)
+    regional_hierarchy_df = pl.read_parquet(regional_hierarchy_path)
 
     genre_items = parents_df.filter(pl.col("is_genre")).select("item_id").unique()
-    surviving_items = hierarchy_df.select("item_id").unique()
+    surviving_items = pl.concat([hierarchy_df.select("item_id"), regional_hierarchy_df.select("item_id")]).unique()
     vanished = genre_items.join(surviving_items, on="item_id", how="anti")
 
     print()
-    print(f"rows: {hierarchy_df.height} ({surviving_items.height} distinct items, {genre_items.height} genre items)")
-    print(f"genre items with zero surviving rows (all parent edges non-genre): {vanished.height}")
+    print(f"canonical rows: {hierarchy_df.height} ({hierarchy_df.select('item_id').n_unique()} distinct items)")
+    print(
+        f"regional rows: {regional_hierarchy_df.height} ({regional_hierarchy_df.select('item_id').n_unique()} distinct items)"
+    )
+    print(f"genre items with zero surviving rows in either output: {vanished.height}")
 
 
 if __name__ == "__main__":
@@ -52,4 +68,9 @@ if __name__ == "__main__":
     silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
     profile_classification(silver_dir / "1_classification.parquet")
     profile_genre_parents(silver_dir / "2_genre_parents.parquet")
-    profile_hierarchy(silver_dir / "2_genre_parents.parquet", silver_dir / "3_hierarchy.parquet")
+    profile_regional_classification(silver_dir / "3_regional_classification.parquet")
+    profile_hierarchy(
+        silver_dir / "3_regional_classification.parquet",
+        silver_dir / "4_hierarchy.parquet",
+        silver_dir / "4_regional_hierarchy.parquet",
+    )
