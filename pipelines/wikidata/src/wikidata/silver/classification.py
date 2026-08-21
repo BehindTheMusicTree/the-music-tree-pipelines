@@ -7,9 +7,11 @@ logger = logging.getLogger(__name__)
 
 # "music of <place>" items are Wikidata's national/regional music overview articles (e.g. "music
 # of Kenya", "music of France") — they're P31 "music genre" in the raw data but describe a
-# country's music scene as a whole, not a genre. ~300 of ~6,300 items as of this writing. Other
-# non-genre categories exist in the Bronze data too (musical forms like "fugue", ensemble/format
-# labels like "big band music") but aren't covered by this first classification pass.
+# country's music scene as a whole, not a genre. ~300 of ~6,300 items as of this writing. These are
+# also the seed set the "3_regional_classification" step propagates "is_regional" down from — any
+# genre item with a parent edge into one of these becomes a regional genre (e.g. "morna", "fado").
+# Other non-genre categories exist in the Bronze data too (musical forms like "fugue",
+# ensemble/format labels like "big band music") but aren't covered by this first classification pass.
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
 
