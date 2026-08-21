@@ -336,3 +336,12 @@ will drift as Wikidata's live genre tree changes.
 > (e.g. stage 2's lowest-QID collapse severing an item from its more meaningful parent) is not yet
 > determined — see `pipelines/wikidata/notebooks/explore_genre_tree.ipynb` for the current
 > exploration of these roots' relevance.
+>
+> **Ruled out:** `?item wdt:P279 wd:Q188451` (items directly subclass-of "music genre" itself,
+> rather than `P31`-instance-of it) was considered as an alternate, smaller root/seed list. Live
+> Wikidata returns only 12 items, not a clean top-level genre list — one is unrelated ("game
+> piece"), two are specific traditions rather than roots ("gharana", "palo"), and seven are
+> meta-classes describing a *category of genre* (e.g. "jazz genre", "rock genre") rather than the
+> genre item itself (jazz music is the separate `P31` instance `Q1298934`, not this `P279`
+> subclass). No prior art found for using this pattern to seed a Wikidata music genre tree. Doesn't
+> resolve the root-count question above.
