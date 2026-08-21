@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `musicbrainz.bronze_musicbrainz` → `musicbrainz.ingest`, `wikidata.bronze_wikidata` → `wikidata.ingest`, and `wikidata.silver_wikidata` → `wikidata.silver`. Each pipeline now lives in its own package (`pipelines/musicbrainz`, `pipelines/wikidata`), so the source-disambiguating suffix from when both were modules inside one shared package no longer applies; the Bronze module is further renamed to `ingest` since `bronze` only restated the layer it already lives in.
 - `wikidata.silver` is now a package, one module per Silver step (`silver/classification.py`, `silver/genre_parents.py`) instead of a single flat `silver.py`, with `silver/__main__.py` chaining them so `python -m wikidata.silver` still runs the whole layer. `wikidata.profile_silver` moved to `silver/profile.py` (`python -m wikidata.silver.profile`) alongside the steps it profiles. Tests mirror the split (`test_silver_classification.py`, `test_silver_genre_parents.py`). See `CONTRIBUTING.md#code-style` for the naming convention.
 
+### Documentation
+
+- Investigated `?item wdt:P279 wd:Q188451` (items directly subclass-of "music genre" itself, as opposed to the existing `P31`-instance-of query used to build the genre set) as a possible alternative root/seed list for the canonical hierarchy, prompted by `4_hierarchy`'s high root-item count. Rejected: live Wikidata returns only 12 items, not a clean top-level genre list — one is unrelated ("game piece"), two are specific traditions rather than roots ("gharana", "palo"), and seven are meta-classes describing a *category of genre* (e.g. "jazz genre", "rock genre") rather than the genre item itself (e.g. jazz music is `Q1298934`, a separate `P31` instance, not this `P279` subclass). No prior art found for using this pattern to seed a Wikidata music genre tree. Doesn't change the exploration-phase root-count question tracked in `SCHEMA.md#4_hierarchy`.
+
 ## [0.1.2] - 2026-08-19
 
 ### Fixed

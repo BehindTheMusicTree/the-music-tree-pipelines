@@ -22,8 +22,9 @@ MUSIC_GENRE_QID = "Q188451"
 # genre, P279/P361 tell us HOW two genres relate to each other. We therefore query
 # P31 to find every genre item, and separately query each genre's own direct
 # P279/P361 edges to find its parent(s) — never P31 for the parent edges, and never
-# a P279 walk to find the genre set (a P279* walk from "music genre" itself finds
-# only ~14 meta-category items like "rock genre", not real genres — see SCHEMA.md).
+# a P279 walk to find the genre set (a direct P279 query against "music genre"
+# itself finds only 12 items, mostly meta-categories like "rock genre" rather
+# than real genres — see SCHEMA.md).
 #
 # For each genre, we ingest its direct P279 ("subclass of") and P361 ("part of")
 # parent(s), tagging each edge with ?relation so the two relationship types
