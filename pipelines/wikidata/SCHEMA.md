@@ -345,3 +345,12 @@ will drift as Wikidata's live genre tree changes.
 > genre item itself (jazz music is the separate `P31` instance `Q1298934`, not this `P279`
 > subclass). No prior art found for using this pattern to seed a Wikidata music genre tree. Doesn't
 > resolve the root-count question above.
+>
+> **Target shape (design intent, not yet reached):** the canonical tree should collapse down to a
+> handful of root genre families — rock, blues, jazz, funk/disco, electronic, hip-hop, reggae/dub,
+> classical music, etc. — not the hundreds of roots it currently produces. Getting there is expected
+> to be mostly a linking/cleaning problem (correcting mis-collapsed parent edges, e.g. the
+> multi-parent lowest-QID heuristic above) rather than a new extraction or classification mechanism.
+> `4_regional_hierarchy` follows different logic entirely and is **not** expected to converge to a
+> small root count: one root per cultural/geographic region (e.g. "music of Cape Verde"), with that
+> region's own genres nested underneath it.

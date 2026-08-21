@@ -31,6 +31,8 @@ Independent of the [musicbrainz](../musicbrainz/README.md) pipeline for now: thi
 | Bronze | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars |
 | Silver | `1_genre_classification`: Bronze edges flagged `is_genre`/`classification_reason`, tagging (not dropping) non-genre items (e.g. "music of Kenya"); `2_regional_classification`: adds `is_regional`/`regional_reason`, cascading regional status (e.g. morna, fado) down from `regional_overview` seeds, which are themselves flagged `is_regional`/`"seed"`; `3_genre_parents`: adds `parent_is_genre`, flagging edges whose parent isn't itself a real genre; `4_hierarchy`: prunes to two clean, one-parent-per-item edge lists — canonical (`4_hierarchy.parquet`) and regional (`4_regional_hierarchy.parquet`) — with a provisional lowest-QID heuristic for multi-parent items — see [SCHEMA.md](SCHEMA.md#silver) |
 
+**Target shape (design intent, not yet reached):** the canonical tree should collapse to a handful of root genre families (rock, blues, jazz, funk/disco, electronic, hip-hop, reggae/dub, classical music, etc.), not the hundreds of roots it currently produces — mostly a linking/cleaning problem, not a new extraction mechanism. The regional tree follows different logic: one root per cultural/geographic region, with that region's genres nested underneath. See [SCHEMA.md#4_hierarchy](SCHEMA.md#4_hierarchy)'s "Under exploration" callout.
+
 ## Schema
 
 See [SCHEMA.md](SCHEMA.md) for the data dictionary and lineage notes.
