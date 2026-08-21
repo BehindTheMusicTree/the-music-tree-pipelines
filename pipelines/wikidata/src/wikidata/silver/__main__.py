@@ -15,4 +15,4 @@ silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT
 classification_path = classify_genre_tree(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
 genre_parents_path = flag_genre_parents(classification_path, silver_dir)
 regional_classification_path = classify_regional_genres(genre_parents_path, silver_dir)
-prune_genre_hierarchy(genre_parents_path, silver_dir)
+prune_genre_hierarchy(regional_classification_path, silver_dir)
