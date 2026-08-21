@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A `uv` workspace monorepo of data pipelines feeding the BTMT (Behind The Music Tree) ecosystem. Each pipeline is an independent workspace member under `pipelines/`, sharing only the `common` package. All pipelines implement a **Bronze layer** (raw extraction to Parquet); a **Silver layer** (cleaned, joined, hierarchy-built data) has just started for `wikidata` (`1_classification` — see below), and is not yet built for `musicbrainz`. Gold layer is planned but not yet built.
+A `uv` workspace monorepo of data pipelines feeding the BTMT (Behind The Music Tree) ecosystem. Each pipeline is an independent workspace member under `pipelines/`, sharing only the `common` package. All pipelines implement a **Bronze layer** (raw extraction to Parquet); a **Silver layer** (cleaned, joined, hierarchy-built data) is underway for `wikidata` (four steps, `1_genre_classification` → `4_hierarchy` — see below), and is not yet built for `musicbrainz`. Gold layer is planned but not yet built.
 
 - `pipelines/common` — shared utilities (currently just per-pipeline `.env` loading).
 - `pipelines/musicbrainz` — Bronze ingestion from a Postgres MusicBrainz mirror (4 tables: `recording`, `tag`, `recording_tag`, `genre`).
-- `pipelines/wikidata` — Bronze ingestion of the music-genre tree from the live Wikidata SPARQL endpoint, plus a Silver `1_classification` step that flags non-genre items (e.g. "music of Kenya") in that tree.
+- `pipelines/wikidata` — Bronze ingestion of the music-genre tree from the live Wikidata SPARQL endpoint, plus a Silver pipeline (`wikidata.silver`) that classifies and prunes that tree down to canonical and regional genre hierarchies.
 
 The two pipelines are independent of each other for now (no cross-pipeline joins yet).
 
@@ -25,7 +25,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 ## Commands
 
 - **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.ingest` / `uv run --package wikidata python -m wikidata.ingest`
-- **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` (reads `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet`, writes `SILVER_OUTPUT_DIR/1_classification.parquet`)
+- **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` (reads `BRONZE_OUTPUT_DIR/wikidata_genre_tree.parquet`, runs all four steps in sequence, writes `SILVER_OUTPUT_DIR/1_genre_classification.parquet`, `2_regional_classification.parquet`, `3_genre_parents.parquet`, `4_hierarchy.parquet`, and `4_regional_hierarchy.parquet`)
 - **Lint (matches CI):** `ruff check .` / format: `ruff format .` (line-length 120)
 - **Unit tests only:** `pytest -m "not integration"`
 - **Integration tests** (needs live Postgres sample DB / live Wikidata SPARQL): `pytest -m integration`
@@ -38,7 +38,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 - `musicbrainz`: connects to Postgres via `psycopg`, reads each of the 4 raw tables with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{ingest.py,db.py}`.
 - `wikidata`: queries the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`) live — no local DB. Pulls every item classified `P31` "instance of" music genre (`Q188451`) plus each genre's direct `P279` "subclass of" parent edges (unfiltered — pruning to genre-only parents is Silver-layer work), writes `wikidata_genre_tree.parquet`. See `pipelines/wikidata/src/wikidata/wikidata_client.py`.
 
-**Silver layer, `wikidata` (`pipelines/wikidata/src/wikidata/silver.py`):** `1_classification` reads the Bronze genre-tree Parquet and adds `is_genre`/`exclusion_reason` columns, flagging (not dropping) rows whose `item_label` is a Wikidata "music of \<place\>" regional-overview article rather than an actual genre. See `pipelines/wikidata/SCHEMA.md#silver` for the full rule set and rationale. Numbered filename (`1_classification.parquet`) anticipates further Silver steps for this pipeline.
+**Silver layer, `wikidata` (`pipelines/wikidata/src/wikidata/silver/`):** four sequential steps, each reading the previous step's output. `1_genre_classification` flags (not drops) rows whose `item_label` is a Wikidata "music of \<place\>" regional-overview article (e.g. "music of Kenya") rather than an actual genre. `2_regional_classification` cascades that seed set down through parent edges to flag every nationally/ethnically-specific genre (e.g. "fado", "morna") as regional, as opposed to canonical genres like "rock music". `3_genre_parents` flags whether each row's parent is itself a real genre. `4_hierarchy` is the first step that prunes rather than flags: it collapses the edge list to one row per genre item and splits it into two outputs — `4_hierarchy.parquet` (canonical, excludes regional items) and `4_regional_hierarchy.parquet` (regional items only). See `pipelines/wikidata/SCHEMA.md#silver` for the full column definitions, rules, and profiling detail — several rules (e.g. the regional cascade's seed set, the multi-parent collapse heuristic) are explicitly marked provisional/exploration-phase there.
 
 Planned Silver layer for `musicbrainz` (`recording_genre`, `genre_hierarchy`, `recording_genre_path`) is not yet built.
 
