@@ -8,15 +8,31 @@ USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/th
 
 MUSIC_GENRE_QID = "Q188451"
 
-# Every item classified P31 "instance of" music genre (the class extension — P279 chains from a
-# genre don't reliably converge back to Q188451 itself, e.g. "rock music" P279 "popular music",
-# not "music genre"), plus each genre's direct P279 "subclass of" and P361 "part of" parent(s),
-# tagged by ?relation so the two edge types stay distinguishable downstream. Parents are not
-# restricted to also being a music genre instance — Wikidata's own P279/P361 edges for a genre
-# routinely point at non-genre classes too (e.g. "opera" P279 "composed musical work"), and
-# Bronze ingests that raw, unfiltered; pruning to genre-only parents is Silver-layer work. An
-# item with neither a P279 nor a P361 parent still gets exactly one row, with ?parent/?relation
-# unbound, preserving the pre-P361 "root item" row shape.
+# P31 = "instance of": identifies what an item is
+# (e.g. a specific item is an instance of "music genre").
+#
+# P279 = "subclass of": links a class to a more general class
+# (e.g. "heavy metal" is a subclass of "rock music").
+#
+# P361 = "part of": links an item or class to a broader whole
+# (e.g. a musical style can be part of a broader musical movement).
+#
+# Every item classified as a P31 ("instance of") music genre is ingested.
+# We use P31 rather than P279 chains because subclass paths from a genre
+# do not reliably converge on Q188451 ("music genre") itself
+# (e.g. "rock music" is a P279 subclass of "popular music", not "music genre").
+#
+# For each genre, we ingest its direct P279 ("subclass of") and P361 ("part of")
+# parent(s), tagging each edge with ?relation so the two relationship types
+# remain distinguishable downstream.
+#
+# Parents are not restricted to items that are themselves music genres:
+# Wikidata's raw P279/P361 relationships can point to non-genre classes
+# (e.g. "opera" P279 "composed musical work"). Filtering parents to
+# genre-only items is therefore a Silver-layer responsibility.
+#
+# Genres with neither a P279 nor a P361 parent still produce exactly one row,
+# with ?parent and ?relation unbound, preserving the pre-P361 root-item shape.
 GENRE_TREE_QUERY = f"""
 SELECT ?item ?itemLabel ?parent ?parentLabel ?relation WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID}.
