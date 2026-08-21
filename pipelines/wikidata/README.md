@@ -29,7 +29,7 @@ Independent of the [musicbrainz](../musicbrainz/README.md) pipeline for now: thi
 | Layer  | Contents                                                                 |
 | ------ | ------------------------------------------------------------------------- |
 | Bronze | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars |
-| Silver | `1_classification`: Bronze edges flagged `is_genre`/`exclusion_reason`, filtering out non-genre items (e.g. "music of Kenya"); `2_genre_parents`: adds `parent_is_genre`, flagging edges whose parent isn't itself a real genre; `3_hierarchy`: prunes to a clean genre-only edge list with one parent per item (provisional lowest-QID heuristic) — see [SCHEMA.md](SCHEMA.md#silver) |
+| Silver | `1_classification`: Bronze edges flagged `is_genre`/`exclusion_reason`, filtering out non-genre items (e.g. "music of Kenya"); `2_genre_parents`: adds `parent_is_genre`, flagging edges whose parent isn't itself a real genre; `3_regional_classification`: adds `is_regional`/`regional_reason`, cascading regional status (e.g. morna, fado) down from `regional_overview` seeds; `4_hierarchy`: prunes to two clean, one-parent-per-item edge lists — canonical (`4_hierarchy.parquet`) and regional (`4_regional_hierarchy.parquet`) — with a provisional lowest-QID heuristic for multi-parent items — see [SCHEMA.md](SCHEMA.md#silver) |
 
 ## Schema
 
@@ -51,13 +51,17 @@ writes `wikidata_genre_tree.parquet` (git-ignored) to `BRONZE_OUTPUT_DIR`. Then:
 uv run python -m wikidata.silver
 ```
 
-reads that file and writes `1_classification.parquet`, `2_genre_parents.parquet`, and `3_hierarchy.parquet` (git-ignored) to `SILVER_OUTPUT_DIR`. Query any of them directly with [DuckDB](https://duckdb.org/), no import step needed:
+reads that file and writes `1_classification.parquet`, `2_genre_parents.parquet`,
+`3_regional_classification.parquet`, `4_hierarchy.parquet`, and `4_regional_hierarchy.parquet`
+(git-ignored) to `SILVER_OUTPUT_DIR`. Query any of them directly with [DuckDB](https://duckdb.org/), no import step needed:
 
 ```bash
 duckdb -c "SELECT * FROM '<BRONZE_OUTPUT_DIR>/wikidata_genre_tree.parquet' LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/1_classification.parquet' WHERE is_genre LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/2_genre_parents.parquet' WHERE parent_is_genre LIMIT 10"
-duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/3_hierarchy.parquet' LIMIT 10"
+duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/3_regional_classification.parquet' WHERE is_regional LIMIT 10"
+duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/4_hierarchy.parquet' LIMIT 10"
+duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/4_regional_hierarchy.parquet' LIMIT 10"
 ```
 
 For row/item counts and the `exclusion_reason`/`parent_is_genre` breakdowns (see [SCHEMA.md#silver](SCHEMA.md#silver)):
