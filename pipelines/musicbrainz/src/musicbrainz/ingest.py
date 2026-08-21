@@ -4,7 +4,7 @@ from pathlib import Path
 import psycopg
 import polars as pl
 import pyarrow.parquet as pq
-from common.env import load_pipeline_env, require_env
+from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,6 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
-    output_dir = Path(require_env("BRONZE_OUTPUT_DIR"))
+    output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     with db.connect() as conn:
         run_bronze_ingestion(conn, output_dir)

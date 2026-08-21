@@ -7,7 +7,7 @@ written.
 from pathlib import Path
 
 import polars as pl
-from common.env import load_pipeline_env, require_env
+from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import wikidata
 
@@ -34,8 +34,22 @@ def profile_genre_parents(silver_path: Path) -> None:
     print(df.group_by("parent_is_genre").len().sort("len", descending=True))
 
 
+def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path) -> None:
+    parents_df = pl.read_parquet(genre_parents_path)
+    hierarchy_df = pl.read_parquet(hierarchy_path)
+
+    genre_items = parents_df.filter(pl.col("is_genre")).select("item_id").unique()
+    surviving_items = hierarchy_df.select("item_id").unique()
+    vanished = genre_items.join(surviving_items, on="item_id", how="anti")
+
+    print()
+    print(f"rows: {hierarchy_df.height} ({surviving_items.height} distinct items, {genre_items.height} genre items)")
+    print(f"genre items with zero surviving rows (all parent edges non-genre): {vanished.height}")
+
+
 if __name__ == "__main__":
     load_pipeline_env(wikidata.__file__)
-    silver_dir = Path(require_env("SILVER_OUTPUT_DIR"))
+    silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
     profile_classification(silver_dir / "1_classification.parquet")
     profile_genre_parents(silver_dir / "2_genre_parents.parquet")
+    profile_hierarchy(silver_dir / "2_genre_parents.parquet", silver_dir / "3_hierarchy.parquet")
