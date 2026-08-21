@@ -8,19 +8,22 @@ USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/th
 
 MUSIC_GENRE_QID = "Q188451"
 
-# P31 = "instance of": identifies what an item is
-# (e.g. a specific item is an instance of "music genre").
+# P31 = "instance of": class membership, identifies what an item *is*
+# (e.g. "rock music" P31 "music genre" — this is how we find the full set of genre items).
 #
-# P279 = "subclass of": links a class to a more general class
-# (e.g. "heavy metal" is a subclass of "rock music").
+# P279 = "subclass of": links a class to a more general class, building a taxonomy
+# (e.g. "heavy metal" is a P279 subclass of "metal music", which is itself a P279
+# subclass of "rock music" — a genre can chain through several P279 hops).
 #
-# P361 = "part of": links an item or class to a broader whole
-# (e.g. a musical style can be part of a broader musical movement).
+# P361 = "part of": a part-whole (not is-a) edge, used inconsistently in place of
+# or alongside P279 for what is, in practice, still subgenre-of-genre information.
 #
-# Every item classified as a P31 ("instance of") music genre is ingested.
-# We use P31 rather than P279 chains because subclass paths from a genre
-# do not reliably converge on Q188451 ("music genre") itself
-# (e.g. "rock music" is a P279 subclass of "popular music", not "music genre").
+# P31 and P279/P361 are never interchangeable: P31 tells us an item IS a music
+# genre, P279/P361 tell us HOW two genres relate to each other. We therefore query
+# P31 to find every genre item, and separately query each genre's own direct
+# P279/P361 edges to find its parent(s) — never P31 for the parent edges, and never
+# a P279 walk to find the genre set (a P279* walk from "music genre" itself finds
+# only ~14 meta-category items like "rock genre", not real genres — see SCHEMA.md).
 #
 # For each genre, we ingest its direct P279 ("subclass of") and P361 ("part of")
 # parent(s), tagging each edge with ?relation so the two relationship types
