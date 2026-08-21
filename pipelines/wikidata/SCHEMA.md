@@ -328,3 +328,11 @@ Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (r
 `SILVER_OUTPUT_DIR/3_genre_parents.parquet`, `SILVER_OUTPUT_DIR/4_hierarchy.parquet`, and
 `SILVER_OUTPUT_DIR/4_regional_hierarchy.parquet`, read-only, no new data fetched) — these numbers
 will drift as Wikidata's live genre tree changes.
+
+> ⚠️ **Under exploration:** `4_hierarchy` (canonical) surfaces a high number of root items
+> (`parent_id = null`) — hundreds, not the small handful a genre tree with one or two top-level
+> categories (e.g. "music") would suggest. Whether that many roots is a real property of the source
+> data (genuinely disconnected genre subtrees) or an artifact of upstream pruning/collapse rules
+> (e.g. stage 2's lowest-QID collapse severing an item from its more meaningful parent) is not yet
+> determined — see `pipelines/wikidata/notebooks/explore_genre_tree.ipynb` for the current
+> exploration of these roots' relevance.
