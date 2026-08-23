@@ -127,7 +127,7 @@ these numbers — this table is just the fast top-to-bottom path through the cha
 ### 1_regional_overview_classification
 
 `1_regional_overview_classification.parquet`: the Bronze edge list unchanged, plus two columns classifying
-each row's `item_id` as a real genre or not.
+each row's `item_id` as a caninical genre (`rock`, `new wave`), a regional overview genre (`music of france`, `music of asia`) or a regional genre (`morna`, `salsa`).
 
 | Column                | Type | Meaning                                                                  |
 | --------------------- | ---- | ------------------------------------------------------------------------ |
