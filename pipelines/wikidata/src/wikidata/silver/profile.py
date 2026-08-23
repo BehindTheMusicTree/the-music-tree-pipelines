@@ -66,7 +66,7 @@ def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path, regional_h
 if __name__ == "__main__":
     load_pipeline_env(wikidata.__file__)
     silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
-    profile_genre_classification(silver_dir / "1_genre_classification.parquet")
+    profile_genre_classification(silver_dir / "1_regional_overview_classification.parquet")
     profile_regional_classification(silver_dir / "2_regional_classification.parquet")
     profile_genre_parents(silver_dir / "3_genre_parents.parquet")
     profile_hierarchy(

@@ -70,7 +70,7 @@ GENRE_CLASSIFICATION_ROWS = [
 
 
 def _write_genre_classification(tmp_path: Path) -> Path:
-    genre_classification_path = tmp_path / "1_genre_classification.parquet"
+    genre_classification_path = tmp_path / "1_regional_overview_classification.parquet"
     pl.DataFrame(GENRE_CLASSIFICATION_ROWS).write_parquet(genre_classification_path)
     return genre_classification_path
 

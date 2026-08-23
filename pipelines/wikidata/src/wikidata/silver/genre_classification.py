@@ -33,7 +33,7 @@ def classify_regional_from_overviews(bronze_path: Path, output_dir: Path) -> Pat
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "1_genre_classification.parquet"
+    output_path = output_dir / "1_regional_overview_classification.parquet"
     df.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d tagged non-genre)", df.height, output_path, df.filter(~pl.col("is_genre")).height

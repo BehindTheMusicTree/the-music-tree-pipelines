@@ -22,7 +22,7 @@ def test_classify_genre_tree_flags_regional_overview_items(tmp_path: Path) -> No
 
     result = sc.classify_regional_from_overviews(bronze_path, output_dir)
 
-    assert result == output_dir / "1_genre_classification.parquet"
+    assert result == output_dir / "1_regional_overview_classification.parquet"
     rows = pl.read_parquet(result).sort("item_id").to_dicts()
     assert rows == [
         {
