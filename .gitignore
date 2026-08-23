@@ -17,8 +17,8 @@ data/
 *.sql.gz
 
 # Pipeline outputs (bronze/silver parquet)
-!pipelines/*/silver/
-!pipelines/*/bronze/
+pipelines/*/silver/
+pipelines/*/bronze/
 
 # Local scratch files (e.g. generated PR descriptions)
 .local/
