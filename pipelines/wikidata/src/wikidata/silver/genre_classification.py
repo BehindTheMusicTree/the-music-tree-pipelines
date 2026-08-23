@@ -5,14 +5,20 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
-# "music of <place>" items are Wikidata's national/regional music overview articles (e.g. "music
-# of Kenya", "music of France") — they're P31 "music genre" in the raw data but describe a
-# country's music scene as a whole, not a genre. ~300 of ~6,300 items as of this writing. These are
-# also the seed set the "2_regional_classification" step propagates "is_regional" down from — any
-# genre item with a parent edge into one of these becomes a regional genre (e.g. "morna", "fado"),
-# and the seed items themselves are treated as regional genre nodes there too, not dropped.
-# Other non-genre categories exist in the Bronze data too (musical forms like "fugue",
-# ensemble/format labels like "big band music") but aren't covered by this first classification pass.
+# "music of <place>" items are Wikidata's national/regional music overview
+# articles (e.g. "music of Kenya", "music of France"). Wikidata classifies them
+# as P31 "music genre", and they are kept as genre nodes in our tree. They
+# represent the music of a country or region as a whole rather than a specific
+# musical style. There are ~300 such items among ~6,300 items.
+#
+# These items are also the seeds for "2_regional_classification", which propagates
+# `is_regional` through parent relationships: genres whose parent is one of these
+# items are classified as regional genres (e.g. morna, fado). The seed items
+# themselves are also classified as regional genre nodes.
+#
+# Other non-genre entities are present in the Bronze data, such as musical forms
+# (e.g. fugue) and ensemble/format labels (e.g. big band music), but are not
+# handled by this first classification step.
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
 
