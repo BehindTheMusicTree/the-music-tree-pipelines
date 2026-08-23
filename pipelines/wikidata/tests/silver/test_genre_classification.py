@@ -20,7 +20,7 @@ def test_classify_genre_tree_flags_regional_overview_items(tmp_path: Path) -> No
     bronze_path = _write_bronze(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sc.classify_genre_tree(bronze_path, output_dir)
+    result = sc.classify_regional_from_overviews(bronze_path, output_dir)
 
     assert result == output_dir / "1_genre_classification.parquet"
     rows = pl.read_parquet(result).sort("item_id").to_dicts()
@@ -48,6 +48,6 @@ def test_classify_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     bronze_path = _write_bronze(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sc.classify_genre_tree(bronze_path, output_dir)
+    sc.classify_regional_from_overviews(bronze_path, output_dir)
 
     assert output_dir.is_dir()

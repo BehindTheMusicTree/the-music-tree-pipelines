@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
 
-def classify_genre_tree(bronze_path: Path, output_dir: Path) -> Path:
-    logger.info("classifying %s", bronze_path)
+def classify_regional_from_overviews(bronze_path: Path, output_dir: Path) -> Path:
+    logger.info("classifying regional from overviews %s", bronze_path)
     df = pl.read_parquet(bronze_path)
 
     is_regional_overview = pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
