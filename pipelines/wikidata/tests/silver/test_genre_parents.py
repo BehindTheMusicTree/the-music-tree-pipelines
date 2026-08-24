@@ -5,13 +5,13 @@ import polars as pl
 from wikidata.silver import genre_parents as sg
 
 REGIONAL_CLASSIFICATION_ROWS = [
-    # rock music -> popular music: popular music is a real genre (is_genre=True)
+    # rock music -> popular music: popular music is a real genre (is_regional_overview=False)
     {
         "item_id": "Q11399",
         "item_label": "rock music",
         "parent_id": "Q9778",
         "parent_label": "popular music",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
@@ -22,7 +22,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "popular music",
         "parent_id": None,
         "parent_label": None,
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
@@ -33,7 +33,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "opera",
         "parent_id": "Q207628",
         "parent_label": "composed musical work",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
@@ -44,7 +44,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "some subgenre",
         "parent_id": "Q3868594",
         "parent_label": "music of Kenya",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": True,
         "regional_reason": "direct",
@@ -54,7 +54,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "music of Kenya",
         "parent_id": None,
         "parent_label": None,
-        "is_genre": False,
+        "is_regional_overview": True,
         "classification_reason": "regional_overview",
         "is_regional": True,
         "regional_reason": "seed",
@@ -77,10 +77,10 @@ def test_flag_genre_parents_marks_parent_status(tmp_path: Path) -> None:
     assert result == output_dir / "3_genre_parents.parquet"
     parent_is_genre_by_item = {row["item_id"]: row["parent_is_genre"] for row in pl.read_parquet(result).to_dicts()}
     assert parent_is_genre_by_item == {
-        "Q11399": True,  # parent (popular music) is_genre=True
+        "Q11399": True,  # parent (popular music) is_regional_overview=False
         "Q9778": None,  # root item, no parent
         "Q1344": False,  # parent not in the genre extension at all
-        "Q999999": False,  # parent in the genre extension but is_genre=False
+        "Q999999": False,  # parent in the genre extension but is_regional_overview=True
         "Q3868594": None,  # root item, no parent
     }
 

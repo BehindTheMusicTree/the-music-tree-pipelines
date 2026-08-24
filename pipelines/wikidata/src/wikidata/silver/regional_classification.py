@@ -6,9 +6,9 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 
-def classify_regional_genres(genre_classification_path: Path, output_dir: Path) -> Path:
-    logger.info("classifying regional genres in %s", genre_classification_path)
-    df = pl.read_parquet(genre_classification_path)
+def classify_regional_genres(regional_overview_classification_path: Path, output_dir: Path) -> Path:
+    logger.info("classifying regional genres in %s", regional_overview_classification_path)
+    df = pl.read_parquet(regional_overview_classification_path)
 
     # Seeds: the "music of <place>" items themselves. They're tagged non-genre
     # (classification_reason == "regional_overview") but are not excluded from the regional
@@ -23,14 +23,17 @@ def classify_regional_genres(genre_classification_path: Path, output_dir: Path) 
         df.filter(pl.col("classification_reason") == "regional_overview").select("item_id").unique().to_series()
     )
     direct_ids = set(
-        df.filter(pl.col("is_genre") & pl.col("parent_id").is_in(list(seed_ids))).select("item_id").unique().to_series()
+        df.filter(~pl.col("is_regional_overview") & pl.col("parent_id").is_in(list(seed_ids)))
+        .select("item_id")
+        .unique()
+        .to_series()
     )
 
     regional_ids = set(direct_ids)
     frontier = set(direct_ids)
     while frontier:
         candidates = df.filter(
-            pl.col("is_genre")
+            ~pl.col("is_regional_overview")
             & pl.col("parent_id").is_in(list(frontier))
             & ~pl.col("item_id").is_in(list(regional_ids))
         )
@@ -40,7 +43,7 @@ def classify_regional_genres(genre_classification_path: Path, output_dir: Path) 
     df = df.with_columns(
         is_regional=pl.when(pl.col("item_id").is_in(list(seed_ids)))
         .then(pl.lit(True))
-        .when(~pl.col("is_genre"))
+        .when(pl.col("is_regional_overview"))
         .then(None)
         .otherwise(pl.col("item_id").is_in(list(regional_ids))),
         regional_reason=pl.when(pl.col("item_id").is_in(list(seed_ids)))

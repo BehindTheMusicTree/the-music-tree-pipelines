@@ -13,7 +13,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
-        "is_genre": False,
+        "is_regional_overview": True,
         "classification_reason": "regional_overview",
     },
     # Portuguese folk music: multi-parent — one edge into the seed (direct), one into a clean genre
@@ -24,7 +24,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q2579987",
         "parent_label": "music of Portugal",
         "relation_type": "P279",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
     },
     {
@@ -33,7 +33,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q98528192",
         "parent_label": "European folk music",
         "relation_type": "P279",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
     },
     # fado: two hops from the seed via Portuguese folk music — inherited, not direct
@@ -43,7 +43,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q106556293",
         "parent_label": "Portuguese folk music",
         "relation_type": "P279",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
     },
     # jazz -> popular music: no regional ancestor anywhere, stays clean
@@ -53,7 +53,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q9778",
         "parent_label": "popular music",
         "relation_type": "P279",
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
     },
     # popular music: root item, no parent, clean
@@ -63,14 +63,14 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
-        "is_genre": True,
+        "is_regional_overview": False,
         "classification_reason": None,
     },
 ]
 
 
 def _write_genre_classification(tmp_path: Path) -> Path:
-    genre_classification_path = tmp_path / "1_genre_classification.parquet"
+    genre_classification_path = tmp_path / "1_regional_overview_classification.parquet"
     pl.DataFrame(GENRE_CLASSIFICATION_ROWS).write_parquet(genre_classification_path)
     return genre_classification_path
 

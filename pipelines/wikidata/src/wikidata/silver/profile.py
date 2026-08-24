@@ -12,14 +12,14 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 import wikidata
 
 
-def profile_genre_classification(silver_path: Path) -> None:
+def profile_regional_overview_classification(silver_path: Path) -> None:
     df = pl.read_parquet(silver_path)
-    genre = df.filter(pl.col("is_genre"))
-    tagged = df.filter(~pl.col("is_genre"))
+    genre = df.filter(~pl.col("is_regional_overview"))
+    tagged = df.filter(pl.col("is_regional_overview"))
 
     print(f"rows: {df.height} ({df.select('item_id').n_unique()} distinct items)")
-    print(f"is_genre=True: {genre.height} rows, {genre.select('item_id').n_unique()} distinct items")
-    print(f"is_genre=False: {tagged.height} rows, {tagged.select('item_id').n_unique()} distinct items")
+    print(f"is_regional_overview=False: {genre.height} rows, {genre.select('item_id').n_unique()} distinct items")
+    print(f"is_regional_overview=True: {tagged.height} rows, {tagged.select('item_id').n_unique()} distinct items")
     print()
     print("by classification_reason (rows):")
     print(df.group_by("classification_reason").len().sort("len", descending=True))
@@ -51,7 +51,7 @@ def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path, regional_h
     hierarchy_df = pl.read_parquet(hierarchy_path)
     regional_hierarchy_df = pl.read_parquet(regional_hierarchy_path)
 
-    genre_items = parents_df.filter(pl.col("is_genre")).select("item_id").unique()
+    genre_items = parents_df.filter(~pl.col("is_regional_overview")).select("item_id").unique()
     surviving_items = pl.concat([hierarchy_df.select("item_id"), regional_hierarchy_df.select("item_id")]).unique()
     vanished = genre_items.join(surviving_items, on="item_id", how="anti")
 
@@ -66,7 +66,7 @@ def profile_hierarchy(genre_parents_path: Path, hierarchy_path: Path, regional_h
 if __name__ == "__main__":
     load_pipeline_env(wikidata.__file__)
     silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
-    profile_genre_classification(silver_dir / "1_genre_classification.parquet")
+    profile_regional_overview_classification(silver_dir / "1_regional_overview_classification.parquet")
     profile_regional_classification(silver_dir / "2_regional_classification.parquet")
     profile_genre_parents(silver_dir / "3_genre_parents.parquet")
     profile_hierarchy(
