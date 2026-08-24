@@ -72,13 +72,13 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. 
 ## Running
 
 ```bash
-uv run python -m wikidata.ingest
+uv run --package wikidata python -m wikidata.ingest
 ```
 
 writes `wikidata_genre_tree.parquet` (git-ignored) to `BRONZE_OUTPUT_DIR`. Then:
 
 ```bash
-uv run python -m wikidata.silver
+uv run --package wikidata python -m wikidata.silver
 ```
 
 reads that file and writes `1_regional_overview_classification.parquet`, `2_regional_classification.parquet`,
@@ -97,7 +97,7 @@ duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/4_regional_hierarchy.parquet' LIMI
 For row/item counts and the `classification_reason`/`is_regional`/`parent_is_genre` breakdowns (see [SCHEMA.md#silver](SCHEMA.md#silver)):
 
 ```bash
-uv run python -m wikidata.silver.profile
+uv run --package wikidata python -m wikidata.silver.profile
 ```
 
 ## Notebooks
