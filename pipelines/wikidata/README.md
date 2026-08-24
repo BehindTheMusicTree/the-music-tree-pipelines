@@ -56,9 +56,9 @@ See [SCHEMA.md#4_hierarchy](SCHEMA.md#4_hierarchy)'s "Under exploration" callout
 | Layer  | Job                                  | Contents                                                                                                                                                                                                                                   |
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Bronze | `ingest`                             | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars                                                                                                                         |
-| Silver | `1_regional_overview_classification` | Classifies Bronze edges with `genre_type` and `classification_reason`, tagging items such as "music of Kenya" as regional_overview                                                                                                         |
+| Silver | `1_regional_overview_classification` | Classifies Bronze edges with `is_regional_overview` and `classification_reason`, tagging items such as "music of Kenya" as regional_overview                                                                                              |
 | Silver | `2_regional_classification`          | Adds `is_regional`/`regional_reason`, cascading regional status (e.g. "morna", "fado") from `regional_overview` seeds, which are themselves marked `is_regional`/`seed`                                                                    |
-| Silver | `3_genre_parents`                    | Adds `parent_genre_type`, identifying edges whose parent isn't itself a real genre                                                                                                                                                         |
+| Silver | `3_genre_parents`                    | Adds `parent_is_genre`, identifying edges whose parent isn't itself a real genre                                                                                                                                                            |
 | Silver | `4_hierarchy`                        | Prunes to two clean, one-parent-per-item edge lists — canonical (`4_hierarchy.parquet`) and regional (`4_regional_hierarchy.parquet`) — with a provisional lowest-QID heuristic for multi-parent items — see [SCHEMA.md](SCHEMA.md#silver) |
 
 ## Schema
@@ -87,7 +87,7 @@ reads that file and writes `1_regional_overview_classification.parquet`, `2_regi
 
 ```bash
 duckdb -c "SELECT * FROM '<BRONZE_OUTPUT_DIR>/wikidata_genre_tree.parquet' LIMIT 10"
-duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/1_regional_overview_classification.parquet' WHERE is_genre LIMIT 10"
+duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/1_regional_overview_classification.parquet' WHERE is_regional_overview LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/2_regional_classification.parquet' WHERE is_regional LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/3_genre_parents.parquet' WHERE parent_is_genre LIMIT 10"
 duckdb -c "SELECT * FROM '<SILVER_OUTPUT_DIR>/4_hierarchy.parquet' LIMIT 10"

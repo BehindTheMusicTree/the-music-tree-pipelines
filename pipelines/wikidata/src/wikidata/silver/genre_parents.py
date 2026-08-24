@@ -10,7 +10,7 @@ def flag_genre_parents(regional_classification_path: Path, output_dir: Path) -> 
     logger.info("flagging genre-only parents in %s", regional_classification_path)
     df = pl.read_parquet(regional_classification_path)
 
-    genre_ids = df.filter(pl.col("is_genre")).select("item_id").unique().to_series().to_list()
+    genre_ids = df.filter(~pl.col("is_regional_overview")).select("item_id").unique().to_series().to_list()
     df = df.with_columns(
         parent_is_genre=pl.when(pl.col("parent_id").is_null())
         .then(None)

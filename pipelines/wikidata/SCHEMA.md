@@ -116,7 +116,7 @@ the first where `item_id` is unique — see below.
 
 | Step                                                                        | Reads                                        | Writes                                                                       | Adds                                | Key result (as of this writing)                                                                                                                                                 |
 | --------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`1_regional_overview_classification`](#1_regional_overview_classification) | Bronze `wikidata_genre_tree.parquet`         | `1_regional_overview_classification.parquet`                                 | `is_genre`, `classification_reason` | 401 of 9,724 rows (299 of 6,338 items) tagged `is_genre = false` / `regional_overview` (e.g. "music of Kenya") — not dropped                                                    |
+| [`1_regional_overview_classification`](#1_regional_overview_classification) | Bronze `wikidata_genre_tree.parquet`         | `1_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,724 rows (299 of 6,338 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
 | [`2_regional_classification`](#2_regional_classification)                   | `1_regional_overview_classification.parquet` | `2_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,377 of 6,338 items (~53%) flagged `is_regional` — 299 seed, 1,392 direct, 1,686 inherited (exploration-phase finding, see callout below)                                      |
 | [`3_genre_parents`](#3_genre_parents)                                       | `2_regional_classification.parquet`          | `3_genre_parents.parquet`                                                    | `parent_is_genre`                   | 2,988 of 9,724 rows have a non-genre parent; 488 rows are roots (`parent_is_genre = null`)                                                                                      |
 | [`4_hierarchy`](#4_hierarchy)                                               | `3_genre_parents.parquet`                    | `4_hierarchy.parquet` (canonical), `4_regional_hierarchy.parquet` (regional) | prunes to one row per `item_id`     | canonical: 2,662 final rows from 2,961 items; regional: 3,377 final rows from 3,377 items (seed items are real nodes, not promoted synthetic roots); 299 items vanish from both |
@@ -129,10 +129,10 @@ these numbers — this table is just the fast top-to-bottom path through the cha
 `1_regional_overview_classification.parquet`: the Bronze edge list unchanged, plus two columns classifying
 each row's `item_id` as a caninical genre (`rock`, `new wave`), a regional overview genre (`music of france`, `music of asia`) or a regional genre (`morna`, `salsa`).
 
-| Column                | Type | Meaning                                                                  |
-| --------------------- | ---- | ------------------------------------------------------------------------ |
-| is_genre              | bool | `False` if `item_label` was classified as not a genre                    |
-| classification_reason | str? | Why `is_genre` is `False` (see below), or null when `is_genre` is `True` |
+| Column                | Type | Meaning                                                                                    |
+| --------------------- | ---- | -------------------------------------------------------------------------------------------- |
+| is_regional_overview  | bool | `True` if `item_label` was classified as a regional overview article, not a genre            |
+| classification_reason | str? | Why `is_regional_overview` is `True` (see below), or null when `is_regional_overview` is `False` |
 
 **Why classification is needed:** Wikidata's `P31` "instance of" `Q188451` ("music genre") class
 extension — Bronze's source query — is noisy. It includes items that are not themselves genres,
@@ -159,11 +159,11 @@ aren't covered here yet — they don't reduce to one clean, false-positive-free 
 
 **Data profile (as of this writing):**
 
-| Metric                                   |  Rows | Distinct `item_id`s |
-| ---------------------------------------- | ----: | ------------------: |
-| Total                                    | 9,724 |               6,338 |
-| `is_genre = true`                        | 9,323 |               6,039 |
-| `is_genre = false` (`regional_overview`) |   401 |                 299 |
+| Metric                                        |  Rows | Distinct `item_id`s |
+| ---------------------------------------------- | ----: | ------------------: |
+| Total                                          | 9,724 |               6,338 |
+| `is_regional_overview = false`                 | 9,323 |               6,039 |
+| `is_regional_overview = true` (`regional_overview`) |   401 |                 299 |
 
 Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/1_regional_overview_classification.parquet`, read-only, no new data fetched) — these numbers
@@ -239,9 +239,9 @@ whether each row's `parent_id` is itself a real genre.
 
 | Column          | Type  | Meaning                                                                                                                    |
 | --------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| parent_is_genre | bool? | Whether `parent_id` is `is_genre = True` in `1_regional_overview_classification`; null for root rows (`parent_id` is null) |
+| parent_is_genre | bool? | Whether `parent_id` is `is_regional_overview = False` in `1_regional_overview_classification`; null for root rows (`parent_id` is null) |
 
-**Rule:** a parent counts as a genre only if it is flagged `is_genre = True` by
+**Rule:** a parent counts as a genre only if it is flagged `is_regional_overview = False` by
 `1_regional_overview_classification` — not merely present in Bronze's raw `P31` "music genre" extension. This
 keeps the Silver steps agreeing with each other: an edge into a `regional_overview` item like
 "music of Kenya" is `parent_is_genre = False`, the same as an edge into a concept that was never
@@ -283,7 +283,7 @@ canonical one, excluding every `is_regional = true` item, and a regional one, co
 
 **Rule**, applied in two stages, run separately for the two outputs:
 
-1. **Prune to same-graph edges.** For `4_hierarchy`, keep a row only if `is_genre = True` for the
+1. **Prune to same-graph edges.** For `4_hierarchy`, keep a row only if `is_regional_overview = False` for the
    item itself and it is _not_ `is_regional`, and either `parent_id` is null (a root) or
    `parent_is_genre = True` and the parent is not itself regional. For `4_regional_hierarchy`, keep
    a row only if the item _is_ `is_regional` (seed items included), and either `parent_id` is null
