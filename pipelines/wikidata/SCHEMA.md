@@ -126,18 +126,19 @@ these numbers — this table is just the fast top-to-bottom path through the cha
 
 ### 1_regional_overview_classification
 
-`1_regional_overview_classification.parquet`: the Bronze edge list unchanged, plus two columns classifying
-each row's `item_id` as a caninical genre (`rock`, `new wave`), a regional overview genre (`music of france`, `music of asia`) or a regional genre (`morna`, `salsa`).
+`1_regional_overview_classification.parquet`: `wikidata_genre_tree.parquet` (Bronze) unchanged, plus two
+columns classifying whether each row's `item_id` is a regional-overview article (e.g. "music of Kenya")
+rather than an actual musical style.
 
 | Column                | Type | Meaning                                                                                    |
 | --------------------- | ---- | -------------------------------------------------------------------------------------------- |
-| is_regional_overview  | bool | `True` if `item_label` was classified as a regional overview article, not a genre            |
+| is_regional_overview  | bool | `True` if `item_label` was classified as a regional overview article, not a musical style     |
 | classification_reason | str? | Why `is_regional_overview` is `True` (see below), or null when `is_regional_overview` is `False` |
 
 **Why classification is needed:** Wikidata's `P31` "instance of" `Q188451` ("music genre") class
-extension — Bronze's source query — is noisy. It includes items that are not themselves genres,
-e.g. "music of Kenya" (a country's music scene overview, not a genre). Left unflagged, these would
-pollute any genre hierarchy or genre-matching built on top of this data.
+extension — Bronze's source query — is noisy. It includes items that are not themselves musical
+styles, e.g. "music of Kenya" (a country's music scene overview, not a style). Left unflagged,
+these would pollute any genre hierarchy or genre-matching built on top of this data.
 
 **`classification_reason` values:**
 
@@ -235,13 +236,13 @@ numbers will drift as Wikidata's live genre tree changes.
 ### 3_genre_parents
 
 `3_genre_parents.parquet`: `2_regional_classification.parquet` unchanged, plus one column flagging
-whether each row's `parent_id` is itself a real genre.
+whether each row's `parent_id` is itself an actual musical style.
 
 | Column          | Type  | Meaning                                                                                                                    |
 | --------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
 | parent_is_genre | bool? | Whether `parent_id` is `is_regional_overview = False` in `1_regional_overview_classification`; null for root rows (`parent_id` is null) |
 
-**Rule:** a parent counts as a genre only if it is flagged `is_regional_overview = False` by
+**Rule:** a parent counts as an actual musical style only if it is flagged `is_regional_overview = False` by
 `1_regional_overview_classification` — not merely present in Bronze's raw `P31` "music genre" extension. This
 keeps the Silver steps agreeing with each other: an edge into a `regional_overview` item like
 "music of Kenya" is `parent_is_genre = False`, the same as an edge into a concept that was never

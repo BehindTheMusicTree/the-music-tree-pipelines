@@ -27,7 +27,7 @@ Wikidata's music genre taxonomy (`P279` "subclass of" and `P361` "part of", root
 - **Silver:** four sequential steps refine Bronze into canonical and regional genre hierarchies:
   1. `1_regional_overview_classification` — flags regional-overview articles, e.g. "music of Kenya".
   2. `2_regional_classification` — cascades that flag down to nationally/ethnically-specific genres, e.g. "fado", "morna".
-  3. `3_genre_parents` — flags whether each edge's parent is itself a real genre.
+  3. `3_genre_parents` — flags whether each edge's parent is itself an actual musical style.
   4. `4_hierarchy` — prunes to one row per genre, split into canonical (`4_hierarchy.parquet`) and regional (`4_regional_hierarchy.parquet`) outputs.
 
 See [Pipeline](#pipeline) for exact column names and [SCHEMA.md](SCHEMA.md#silver) for full detail.
@@ -58,7 +58,7 @@ See [SCHEMA.md#4_hierarchy](SCHEMA.md#4_hierarchy)'s "Under exploration" callout
 | Bronze | `ingest`                             | Wikidata's music genre tree (`P279`/`P361` edges), queried live via SPARQL and written as-is to Parquet via Polars                                                                                                                         |
 | Silver | `1_regional_overview_classification` | Classifies Bronze edges with `is_regional_overview` and `classification_reason`, tagging items such as "music of Kenya" as regional_overview                                                                                              |
 | Silver | `2_regional_classification`          | Adds `is_regional`/`regional_reason`, cascading regional status (e.g. "morna", "fado") from `regional_overview` seeds, which are themselves marked `is_regional`/`seed`                                                                    |
-| Silver | `3_genre_parents`                    | Adds `parent_is_genre`, identifying edges whose parent isn't itself a real genre                                                                                                                                                            |
+| Silver | `3_genre_parents`                    | Adds `parent_is_genre`, identifying edges whose parent isn't itself an actual musical style                                                                                                                                                 |
 | Silver | `4_hierarchy`                        | Prunes to two clean, one-parent-per-item edge lists — canonical (`4_hierarchy.parquet`) and regional (`4_regional_hierarchy.parquet`) — with a provisional lowest-QID heuristic for multi-parent items — see [SCHEMA.md](SCHEMA.md#silver) |
 
 ## Schema
