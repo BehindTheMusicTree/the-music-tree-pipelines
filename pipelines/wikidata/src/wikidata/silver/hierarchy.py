@@ -5,7 +5,7 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_COLUMNS = ["item_id", "item_label", "parent_id", "parent_label", "relation_type"]
+OUTPUT_COLUMNS = ["item_id", "item_label", "item_url", "parent_id", "parent_label", "parent_url", "relation_type"]
 
 
 def _collapse_to_lowest_qid(edges: pl.DataFrame) -> pl.DataFrame:
@@ -38,12 +38,13 @@ def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
     collapsed = _collapse_to_lowest_qid(items.filter(is_regional_edge))
 
     orphans = (
-        items.select("item_id", "item_label")
+        items.select("item_id", "item_label", "item_url")
         .unique(subset="item_id")
         .join(collapsed.select("item_id"), on="item_id", how="anti")
         .with_columns(
             parent_id=pl.lit(None, dtype=pl.Utf8),
             parent_label=pl.lit(None, dtype=pl.Utf8),
+            parent_url=pl.lit(None, dtype=pl.Utf8),
             relation_type=pl.lit(None, dtype=pl.Utf8),
         )
         .select(OUTPUT_COLUMNS)
@@ -71,8 +72,8 @@ def prune_genre_hierarchy(genre_parents_path: Path, output_dir: Path) -> tuple[P
     regional = _prune_regional(regional_items)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    canonical_path = output_dir / "4_hierarchy.parquet"
-    regional_path = output_dir / "4_regional_hierarchy.parquet"
+    canonical_path = output_dir / "5_hierarchy.parquet"
+    regional_path = output_dir / "5_regional_hierarchy.parquet"
     canonical.write_parquet(canonical_path)
     regional.write_parquet(regional_path)
     logger.info(

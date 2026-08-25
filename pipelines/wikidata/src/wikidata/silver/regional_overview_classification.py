@@ -11,23 +11,23 @@ logger = logging.getLogger(__name__)
 # (is_regional_overview = True) rather than treating them as genre nodes — they
 # represent the music of a country or region as a whole rather than a specific
 # musical style. They are NOT dropped: they stay in the dataset and later
-# become regional-tree nodes via `is_regional` in step 2. There are ~300 such
+# become regional-tree nodes via `is_regional` in step 3. There are ~300 such
 # items among ~6,300 items.
 #
-# These items are also the seeds for "2_regional_classification", which propagates
+# These items are also the seeds for "3_regional_classification", which propagates
 # `is_regional` through parent relationships: genres whose parent is one of these
 # items are classified as regional genres (e.g. morna, fado). The seed items
 # themselves are also classified as regional genre nodes.
 #
 # Other non-genre entities are present in the Bronze data, such as musical forms
 # (e.g. fugue) and ensemble/format labels (e.g. big band music), but are not
-# handled by this first classification step.
+# handled by this classification step.
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
 
-def classify_regional_from_overviews(bronze_path: Path, output_dir: Path) -> Path:
-    logger.info("classifying regional from overviews %s", bronze_path)
-    df = pl.read_parquet(bronze_path)
+def classify_regional_from_overviews(item_links_path: Path, output_dir: Path) -> Path:
+    logger.info("classifying regional from overviews %s", item_links_path)
+    df = pl.read_parquet(item_links_path)
 
     is_regional_overview = pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
     df = df.with_columns(
@@ -36,7 +36,7 @@ def classify_regional_from_overviews(bronze_path: Path, output_dir: Path) -> Pat
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "1_regional_overview_classification.parquet"
+    output_path = output_dir / "2_regional_overview_classification.parquet"
     df.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d tagged regional overview)",

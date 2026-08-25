@@ -12,6 +12,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q9778",
         "parent_label": "popular music",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q11399",
+        "parent_url": "https://www.wikidata.org/wiki/Q9778",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": True,
@@ -25,6 +27,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q9778",
+        "parent_url": None,
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": None,
@@ -38,6 +42,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q207628",
         "parent_label": "composed musical work",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q1344",
+        "parent_url": "https://www.wikidata.org/wiki/Q207628",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": False,
@@ -52,6 +58,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q3868594",
+        "parent_url": None,
         "is_regional_overview": True,
         "classification_reason": "regional_overview",
         "parent_is_genre": None,
@@ -66,6 +74,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q11399",
         "parent_label": "rock music",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999",
+        "parent_url": "https://www.wikidata.org/wiki/Q11399",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": True,
@@ -78,6 +88,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q3868594",
         "parent_label": "music of Kenya",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999",
+        "parent_url": "https://www.wikidata.org/wiki/Q3868594",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": False,
@@ -92,6 +104,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q100",
         "parent_label": "a genre parent",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q42",
+        "parent_url": "https://www.wikidata.org/wiki/Q100",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": True,
@@ -104,6 +118,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q9",
         "parent_label": "another genre parent",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q42",
+        "parent_url": "https://www.wikidata.org/wiki/Q9",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": True,
@@ -117,6 +133,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q1053970",
+        "parent_url": None,
         "is_regional_overview": True,
         "classification_reason": "regional_overview",
         "parent_is_genre": None,
@@ -131,6 +149,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q1053970",
         "parent_label": "music of Cape Verde",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q1198360",
+        "parent_url": "https://www.wikidata.org/wiki/Q1053970",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": False,
@@ -145,6 +165,8 @@ GENRE_PARENTS_ROWS = [
         "parent_id": "Q1198360",
         "parent_label": "morna",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q182142",
+        "parent_url": "https://www.wikidata.org/wiki/Q1198360",
         "is_regional_overview": False,
         "classification_reason": None,
         "parent_is_genre": True,
@@ -155,7 +177,7 @@ GENRE_PARENTS_ROWS = [
 
 
 def _write_genre_parents(tmp_path: Path) -> Path:
-    genre_parents_path = tmp_path / "3_genre_parents.parquet"
+    genre_parents_path = tmp_path / "4_genre_parents.parquet"
     pl.DataFrame(GENRE_PARENTS_ROWS).write_parquet(genre_parents_path)
     return genre_parents_path
 
@@ -166,8 +188,8 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
 
     canonical_path, regional_path = sh.prune_genre_hierarchy(genre_parents_path, output_dir)
 
-    assert canonical_path == output_dir / "4_hierarchy.parquet"
-    assert regional_path == output_dir / "4_regional_hierarchy.parquet"
+    assert canonical_path == output_dir / "5_hierarchy.parquet"
+    assert regional_path == output_dir / "5_regional_hierarchy.parquet"
 
     canonical_df = pl.read_parquet(canonical_path)
     assert canonical_df.columns == sh.OUTPUT_COLUMNS
@@ -185,6 +207,11 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
     # regional items never appear in the canonical output
     assert "Q1198360" not in parent_by_item
     assert "Q182142" not in parent_by_item
+
+    # item_url is always populated; parent_url follows parent_id
+    urls_by_item = {row["item_id"]: (row["item_url"], row["parent_url"]) for row in canonical_df.to_dicts()}
+    assert urls_by_item["Q11399"] == ("https://www.wikidata.org/wiki/Q11399", "https://www.wikidata.org/wiki/Q9778")
+    assert urls_by_item["Q9778"] == ("https://www.wikidata.org/wiki/Q9778", None)
 
 
 def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: Path) -> None:
@@ -208,6 +235,11 @@ def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: 
     # non-regional items never appear in the regional output
     assert "Q11399" not in parent_by_item
     assert "Q9778" not in parent_by_item
+
+    # orphan-promoted seeds still get a populated item_url and a null parent_url
+    urls_by_item = {row["item_id"]: (row["item_url"], row["parent_url"]) for row in regional_df.to_dicts()}
+    assert urls_by_item["Q3868594"] == ("https://www.wikidata.org/wiki/Q3868594", None)
+    assert urls_by_item["Q1053970"] == ("https://www.wikidata.org/wiki/Q1053970", None)
 
 
 def test_prune_genre_hierarchy_creates_output_dir(tmp_path: Path) -> None:

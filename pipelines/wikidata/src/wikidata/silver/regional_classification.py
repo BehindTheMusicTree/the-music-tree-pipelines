@@ -56,7 +56,7 @@ def classify_regional_genres(regional_overview_classification_path: Path, output
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "2_regional_classification.parquet"
+    output_path = output_dir / "3_regional_classification.parquet"
     df.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d regional genre items: %d seed, %d direct, %d inherited)",

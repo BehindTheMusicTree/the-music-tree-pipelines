@@ -18,7 +18,7 @@ def flag_genre_parents(regional_classification_path: Path, output_dir: Path) -> 
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "3_genre_parents.parquet"
+    output_path = output_dir / "4_genre_parents.parquet"
     df.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d non-genre parent edges flagged)",

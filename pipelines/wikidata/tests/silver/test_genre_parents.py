@@ -11,6 +11,8 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "rock music",
         "parent_id": "Q9778",
         "parent_label": "popular music",
+        "item_url": "https://www.wikidata.org/wiki/Q11399",
+        "parent_url": "https://www.wikidata.org/wiki/Q9778",
         "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
@@ -22,6 +24,8 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "popular music",
         "parent_id": None,
         "parent_label": None,
+        "item_url": "https://www.wikidata.org/wiki/Q9778",
+        "parent_url": None,
         "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
@@ -33,6 +37,8 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "opera",
         "parent_id": "Q207628",
         "parent_label": "composed musical work",
+        "item_url": "https://www.wikidata.org/wiki/Q1344",
+        "parent_url": "https://www.wikidata.org/wiki/Q207628",
         "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": False,
@@ -44,6 +50,8 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "some subgenre",
         "parent_id": "Q3868594",
         "parent_label": "music of Kenya",
+        "item_url": "https://www.wikidata.org/wiki/Q999999",
+        "parent_url": "https://www.wikidata.org/wiki/Q3868594",
         "is_regional_overview": False,
         "classification_reason": None,
         "is_regional": True,
@@ -54,6 +62,8 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "item_label": "music of Kenya",
         "parent_id": None,
         "parent_label": None,
+        "item_url": "https://www.wikidata.org/wiki/Q3868594",
+        "parent_url": None,
         "is_regional_overview": True,
         "classification_reason": "regional_overview",
         "is_regional": True,
@@ -63,7 +73,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
 
 
 def _write_regional_classification(tmp_path: Path) -> Path:
-    regional_classification_path = tmp_path / "2_regional_classification.parquet"
+    regional_classification_path = tmp_path / "3_regional_classification.parquet"
     pl.DataFrame(REGIONAL_CLASSIFICATION_ROWS).write_parquet(regional_classification_path)
     return regional_classification_path
 
@@ -74,7 +84,7 @@ def test_flag_genre_parents_marks_parent_status(tmp_path: Path) -> None:
 
     result = sg.flag_genre_parents(regional_classification_path, output_dir)
 
-    assert result == output_dir / "3_genre_parents.parquet"
+    assert result == output_dir / "4_genre_parents.parquet"
     parent_is_genre_by_item = {row["item_id"]: row["parent_is_genre"] for row in pl.read_parquet(result).to_dicts()}
     assert parent_is_genre_by_item == {
         "Q11399": True,  # parent (popular music) is_regional_overview=False
