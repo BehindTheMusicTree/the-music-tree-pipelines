@@ -13,6 +13,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q2579987",
+        "parent_url": None,
         "is_regional_overview": True,
         "classification_reason": "regional_overview",
     },
@@ -24,6 +26,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q2579987",
         "parent_label": "music of Portugal",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q106556293",
+        "parent_url": "https://www.wikidata.org/wiki/Q2579987",
         "is_regional_overview": False,
         "classification_reason": None,
     },
@@ -33,6 +37,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q98528192",
         "parent_label": "European folk music",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q106556293",
+        "parent_url": "https://www.wikidata.org/wiki/Q98528192",
         "is_regional_overview": False,
         "classification_reason": None,
     },
@@ -43,6 +49,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q106556293",
         "parent_label": "Portuguese folk music",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q185676",
+        "parent_url": "https://www.wikidata.org/wiki/Q106556293",
         "is_regional_overview": False,
         "classification_reason": None,
     },
@@ -53,6 +61,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": "Q9778",
         "parent_label": "popular music",
         "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q8341",
+        "parent_url": "https://www.wikidata.org/wiki/Q9778",
         "is_regional_overview": False,
         "classification_reason": None,
     },
@@ -63,6 +73,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "parent_id": None,
         "parent_label": None,
         "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q9778",
+        "parent_url": None,
         "is_regional_overview": False,
         "classification_reason": None,
     },
@@ -70,7 +82,7 @@ GENRE_CLASSIFICATION_ROWS = [
 
 
 def _write_genre_classification(tmp_path: Path) -> Path:
-    genre_classification_path = tmp_path / "1_regional_overview_classification.parquet"
+    genre_classification_path = tmp_path / "2_regional_overview_classification.parquet"
     pl.DataFrame(GENRE_CLASSIFICATION_ROWS).write_parquet(genre_classification_path)
     return genre_classification_path
 
@@ -81,7 +93,7 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
 
     result = sr.classify_regional_genres(genre_classification_path, output_dir)
 
-    assert result == output_dir / "2_regional_classification.parquet"
+    assert result == output_dir / "3_regional_classification.parquet"
     df = pl.read_parquet(result)
 
     by_item = {row["item_id"]: (row["is_regional"], row["regional_reason"]) for row in df.unique("item_id").to_dicts()}
