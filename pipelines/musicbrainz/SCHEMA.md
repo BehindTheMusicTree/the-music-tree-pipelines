@@ -11,7 +11,7 @@ Data dictionary and lineage notes for `musicbrainz`. See [README.md#pipeline](RE
 
 ## Bronze
 
-Four MusicBrainz Postgres tables (`musicbrainz` schema), ingested as-is (`SELECT *`, no column filtering) to Parquet: `recording`, `tag`, `recording_tag`, `genre`.
+Six MusicBrainz Postgres tables (`musicbrainz` schema), ingested as-is (`SELECT *`, no column filtering) to Parquet: `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`.
 
 `release` and `artist` were both considered but dropped, for the same reason: neither is reachable from `recording` in this table set, and neither has a consumer in the Silver plan (recording → genre resolution only).
 
@@ -23,6 +23,8 @@ Neither was added speculatively; revisit only if a concrete need for release- or
 Column-level schema (names, types, meaning) is **not duplicated here** — see MusicBrainz's own official schema documentation instead, to avoid this doc drifting out of sync as their schema evolves: https://musicbrainz.org/doc/MusicBrainz_Database/Schema
 
 **Deliberate deviation from the source schema**: `gid` columns (Postgres `UUID`) are ingested as `str`, not left as Python `uuid.UUID` objects. Polars can't map `uuid.UUID` to a native dtype (falls back to `Object`, which can't be written to Parquet), so `db.py`'s `connect()` registers a psycopg loader override for the `uuid` type at the connection level — every other column matches the source schema exactly. Anyone relying on the official MusicBrainz docs for this column should know it's a string here, not the native UUID type.
+
+**Recording ↔ YouTube link correspondence**: MusicBrainz stores external links (YouTube, official homepage, streaming services, etc.) as a general-purpose `url` table (`id`, `gid`, `url`) plus a relationship table per entity-type pair — `l_recording_url` (`entity0` = `recording.id`, `entity1` = `url.id`) is the one relevant here. `link`/`link_type` (which categorize *what kind* of relationship each `l_recording_url` row is — "YouTube", "official homepage", etc.) are **not** ingested, so this bronze layer alone can't distinguish a YouTube link from any other URL type; the same pattern used for `recording_genre` (matching `tag.name` against `genre.name` by string, see below) applies here — a recording → YouTube-link table has to filter `url.url` for `youtube.com`/`youtu.be` at query/Silver time, not link-type join. Not every recording has a YouTube link (community-submitted data, same caveat as tags/genres).
 
 **No direct recording ↔ genre link in the source data**: `genre` (`id`, `gid`, `name`, `comment`, ...) is a flat reference list with no foreign key to `recording` at all — confirmed via `DESCRIBE SELECT * FROM genre` against the bronze output. The only recording-level link available is `recording_tag` (many-to-many: `recording`, `tag`, `count`) — free-text folksonomy tags, not curated genres. A recording routinely has dozens of tags (e.g. one sample-dataset recording has 50 tags matching known genre names simultaneously: rock, electronic, post-rock, pop, jazz, metal, ...). Associating a recording with a genre means matching a tag's name against `genre.name` — not built yet, this is exactly what the Silver `recording_genre` table (see [Silver](#silver)) is for. Once it exists, a recording can and typically will map to **multiple** genres, not one.
 
@@ -36,6 +38,8 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 | recording_tag | User-applied free-text tags linked to a recording             |              1,479,676 |
 | tag           | The tag vocabulary itself (tag name, id) — `recording_tag` links recordings to these |       22,082 |
 | genre         | MusicBrainz's flat genre list (id, name) — the source this whole pipeline reconstructs a hierarchy from |  2,164 |
+| url           | General-purpose external-link table (id, gid, url) — YouTube links live here alongside every other link type | not yet run locally |
+| l_recording_url | Many-to-many `recording` ↔ `url` relationship (`entity0`/`entity1`) — the join needed for a recording → YouTube-link correspondence | not yet run locally |
 
 ## Silver
 
