@@ -25,7 +25,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 
 ## Overview
 
-- **Source:** MusicBrainz Postgres tables (`recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`) — see [Data source](#data-source) for how dev/local access is wired
+- **Source:** MusicBrainz Postgres tables (`recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `link`, `link_type`) — see [Data source](#data-source) for how dev/local access is wired
 - **Reference taxonomy:** genre parent/child relationships from Wikidata (`P279` subclass of, `P136` genre), fuzzy-matched to MusicBrainz genre names
 - **Output:** each recording resolved to its full genre path (root genre → ... → specific genre), published as a standalone dataset — see [Consumers](#consumers)
 
@@ -34,7 +34,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 | Layer  | Contents                                                                                                                                                               |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars                                                                                              |
-| Silver | `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) |
+| Silver | `recording_youtube_url` (recording ↔ YouTube-URL correspondence, built); `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) — not yet built |
 
 ## Schema
 
