@@ -34,7 +34,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 | Layer  | Contents                                                                                                                                                               |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars                                                                                              |
-| Silver | `recording_youtube_url` (recording ↔ YouTube-URL correspondence, built); `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) — not yet built |
+| Silver | `recording_link` (recording ↔ link correspondence, typed via `link_type`, e.g. YouTube/streaming/official homepage, built); `recording_genre` (cleaned recording ↔ genre associations), `genre_hierarchy` (parent/child from Wikidata), `recording_genre_path` (final recording → genre-path join) — not yet built |
 
 ## Schema
 
