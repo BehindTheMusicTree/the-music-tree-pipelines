@@ -45,7 +45,9 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 
 ## Silver
 
-One step built so far, `1_recording_youtube_url` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_youtube_url.py`) — a recording ↔ YouTube-URL correspondence, derived from the Bronze `url`/`l_recording_url` tables per the note in [Bronze](#bronze):
+Two steps built so far.
+
+`1_recording_youtube_url` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_youtube_url.py`) — a recording ↔ YouTube-URL correspondence, derived from the Bronze `url`/`l_recording_url` tables per the note in [Bronze](#bronze):
 
 ```sql
 SELECT DISTINCT
@@ -60,7 +62,7 @@ WHERE u.url LIKE '%youtube.com%' OR u.url LIKE '%youtu.be%'
 - `.unique()`'d in code, not deduped by any business key — this only removes exact-duplicate rows, which shouldn't occur given `l_recording_url`'s own primary key, but is cheap insurance.
 - Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/1_recording_youtube_url.parquet`.
 
-`recording_genre`, `genre_hierarchy`, `recording_genre_path` are not built yet (see [README.md#pipeline](README.md#pipeline)). Volumetrics and `genre_hierarchy` lineage (e.g. how `parent_id` derives from Wikidata `P279`) will be documented here once implemented. `recording_genre`'s derivation is settled, though — matches how MusicBrainz's own UI resolves a genre badge (see the note in [Bronze](#bronze)):
+`2_recording_genre` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_genre.py`) — a recording ↔ genre correspondence, matching how MusicBrainz's own UI resolves a genre badge (see the note in [Bronze](#bronze)):
 
 ```sql
 SELECT
@@ -75,4 +77,7 @@ WHERE rt.count > 0
 
 - `weight = recording_tag.count`, the tag's **net vote score** (upvotes minus downvotes), not a raw application count — confirmed via `musicbrainz.org/doc/MusicBrainz_Database/Schema`. `count > 0` is the same "community endorses this" threshold MusicBrainz's own site uses before showing a genre badge; `<= 0` means net-downvoted or nobody's voted, and is dropped.
 - Matching is by `tag.name`, case-insensitively — `genre` and `tag` share no key, see the note in [Bronze](#bronze). `lower()` is a placeholder for exact-string equality; not yet verified against real data whether MusicBrainz tag names ever deviate from lowercase (check with `SELECT name FROM tag WHERE name != lower(name) LIMIT 5` once bronze is regenerated) — if none do, `lower()` on both sides is redundant but harmless.
-- Deliberately many-to-many, one row per (recording, matched genre) — no dedup/top-N logic. A recording with 50 tags matching 6 different genre names produces 6 `recording_genre` rows; picking a single "primary" genre, if ever needed, is a decision for `recording_genre_path` or a consumer, not this table.
+- Deliberately many-to-many, one row per (recording, matched genre) — no dedup/top-N logic. A recording with 50 tags matching 6 different genre names produces 6 `recording_genre` rows; picking a single "primary" genre, if ever needed, is a decision for a consumer, not this table.
+- Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/2_recording_genre.parquet`.
+
+`recording_genre_path` and non-YouTube link platforms (see the `link_type` note in [Bronze](#bronze)) are not built yet (see [README.md#pipeline](README.md#pipeline)).
