@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `musicbrainz` Silver: corrected `link_type.name` example values in `1_recording_link`'s tests and docs — real staging data confirmed YouTube URLs carry `link_type.name` "free streaming" or "streaming", never "youtube" (which only exists for other entity pairs), and "official homepage" is not a valid `link_type.name` for the recording ↔ url pair at all. No change to `recording_link.py`'s join/select logic, which was already correct. See `pipelines/musicbrainz/SCHEMA.md`.
+
 ### Added
 
 - `musicbrainz` Bronze: ingest `url` and `l_recording_url` tables, giving a recording ↔ YouTube-link correspondence (join `recording` → `l_recording_url` → `url`, filtered to `youtube.com`/`youtu.be` at query time — `link_type` isn't ingested, so the URL type isn't distinguished at the bronze layer). See `pipelines/musicbrainz/SCHEMA.md`.
