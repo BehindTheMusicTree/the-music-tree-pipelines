@@ -23,9 +23,9 @@ LINK_ROWS = [
 ]
 
 LINK_TYPE_ROWS = [
-    {"id": 200, "name": "youtube"},
+    {"id": 200, "name": "free streaming"},
     {"id": 201, "name": "streaming"},
-    {"id": 202, "name": "official homepage"},
+    {"id": 202, "name": "other databases"},
 ]
 
 
@@ -48,9 +48,9 @@ def test_recording_link_joins_link_type_to_every_recording_url(tmp_path: Path) -
     assert result == output_dir / "1_recording_link.parquet"
     rows = pl.read_parquet(result).sort("recording_id").to_dicts()
     assert rows == [
-        {"recording_id": 1000, "url": "https://www.youtube.com/watch?v=abc", "link_type": "youtube"},
+        {"recording_id": 1000, "url": "https://www.youtube.com/watch?v=abc", "link_type": "free streaming"},
         {"recording_id": 1001, "url": "https://open.spotify.com/track/def", "link_type": "streaming"},
-        {"recording_id": 1002, "url": "https://example.com/official", "link_type": "official homepage"},
+        {"recording_id": 1002, "url": "https://example.com/official", "link_type": "other databases"},
     ]
 
 
