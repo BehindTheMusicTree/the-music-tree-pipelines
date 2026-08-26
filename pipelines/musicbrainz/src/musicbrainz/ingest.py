@@ -8,7 +8,7 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 logger = logging.getLogger(__name__)
 
-BRONZE_TABLES = ("recording", "tag", "recording_tag", "genre", "url", "l_recording_url")
+BRONZE_TABLES = ("recording", "tag", "recording_tag", "genre", "url", "l_recording_url", "link", "link_type")
 
 # Rows pulled per batch via a server-side cursor, rather than loading a whole table into
 # memory at once — the `recording` table alone is multiple million rows.

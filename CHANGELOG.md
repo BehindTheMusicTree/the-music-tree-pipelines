@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `musicbrainz` Bronze: ingest `url` and `l_recording_url` tables, giving a recording ↔ YouTube-link correspondence (join `recording` → `l_recording_url` → `url`, filtered to `youtube.com`/`youtu.be` at query time — `link_type` isn't ingested, so the URL type isn't distinguished at the bronze layer). See `pipelines/musicbrainz/SCHEMA.md`.
 
+- `musicbrainz` Silver layer (new, first step): `1_recording_youtube_url`, deriving a recording ↔ YouTube-URL correspondence from the Bronze `url`/`l_recording_url` tables. Run via `uv run --package musicbrainz python -m musicbrainz.silver`. See `pipelines/musicbrainz/SCHEMA.md`.
+
+- `musicbrainz` Bronze: ingest `link` and `link_type` tables, enabling a precise `link_type.name`-based filter for relationship kind (e.g. "YouTube") as an alternative to the URL-substring match currently used by Silver's `1_recording_youtube_url`. See `pipelines/musicbrainz/SCHEMA.md`.
+
 - `wikidata` Silver layer, `1_regional_overview_classification`: flags each Bronze genre-tree row `is_regional_overview`/`classification_reason`, tagging (not dropping) Wikidata's "music of \<place\>" regional-overview items (~300 of ~6,300) that were being misclassified as music genres by the `P31` source query — these become the seed set for `2_regional_classification` rather than being excluded outright.
 - `wikidata.silver.profile`: read-only script printing row/item counts and the `classification_reason` breakdown for `1_regional_overview_classification.parquet` — see `SCHEMA.md#silver`'s "Data profile" section.
 - `wikidata` Bronze: also ingest each genre's `P361` ("part of") parent edges alongside the existing `P279` ("subclass of") ones, tagged by a new `relation_type` column (`"P279"`/`"P361"`) — `P361` is sparser and noisier than `P279` but captures real subgenre hierarchy `P279` misses entirely (e.g. several juke/footwork/ghetto house subgenres). Root items (no `P279`/`P361` parent) drop from ~510 to ~488, since 22 formerly-root items turn out to have a `P361` parent. See `SCHEMA.md`.
