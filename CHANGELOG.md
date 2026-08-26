@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Clarified in `CLAUDE.md`/`pipelines/musicbrainz/README.md` that `musicbrainz` Silver stays tidy (one row per link, one row per recording-genre match) — collapsing to one row per recording with list-valued columns is deferred to a future Gold layer, not a Silver deliverable. Also removed stale `genre_hierarchy`-via-Wikidata framing from `pipelines/musicbrainz/README.md`'s Overview/Pipeline/Consumers sections (that work belongs to the `wikidata` pipeline) and fixed the same stale `link_type.name` example values there that were already corrected in `CLAUDE.md`/`SCHEMA.md`.
+
 ### Fixed
 
 - `musicbrainz` Silver: corrected `link_type.name` example values in `1_recording_link`'s tests and docs — real staging data confirmed YouTube URLs carry `link_type.name` "free streaming" or "streaming", never "youtube" (which only exists for other entity pairs), and "official homepage" is not a valid `link_type.name` for the recording ↔ url pair at all. No change to `recording_link.py`'s join/select logic, which was already correct. See `pipelines/musicbrainz/SCHEMA.md`.
