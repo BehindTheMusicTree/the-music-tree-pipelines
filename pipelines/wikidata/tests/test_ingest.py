@@ -4,19 +4,21 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from wikidata import bronze_wikidata as bw
+from wikidata import ingest as bw
 
 ROCK_ROW = {
     "item": "http://www.wikidata.org/entity/Q11399",
     "itemLabel": "rock music",
     "parent": "http://www.wikidata.org/entity/Q188451",
     "parentLabel": "music genre",
+    "relation": "P279",
 }
 ROOT_ROW = {
     "item": "http://www.wikidata.org/entity/Q188451",
     "itemLabel": "music genre",
     "parent": None,
     "parentLabel": None,
+    "relation": None,
 }
 
 
@@ -30,8 +32,20 @@ def test_ingest_genre_tree_writes_parquet_with_qids_extracted(monkeypatch: pytes
     run_query.assert_called_once_with(bw.wikidata_client.GENRE_TREE_QUERY)
     assert result == output_dir / "wikidata_genre_tree.parquet"
     assert pl.read_parquet(result).to_dicts() == [
-        {"item_id": "Q11399", "item_label": "rock music", "parent_id": "Q188451", "parent_label": "music genre"},
-        {"item_id": "Q188451", "item_label": "music genre", "parent_id": None, "parent_label": None},
+        {
+            "item_id": "Q11399",
+            "item_label": "rock music",
+            "parent_id": "Q188451",
+            "parent_label": "music genre",
+            "relation_type": "P279",
+        },
+        {
+            "item_id": "Q188451",
+            "item_label": "music genre",
+            "parent_id": None,
+            "parent_label": None,
+            "relation_type": None,
+        },
     ]
 
 
