@@ -24,7 +24,7 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 
 **Deliberate deviation from the source schema**: `gid` columns (Postgres `UUID`) are ingested as `str`, not left as Python `uuid.UUID` objects. Polars can't map `uuid.UUID` to a native dtype (falls back to `Object`, which can't be written to Parquet), so `db.py`'s `connect()` registers a psycopg loader override for the `uuid` type at the connection level — every other column matches the source schema exactly. Anyone relying on the official MusicBrainz docs for this column should know it's a string here, not the native UUID type.
 
-**Recording ↔ YouTube link correspondence**: MusicBrainz stores external links (YouTube, official homepage, streaming services, etc.) as a general-purpose `url` table (`id`, `gid`, `url`) plus a relationship table per entity-type pair — `l_recording_url` (`entity0` = `recording.id`, `entity1` = `url.id`) is the one relevant here. Each `l_recording_url` row's `link` FK points to the `link` table, which in turn FKs to `link_type` (the row that categorizes *what kind* of relationship it is — "YouTube", "official homepage", etc., via `link_type.name`); both are now ingested, giving a precise `link_type.name = 'YouTube'`-style filter as an alternative to matching on `url.url` substrings. The current Silver `1_recording_youtube_url` step still uses the substring approach (see [Silver](#silver)) — switching it to a `link_type` join is a documented follow-up, not yet done. Not every recording has a YouTube link (community-submitted data, same caveat as tags/genres).
+**Recording ↔ link correspondence**: MusicBrainz stores external links (YouTube, official homepage, streaming services, etc.) as a general-purpose `url` table (`id`, `gid`, `url`) plus a relationship table per entity-type pair — `l_recording_url` (`entity0` = `recording.id`, `entity1` = `url.id`) is the one relevant here. Each `l_recording_url` row's `link` FK points to the `link` table, which in turn FKs to `link_type` (the row that categorizes *what kind* of relationship it is — "streaming", "free streaming", "official homepage", etc., via `link_type.name`); both are ingested, giving a `link_type.name`-based typing of each link instead of matching on `url.url` substrings. The Silver `1_recording_link` step (see [Silver](#silver)) uses this `link_type` join — it does not filter to any single platform (e.g. YouTube), since `link_type.name` categorizes the *relationship kind*, not the platform (YouTube and Bandcamp can share a link_type). Not every recording has a link of a given type (community-submitted data, same caveat as tags/genres).
 
 **No direct recording ↔ genre link in the source data**: `genre` (`id`, `gid`, `name`, `comment`, ...) is a flat reference list with no foreign key to `recording` at all — confirmed via `DESCRIBE SELECT * FROM genre` against the bronze output. The only recording-level link available is `recording_tag` (many-to-many: `recording`, `tag`, `count`) — free-text folksonomy tags, not curated genres. A recording routinely has dozens of tags (e.g. one sample-dataset recording has 50 tags matching known genre names simultaneously: rock, electronic, post-rock, pop, jazz, metal, ...). Associating a recording with a genre means matching a tag's name against `genre.name` — not built yet, this is exactly what the Silver `recording_genre` table (see [Silver](#silver)) is for. Once it exists, a recording can and typically will map to **multiple** genres, not one.
 
@@ -45,22 +45,24 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 
 ## Silver
 
-Two steps built so far.
+Three steps built so far.
 
-`1_recording_youtube_url` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_youtube_url.py`) — a recording ↔ YouTube-URL correspondence, derived from the Bronze `url`/`l_recording_url` tables per the note in [Bronze](#bronze):
+`1_recording_link` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_link.py`) — a recording ↔ link correspondence, typed via `link_type`, derived from the Bronze `url`/`l_recording_url`/`link`/`link_type` tables per the note in [Bronze](#bronze):
 
 ```sql
 SELECT DISTINCT
-  lru.entity0 AS recording_id,
-  u.url       AS youtube_url
+  lru.entity0  AS recording_id,
+  u.url        AS url,
+  lt.name      AS link_type
 FROM l_recording_url lru
-JOIN url u ON u.id = lru.entity1
-WHERE u.url LIKE '%youtube.com%' OR u.url LIKE '%youtu.be%'
+JOIN url u        ON u.id = lru.entity1
+JOIN link l       ON l.id = lru.link
+JOIN link_type lt ON lt.id = l.link_type
 ```
 
-- Deliberately many-to-many, one row per (recording, YouTube URL) — a recording can have zero, one, or several YouTube links (official video, live version, VEVO, etc.); no "primary link" selection happens here.
+- Deliberately many-to-many, one row per (recording, url) — a recording can have zero, one, or several links of any type/platform (official video, streaming, homepage, ...); no "primary link" or platform selection happens here. `link_type` categorizes the *kind* of relationship ("streaming", "free streaming", ...), not the platform — YouTube and Bandcamp links can carry the same `link_type.name`, so identifying a specific platform (e.g. YouTube) still requires matching on `url.url`, left to a consumer.
 - `.unique()`'d in code, not deduped by any business key — this only removes exact-duplicate rows, which shouldn't occur given `l_recording_url`'s own primary key, but is cheap insurance.
-- Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/1_recording_youtube_url.parquet`.
+- Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/1_recording_link.parquet`.
 
 `2_recording_genre` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_genre.py`) — a recording ↔ genre correspondence, matching how MusicBrainz's own UI resolves a genre badge (see the note in [Bronze](#bronze)):
 
@@ -80,4 +82,21 @@ WHERE rt.count > 0
 - Deliberately many-to-many, one row per (recording, matched genre) — no dedup/top-N logic. A recording with 50 tags matching 6 different genre names produces 6 `recording_genre` rows; picking a single "primary" genre, if ever needed, is a decision for a consumer, not this table.
 - Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/2_recording_genre.parquet`.
 
-`recording_genre_path` and non-YouTube link platforms (see the `link_type` note in [Bronze](#bronze)) are not built yet (see [README.md#pipeline](README.md#pipeline)).
+`3_recording_genre_youtube` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_genre_youtube.py`) — composes the two prior Silver outputs into a recording ↔ genre ↔ YouTube-URL correspondence, filtering `1_recording_link` down to YouTube at this consuming layer (substring match on `url`, per the note in [Bronze](#bronze) that `link_type` categorizes relationship kind, not platform):
+
+```sql
+SELECT
+  rg.recording_id AS recording_id,
+  rg.genre_id      AS genre_id,
+  rg.weight        AS weight,
+  rl.url           AS youtube_url
+FROM recording_genre rg
+JOIN recording_link rl ON rl.recording_id = rg.recording_id
+WHERE rl.url LIKE '%youtube.com%' OR rl.url LIKE '%youtu.be%'
+```
+
+- Reads from the Silver dir, not Bronze — it composes `2_recording_genre.parquet` and `1_recording_link.parquet`, so it must run after both.
+- Deliberately many-to-many, one row per (recording, genre, YouTube URL) — no dedup/top-N logic, same "no primary selection" philosophy as `1_recording_link` and `2_recording_genre`: picking one genre or one YouTube link per recording is a future consumer's decision, not this table's.
+- Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/3_recording_genre_youtube.parquet`.
+
+`recording_genre_path` is not built yet (see [README.md#pipeline](README.md#pipeline)).
