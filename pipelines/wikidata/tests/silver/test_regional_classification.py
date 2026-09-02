@@ -359,6 +359,25 @@ def test_classify_regional_genres_requires_overview_item_id_column(tmp_path: Pat
         )
 
 
+def test_classify_regional_genres_requires_overview_item_id_value_when_column_is_all_null(
+    tmp_path: Path,
+) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    # An entirely-empty overview_item_id column makes Polars infer it as Null dtype rather than
+    # Utf8, which previously raised a SchemaError on the strip_chars() call instead of the
+    # intended ValueError.
+    manual_overrides_path.write_text("item_id,item_label,reason,overview_item_id\nQ4118941,mezwed,test override,\n")
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q4118941"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
 def test_classify_regional_genres_requires_overview_item_id_value(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
