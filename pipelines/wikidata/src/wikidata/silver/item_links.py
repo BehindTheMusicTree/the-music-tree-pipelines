@@ -17,6 +17,10 @@ def add_item_links(bronze_path: Path, output_dir: Path) -> Path:
         parent_url=pl.when(pl.col("parent_id").is_not_null())
         .then(pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("parent_id"))
         .otherwise(None),
+        has_item_label=pl.col("item_label").is_not_null() & (pl.col("item_label") != pl.col("item_id")),
+        has_parent_label=pl.when(pl.col("parent_id").is_not_null())
+        .then(pl.col("parent_label").is_not_null() & (pl.col("parent_label") != pl.col("parent_id")))
+        .otherwise(None),
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
