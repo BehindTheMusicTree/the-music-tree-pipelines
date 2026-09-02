@@ -47,6 +47,17 @@ def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) 
             "manual_regional_overrides.csv rows reference overview_item_id(s) not found in the genre tree: "
             f"{unknown_overview_item_ids}"
         )
+    regional_overview_ids = set(df.filter(pl.col("is_regional_overview")).select("item_id").unique().to_series())
+    non_regional_overview_ids = [
+        overview_item_id
+        for overview_item_id in overrides.select("overview_item_id").unique().to_series()
+        if overview_item_id not in regional_overview_ids
+    ]
+    if non_regional_overview_ids:
+        raise ValueError(
+            "manual_regional_overrides.csv rows reference overview_item_id(s) not flagged is_regional_overview "
+            f"in the genre tree: {non_regional_overview_ids}"
+        )
 
     overview_labels = (
         df.select("item_id", "item_label")
