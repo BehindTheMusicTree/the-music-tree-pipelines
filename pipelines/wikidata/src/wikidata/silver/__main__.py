@@ -16,7 +16,10 @@ silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT
 item_links_path = add_item_links(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
 regional_overview_classification_path = classify_regional_from_overviews(item_links_path, silver_dir)
 regional_classification_path = classify_regional_genres(
-    regional_overview_classification_path, bronze_dir / "wikidata_genre_indigenous_to.parquet", silver_dir
+    regional_overview_classification_path,
+    bronze_dir / "wikidata_genre_indigenous_to.parquet",
+    bronze_dir / "wikidata_genre_country_of_origin.parquet",
+    silver_dir,
 )
 genre_parents_path = flag_genre_parents(regional_classification_path, silver_dir)
 prune_genre_hierarchy(genre_parents_path, silver_dir)

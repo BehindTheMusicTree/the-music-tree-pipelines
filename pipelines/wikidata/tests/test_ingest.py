@@ -94,3 +94,41 @@ def test_ingest_indigenous_to_creates_output_dir(monkeypatch: pytest.MonkeyPatch
     bw.ingest_indigenous_to(output_dir)
 
     assert output_dir.is_dir()
+
+
+COUNTRY_OF_ORIGIN_ROW = {
+    "item": "http://www.wikidata.org/entity/Q1198131",
+    "countryOfOrigin": "http://www.wikidata.org/entity/Q1011",
+    "countryOfOriginLabel": "Cape Verde",
+}
+
+
+def test_ingest_country_of_origin_writes_parquet_with_qids_extracted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run_query = MagicMock(return_value=[COUNTRY_OF_ORIGIN_ROW])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    output_dir = tmp_path / "bronze"
+    result = bw.ingest_country_of_origin(output_dir)
+
+    run_query.assert_called_once_with(
+        bw.wikidata_client.COUNTRY_OF_ORIGIN_QUERY, variables=bw.wikidata_client.COUNTRY_OF_ORIGIN_QUERY_VARIABLES
+    )
+    assert result == output_dir / "wikidata_genre_country_of_origin.parquet"
+    assert pl.read_parquet(result).to_dicts() == [
+        {
+            "item_id": "Q1198131",
+            "country_of_origin_id": "Q1011",
+            "country_of_origin_label": "Cape Verde",
+        }
+    ]
+
+
+def test_ingest_country_of_origin_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    output_dir = tmp_path / "does" / "not" / "exist"
+    bw.ingest_country_of_origin(output_dir)
+
+    assert output_dir.is_dir()
