@@ -7,7 +7,7 @@ from wikidata.silver import item_links as sl
 BRONZE_ROWS = [
     {"item_id": "Q11399", "item_label": "rock music", "parent_id": "Q9778", "parent_label": "popular music"},
     {"item_id": "Q9778", "item_label": "popular music", "parent_id": None, "parent_label": None},
-    {"item_id": "Q132733254", "item_label": "Q132733254", "parent_id": "Q9778", "parent_label": "Q9778"},
+    {"item_id": "Q132733254", "item_label": "Q132733254", "parent_id": "Q999999999", "parent_label": "Q999999999"},
 ]
 
 
@@ -39,10 +39,10 @@ def test_add_item_links_derives_urls_from_qids(tmp_path: Path) -> None:
         {
             "item_id": "Q132733254",
             "item_label": "Q132733254",
-            "parent_id": "Q9778",
-            "parent_label": "Q9778",
+            "parent_id": "Q999999999",
+            "parent_label": "Q999999999",
             "item_url": "https://www.wikidata.org/wiki/Q132733254",
-            "parent_url": "https://www.wikidata.org/wiki/Q9778",
+            "parent_url": "https://www.wikidata.org/wiki/Q999999999",
             "has_item_label": False,
             "has_parent_label": False,
         },
