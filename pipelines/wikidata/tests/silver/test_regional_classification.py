@@ -103,6 +103,31 @@ GENRE_CLASSIFICATION_ROWS = [
         "is_regional_overview": False,
         "classification_reason": None,
     },
+    # morna: a root item (no P279/P361 parent) with a P495 "country of origin" value — regional
+    # via country_of_origin, not via any parent edge.
+    {
+        "item_id": "Q1198131",
+        "item_label": "morna",
+        "parent_id": None,
+        "parent_label": None,
+        "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q1198131",
+        "parent_url": None,
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
+    # a subgenre of morna: no P495 of its own, regional via its direct parent edge
+    {
+        "item_id": "Q999999992",
+        "item_label": "some morna subgenre",
+        "parent_id": "Q1198131",
+        "parent_label": "morna",
+        "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999992",
+        "parent_url": "https://www.wikidata.org/wiki/Q1198131",
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
 ]
 
 INDIGENOUS_TO_ROWS = [
@@ -110,6 +135,14 @@ INDIGENOUS_TO_ROWS = [
         "item_id": "Q10376827",
         "indigenous_to_id": "Q49103",
         "indigenous_to_label": "Han Chinese",
+    },
+]
+
+COUNTRY_OF_ORIGIN_ROWS = [
+    {
+        "item_id": "Q1198131",
+        "country_of_origin_id": "Q1011",
+        "country_of_origin_label": "Cape Verde",
     },
 ]
 
@@ -126,12 +159,21 @@ def _write_indigenous_to(tmp_path: Path) -> Path:
     return indigenous_to_path
 
 
+def _write_country_of_origin(tmp_path: Path) -> Path:
+    country_of_origin_path = tmp_path / "wikidata_genre_country_of_origin.parquet"
+    pl.DataFrame(COUNTRY_OF_ORIGIN_ROWS).write_parquet(country_of_origin_path)
+    return country_of_origin_path
+
+
 def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sr.classify_regional_genres(genre_classification_path, indigenous_to_path, output_dir)
+    result = sr.classify_regional_genres(
+        genre_classification_path, indigenous_to_path, country_of_origin_path, output_dir
+    )
 
     assert result == output_dir / "3_regional_classification.parquet"
     df = pl.read_parquet(result)
@@ -145,14 +187,17 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
         "Q9778": (False, None),  # root item, no parent
         "Q10376827": (True, "indigenous_to"),  # root item, flagged via P2341, no parent edge involved
         "Q999999991": (True, "direct"),  # direct child of an indigenous_to item, same as a seed child
+        "Q1198131": (True, "country_of_origin"),  # root item, flagged via P495, no parent edge involved
+        "Q999999992": (True, "direct"),  # direct child of a country_of_origin item, same as a seed child
     }
 
 
 def test_classify_regional_genres_creates_output_dir(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sr.classify_regional_genres(genre_classification_path, indigenous_to_path, output_dir)
+    sr.classify_regional_genres(genre_classification_path, indigenous_to_path, country_of_origin_path, output_dir)
 
     assert output_dir.is_dir()

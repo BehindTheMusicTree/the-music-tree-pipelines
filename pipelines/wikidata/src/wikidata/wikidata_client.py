@@ -9,9 +9,11 @@ USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/th
 
 MUSIC_GENRE_QID = "Q188451"
 INDIGENOUS_TO_PID = "P2341"
+COUNTRY_OF_ORIGIN_PID = "P495"
 
 GENRE_TREE_QUERY_VARIABLES = ("item", "itemLabel", "parent", "parentLabel", "relation")
 INDIGENOUS_TO_QUERY_VARIABLES = ("item", "indigenousTo", "indigenousToLabel")
+COUNTRY_OF_ORIGIN_QUERY_VARIABLES = ("item", "countryOfOrigin", "countryOfOriginLabel")
 
 # P31 = "instance of": class membership, identifies what an item *is*
 # (e.g. "rock music" P31 "music genre" — this is how we find the full set of genre items).
@@ -78,6 +80,22 @@ INDIGENOUS_TO_QUERY = f"""
 SELECT ?item ?indigenousTo ?indigenousToLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{INDIGENOUS_TO_PID} ?indigenousTo .
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+}}
+"""
+
+# P495 = "country of origin": links a creative work/genre to the country it originated in
+# (e.g. "fado" P495 "Portugal"). Like P2341, this is a per-item attribute, not a genre-to-genre
+# taxonomy edge, and its cardinality is independent of an item's P279/P361 parent count, so it's
+# queried and ingested separately from GENRE_TREE_QUERY for the same cross-multiplication reason
+# documented above INDIGENOUS_TO_QUERY — see ingest.ingest_country_of_origin.
+#
+# Only items missing a P495 value are absent from the result; an item with several values
+# produces one row per value.
+COUNTRY_OF_ORIGIN_QUERY = f"""
+SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
+  ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
+        wdt:{COUNTRY_OF_ORIGIN_PID} ?countryOfOrigin .
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
 }}
 """
