@@ -29,6 +29,15 @@ def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) 
         raise ValueError(f"manual_regional_overrides.csv rows missing required 'overview_item_id': {missing_ids}")
     overrides = manual_overrides.with_columns(overview_item_id=pl.col("overview_item_id").str.strip_chars())
 
+    known_item_ids = set(df.select("item_id").unique().to_series())
+    unknown_item_ids = [
+        item_id for item_id in overrides.select("item_id").unique().to_series() if item_id not in known_item_ids
+    ]
+    if unknown_item_ids:
+        raise ValueError(
+            f"manual_regional_overrides.csv rows reference item_id(s) not found in the genre tree: {unknown_item_ids}"
+        )
+
     overview_labels = (
         df.select("item_id", "item_label")
         .unique(subset="item_id")
