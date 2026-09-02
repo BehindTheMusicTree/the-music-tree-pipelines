@@ -104,6 +104,29 @@ def test_run_query_reraises_after_exhausting_retries(monkeypatch: pytest.MonkeyP
     assert httpx_get.call_count == wikidata_client.run_query.retry.stop.max_attempt_number
 
 
+def test_run_query_uses_given_variables_to_extract_bindings(monkeypatch: pytest.MonkeyPatch) -> None:
+    bindings = [
+        {
+            "item": {"value": "http://www.wikidata.org/entity/Q10376827"},
+            "indigenousTo": {"value": "http://www.wikidata.org/entity/Q49103"},
+            "indigenousToLabel": {"value": "Han Chinese"},
+        }
+    ]
+    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_mock_response(bindings)))
+
+    result = wikidata_client.run_query(
+        wikidata_client.INDIGENOUS_TO_QUERY, variables=wikidata_client.INDIGENOUS_TO_QUERY_VARIABLES
+    )
+
+    assert result == [
+        {
+            "item": "http://www.wikidata.org/entity/Q10376827",
+            "indigenousTo": "http://www.wikidata.org/entity/Q49103",
+            "indigenousToLabel": "Han Chinese",
+        }
+    ]
+
+
 def test_run_query_retries_transport_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     httpx_get = MagicMock(side_effect=[httpx.ConnectError("boom"), _mock_response([])])
     monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)

@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 
 import httpx
 import tenacity
@@ -7,6 +8,10 @@ SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/the-music-tree-pipelines)"
 
 MUSIC_GENRE_QID = "Q188451"
+INDIGENOUS_TO_PID = "P2341"
+
+GENRE_TREE_QUERY_VARIABLES = ("item", "itemLabel", "parent", "parentLabel", "relation")
+INDIGENOUS_TO_QUERY_VARIABLES = ("item", "indigenousTo", "indigenousToLabel")
 
 # P31 = "instance of": class membership, identifies what an item *is*
 # (e.g. "rock music" P31 "music genre" — this is how we find the full set of genre items).
@@ -58,6 +63,25 @@ SELECT ?item ?itemLabel ?parent ?parentLabel ?relation WHERE {{
 }}
 """
 
+# P2341 = "indigenous to": links an item to the people/ethnic group it originates from
+# (e.g. "Han Chinese music" P2341 "Han Chinese people"). This is a per-item ethnographic
+# attribute, not a genre-to-genre taxonomy edge like P279/P361, and its cardinality is
+# independent of a genre's parent count — an item can have any number of P279/P361 parents
+# and, separately, any number of P2341 values. Querying both in a single row (as
+# GENRE_TREE_QUERY does for P279/P361, which share the same "parent edge" semantics) would
+# cross-multiply the two OPTIONALs into spurious combinations, so this is a separate query
+# producing a separate (item, indigenous_to) table — see ingest.ingest_indigenous_to.
+#
+# Only items missing a P2341 value are absent from the result; an item with several values
+# produces one row per value.
+INDIGENOUS_TO_QUERY = f"""
+SELECT ?item ?indigenousTo ?indigenousToLabel WHERE {{
+  ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
+        wdt:{INDIGENOUS_TO_PID} ?indigenousTo .
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+}}
+"""
+
 
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
@@ -65,7 +89,9 @@ SELECT ?item ?itemLabel ?parent ?parentLabel ?relation WHERE {{
     stop=tenacity.stop_after_attempt(3),
     reraise=True,
 )
-def run_query(query: str, timeout: float = 60.0) -> list[dict[str, str | None]]:
+def run_query(
+    query: str, variables: Sequence[str] = GENRE_TREE_QUERY_VARIABLES, timeout: float = 60.0
+) -> list[dict[str, str | None]]:
     response = httpx.get(
         SPARQL_ENDPOINT,
         params={"query": query},
@@ -74,7 +100,4 @@ def run_query(query: str, timeout: float = 60.0) -> list[dict[str, str | None]]:
     )
     response.raise_for_status()
     bindings = response.json()["results"]["bindings"]
-    return [
-        {key: binding.get(key, {}).get("value") for key in ("item", "itemLabel", "parent", "parentLabel", "relation")}
-        for binding in bindings
-    ]
+    return [{key: binding.get(key, {}).get("value") for key in variables} for binding in bindings]
