@@ -128,6 +128,31 @@ GENRE_CLASSIFICATION_ROWS = [
         "is_regional_overview": False,
         "classification_reason": None,
     },
+    # mezwed: a root item (no P279/P361 parent, no P2341/P495 value) hand-flagged in
+    # manual_regional_overrides.csv — regional via manual_override, not via any automated source.
+    {
+        "item_id": "Q4118941",
+        "item_label": "mezwed",
+        "parent_id": None,
+        "parent_label": None,
+        "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q4118941",
+        "parent_url": None,
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
+    # a subgenre of mezwed: no override of its own, regional via its direct parent edge
+    {
+        "item_id": "Q999999993",
+        "item_label": "some mezwed subgenre",
+        "parent_id": "Q4118941",
+        "parent_label": "mezwed",
+        "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999993",
+        "parent_url": "https://www.wikidata.org/wiki/Q4118941",
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
 ]
 
 INDIGENOUS_TO_ROWS = [
@@ -165,14 +190,23 @@ def _write_country_of_origin(tmp_path: Path) -> Path:
     return country_of_origin_path
 
 
+def _write_manual_overrides(tmp_path: Path) -> Path:
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame({"item_id": ["Q4118941"], "item_label": ["mezwed"], "reason": ["test override"]}).write_csv(
+        manual_overrides_path
+    )
+    return manual_overrides_path
+
+
 def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
     country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = _write_manual_overrides(tmp_path)
     output_dir = tmp_path / "silver"
 
     result = sr.classify_regional_genres(
-        genre_classification_path, indigenous_to_path, country_of_origin_path, output_dir
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
     )
 
     assert result == output_dir / "3_regional_classification.parquet"
@@ -189,6 +223,8 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
         "Q999999991": (True, "direct"),  # direct child of an indigenous_to item, same as a seed child
         "Q1198131": (True, "country_of_origin"),  # root item, flagged via P495, no parent edge involved
         "Q999999992": (True, "direct"),  # direct child of a country_of_origin item, same as a seed child
+        "Q4118941": (True, "manual_override"),  # root item, hand-flagged, no automated source or parent edge
+        "Q999999993": (True, "direct"),  # direct child of a manual_override item, same as a seed child
     }
 
 
@@ -196,8 +232,11 @@ def test_classify_regional_genres_creates_output_dir(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
     country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = _write_manual_overrides(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sr.classify_regional_genres(genre_classification_path, indigenous_to_path, country_of_origin_path, output_dir)
+    sr.classify_regional_genres(
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+    )
 
     assert output_dir.is_dir()
