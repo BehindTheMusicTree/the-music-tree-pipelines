@@ -303,7 +303,13 @@ True`, not merely a launching point for other items:
   either (e.g. "mezwed", a Tunisian genre with none of those signals). Each entry carries a
   `reason` column explaining why a data expert added it; see the file itself for the current list.
   Expected to stay small — this is a manual backstop for gaps, not the primary classification
-  mechanism.
+  mechanism. Because these override items typically have no `P279`/`P361` parent at all, they'd
+  otherwise surface as their own orphan roots in `5_regional_hierarchy` instead of nesting under
+  their region — a required `overview_item_id` column gives the override item's `item_id` the QID
+  of a `regional_overview` item (e.g. "music of Japan") as a synthetic parent edge (`relation_type
+  = "manual_override_parent"`), replacing its null-parent row. Every row must set it; a row with it
+  missing or blank fails the pipeline at this step rather than silently leaving the item an orphan
+  root.
 
 A genre item is regional if **any one** of its parent edges points at any kind of seed, or at
 an item already flagged regional — propagated down as a multi-source cascade, repeated to a
