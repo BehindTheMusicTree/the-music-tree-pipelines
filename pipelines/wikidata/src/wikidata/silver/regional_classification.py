@@ -27,7 +27,7 @@ def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) 
     if not missing.is_empty():
         missing_ids = missing.select("item_id").to_series().to_list()
         raise ValueError(f"manual_regional_overrides.csv rows missing required 'overview_item_id': {missing_ids}")
-    overrides = manual_overrides
+    overrides = manual_overrides.with_columns(overview_item_id=pl.col("overview_item_id").str.strip_chars())
 
     overview_labels = (
         df.select("item_id", "item_label")
