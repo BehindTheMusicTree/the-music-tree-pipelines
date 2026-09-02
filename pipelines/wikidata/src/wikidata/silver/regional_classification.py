@@ -21,7 +21,9 @@ MANUAL_OVERRIDES_PATH = Path(__file__).parent / "manual_regional_overrides.csv"
 def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) -> pl.DataFrame:
     if "overview_item_id" not in manual_overrides.columns:
         raise ValueError("manual_regional_overrides.csv is missing the required 'overview_item_id' column")
-    missing = manual_overrides.filter(pl.col("overview_item_id").is_null())
+    missing = manual_overrides.filter(
+        pl.col("overview_item_id").is_null() | (pl.col("overview_item_id").str.strip_chars() == "")
+    )
     if not missing.is_empty():
         missing_ids = missing.select("item_id").to_series().to_list()
         raise ValueError(f"manual_regional_overrides.csv rows missing required 'overview_item_id': {missing_ids}")
