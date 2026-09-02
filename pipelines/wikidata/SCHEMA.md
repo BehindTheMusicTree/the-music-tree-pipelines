@@ -113,9 +113,9 @@ null.
 | Column        | Type | Meaning                                                                          |
 | ------------- | ---- | -------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`)                                        |
-| item_label    | str  | English label for `item_id` (e.g. "rock music")                                  |
+| item_label    | str  | Label for `item_id` (English, falling back to a language-agnostic `mul` label if no English label exists) (e.g. "rock music")                                  |
 | parent_id     | str? | QID of a direct `P279`/`P361` parent within the genre tree, or null              |
-| parent_label  | str? | English label for `parent_id`, or null                                           |
+| parent_label  | str? | Same fallback as `item_label`, for `parent_id`, or null                                           |
 | relation_type | str? | `"P279"` or `"P361"` — which property produced this edge, or null for a root row |
 
 **Deliberate deviation from the raw query response**: Wikidata's SPARQL results return full
@@ -136,7 +136,7 @@ a hierarchy position the way a missing parent is. See `wikidata_client.INDIGENOU
 | -------------------- | ---- | -------------------------------------------------------------------- |
 | item_id               | str  | Wikidata QID of the genre (e.g. `Q10376827`)                        |
 | indigenous_to_id      | str  | Wikidata QID of the people/ethnic group (e.g. `Q49103`)              |
-| indigenous_to_label   | str  | English label for `indigenous_to_id` (e.g. "Han Chinese")            |
+| indigenous_to_label   | str  | Same English/`mul`-fallback label as `item_label`, for `indigenous_to_id` (e.g. "Han Chinese")            |
 
 A genre with several `P2341` values produces one row per value, so `item_id` is not unique on its
 own (as of this writing: 207 rows).
@@ -150,7 +150,7 @@ value are absent entirely, no "root row" placeholder. See `wikidata_client.COUNT
 | ------------------------ | ---- | --------------------------------------------------------------- |
 | item_id                  | str  | Wikidata QID of the genre (e.g. `Q1198131`)                    |
 | country_of_origin_id     | str  | Wikidata QID of the country (e.g. `Q1011`)                     |
-| country_of_origin_label  | str  | English label for `country_of_origin_id` (e.g. "Cape Verde")   |
+| country_of_origin_label  | str  | Same English/`mul`-fallback label as `item_label`, for `country_of_origin_id` (e.g. "Cape Verde")   |
 
 A genre with several `P495` values produces one row per value, so `item_id` is not unique on its
 own (as of this writing: 2,496 rows).
@@ -389,10 +389,10 @@ canonical one, excluding every `is_regional = true` item, and a regional one, co
 | Column        | Type | Meaning                                                                          |
 | ------------- | ---- | -------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`) — **unique in this table**             |
-| item_label    | str  | English label for `item_id`                                                      |
+| item_label    | str  | Same English/`mul`-fallback label as in `1_item_links` (see above), for `item_id`                                                      |
 | item_url      | str  | `https://www.wikidata.org/wiki/` + `item_id`                                     |
 | parent_id     | str? | QID of the single chosen parent, or null for a root                              |
-| parent_label  | str? | English label for `parent_id`, or null                                           |
+| parent_label  | str? | Same fallback as `item_label`, for `parent_id`, or null                                           |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
 | relation_type | str? | `"P279"` or `"P361"` — which property produced this edge, or null for a root row |
 
