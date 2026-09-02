@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Bronze: ingest `P2341` ("indigenous to") values into a new `wikidata_genre_indigenous_to.parquet` table (one row per item/ethnic-group pair). `wikidata` Silver: `3_regional_classification` now treats any item with an indigenous-to value as an additional regional seed (`regional_reason = "indigenous_to"`), catching ethnically-specific genres that have no `P279`/`P361` parent for the existing seed cascade to reach (e.g. "Han Chinese music", previously a spurious canonical root). See `pipelines/wikidata/SCHEMA.md`.
+
 ## [0.1.3] - 2026-08-28
 
 ### Documentation

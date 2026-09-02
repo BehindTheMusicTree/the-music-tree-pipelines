@@ -78,6 +78,39 @@ GENRE_CLASSIFICATION_ROWS = [
         "is_regional_overview": False,
         "classification_reason": None,
     },
+    # Han Chinese music: a root item (no P279/P361 parent) with a P2341 "indigenous to" value —
+    # regional via indigenous_to, not via any parent edge.
+    {
+        "item_id": "Q10376827",
+        "item_label": "Han Chinese music",
+        "parent_id": None,
+        "parent_label": None,
+        "relation_type": None,
+        "item_url": "https://www.wikidata.org/wiki/Q10376827",
+        "parent_url": None,
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
+    # a subgenre of Han Chinese music: no P2341 of its own, regional via its direct parent edge
+    {
+        "item_id": "Q999999991",
+        "item_label": "some Han Chinese music subgenre",
+        "parent_id": "Q10376827",
+        "parent_label": "Han Chinese music",
+        "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999991",
+        "parent_url": "https://www.wikidata.org/wiki/Q10376827",
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
+]
+
+INDIGENOUS_TO_ROWS = [
+    {
+        "item_id": "Q10376827",
+        "indigenous_to_id": "Q49103",
+        "indigenous_to_label": "Han Chinese",
+    },
 ]
 
 
@@ -87,11 +120,18 @@ def _write_genre_classification(tmp_path: Path) -> Path:
     return genre_classification_path
 
 
+def _write_indigenous_to(tmp_path: Path) -> Path:
+    indigenous_to_path = tmp_path / "wikidata_genre_indigenous_to.parquet"
+    pl.DataFrame(INDIGENOUS_TO_ROWS).write_parquet(indigenous_to_path)
+    return indigenous_to_path
+
+
 def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sr.classify_regional_genres(genre_classification_path, output_dir)
+    result = sr.classify_regional_genres(genre_classification_path, indigenous_to_path, output_dir)
 
     assert result == output_dir / "3_regional_classification.parquet"
     df = pl.read_parquet(result)
@@ -103,13 +143,16 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
         "Q185676": (True, "inherited"),  # fado, two hops from the seed
         "Q8341": (False, None),  # jazz, no regional ancestor
         "Q9778": (False, None),  # root item, no parent
+        "Q10376827": (True, "indigenous_to"),  # root item, flagged via P2341, no parent edge involved
+        "Q999999991": (True, "direct"),  # direct child of an indigenous_to item, same as a seed child
     }
 
 
 def test_classify_regional_genres_creates_output_dir(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sr.classify_regional_genres(genre_classification_path, output_dir)
+    sr.classify_regional_genres(genre_classification_path, indigenous_to_path, output_dir)
 
     assert output_dir.is_dir()
