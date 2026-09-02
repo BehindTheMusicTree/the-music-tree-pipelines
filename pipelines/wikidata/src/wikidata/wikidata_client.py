@@ -61,7 +61,7 @@ SELECT ?item ?itemLabel ?parent ?parentLabel ?relation WHERE {{
     FILTER NOT EXISTS {{ ?item wdt:P279 ?p279Parent }}
     FILTER NOT EXISTS {{ ?item wdt:P361 ?p361Parent }}
   }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
 }}
 """
 
@@ -80,7 +80,7 @@ INDIGENOUS_TO_QUERY = f"""
 SELECT ?item ?indigenousTo ?indigenousToLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{INDIGENOUS_TO_PID} ?indigenousTo .
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
 }}
 """
 
@@ -96,7 +96,7 @@ COUNTRY_OF_ORIGIN_QUERY = f"""
 SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{COUNTRY_OF_ORIGIN_PID} ?countryOfOrigin .
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
 }}
 """
 

@@ -167,7 +167,7 @@ that actually drops rows, and the first where `item_id` is unique — see below.
 
 | Step                                                                        | Reads                                        | Writes                                                                       | Adds                                | Key result (as of this writing)                                                                                                                                                 |
 | --------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`1_item_links`](#1_item_links)                                             | Bronze `wikidata_genre_tree.parquet`         | `1_item_links.parquet`                                                       | `item_url`, `parent_url`            | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
+| [`1_item_links`](#1_item_links)                                             | Bronze `wikidata_genre_tree.parquet`         | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
 | [`2_regional_overview_classification`](#2_regional_overview_classification) | `1_item_links.parquet`                       | `2_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,729 rows (299 of 6,344 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
 | [`3_regional_classification`](#3_regional_classification)                   | `2_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, Bronze `wikidata_genre_country_of_origin.parquet` | `3_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | ~84% of items flagged `is_regional` — 299 seed, 179 indigenous_to, 2,048 country_of_origin, 2,135 direct, 666 inherited (exploration-phase finding, see callout below)                                      |
 | [`4_genre_parents`](#4_genre_parents)                                       | `3_regional_classification.parquet`          | `4_genre_parents.parquet`                                                    | `parent_is_genre`                   | 2,989 of 9,729 rows have a non-genre parent; 486 rows are roots (`parent_is_genre = null`)                                                                                      |
@@ -179,20 +179,31 @@ these numbers — this table is just the fast top-to-bottom path through the cha
 ### 1_item_links
 
 `1_item_links.parquet`: `wikidata_genre_tree.parquet` (Bronze) unchanged, plus two columns giving
-the human-browsable Wikidata page for `item_id` and, where present, `parent_id`.
+the human-browsable Wikidata page for `item_id` and, where present, `parent_id`, and two columns
+flagging whether `item_label`/`parent_label` are a real label or the QID-fallback string.
 
-| Column     | Type | Meaning                                                                            |
-| ---------- | ---- | ----------------------------------------------------------------------------------- |
-| item_url   | str  | `https://www.wikidata.org/wiki/` + `item_id` — the item's browsable Wikidata page   |
-| parent_url | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null when `parent_id` is null    |
+| Column           | Type | Meaning                                                                            |
+| ---------------- | ---- | ----------------------------------------------------------------------------------- |
+| item_url         | str  | `https://www.wikidata.org/wiki/` + `item_id` — the item's browsable Wikidata page   |
+| parent_url       | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null when `parent_id` is null    |
+| has_item_label   | bool | `False` when `item_label == item_id` (Wikidata's label service found no English/`mul` label and fell back to printing the QID) |
+| has_parent_label | bool? | Same check for `parent_label`/`parent_id`, or null when `parent_id` is null       |
 
-**Why this is needed:** `item_id`/`parent_id` are bare QIDs (e.g. `Q11399`) — the natural join key,
-but not something a person can act on directly. Manual review (profiling output, ad-hoc DuckDB
-queries, the exploration notebook) otherwise requires manually prepending the wiki page prefix to
-look an item up. This is deliberately the human-facing `/wiki/` page prefix, not the
-`http://www.wikidata.org/entity/` RDF entity URI that Bronze's `ingest.py` already strips off (see
-[Bronze](#bronze) above) — that prefix identifies the machine data URI, not the browsable page, so
-it isn't reusable here.
+**Why `item_url`/`parent_url` are needed:** `item_id`/`parent_id` are bare QIDs (e.g. `Q11399`) —
+the natural join key, but not something a person can act on directly. Manual review (profiling
+output, ad-hoc DuckDB queries, the exploration notebook) otherwise requires manually prepending the
+wiki page prefix to look an item up. This is deliberately the human-facing `/wiki/` page prefix,
+not the `http://www.wikidata.org/entity/` RDF entity URI that Bronze's `ingest.py` already strips
+off (see [Bronze](#bronze) above) — that prefix identifies the machine data URI, not the browsable
+page, so it isn't reusable here.
+
+**Why `has_item_label`/`has_parent_label` are needed:** Bronze's `SERVICE wikibase:label` query
+(`en,mul` fallback chain) still falls back to printing the bare QID when an item has neither an
+English nor a `mul` (language-agnostic) label upstream — indistinguishable from a real label by
+string shape alone. Any later step that pattern-matches on `item_label`/`parent_label` text (e.g.
+the `regional_overview` prefix match in [`2_regional_overview_classification`](#2_regional_overview_classification))
+would otherwise silently match against a QID. These flags let such steps exclude or special-case
+unlabeled rows instead.
 
 **Data profile (as of this writing):**
 
