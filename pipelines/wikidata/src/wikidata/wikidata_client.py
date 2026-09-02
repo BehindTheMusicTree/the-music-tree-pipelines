@@ -103,8 +103,8 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
 
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
-    wait=tenacity.wait_exponential(multiplier=1, max=10),
-    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(multiplier=1, max=30),
+    stop=tenacity.stop_after_attempt(5),
     reraise=True,
 )
 def run_query(
