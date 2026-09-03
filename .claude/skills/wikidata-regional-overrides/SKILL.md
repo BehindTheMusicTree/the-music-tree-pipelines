@@ -16,7 +16,7 @@ this file is a manual audit pass over that root list.
 
 - Root list to review: `pipelines/wikidata/silver/6_canonical_roots.parquet` (gitignored — regenerate with `uv run --package wikidata python -m wikidata.silver` if stale or missing).
 - File to edit: `pipelines/wikidata/src/wikidata/silver/manual_regional_overrides.csv` (git-tracked, hand-curated — see the comment block atop `regional_classification.py` for why it exists).
-- CSV columns: `item_id,item_label,reason,overview_item_id`. `overview_item_id` **must** be the QID of an existing `is_regional_overview` item (a `"music of <place>"` article already in the dataset) — it is not free-form, and the pipeline raises if it isn't found or isn't flagged `is_regional_overview`.
+- CSV columns: `item_id,item_label,reason,overview_item_id`. `overview_item_id` **must** be the QID of an existing `is_regional_overview` item (a `"music of &lt;place&gt;"` article already in the dataset) — it is not free-form, and the pipeline raises if it isn't found or isn't flagged `is_regional_overview`.
 
 ## Procedure
 
@@ -32,7 +32,7 @@ this file is a manual audit pass over that root list.
 3. **Triage each root by confidence, don't force-fit everything**:
    - High confidence: label names a place explicitly (e.g. `bunde (Panama)`, `bodabil in the Philippines`), or is a well-known national/regional tradition (Cajun fiddle → Louisiana, Irish fiddle → Ireland).
    - Medium confidence: strongly-associated ethnic/regional style where the country is well known from general knowledge (e.g. Andalusian flamenco substyles, Japanese regional folk-song names, Algerian raï-adjacent genres).
-   - **Skip, don't guess**: genres whose country/region is ambiguous (spans multiple plausible countries), or where no matching `"music of <place>"` overview item exists in the catalogue from step 2 (e.g. no "music of Trinidad", no "music of Wales" — don't force these onto a loose proxy like "music of the United Kingdom" unless the user says that's acceptable). When in doubt, leave it out and say so — false positives corrupt the regional tree silently, while omissions just leave a root uncollapsed for next time.
+   - **Skip, don't guess**: genres whose country/region is ambiguous (spans multiple plausible countries), or where no matching `"music of &lt;place&gt;"` overview item exists in the catalogue from step 2 (e.g. no "music of Trinidad", no "music of Wales" — don't force these onto a loose proxy like "music of the United Kingdom" unless the user says that's acceptable). When in doubt, leave it out and say so — false positives corrupt the regional tree silently, while omissions just leave a root uncollapsed for next time.
 4. **Append rows**, one per accepted item, with a reason following the existing style: `"root item with no P279/P361 parent and no P2341/P495 value, but a <nationality> genre missed by the automated seed/indigenous_to/country_of_origin classification"`. Use Python's `csv` module (via a scratch script) rather than hand-editing — several labels contain commas/accents that need correct quoting.
 5. **Validate by running the pipeline**, not just eyeballing the CSV — this is the real integrity check (unknown `item_id`, unknown/non-overview `overview_item_id`, duplicate rows all raise):
    ```sh
@@ -58,4 +58,4 @@ this file is a manual audit pass over that root list.
 
 - Don't touch the automated classification logic (`regional_classification.py`, `regional_overview_classification.py`) — this skill is purely about the manual CSV backstop.
 - Don't try to collapse `5_regional_hierarchy.parquet`'s root count — per CLAUDE.md, one root per region there is expected, not a bug.
-- Don't invent new `"music of <place>"` overview items — if one doesn't exist in the Bronze/Silver dataset, that genre isn't addressable by this mechanism yet; leave it out.
+- Don't invent new `"music of &lt;place&gt;"` overview items — if one doesn't exist in the Bronze/Silver dataset, that genre isn't addressable by this mechanism yet; leave it out.
