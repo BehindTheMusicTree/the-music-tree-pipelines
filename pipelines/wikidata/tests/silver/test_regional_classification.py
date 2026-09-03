@@ -251,7 +251,7 @@ def test_classify_regional_genres_nests_override_under_overview_item(tmp_path: P
     assert mezwed_row.row(0, named=True)["parent_id"] == "Q2579987"
     assert mezwed_row.row(0, named=True)["parent_label"] == "music of Portugal"
     assert mezwed_row.row(0, named=True)["relation_type"] == "manual_override_parent"
-    assert mezwed_row.row(0, named=True)["is_regional"] is True
+    assert mezwed_row.row(0, named=True)["is_regional"]
     assert mezwed_row.row(0, named=True)["regional_reason"] == "manual_override"
 
 
