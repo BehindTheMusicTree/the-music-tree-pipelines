@@ -14,7 +14,7 @@ this file is a manual audit pass over that root list.
 
 ## Where things live
 
-- Root list to review: `pipelines/wikidata/silver/6_canonical_roots.parquet` (gitignored — regenerate with `uv run --package wikidata python -m wikidata.silver` if stale or missing).
+- Root list to review: `<SILVER_OUTPUT_DIR>/6_canonical_roots.parquet` (git-ignored — regenerate with `uv run --package wikidata python -m wikidata.silver` if stale or missing; see `pipelines/wikidata/README.md` for `SILVER_OUTPUT_DIR`).
 - File to edit: `pipelines/wikidata/src/wikidata/silver/manual_regional_overrides.csv` (git-tracked, hand-curated — see the comment block atop `regional_classification.py` for why it exists).
 - CSV columns: `item_id,item_label,reason,overview_item_id`. `overview_item_id` **must** be the QID of an existing `is_regional_overview` item (a `"music of &lt;place&gt;"` article already in the dataset) — it is not free-form, and the pipeline raises if it isn't found or isn't flagged `is_regional_overview`.
 
@@ -22,11 +22,11 @@ this file is a manual audit pass over that root list.
 
 1. **Regenerate/read the current root list**:
    ```sh
-   duckdb -c ".mode csv" -c "SELECT item_id, item_label FROM 'pipelines/wikidata/silver/6_canonical_roots.parquet' ORDER BY item_label"
+   duckdb -c ".mode csv" -c "SELECT item_id, item_label FROM '<SILVER_OUTPUT_DIR>/6_canonical_roots.parquet' ORDER BY item_label"
    ```
 2. **Pull the valid overview-item catalogue** (the only legal `overview_item_id` values) so you're matching against what actually exists, not guessing QIDs:
    ```sh
-   duckdb -c ".mode csv" -c "SELECT DISTINCT item_id, item_label FROM 'pipelines/wikidata/silver/3_regional_classification.parquet' WHERE is_regional_overview ORDER BY item_label"
+   duckdb -c ".mode csv" -c "SELECT DISTINCT item_id, item_label FROM '<SILVER_OUTPUT_DIR>/3_regional_classification.parquet' WHERE is_regional_overview ORDER BY item_label"
    ```
    (Regenerate that parquet first via the silver run above if it's stale.)
 3. **Triage each root by confidence, don't force-fit everything**:
