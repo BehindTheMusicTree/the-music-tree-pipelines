@@ -130,3 +130,19 @@ Q19703932,jytä,"root item with no P279/P361 parent and no P2341/P495 value, but
 Q65434338,mezmur,"root item with no P279/P361 parent and no P2341/P495 value, but an Ethiopian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2917508
 Q6942327,music of Wales,"promoted root item (no own P279 parent in Bronze - only ever referenced as parent_label of Welsh folk music / Welsh hip hop); its real Wikidata parent is the British Isles/UK region",Q268673
 Q28371127,cymrucana,"root item with no P279/P361 parent and no P2341/P495 value, but a Welsh genre - its natural parent 'music of Wales' is a promoted overview item",Q6942327
+Q4745455,American fiddle,"root item with no P279/P361 parent and no P2341/P495 value, but a American genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2267955
+Q130554646,Brahmo sangeet,"root item with no P279/P361 parent and no P2341/P495 value, but a Indian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q531426
+Q5024670,Calypso-style baila,"root item with no P279/P361 parent and no P2341/P495 value, but a Sri Lankan genre missed by the automated seed/indigenous_to/country_of_origin classification",Q3328768
+Q5033854,Canto livre,"root item with no P279/P361 parent and no P2341/P495 value, but a Brazilian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q899215
+Q5054785,Cavalier song,"root item with no P279/P361 parent and no P2341/P495 value, but a English genre missed by the automated seed/indigenous_to/country_of_origin classification",Q110558058
+Q5244903,De dragoste,"root item with no P279/P361 parent and no P2341/P495 value, but a Romanian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q852210
+Q1474342,Funkeado,"root item with no P279/P361 parent and no P2341/P495 value, but a Brazilian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q899215
+Q120970818,Meistersang,"root item with no P279/P361 parent and no P2341/P495 value, but a German genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2743758
+Q7363273,Romo,"root item with no P279/P361 parent and no P2341/P495 value, but a British genre missed by the automated seed/indigenous_to/country_of_origin classification",Q268673
+Q105224848,chanson swing,"root item with no P279/P361 parent and no P2341/P495 value, but a French genre missed by the automated seed/indigenous_to/country_of_origin classification",Q672134
+Q5767258,chorrillera,"root item with no P279/P361 parent and no P2341/P495 value, but a Mexican genre missed by the automated seed/indigenous_to/country_of_origin classification",Q3397325
+Q3267742,madrigal comedy,"root item with no P279/P361 parent and no P2341/P495 value, but a Italian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q3679098
+Q6161710,vidala,"root item with no P279/P361 parent and no P2341/P495 value, but a Argentine genre missed by the automated seed/indigenous_to/country_of_origin classification",Q645992
+Q13126989,Welsh music,"root item with no P279/P361 parent and no P2341/P495 value, but a Welsh genre - its natural parent 'music of Wales' is a promoted overview item",Q6942327
+Q7982016,Welsh bardic music,"root item with no P279/P361 parent and no P2341/P495 value, but a Welsh genre - its natural parent 'music of Wales' is a promoted overview item",Q6942327
+Q822309,cerdd dant,"root item with no P279/P361 parent and no P2341/P495 value, but a Welsh genre - its natural parent 'music of Wales' is a promoted overview item",Q6942327
