@@ -69,3 +69,36 @@ def test_classify_regional_from_overviews_creates_output_dir(tmp_path: Path) -> 
     sc.classify_regional_from_overviews(item_links_path, output_dir)
 
     assert output_dir.is_dir()
+
+
+def test_classify_regional_from_overviews_promotes_orphan_music_of_parent(tmp_path: Path) -> None:
+    item_links_path = tmp_path / "1_item_links.parquet"
+    pl.DataFrame(
+        [
+            *ITEM_LINKS_ROWS,
+            {
+                "item_id": "Q28371127",
+                "item_label": "cymrucana",
+                "parent_id": "Q6942327",
+                "parent_label": "music of Wales",
+                "item_url": "https://www.wikidata.org/wiki/Q28371127",
+                "parent_url": "https://www.wikidata.org/wiki/Q6942327",
+            },
+        ]
+    ).write_parquet(item_links_path)
+    output_dir = tmp_path / "silver"
+
+    result = sc.classify_regional_from_overviews(item_links_path, output_dir)
+
+    rows = pl.read_parquet(result).sort("item_id").to_dicts()
+    promoted = next(row for row in rows if row["item_id"] == "Q6942327")
+    assert promoted == {
+        "item_id": "Q6942327",
+        "item_label": "music of Wales",
+        "parent_id": None,
+        "parent_label": None,
+        "item_url": "https://www.wikidata.org/wiki/Q6942327",
+        "parent_url": None,
+        "is_regional_overview": True,
+        "classification_reason": "regional_overview",
+    }
