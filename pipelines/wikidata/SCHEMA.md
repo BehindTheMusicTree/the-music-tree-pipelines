@@ -259,7 +259,7 @@ prefix whose `parent_id` has no `item_id` row of its own, this step synthesizes 
 (`parent_id`/`parent_label`/`relation_type` null, same shape as any other unparented item) before the
 prefix classification runs, so the promoted row gets `is_regional_overview = True` "for free." This is
 purely mechanical — the id/label pair is already present in Bronze as a `parent_label`, so no live
-Wikidata fetch is involved (see [[silver_never_fetches_raw]]) — unlike deciding which broader region a
+Wikidata fetch is involved (Silver never fetches raw data — see `CLAUDE.md`) — unlike deciding which broader region a
 promoted item nests under (e.g. Wales → United Kingdom), which stays a manual
 `manual_regional_overrides.csv` entry.
 

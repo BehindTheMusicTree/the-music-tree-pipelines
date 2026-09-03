@@ -8,13 +8,15 @@ logger = logging.getLogger(__name__)
 WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 
 # "music of <place>" items are Wikidata's national/regional music overview
-# articles (e.g. "music of Kenya", "music of France"). Wikidata classifies them
-# as P31 "instance of" music genre, but this step flags them non-genre
+# articles (e.g. "music of Kenya", "music of France"). Most are classified P31
+# "instance of" music genre in Bronze, but this step flags them non-genre
 # (is_regional_overview = True) rather than treating them as genre nodes — they
 # represent the music of a country or region as a whole rather than a specific
-# musical style. They are NOT dropped: they stay in the dataset and later
-# become regional-tree nodes via `is_regional` in step 3. There are ~300 such
-# items among ~6,300 items.
+# musical style. Some (e.g. "music of Wales") are never classified P31 music
+# genre themselves and so never get their own Bronze row — those are promoted
+# to a root row below before this rule runs, so they're covered too. They are
+# NOT dropped: they stay in the dataset and later become regional-tree nodes
+# via `is_regional` in step 3. There are ~300 such items among ~6,300 items.
 #
 # These items are also the seeds for "3_regional_classification", which propagates
 # `is_regional` through parent relationships: genres whose parent is one of these
