@@ -247,6 +247,22 @@ and are the seed set [`3_regional_classification`](#3_regional_classification) p
 genre, and the seeds themselves become regional genre nodes in their own right (see
 [`5_hierarchy`](#5_hierarchy)).
 
+**Auto-promotion of orphan `"music of "` parents.** Before the `classification_reason` rule above
+runs, this step also scans `parent_label` (not just `item_label`) for the `"music of "` prefix. Some
+regional-overview items (e.g. "music of Wales", `Q6942327`) are never themselves classified `P31`
+instance-of music genre, so Bronze never fetches their own row — they only ever show up as a
+`parent_label` on their subgenres (e.g. "Welsh folk music"). Left alone, such an item is invisible to
+the `classification_reason` rule above and cannot legally be used as a `manual_regional_overrides.csv`
+`overview_item_id` target (`3_regional_classification` requires the target to already exist and be
+flagged `is_regional_overview`). For every distinct `(parent_id, parent_label)` pair matching the
+prefix whose `parent_id` has no `item_id` row of its own, this step synthesizes one root row
+(`parent_id`/`parent_label`/`relation_type` null, same shape as any other unparented item) before the
+prefix classification runs, so the promoted row gets `is_regional_overview = True` "for free." This is
+purely mechanical — the id/label pair is already present in Bronze as a `parent_label`, so no live
+Wikidata fetch is involved (see [[silver_never_fetches_raw]]) — unlike deciding which broader region a
+promoted item nests under (e.g. Wales → United Kingdom), which stays a manual
+`manual_regional_overrides.csv` entry.
+
 This is a first classification pass covering the single highest-confidence, most mechanical rule
 found during analysis. Other non-genre categories are known to exist in the Bronze data (musical
 forms/techniques like "fugue" or "polyphony", ensemble/format labels like "big band music") but
