@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `wikidata` Bronze: ingest `P495` ("country of origin") values into a new `wikidata_genre_country_of_origin.parquet` table (one row per item/country pair), same shape as the `P2341` table above. `wikidata` Silver: `3_regional_classification` now also treats any item with a country-of-origin value as an additional regional seed (`regional_reason = "country_of_origin"`), catching nationally-specific genres with no `P279`/`P361` parent for the cascade to reach (e.g. "morna"). This roughly doubles the share of items flagged `is_regional`, from ~57% to ~84%. See `pipelines/wikidata/SCHEMA.md`.
 - `wikidata` Silver: `3_regional_classification` now also reads a git-tracked, hand-curated `manual_regional_overrides.csv` (`regional_reason = "manual_override"`) as a backstop for the rare genre none of the automated seed/`indigenous_to`/`country_of_origin` sources catch (e.g. "mezwed"). New `6_canonical_roots` Silver step extracts `5_hierarchy`'s root items (no parent) into their own `6_canonical_roots.parquet`, for manual exploration of the "too many roots" open question. See `pipelines/wikidata/SCHEMA.md`.
 
+### Fixed
+
+- `wikidata` Bronze: `wikidata_client.run_query` widens its retry budget (`stop_after_attempt` 3→5, `wait_exponential` max 10s→30s) to better ride out the live SPARQL endpoint truncating large query responses mid-stream (`json.JSONDecodeError`), observed recurring in CI's integration test even after the existing retry-on-decode-error path.
+
 ## [0.1.3] - 2026-08-28
 
 ### Documentation
