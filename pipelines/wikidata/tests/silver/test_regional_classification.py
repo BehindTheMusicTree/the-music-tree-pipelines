@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from wikidata.silver import regional_classification as sr
 
@@ -192,9 +193,14 @@ def _write_country_of_origin(tmp_path: Path) -> Path:
 
 def _write_manual_overrides(tmp_path: Path) -> Path:
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
-    pl.DataFrame({"item_id": ["Q4118941"], "item_label": ["mezwed"], "reason": ["test override"]}).write_csv(
-        manual_overrides_path
-    )
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": ["Q2579987"],  # music of Portugal, an existing seed in the fixture
+        }
+    ).write_csv(manual_overrides_path)
     return manual_overrides_path
 
 
@@ -226,6 +232,192 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
         "Q4118941": (True, "manual_override"),  # root item, hand-flagged, no automated source or parent edge
         "Q999999993": (True, "direct"),  # direct child of a manual_override item, same as a seed child
     }
+
+
+def test_classify_regional_genres_nests_override_under_overview_item(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = _write_manual_overrides(tmp_path)
+    output_dir = tmp_path / "silver"
+
+    result = sr.classify_regional_genres(
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+    )
+
+    df = pl.read_parquet(result)
+    mezwed_row = df.filter(pl.col("item_id") == "Q4118941")
+    assert mezwed_row.height == 1
+    assert mezwed_row.row(0, named=True)["parent_id"] == "Q2579987"
+    assert mezwed_row.row(0, named=True)["parent_label"] == "music of Portugal"
+    assert mezwed_row.row(0, named=True)["relation_type"] == "manual_override_parent"
+    assert mezwed_row.row(0, named=True)["is_regional"]
+    assert mezwed_row.row(0, named=True)["regional_reason"] == "manual_override"
+
+
+def test_classify_regional_genres_strips_whitespace_padded_overview_item_id(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": [" Q2579987 "],
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    result = sr.classify_regional_genres(
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+    )
+
+    df = pl.read_parquet(result)
+    mezwed_row = df.filter(pl.col("item_id") == "Q4118941")
+    assert mezwed_row.row(0, named=True)["parent_id"] == "Q2579987"
+    assert mezwed_row.row(0, named=True)["parent_label"] == "music of Portugal"
+
+
+def test_classify_regional_genres_requires_known_override_item_id(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q999999999"],
+            "item_label": ["not in the genre tree"],
+            "reason": ["test override"],
+            "overview_item_id": ["Q2579987"],
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q999999999"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_known_overview_item_id(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": ["Q999999999"],
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q999999999"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_overview_item_id_be_regional_overview(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": ["Q8341"],  # jazz, a known item but not flagged is_regional_overview
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q8341"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_overview_item_id_column(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame({"item_id": ["Q4118941"], "item_label": ["mezwed"], "reason": ["test override"]}).write_csv(
+        manual_overrides_path
+    )
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="overview_item_id"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_overview_item_id_value_when_column_is_all_null(
+    tmp_path: Path,
+) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    # An entirely-empty overview_item_id column makes Polars infer it as Null dtype rather than
+    # Utf8, which previously raised a SchemaError on the strip_chars() call instead of the
+    # intended ValueError.
+    manual_overrides_path.write_text("item_id,item_label,reason,overview_item_id\nQ4118941,mezwed,test override,\n")
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q4118941"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_overview_item_id_value(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": [None],
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q4118941"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
+
+
+def test_classify_regional_genres_requires_non_blank_overview_item_id_value(tmp_path: Path) -> None:
+    genre_classification_path = _write_genre_classification(tmp_path)
+    indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
+    manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q4118941"],
+            "item_label": ["mezwed"],
+            "reason": ["test override"],
+            "overview_item_id": [" "],
+        }
+    ).write_csv(manual_overrides_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q4118941"):
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_creates_output_dir(tmp_path: Path) -> None:

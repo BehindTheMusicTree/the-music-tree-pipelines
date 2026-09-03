@@ -5,12 +5,88 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
+WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
+
 # Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
 # not fetched from Wikidata: genres that slip through the automated seed/indigenous_to/
 # country_of_origin classification below (e.g. roots with no P279/P361 parent and no P2341/P495
 # value) get added here by a data expert reviewing 5_hierarchy's root list, with a `reason` for
-# each entry. See SCHEMA.md#3_regional_classification.
+# each entry. `overview_item_id` is the QID of the `regional_overview` item (e.g. "music of Japan")
+# the override item nests under in 5_regional_hierarchy — required, since these override items
+# typically have no P279/P361 parent and would otherwise surface as their own orphan root in the
+# regional tree instead of sitting under their region. See SCHEMA.md#3_regional_classification.
 MANUAL_OVERRIDES_PATH = Path(__file__).parent / "manual_regional_overrides.csv"
+
+
+def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) -> pl.DataFrame:
+    if "overview_item_id" not in manual_overrides.columns:
+        raise ValueError("manual_regional_overrides.csv is missing the required 'overview_item_id' column")
+    manual_overrides = manual_overrides.with_columns(pl.col("overview_item_id").cast(pl.Utf8))
+    missing = manual_overrides.filter(
+        pl.col("overview_item_id").is_null() | (pl.col("overview_item_id").str.strip_chars() == "")
+    )
+    if not missing.is_empty():
+        missing_ids = missing.select("item_id").to_series().to_list()
+        raise ValueError(f"manual_regional_overrides.csv rows missing required 'overview_item_id': {missing_ids}")
+    overrides = manual_overrides.with_columns(overview_item_id=pl.col("overview_item_id").str.strip_chars())
+
+    known_item_ids = set(df.select("item_id").unique().to_series())
+    unknown_item_ids = [
+        item_id for item_id in overrides.select("item_id").unique().to_series() if item_id not in known_item_ids
+    ]
+    if unknown_item_ids:
+        raise ValueError(
+            f"manual_regional_overrides.csv rows reference item_id(s) not found in the genre tree: {unknown_item_ids}"
+        )
+    unknown_overview_item_ids = [
+        overview_item_id
+        for overview_item_id in overrides.select("overview_item_id").unique().to_series()
+        if overview_item_id not in known_item_ids
+    ]
+    if unknown_overview_item_ids:
+        raise ValueError(
+            "manual_regional_overrides.csv rows reference overview_item_id(s) not found in the genre tree: "
+            f"{unknown_overview_item_ids}"
+        )
+    regional_overview_ids = set(df.filter(pl.col("is_regional_overview")).select("item_id").unique().to_series())
+    non_regional_overview_ids = [
+        overview_item_id
+        for overview_item_id in overrides.select("overview_item_id").unique().to_series()
+        if overview_item_id not in regional_overview_ids
+    ]
+    if non_regional_overview_ids:
+        raise ValueError(
+            "manual_regional_overrides.csv rows reference overview_item_id(s) not flagged is_regional_overview "
+            f"in the genre tree: {non_regional_overview_ids}"
+        )
+
+    overview_labels = (
+        df.select("item_id", "item_label")
+        .unique(subset="item_id")
+        .rename({"item_id": "overview_item_id", "item_label": "overview_item_label"})
+    )
+    item_columns = [c for c in df.columns if c not in ("parent_id", "parent_label", "parent_url", "relation_type")]
+    synthetic_edges = (
+        overrides.select("item_id", "overview_item_id")
+        .join(overview_labels, on="overview_item_id", how="left")
+        .join(df.select(item_columns).unique(subset="item_id"), on="item_id", how="left")
+        .with_columns(
+            parent_id=pl.col("overview_item_id"),
+            parent_label=pl.col("overview_item_label"),
+            parent_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("overview_item_id"),
+            relation_type=pl.lit("manual_override_parent"),
+        )
+    )
+    if "has_parent_label" in df.columns:
+        synthetic_edges = synthetic_edges.with_columns(
+            has_parent_label=pl.col("overview_item_label").is_not_null()
+            & (pl.col("overview_item_label") != pl.col("overview_item_id"))
+        )
+    synthetic_edges = synthetic_edges.select(df.columns)
+
+    overridden_ids = set(overrides.select("item_id").unique().to_series())
+    df = df.filter(~(pl.col("item_id").is_in(list(overridden_ids)) & pl.col("parent_id").is_null()))
+    return pl.concat([df, synthetic_edges])
 
 
 def classify_regional_genres(
@@ -24,7 +100,9 @@ def classify_regional_genres(
     df = pl.read_parquet(regional_overview_classification_path)
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).select("item_id").unique().to_series())
     country_ids = set(pl.read_parquet(country_of_origin_path).select("item_id").unique().to_series())
-    manual_override_ids = set(pl.read_csv(manual_overrides_path).select("item_id").unique().to_series())
+    manual_overrides = pl.read_csv(manual_overrides_path)
+    manual_override_ids = set(manual_overrides.select("item_id").unique().to_series())
+    df = _apply_overview_overrides(df, manual_overrides)
 
     # Seeds: the "music of <place>" items themselves, plus every item Wikidata's P2341
     # ("indigenous to") or P495 ("country of origin") flags as belonging to a specific people or
