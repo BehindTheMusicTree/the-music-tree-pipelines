@@ -128,3 +128,5 @@ Q12873448,Amanes,"root item with no P279/P361 parent and no P2341/P495 value, bu
 Q12334212,røvballe,"root item with no P279/P361 parent and no P2341/P495 value, but a Danish genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2449418
 Q19703932,jytä,"root item with no P279/P361 parent and no P2341/P495 value, but a Finnish genre missed by the automated seed/indigenous_to/country_of_origin classification",Q1417976
 Q65434338,mezmur,"root item with no P279/P361 parent and no P2341/P495 value, but an Ethiopian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2917508
+Q6942327,music of Wales,"promoted root item (no own P279 parent in Bronze - only ever referenced as parent_label of Welsh folk music / Welsh hip hop); its real Wikidata parent is the British Isles/UK region",Q268673
+Q28371127,cymrucana,"root item with no P279/P361 parent and no P2341/P495 value, but a Welsh genre - its natural parent 'music of Wales' is a promoted overview item",Q6942327
