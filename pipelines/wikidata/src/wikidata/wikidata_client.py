@@ -11,6 +11,14 @@ MUSIC_GENRE_QID = "Q188451"
 INDIGENOUS_TO_PID = "P2341"
 COUNTRY_OF_ORIGIN_PID = "P495"
 
+# Label service fallback chain: tries each language in order, falling back to the
+# next when an item has no label in the previous one, before finally falling back
+# to printing the QID (see silver/item_links.py's has_item_label/has_parent_label).
+# "mul" = Wikidata's language-independent label (e.g. band/artist names); the rest
+# are the languages most likely to carry a label for regional/national genres that
+# lack an English one.
+LABEL_LANGUAGES = "en,mul,es,fr,de,pt,it,nl,ru,ja,zh"
+
 GENRE_TREE_QUERY_VARIABLES = ("item", "itemLabel", "parent", "parentLabel", "relation")
 INDIGENOUS_TO_QUERY_VARIABLES = ("item", "indigenousTo", "indigenousToLabel")
 COUNTRY_OF_ORIGIN_QUERY_VARIABLES = ("item", "countryOfOrigin", "countryOfOriginLabel")
@@ -61,7 +69,7 @@ SELECT ?item ?itemLabel ?parent ?parentLabel ?relation WHERE {{
     FILTER NOT EXISTS {{ ?item wdt:P279 ?p279Parent }}
     FILTER NOT EXISTS {{ ?item wdt:P361 ?p361Parent }}
   }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
 """
 
@@ -80,7 +88,7 @@ INDIGENOUS_TO_QUERY = f"""
 SELECT ?item ?indigenousTo ?indigenousToLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{INDIGENOUS_TO_PID} ?indigenousTo .
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
 """
 
@@ -96,7 +104,7 @@ COUNTRY_OF_ORIGIN_QUERY = f"""
 SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{COUNTRY_OF_ORIGIN_PID} ?countryOfOrigin .
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
 """
 
