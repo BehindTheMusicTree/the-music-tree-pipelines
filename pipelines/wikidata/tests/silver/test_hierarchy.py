@@ -264,7 +264,8 @@ def test_prune_genre_hierarchy_creates_output_dir(tmp_path: Path) -> None:
 
 def test_prune_genre_hierarchy_drops_theme_items_from_both_trees(tmp_path: Path) -> None:
     genre_parents_path = _write_genre_parents(tmp_path)
-    # Q11399 (rock music) is canonical, Q1198360 (morna) is regional — flag both as themes.
+    # Q11399 (rock music) is the one canonical theme item, Q1198360 (morna) is the one regional
+    # theme item — flag both.
     manual_theme_genres_path = _write_manual_theme_genres(
         tmp_path,
         [
