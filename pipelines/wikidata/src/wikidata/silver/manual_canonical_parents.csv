@@ -1,2 +1,4 @@
 item_id,item_label,reason,parent_item_id
 Q136342757,ameriachi,root item with no P279/P361 parent; a jazz fusion genre blending American jazz with mariachi with no single national/ethnic home so manual_regional_overrides.csv does not apply,Q8341
+Q5477103,Foxcore,root item with no P279/P361 parent; a 1990s female-fronted rock subgenre with no single national/ethnic home so manual_regional_overrides.csv does not apply,Q11399
+Q7233169,Posi music,"root item with no P279/P361 parent; a ""positive""-themed punk/hardcore rock subgenre with no single national/ethnic home so manual_regional_overrides.csv does not apply",Q11399

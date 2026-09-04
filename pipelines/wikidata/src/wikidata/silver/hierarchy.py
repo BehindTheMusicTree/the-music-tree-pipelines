@@ -22,6 +22,14 @@ MANUAL_THEME_GENRES_PATH = Path(__file__).parent / "manual_theme_genres.csv"
 # root lists adds them here by hand. Dropped entirely from both outputs the same way theme items are.
 MANUAL_TECHNIQUE_GENRES_PATH = Path(__file__).parent / "manual_technique_genres.csv"
 
+# Same mechanism as MANUAL_THEME_GENRES_PATH, but for items that are simply not a music genre at
+# all — Wikidata's P31 "music genre" classification was wrong (e.g. a near-empty stub with no real
+# description, a record label, an event, a person) rather than the item being a real genre that's
+# off-topic (that's MANUAL_THEME_GENRES_PATH) or a technique (MANUAL_TECHNIQUE_GENRES_PATH). No
+# automated signal distinguishes this either, so it's curated by hand the same way, and dropped
+# identically — from both outputs, before either stage below runs.
+MANUAL_OUT_OF_SCOPE_GENRES_PATH = Path(__file__).parent / "manual_out_of_scope_genres.csv"
+
 
 def _load_dropped_ids(df: pl.DataFrame, manual_csv: pl.DataFrame, csv_name: str) -> set[str]:
     if "item_id" not in manual_csv.columns:
@@ -91,15 +99,18 @@ def prune_genre_hierarchy(
     genre_parents_path: Path,
     manual_theme_genres_path: Path,
     manual_technique_genres_path: Path,
+    manual_out_of_scope_genres_path: Path,
     output_dir: Path,
 ) -> tuple[Path, Path]:
     logger.info("pruning genre hierarchy from %s", genre_parents_path)
     df = pl.read_parquet(genre_parents_path)
     manual_theme_genres = pl.read_csv(manual_theme_genres_path)
     manual_technique_genres = pl.read_csv(manual_technique_genres_path)
+    manual_out_of_scope_genres = pl.read_csv(manual_out_of_scope_genres_path)
     theme_ids = _load_dropped_ids(df, manual_theme_genres, "manual_theme_genres.csv")
     technique_ids = _load_dropped_ids(df, manual_technique_genres, "manual_technique_genres.csv")
-    dropped_ids = theme_ids | technique_ids
+    out_of_scope_ids = _load_dropped_ids(df, manual_out_of_scope_genres, "manual_out_of_scope_genres.csv")
+    dropped_ids = theme_ids | technique_ids | out_of_scope_ids
 
     df = df.filter(~pl.col("item_id").is_in(list(dropped_ids))).with_columns(
         parent_is_genre=pl.when(pl.col("parent_id").is_in(list(dropped_ids)))
