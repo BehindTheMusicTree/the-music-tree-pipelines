@@ -302,3 +302,5 @@ Q2886472,wititi,root item with no P279/P361 parent and no P2341/P495 value; a Pe
 Q8044658,Xintianyou,root item with no P279/P361 parent and no P2341/P495 value; a China genre missed by the automated seed/indigenous_to classification (medium confidence),Q277393
 Q12251955,Yamani palm music,root item with no P279/P361 parent and no P2341/P495 value; a Yemen genre missed by the automated seed/indigenous_to classification (medium confidence),Q3328786
 Q11903204,Zouk chouv,root item with no P279/P361 parent and no P2341/P495 value; a the French Antilles genre missed by the automated seed/indigenous_to classification (medium confidence),Q108151421
+Q4193824,der song,root item with no P279/P361 parent and no P2341/P495 value; a German genre confirmed by user request (high confidence),Q2743758
+Q16606623,metal prehispánico,"root item with no P279/P361 parent; a heavy metal fusion genre incorporating pre-Hispanic Indigenous instruments and themes from multiple Latin American countries with no single national/ethnic home, so reclassified regional under a synthetic indigenous-Americas overview instead of a canonical parent",LOCAL:indigenous-americas

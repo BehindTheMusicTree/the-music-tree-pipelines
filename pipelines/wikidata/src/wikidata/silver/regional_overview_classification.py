@@ -32,7 +32,8 @@ REGIONAL_OVERVIEW_PREFIX = "music of "
 # not fetched from Wikidata: a "music of <place>" overview item that never appears in Bronze at
 # all (not even as a `parent_label` for orphan-promotion above to pick up, e.g. because no genre in
 # the dataset happens to declare it as a P279/P361 parent) can be added here by a data expert who
-# looked up its real Wikidata QID, so it becomes a legal `manual_regional_overrides.csv`
+# looked up its real Wikidata QID (or, as a last resort when no matching Wikidata item exists,
+# a synthetic `LOCAL:`-prefixed id), so it becomes a legal `manual_regional_overrides.csv`
 # `overview_item_id` target. See SCHEMA.md#2_regional_overview_classification.
 MANUAL_OVERVIEW_ADDITIONS_PATH = Path(__file__).parent / "manual_regional_overview_additions.csv"
 

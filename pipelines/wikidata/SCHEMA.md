@@ -276,10 +276,14 @@ invisible to this step and cannot legally be used as a `manual_regional_override
 Wikidata QID adds a row here, and this step synthesizes it as a root row (same shape as an
 auto-promoted orphan) before the `classification_reason` rule runs, so it gets
 `is_regional_overview = True` "for free" and becomes a legal `overview_item_id` target. This is still
-not a live fetch — the QID/label pair is authored by hand, same as `manual_regional_overrides.csv`
+not a live fetch — the id/label pair is authored by hand, same as `manual_regional_overrides.csv`
 (Silver never fetches raw data — see `CLAUDE.md`) — and the pipeline fails fast if a row's
 `item_label` doesn't start with `"music of "` or its `item_id` is already present in the genre tree
-(in which case it doesn't need manual addition).
+(in which case it doesn't need manual addition). `item_id` is normally a real Wikidata QID, but a
+synthetic id (e.g. `LOCAL:indigenous-americas`) is allowed as a last resort when no matching real
+Wikidata "music of `<place>`" item exists at all — not every Gold-layer grouping concept has a
+Wikidata counterpart. Such rows still need `item_label` to start with `"music of "`; their
+`item_url` is built the same way as any other row and simply won't resolve to a real Wikidata page.
 
 This is a first classification pass covering the single highest-confidence, most mechanical rule
 found during analysis. Other non-genre categories are known to exist in the Bronze data (musical
@@ -336,8 +340,9 @@ True`, not merely a launching point for other items:
   why a data expert added it; see the file itself for the current list. Because these override
   items typically have no `P279`/`P361` parent at all, they'd otherwise surface as their own orphan
   roots in `5_regional_hierarchy` instead of nesting under their region — a required
-  `overview_item_id` column gives the override item's `item_id` the QID of a `regional_overview`
-  item (e.g. "music of Japan") as a synthetic parent edge (`relation_type =
+  `overview_item_id` column gives the override item's `item_id` the `item_id` of a `regional_overview`
+  item (e.g. "music of Japan" — normally a real QID, but see `manual_regional_overview_additions.csv`
+  above for the synthetic-id fallback) as a synthetic parent edge (`relation_type =
   "manual_override_parent"`), replacing its null-parent row. Every row must set it; a row with it
   missing or blank fails the pipeline at this step rather than silently leaving the item an orphan
   root.
