@@ -35,6 +35,17 @@ HIERARCHY_ROWS = [
         "parent_url": "https://www.wikidata.org/wiki/Q11399",
         "relation_type": "P279",
     },
+    # jazz: parent_id points at "Q373342" (popular music), which has no row of its own in this
+    # file (a dead-end/phantom parent) -- jazz is a root too, not just items with a null parent_id
+    {
+        "item_id": "Q8341",
+        "item_label": "jazz",
+        "item_url": "https://www.wikidata.org/wiki/Q8341",
+        "parent_id": "Q373342",
+        "parent_label": "popular music",
+        "parent_url": "https://www.wikidata.org/wiki/Q373342",
+        "relation_type": "P279",
+    },
 ]
 
 
@@ -53,6 +64,11 @@ def test_extract_canonical_roots_keeps_only_parentless_items(tmp_path: Path) -> 
     assert result == output_dir / "6_canonical_roots.parquet"
     rows = pl.read_parquet(result).to_dicts()
     assert rows == [
+        {
+            "item_id": "Q8341",
+            "item_label": "jazz",
+            "item_url": "https://www.wikidata.org/wiki/Q8341",
+        },
         {
             "item_id": "Q9778",
             "item_label": "popular music",
