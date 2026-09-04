@@ -177,9 +177,9 @@ GENRE_PARENTS_ROWS = [
 ]
 
 
-def _write_genre_parents(tmp_path: Path, rows: list[dict] = GENRE_PARENTS_ROWS) -> Path:
+def _write_genre_parents(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     genre_parents_path = tmp_path / "4_genre_parents.parquet"
-    pl.DataFrame(rows).write_parquet(genre_parents_path)
+    pl.DataFrame(GENRE_PARENTS_ROWS if rows is None else rows).write_parquet(genre_parents_path)
     return genre_parents_path
 
 
