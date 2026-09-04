@@ -339,3 +339,37 @@ Q18358825,Verso,"root item with no P279/P361/P495 parent; genre in Iberian organ
 Q28147473,bolero salsa,"root item with no P279/P361/P495 parent; slow-dance salsa subgenre named for bolero, whose birthplace is Cuba, though salsa itself is pan-Caribbean (low confidence, user-confirmed guess)",Q1544863
 Q3470213,salsaton,"root item with no P279/P361/P495 parent; salsa/reggaeton fusion, reggaeton's birthplace being Puerto Rico, though the genre itself is a cross-national fusion (low confidence, user-confirmed guess)",Q427183
 Q6420782,klezmer fiddle,"root item with no P279/P361/P495 parent; genre rooted in the Ashkenazi Jewish shtetl tradition of Eastern Europe, predating the modern state of Israel, loosely associated with Jewish music heritage (low confidence, user-confirmed guess)",Q3858
+Q4670712,Abwe,root item with no P279/P361 parent; Wikidata P495 (country of origin) = Cuba,Q1544863
+Q4857249,Bantowbol,root item with no P279/P361 parent; Wikidata P495 = Cameroon,Q10334892
+Q1227093,Bilbainada,root item with no P279/P361 parent; Wikidata P495 = Spain,Q964987
+Q4939163,Bolel,root item with no P279/P361 parent; Wikidata P495 = Ethiopia,Q2917508
+Q16845069,Bothy band,root item with no P279/P361 parent; Wikidata P495 = Scotland,Q1048469
+Q5116146,Chumba,root item with no P279/P361 parent; Wikidata P495 = Belize,Q968018
+Q5256877,Dene music,root item with no P279/P361 parent; Wikidata P495 = Canada,Q6942037
+Q16029081,Deuda song,root item with no P279/P361 parent; Wikidata P495 = Nepal,Q3328735
+Q5518471,Galerón,root item with no P279/P361 parent; Wikidata P495 = Venezuela,Q2486179
+Q104771349,Jalaíto,root item with no P279/P361 parent; Wikidata P495 = Colombia,Q920883
+Q16941867,Jamaquello,root item with no P279/P361 parent; Wikidata P495 = Nicaragua,Q6942217
+Q5954460,Juga,root item with no P279/P361 parent; Wikidata P495 = Colombia,Q920883
+Q93258199,Jyoti Sangeet,root item with no P279/P361 parent; Wikidata P495 = India,Q531426
+Q6378419,Katuli,root item with no P279/P361 parent; Wikidata P495 = Iran,Q1672398
+Q108651047,Kiarou,root item with no P279/P361 parent; Wikidata P495 = Benin,Q10334885
+Q6032954,Kilam,root item with no P279/P361 parent; Wikidata P495 = Turkey,Q1074080
+Q3293102,Marimbalax,root item with no P279/P361 parent; Wikidata P495 = Chile,Q3889385
+Q25204037,Paranda,root item with no P279/P361 parent; Wikidata P495 = Guatemala,Q1298412
+Q16965849,Sawani,root item with no P279/P361 parent; Wikidata P495 = India,Q531426
+Q7513991,Sikuri,root item with no P279/P361 parent; Wikidata P495 = Peru,Q3085344
+Q2956228,Songs of realization,root item with no P279/P361 parent; Wikidata description identifies it as a musical genre of ancient India,Q17075815
+Q7690640,Tche music,root item with no P279/P361 parent; Wikidata P495 = Brazil,Q899215
+Q63122412,Unaizah Samri,root item with no P279/P361 parent; Wikidata P495 = Saudi Arabia (Al Qassim Region),Q3328758
+Q10801090,Vietnamese diasporic music,root item with no P279/P361 parent; Wikidata P495 = Vietnam,Q1156957
+Q8072348,Zindalii,root item with no P279/P361 parent; Wikidata P495 = Algeria,Q3328583
+Q105044420,East Bay Grease,"root item with no P279/P361/P495 parent; funk term tied to the San Francisco East Bay scene (medium confidence, user-confirmed guess)",Q2267955
+Q85794311,Preaching Chords,"root item with no P279/P361/P495 parent; likely Black-church/gospel preaching-and-music tradition (low confidence, user-confirmed guess)",Q2267955
+Q7525526,Sioux music,"root item with no P279/P361/P495 parent; Sioux/Lakota tradition, primarily US Great Plains (medium confidence, user-confirmed guess)",Q2267955
+Q7561194,Song poem,"root item with no P279/P361/P495 parent; Wikidata description says ""20th century North America"", narrowed to United States (medium confidence, user-confirmed guess)",Q2267955
+Q967167,Russendisko,"root item with no P279/P361/P495 parent; Russian-émigré club-night scene physically located in Berlin, Germany (medium confidence, user-confirmed guess)",Q2743758
+Q4848983,Baka music,"root item with no P279/P361/P495 parent; Baka Pygmy people span Cameroon/Gabon/CAR/Congo, Cameroon has the largest population (low-medium confidence, user-confirmed guess)",Q10334892
+Q104870221,Bertitik,"root item with no P279/P361/P495 parent; Bajau traditional ensemble, Bajau people span Malaysia/Philippines/Indonesia, Sabah (Malaysia) has the largest population (low-medium confidence, user-confirmed guess)",Q3328715
+Q5521262,Gangtai,"root item with no P279/P361/P495 parent; term jointly denotes Hong Kong + Taiwan pop music, Hong Kong chosen as a coin-flip (low confidence, user-confirmed guess)",Q6942118
+Q6772364,Maroon music,"root item with no P279/P361/P495 parent; Maroon (escaped-slave descendant) communities span Jamaica, Suriname, French Guiana and other Caribbean/circum-Caribbean nations (medium confidence, user-confirmed guess)",Q3394906
