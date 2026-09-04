@@ -38,6 +38,10 @@ def _apply_canonical_parent_overrides(df: pl.DataFrame, manual_parents: pl.DataF
         raise ValueError(f"manual_canonical_parents.csv rows missing required 'parent_item_id': {missing_ids}")
     overrides = manual_parents.with_columns(parent_item_id=pl.col("parent_item_id").str.strip_chars())
 
+    override_item_ids = overrides.select("item_id").to_series().to_list()
+    if len(override_item_ids) != len(set(override_item_ids)):
+        raise ValueError("manual_canonical_parents.csv contains duplicate item_id rows")
+
     known_item_ids = set(df.select("item_id").unique().to_series())
     unknown_item_ids = [
         item_id for item_id in overrides.select("item_id").unique().to_series() if item_id not in known_item_ids
