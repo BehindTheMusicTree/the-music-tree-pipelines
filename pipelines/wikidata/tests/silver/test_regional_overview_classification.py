@@ -146,6 +146,36 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_missing_from
     }
 
 
+def test_classify_regional_from_overviews_adds_manual_overview_item_with_synthetic_id(tmp_path: Path) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path,
+        [
+            {
+                "item_id": "LOCAL:indigenous-americas",
+                "item_label": "music of Indigenous peoples of the Americas",
+                "reason": "synthetic (no matching Wikidata overview item)",
+            }
+        ],
+    )
+    output_dir = tmp_path / "silver"
+
+    result = sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+
+    rows = pl.read_parquet(result).sort("item_id").to_dicts()
+    added = next(row for row in rows if row["item_id"] == "LOCAL:indigenous-americas")
+    assert added == {
+        "item_id": "LOCAL:indigenous-americas",
+        "item_label": "music of Indigenous peoples of the Americas",
+        "parent_id": None,
+        "parent_label": None,
+        "item_url": "https://www.wikidata.org/wiki/LOCAL:indigenous-americas",
+        "parent_url": None,
+        "is_regional_overview": True,
+        "classification_reason": "regional_overview",
+    }
+
+
 def test_classify_regional_from_overviews_rejects_manual_addition_without_music_of_prefix(tmp_path: Path) -> None:
     item_links_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
