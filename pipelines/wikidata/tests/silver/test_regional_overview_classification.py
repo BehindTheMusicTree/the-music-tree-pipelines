@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from wikidata.silver import regional_overview_classification as sc
 
@@ -152,11 +153,8 @@ def test_classify_regional_from_overviews_rejects_manual_addition_without_music_
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="item_label"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "item_label" in str(exc)
 
 
 def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_item_label(tmp_path: Path) -> None:
@@ -166,11 +164,8 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_ite
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="blank"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "blank" in str(exc)
 
 
 def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_item_label(tmp_path: Path) -> None:
@@ -180,11 +175,8 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_ite
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="blank"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "blank" in str(exc)
 
 
 def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_item_id(tmp_path: Path) -> None:
@@ -194,11 +186,8 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_ite
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="blank"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "blank" in str(exc)
 
 
 def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze(tmp_path: Path) -> None:
@@ -208,11 +197,8 @@ def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bro
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="already present"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "already present" in str(exc)
 
 
 def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze_with_whitespace(
@@ -224,8 +210,5 @@ def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bro
     )
     output_dir = tmp_path / "silver"
 
-    try:
+    with pytest.raises(ValueError, match="already present"):
         sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
-        raise AssertionError("expected ValueError")
-    except ValueError as exc:
-        assert "already present" in str(exc)
