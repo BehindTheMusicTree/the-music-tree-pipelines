@@ -28,6 +28,51 @@ WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 # handled by this classification step.
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
+# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
+# not fetched from Wikidata: a "music of <place>" overview item that never appears in Bronze at
+# all (not even as a `parent_label` for orphan-promotion above to pick up, e.g. because no genre in
+# the dataset happens to declare it as a P279/P361 parent) can be added here by a data expert who
+# looked up its real Wikidata QID, so it becomes a legal `manual_regional_overrides.csv`
+# `overview_item_id` target. See SCHEMA.md#2_regional_overview_classification.
+MANUAL_OVERVIEW_ADDITIONS_PATH = Path(__file__).parent / "manual_regional_overview_additions.csv"
+
+
+def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame) -> pl.DataFrame:
+    if manual_additions.is_empty():
+        return df
+
+    non_prefixed = manual_additions.filter(~pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX))
+    if not non_prefixed.is_empty():
+        raise ValueError(
+            "manual_regional_overview_additions.csv rows must have an item_label starting with "
+            f"'{REGIONAL_OVERVIEW_PREFIX}': {non_prefixed.select('item_id').to_series().to_list()}"
+        )
+
+    added_ids = manual_additions.select("item_id").to_series().to_list()
+    if len(added_ids) != len(set(added_ids)):
+        raise ValueError("manual_regional_overview_additions.csv contains duplicate item_id rows")
+
+    known_item_ids = set(df.select("item_id").unique().to_series())
+    already_present = [item_id for item_id in added_ids if item_id in known_item_ids]
+    if already_present:
+        raise ValueError(
+            "manual_regional_overview_additions.csv rows already present in the genre tree "
+            f"(remove them, they don't need manual addition): {already_present}"
+        )
+
+    added = manual_additions.with_columns(
+        parent_id=pl.lit(None, dtype=pl.Utf8),
+        parent_label=pl.lit(None, dtype=pl.Utf8),
+        relation_type=pl.lit(None, dtype=pl.Utf8),
+        item_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("item_id"),
+        parent_url=pl.lit(None, dtype=pl.Utf8),
+        has_item_label=pl.lit(True),
+        has_parent_label=pl.lit(None, dtype=pl.Boolean),
+    ).select(df.columns)
+    logger.info("added %d manual 'music of' overview item(s) missing from Bronze entirely", added.height)
+
+    return pl.concat([df, added])
+
 
 def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
     """Some "music of <place>" items (e.g. "music of Wales") are never themselves classified P31
@@ -64,10 +109,11 @@ def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
     return pl.concat([df, promoted])
 
 
-def classify_regional_from_overviews(item_links_path: Path, output_dir: Path) -> Path:
+def classify_regional_from_overviews(item_links_path: Path, manual_additions_path: Path, output_dir: Path) -> Path:
     logger.info("classifying regional from overviews %s", item_links_path)
     df = pl.read_parquet(item_links_path)
     df = _promote_orphan_overview_parents(df)
+    df = _add_manual_overview_items(df, pl.read_csv(manual_additions_path))
 
     is_regional_overview = pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
     df = df.with_columns(

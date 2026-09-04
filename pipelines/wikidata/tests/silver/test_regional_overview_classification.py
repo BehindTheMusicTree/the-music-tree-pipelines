@@ -30,11 +30,20 @@ def _write_item_links(tmp_path: Path) -> Path:
     return item_links_path
 
 
+def _write_manual_additions(tmp_path: Path, rows: list[dict] | None = None) -> Path:
+    manual_additions_path = tmp_path / "manual_regional_overview_additions.csv"
+    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
+        manual_additions_path
+    )
+    return manual_additions_path
+
+
 def test_classify_regional_from_overviews_flags_regional_overview_items(tmp_path: Path) -> None:
     item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sc.classify_regional_from_overviews(item_links_path, output_dir)
+    result = sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
 
     assert result == output_dir / "2_regional_overview_classification.parquet"
     rows = pl.read_parquet(result).sort("item_id").to_dicts()
@@ -64,9 +73,10 @@ def test_classify_regional_from_overviews_flags_regional_overview_items(tmp_path
 
 def test_classify_regional_from_overviews_creates_output_dir(tmp_path: Path) -> None:
     item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sc.classify_regional_from_overviews(item_links_path, output_dir)
+    sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
 
     assert output_dir.is_dir()
 
@@ -86,9 +96,10 @@ def test_classify_regional_from_overviews_promotes_orphan_music_of_parent(tmp_pa
             },
         ]
     ).write_parquet(item_links_path)
+    manual_additions_path = _write_manual_additions(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sc.classify_regional_from_overviews(item_links_path, output_dir)
+    result = sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
 
     rows = pl.read_parquet(result).sort("item_id").to_dicts()
     promoted = next(row for row in rows if row["item_id"] == "Q6942327")
@@ -102,3 +113,61 @@ def test_classify_regional_from_overviews_promotes_orphan_music_of_parent(tmp_pa
         "is_regional_overview": True,
         "classification_reason": "regional_overview",
     }
+
+
+def test_classify_regional_from_overviews_adds_manual_overview_item_missing_from_bronze(tmp_path: Path) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path,
+        [
+            {
+                "item_id": "Q16147503",
+                "item_label": "music of Dominica",
+                "reason": "never P31 music genre nor a parent_label in Bronze; real Wikidata QID looked up by hand",
+            }
+        ],
+    )
+    output_dir = tmp_path / "silver"
+
+    result = sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+
+    rows = pl.read_parquet(result).sort("item_id").to_dicts()
+    added = next(row for row in rows if row["item_id"] == "Q16147503")
+    assert added == {
+        "item_id": "Q16147503",
+        "item_label": "music of Dominica",
+        "parent_id": None,
+        "parent_label": None,
+        "item_url": "https://www.wikidata.org/wiki/Q16147503",
+        "parent_url": None,
+        "is_regional_overview": True,
+        "classification_reason": "regional_overview",
+    }
+
+
+def test_classify_regional_from_overviews_rejects_manual_addition_without_music_of_prefix(tmp_path: Path) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path, [{"item_id": "Q1", "item_label": "not a regional overview", "reason": "bad row"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    try:
+        sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "item_label" in str(exc)
+
+
+def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze(tmp_path: Path) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path, [{"item_id": "Q3868594", "item_label": "music of Kenya", "reason": "already present"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    try:
+        sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "already present" in str(exc)
