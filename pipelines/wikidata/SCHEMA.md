@@ -469,6 +469,13 @@ performance techniques (e.g. "crab canon", "fauxbourdon", "call and response") r
 at all. No automated signal distinguishes a technique from a genre either, so it's curated by hand
 the same way, and dropped identically — from both outputs, before either stage below runs.
 
+Also reads a third git-tracked, hand-curated `manual_out_of_scope_genres.csv` (same columns:
+`item_id`, `item_label`, `reason`) for items that aren't a music genre at all — Wikidata's `P31`
+"music genre" classification was simply wrong (e.g. a near-empty stub with no real description, a
+record label, an event, a person), as opposed to a real but off-topic genre
+(`manual_theme_genres.csv`) or a technique (`manual_technique_genres.csv`). Dropped identically —
+from both outputs, before either stage below runs.
+
 | Column        | Type | Meaning                                                                          |
 | ------------- | ---- | -------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`) — **unique in this table**             |
