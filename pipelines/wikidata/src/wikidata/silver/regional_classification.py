@@ -92,35 +92,36 @@ def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) 
 def classify_regional_genres(
     regional_overview_classification_path: Path,
     indigenous_to_path: Path,
+    country_of_origin_path: Path,
     manual_overrides_path: Path,
     output_dir: Path,
 ) -> Path:
     logger.info("classifying regional genres in %s", regional_overview_classification_path)
     df = pl.read_parquet(regional_overview_classification_path)
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).select("item_id").unique().to_series())
+    country_ids = set(pl.read_parquet(country_of_origin_path).select("item_id").unique().to_series())
     manual_overrides = pl.read_csv(manual_overrides_path)
     manual_override_ids = set(manual_overrides.select("item_id").unique().to_series())
     df = _apply_overview_overrides(df, manual_overrides)
 
     # Seeds: the "music of <place>" items themselves, plus every item Wikidata's P2341
-    # ("indigenous to") flags as belonging to a specific people (e.g. "Han Chinese music" -> "Han
-    # Chinese people", see bronze wikidata_genre_indigenous_to.parquet), plus anything a data
-    # expert has hand-flagged in manual_regional_overrides.csv for genres none of the automated
-    # sources catch. P495 ("country of origin") is deliberately not used as a seed source: it's set
-    # on broad canonical umbrella genres too (jazz -> United States, heavy metal music -> United
-    # Kingdom), which would wrongly cascade regional status onto their real subgenres. All three
-    # remaining sets are tagged non-genre or nationally/ethnically-specific in their own right but
-    # are not excluded from the regional graph — they're regional genre nodes themselves (see
-    # hierarchy.py), and together form the seed set every other regional flag propagates from. A
-    # genre item is "direct" regional if any one of its parent edges points at a seed — not all of
-    # them, since e.g. "European folk music" has one parent into "music of Europe" (a seed) and
-    # another into "traditional folk music" (clean), and is still considered regional. Regional
-    # status then cascades to children layer by layer: any genre item with a parent edge into an
-    # already-regional item is "inherited" regional, repeated until no new items are found.
+    # ("indigenous to") or P495 ("country of origin") flags as belonging to a specific people or
+    # country (e.g. "Han Chinese music" -> "Han Chinese people", "fado" -> "Portugal", see bronze
+    # wikidata_genre_indigenous_to.parquet / wikidata_genre_country_of_origin.parquet), plus
+    # anything a data expert has hand-flagged in manual_regional_overrides.csv for genres none of
+    # the automated sources catch. All four sets are tagged non-genre or nationally/ethnically-
+    # specific in their own right but are not excluded from the regional graph — they're regional
+    # genre nodes themselves (see hierarchy.py), and together form the seed set every other
+    # regional flag propagates from. A genre item is "direct" regional if any one of its parent
+    # edges points at a seed — not all of them, since e.g. "European folk music" has one parent
+    # into "music of Europe" (a seed) and another into "traditional folk music" (clean), and is
+    # still considered regional. Regional status then cascades to children layer by layer: any
+    # genre item with a parent edge into an already-regional item is "inherited" regional, repeated
+    # until no new items are found.
     seed_ids = set(
         df.filter(pl.col("classification_reason") == "regional_overview").select("item_id").unique().to_series()
     )
-    source_ids = seed_ids | indigenous_ids | manual_override_ids
+    source_ids = seed_ids | indigenous_ids | country_ids | manual_override_ids
     direct_ids = set(
         df.filter(
             ~pl.col("is_regional_overview")
@@ -132,7 +133,7 @@ def classify_regional_genres(
         .to_series()
     )
 
-    regional_ids = set(direct_ids) | indigenous_ids | manual_override_ids
+    regional_ids = set(direct_ids) | indigenous_ids | country_ids | manual_override_ids
     frontier = set(regional_ids)
     while frontier:
         candidates = df.filter(
@@ -150,6 +151,8 @@ def classify_regional_genres(
         .then(None)
         .when(pl.col("item_id").is_in(list(indigenous_ids)))
         .then(pl.lit(True))
+        .when(pl.col("item_id").is_in(list(country_ids)))
+        .then(pl.lit(True))
         .when(pl.col("item_id").is_in(list(manual_override_ids)))
         .then(pl.lit(True))
         .when(pl.col("item_id").is_in(list(direct_ids)))
@@ -159,6 +162,8 @@ def classify_regional_genres(
         .then(pl.lit("seed"))
         .when(pl.col("item_id").is_in(list(indigenous_ids)))
         .then(pl.lit("indigenous_to"))
+        .when(pl.col("item_id").is_in(list(country_ids)))
+        .then(pl.lit("country_of_origin"))
         .when(pl.col("item_id").is_in(list(manual_override_ids)))
         .then(pl.lit("manual_override"))
         .when(pl.col("item_id").is_in(list(direct_ids)))

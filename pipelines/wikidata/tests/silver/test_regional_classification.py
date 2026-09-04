@@ -104,8 +104,8 @@ GENRE_CLASSIFICATION_ROWS = [
         "is_regional_overview": False,
         "classification_reason": None,
     },
-    # morna: a root item (no P279/P361 parent, no P2341 value) — country_of_origin is no longer a
-    # classification source, so this stays clean unless caught by another mechanism.
+    # morna: a root item (no P279/P361 parent) with a P495 "country of origin" value — regional
+    # via country_of_origin, not via any parent edge.
     {
         "item_id": "Q1198131",
         "item_label": "morna",
@@ -117,7 +117,19 @@ GENRE_CLASSIFICATION_ROWS = [
         "is_regional_overview": False,
         "classification_reason": None,
     },
-    # mezwed: a root item (no P279/P361 parent, no P2341 value) hand-flagged in
+    # a subgenre of morna: no P495 of its own, regional via its direct parent edge
+    {
+        "item_id": "Q999999992",
+        "item_label": "some morna subgenre",
+        "parent_id": "Q1198131",
+        "parent_label": "morna",
+        "relation_type": "P279",
+        "item_url": "https://www.wikidata.org/wiki/Q999999992",
+        "parent_url": "https://www.wikidata.org/wiki/Q1198131",
+        "is_regional_overview": False,
+        "classification_reason": None,
+    },
+    # mezwed: a root item (no P279/P361 parent, no P2341/P495 value) hand-flagged in
     # manual_regional_overrides.csv — regional via manual_override, not via any automated source.
     {
         "item_id": "Q4118941",
@@ -152,6 +164,14 @@ INDIGENOUS_TO_ROWS = [
     },
 ]
 
+COUNTRY_OF_ORIGIN_ROWS = [
+    {
+        "item_id": "Q1198131",
+        "country_of_origin_id": "Q1011",
+        "country_of_origin_label": "Cape Verde",
+    },
+]
+
 
 def _write_genre_classification(tmp_path: Path) -> Path:
     genre_classification_path = tmp_path / "2_regional_overview_classification.parquet"
@@ -163,6 +183,12 @@ def _write_indigenous_to(tmp_path: Path) -> Path:
     indigenous_to_path = tmp_path / "wikidata_genre_indigenous_to.parquet"
     pl.DataFrame(INDIGENOUS_TO_ROWS).write_parquet(indigenous_to_path)
     return indigenous_to_path
+
+
+def _write_country_of_origin(tmp_path: Path) -> Path:
+    country_of_origin_path = tmp_path / "wikidata_genre_country_of_origin.parquet"
+    pl.DataFrame(COUNTRY_OF_ORIGIN_ROWS).write_parquet(country_of_origin_path)
+    return country_of_origin_path
 
 
 def _write_manual_overrides(tmp_path: Path) -> Path:
@@ -181,11 +207,12 @@ def _write_manual_overrides(tmp_path: Path) -> Path:
 def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = _write_manual_overrides(tmp_path)
     output_dir = tmp_path / "silver"
 
     result = sr.classify_regional_genres(
-        genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
     )
 
     assert result == output_dir / "3_regional_classification.parquet"
@@ -200,7 +227,8 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
         "Q9778": (False, None),  # root item, no parent
         "Q10376827": (True, "indigenous_to"),  # root item, flagged via P2341, no parent edge involved
         "Q999999991": (True, "direct"),  # direct child of an indigenous_to item, same as a seed child
-        "Q1198131": (False, None),  # morna, country_of_origin no longer a classification source
+        "Q1198131": (True, "country_of_origin"),  # root item, flagged via P495, no parent edge involved
+        "Q999999992": (True, "direct"),  # direct child of a country_of_origin item, same as a seed child
         "Q4118941": (True, "manual_override"),  # root item, hand-flagged, no automated source or parent edge
         "Q999999993": (True, "direct"),  # direct child of a manual_override item, same as a seed child
     }
@@ -209,11 +237,12 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
 def test_classify_regional_genres_nests_override_under_overview_item(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = _write_manual_overrides(tmp_path)
     output_dir = tmp_path / "silver"
 
     result = sr.classify_regional_genres(
-        genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
     )
 
     df = pl.read_parquet(result)
@@ -229,6 +258,7 @@ def test_classify_regional_genres_nests_override_under_overview_item(tmp_path: P
 def test_classify_regional_genres_strips_whitespace_padded_overview_item_id(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -241,7 +271,7 @@ def test_classify_regional_genres_strips_whitespace_padded_overview_item_id(tmp_
     output_dir = tmp_path / "silver"
 
     result = sr.classify_regional_genres(
-        genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
     )
 
     df = pl.read_parquet(result)
@@ -253,6 +283,7 @@ def test_classify_regional_genres_strips_whitespace_padded_overview_item_id(tmp_
 def test_classify_regional_genres_requires_known_override_item_id(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -265,12 +296,15 @@ def test_classify_regional_genres_requires_known_override_item_id(tmp_path: Path
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q999999999"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_known_overview_item_id(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -283,12 +317,15 @@ def test_classify_regional_genres_requires_known_overview_item_id(tmp_path: Path
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q999999999"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_overview_item_id_be_regional_overview(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -301,12 +338,15 @@ def test_classify_regional_genres_requires_overview_item_id_be_regional_overview
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q8341"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_overview_item_id_column(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame({"item_id": ["Q4118941"], "item_label": ["mezwed"], "reason": ["test override"]}).write_csv(
         manual_overrides_path
@@ -314,7 +354,9 @@ def test_classify_regional_genres_requires_overview_item_id_column(tmp_path: Pat
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="overview_item_id"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_overview_item_id_value_when_column_is_all_null(
@@ -322,6 +364,7 @@ def test_classify_regional_genres_requires_overview_item_id_value_when_column_is
 ) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     # An entirely-empty overview_item_id column makes Polars infer it as Null dtype rather than
     # Utf8, which previously raised a SchemaError on the strip_chars() call instead of the
@@ -330,12 +373,15 @@ def test_classify_regional_genres_requires_overview_item_id_value_when_column_is
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q4118941"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_overview_item_id_value(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -348,12 +394,15 @@ def test_classify_regional_genres_requires_overview_item_id_value(tmp_path: Path
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q4118941"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_requires_non_blank_overview_item_id_value(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(
         {
@@ -366,15 +415,20 @@ def test_classify_regional_genres_requires_non_blank_overview_item_id_value(tmp_
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="Q4118941"):
-        sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+        sr.classify_regional_genres(
+            genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+        )
 
 
 def test_classify_regional_genres_creates_output_dir(tmp_path: Path) -> None:
     genre_classification_path = _write_genre_classification(tmp_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
+    country_of_origin_path = _write_country_of_origin(tmp_path)
     manual_overrides_path = _write_manual_overrides(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sr.classify_regional_genres(genre_classification_path, indigenous_to_path, manual_overrides_path, output_dir)
+    sr.classify_regional_genres(
+        genre_classification_path, indigenous_to_path, country_of_origin_path, manual_overrides_path, output_dir
+    )
 
     assert output_dir.is_dir()
