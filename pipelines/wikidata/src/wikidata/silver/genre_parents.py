@@ -22,7 +22,12 @@ MANUAL_CANONICAL_PARENTS_PATH = Path(__file__).parent / "manual_canonical_parent
 def _apply_canonical_parent_overrides(df: pl.DataFrame, manual_parents: pl.DataFrame) -> pl.DataFrame:
     if "parent_item_id" not in manual_parents.columns:
         raise ValueError("manual_canonical_parents.csv is missing the required 'parent_item_id' column")
-    manual_parents = manual_parents.with_columns(pl.col("parent_item_id").cast(pl.Utf8))
+    manual_parents = manual_parents.with_columns(
+        pl.col("item_id").cast(pl.Utf8).str.strip_chars(), pl.col("parent_item_id").cast(pl.Utf8)
+    )
+    blank_item_id = manual_parents.filter(pl.col("item_id").is_null() | (pl.col("item_id") == ""))
+    if not blank_item_id.is_empty():
+        raise ValueError("manual_canonical_parents.csv has row(s) with a null/blank 'item_id'")
     missing = manual_parents.filter(
         pl.col("parent_item_id").is_null() | (pl.col("parent_item_id").str.strip_chars() == "")
     )
