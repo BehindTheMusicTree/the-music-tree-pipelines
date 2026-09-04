@@ -1,3 +1,10 @@
 item_id,item_label,reason
 Q1495855,Gattung,"near-empty Wikidata stub (no description, no substance beyond the German word for 'genre/category' itself), not a real music genre"
 Q2003975,Nu,"Wikidata describes it only as ""name of a music style""; it is a generic prefix (nu-metal, nu-disco, nu-jazz) not a standalone genre"
+Q9347545,academic style,"near-empty Wikidata stub (Polish-only reference, no substantive description), not a real distinct music genre"
+Q76825003,"folk, world and country","an industry/awards classification label (Grammy field grouping folk, country and world music together), not a distinct music genre itself"
+Q10597524,neo music,"Wikidata describes this as ""general category of music genres with prefix neo"" -- a naming-convention category grouping many genres, not a distinct genre itself"
+Q25504971,rhythm music,"Wikidata describes this as ""musical genres with an emphasis on playing by ear and improvisation"" (plural) -- a category grouping many genres, not a distinct genre itself"
+Q3375178,urban percussion,"near-empty Wikidata stub (only a French label, 'Percussion urbaine', no substantive description), not a real distinct music genre"
+Q9375535,vitalism,"near-empty Wikidata stub with no substantive genre definition (search results only surface an unrelated band of the same name), not a real music genre"
+Q11787400,vocal-instrumental music,overly broad umbrella description (any music combining vocals and instruments) rather than a distinct genre
