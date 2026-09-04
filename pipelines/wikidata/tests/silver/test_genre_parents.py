@@ -145,6 +145,18 @@ def test_flag_genre_parents_raises_on_missing_parent_item_id_column(tmp_path: Pa
         sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
 
+def test_flag_genre_parents_raises_on_missing_item_id_column(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame({"item_label": ["popular music"], "reason": ["test"], "parent_item_id": ["Q1344"]}).write_csv(
+        manual_canonical_parents_path
+    )
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="item_id"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
 def test_flag_genre_parents_raises_on_unknown_item_id(tmp_path: Path) -> None:
     regional_classification_path = _write_regional_classification(tmp_path)
     manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
