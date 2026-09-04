@@ -263,6 +263,22 @@ Wikidata fetch is involved (Silver never fetches raw data — see `CLAUDE.md`) �
 promoted item nests under (e.g. Wales → United Kingdom), which stays a manual
 `manual_regional_overrides.csv` entry.
 
+**Manual addition of overview items missing from Bronze entirely.** Some real "music of `<place>`"
+Wikidata items never appear in Bronze at all — not as their own `item_id` row (they're not `P31`
+instance-of music genre, e.g. "music of Dominica" is `P31` instance-of a different class) and not as
+any item's `parent_label` either (so orphan-promotion above can't reach them). Such an item is
+invisible to this step and cannot legally be used as a `manual_regional_overrides.csv`
+`overview_item_id` target. `manual_regional_overview_additions.csv`
+(`src/wikidata/silver/manual_regional_overview_additions.csv`, git-tracked, hand-curated — columns
+`item_id,item_label,reason`) is the backstop: a data expert who has looked up the item's real
+Wikidata QID adds a row here, and this step synthesizes it as a root row (same shape as an
+auto-promoted orphan) before the `classification_reason` rule runs, so it gets
+`is_regional_overview = True` "for free" and becomes a legal `overview_item_id` target. This is still
+not a live fetch — the QID/label pair is authored by hand, same as `manual_regional_overrides.csv`
+(Silver never fetches raw data — see `CLAUDE.md`) — and the pipeline fails fast if a row's
+`item_label` doesn't start with `"music of "` or its `item_id` is already present in the genre tree
+(in which case it doesn't need manual addition).
+
 This is a first classification pass covering the single highest-confidence, most mechanical rule
 found during analysis. Other non-genre categories are known to exist in the Bronze data (musical
 forms/techniques like "fugue" or "polyphony", ensemble/format labels like "big band music") but
