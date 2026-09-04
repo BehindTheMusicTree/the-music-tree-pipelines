@@ -50,14 +50,16 @@ properties drive this pipeline's whole shape:
   edge, so without `P2341` it would surface as a spurious canonical root instead of being
   classified regional. See [`3_regional_classification`](#3_regional_classification).
 - **`P495` ("country of origin")** — links an item to the country it originated in (e.g.
-  `wd:Q1198131` "morna" `wdt:P495` `wd:Q1011` "Cape Verde"). Same shape and rationale as `P2341`
-  above: a per-item attribute, not a genre-to-genre taxonomy edge, independent of an item's
-  `P279`/`P361` parent count, so it's ingested into its own Bronze table
-  (`wikidata_genre_country_of_origin.parquet`, see below) rather than into
-  `wikidata_genre_tree.parquet`. It catches nationally-specific genres that would otherwise slip
-  through the `3_regional_classification` parent-based cascade — either because they're roots with
-  no parent edge at all, or because their parent chain never happens to reach a `regional_overview`
-  seed. See [`3_regional_classification`](#3_regional_classification).
+  `wd:Q1198131` "morna" `wdt:P495` `wd:Q1011` "Cape Verde"). Same shape as `P2341` above: a
+  per-item attribute, not a genre-to-genre taxonomy edge, independent of an item's `P279`/`P361`
+  parent count, so it's ingested into its own Bronze table (`wikidata_genre_country_of_origin.parquet`,
+  see below) rather than into `wikidata_genre_tree.parquet`. Unlike `P2341`, this is **not** used as
+  a `3_regional_classification` seed source: it's also set on broad canonical umbrella genres (e.g.
+  jazz → United States, heavy metal music → United Kingdom), which would wrongly cascade regional
+  status onto their real subgenres rather than only catching nationally-specific ones (e.g. "morna"
+  → Cape Verde). It remains in Bronze for manual review/curation use (e.g. spotting a root's likely
+  country when adding it to `manual_regional_overrides.csv`) but doesn't feed the automated
+  classification. See [`3_regional_classification`](#3_regional_classification).
 
 The three taxonomy properties (`P31`, `P279`, `P361`) are not interchangeable and don't chain into
 each other the way you might expect — see below. `P2341` and `P495` are separate, orthogonal kinds
@@ -170,7 +172,7 @@ that actually drops rows, and the first where `item_id` is unique — see below.
 | --------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`1_item_links`](#1_item_links)                                             | Bronze `wikidata_genre_tree.parquet`         | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
 | [`2_regional_overview_classification`](#2_regional_overview_classification) | `1_item_links.parquet`                       | `2_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,729 rows (299 of 6,344 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
-| [`3_regional_classification`](#3_regional_classification)                   | `2_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, Bronze `wikidata_genre_country_of_origin.parquet`, `manual_regional_overrides.csv` | `3_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | ~84% of items flagged `is_regional` — 299 seed, 179 indigenous_to, 2,048 country_of_origin, 1 manual_override, 2,135 direct, 666 inherited (exploration-phase finding, see callout below)                                      |
+| [`3_regional_classification`](#3_regional_classification)                   | `2_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `manual_regional_overrides.csv` | `3_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_override, 1,614 direct, 1,547 inherited (exploration-phase finding, see callout below)                                      |
 | [`4_genre_parents`](#4_genre_parents)                                       | `3_regional_classification.parquet`          | `4_genre_parents.parquet`                                                    | `parent_is_genre`                   | 2,989 of 9,729 rows have a non-genre parent; 486 rows are roots (`parent_is_genre = null`)                                                                                      |
 | [`5_hierarchy`](#5_hierarchy)                                               | `4_genre_parents.parquet`                    | `5_hierarchy.parquet` (canonical), `5_regional_hierarchy.parquet` (regional) | prunes to one row per `item_id`     | canonical: 806 final rows from 1,017 items; regional: 5,327 final rows from 5,327 items (seed items are real nodes, not promoted synthetic roots); 211 items vanish from both |
 | [`6_canonical_roots`](#6_canonical_roots)                                   | `5_hierarchy.parquet`                        | `6_canonical_roots.parquet`                                                  | filters to `parent_id = null`       | 297 root items, for manual exploration of the "too many roots" open question (see `5_hierarchy`'s "Under exploration" callout) |
@@ -303,18 +305,21 @@ will drift as Wikidata's live genre tree changes.
 flagging whether each row's `item_id` is a **regional genre** — nationally or ethnically specific
 (e.g. "morna", "fado", and the "music of X" seed items themselves), as opposed to a genre with no
 particular regional grounding (e.g. "rock music"). This step also reads Bronze
-`wikidata_genre_indigenous_to.parquet` and Bronze `wikidata_genre_country_of_origin.parquet` (see
-[Bronze](#bronze)) to catch nationally/ethnically-specific genres that have no `P279`/`P361` parent
-for the cascade below to propagate through in the first place, plus a git-tracked, hand-curated
-CSV (`src/wikidata/silver/manual_regional_overrides.csv`, not Bronze — it's authored by a data
-expert, not fetched from Wikidata) for the rare item the three automated sources still miss.
+`wikidata_genre_indigenous_to.parquet` (see [Bronze](#bronze)) to catch nationally/ethnically-specific
+genres that have no `P279`/`P361` parent for the cascade below to propagate through in the first
+place, plus a git-tracked, hand-curated CSV (`src/wikidata/silver/manual_regional_overrides.csv`,
+not Bronze — it's authored by a data expert, not fetched from Wikidata) for the rare item the
+automated sources still miss. Bronze `wikidata_genre_country_of_origin.parquet` (`P495`, "country
+of origin") is deliberately **not** read here — see the [Bronze](#bronze) section above for why
+(it's set on broad canonical umbrella genres too, e.g. jazz, heavy metal music, which would wrongly
+cascade regional status onto their real subgenres).
 
 | Column          | Type | Meaning                                                                               |
 | --------------- | ---- | ------------------------------------------------------------------------------------- |
 | is_regional     | bool | Whether `item_id` is a regional genre — set for every item, including non-genre items |
-| regional_reason | str? | `"seed"`, `"indigenous_to"`, `"country_of_origin"`, `"manual_override"`, `"direct"`, `"inherited"`, or null (see rule below) |
+| regional_reason | str? | `"seed"`, `"indigenous_to"`, `"manual_override"`, `"direct"`, `"inherited"`, or null (see rule below) |
 
-**Rule:** four kinds of items seed the regional graph and are themselves flagged `is_regional =
+**Rule:** three kinds of items seed the regional graph and are themselves flagged `is_regional =
 True`, not merely a launching point for other items:
 
 - `regional_overview` items (from `2_regional_overview_classification`, e.g. "music of Kenya",
@@ -324,31 +329,24 @@ True`, not merely a launching point for other items:
   "indigenous_to"`. Unlike `regional_overview` seeds these are ordinary genre items, not non-genre
   overview articles, and are often roots with no `P279`/`P361` parent at all — the parent-based
   cascade has nothing to reach them through, so they need this direct, independent signal instead.
-- items with at least one `P495` ("country of origin") value in Bronze
-  `wikidata_genre_country_of_origin.parquet` (e.g. "morna") — `regional_reason =
-  "country_of_origin"`. Same rationale as `indigenous_to` above: an ordinary genre item, often a
-  root with no `P279`/`P361` parent, so it needs this direct signal instead of relying on the
-  parent-based cascade.
 - items listed by `item_id` in `manual_regional_overrides.csv` — `regional_reason =
-  "manual_override"`. A fallback for genres none of the three structural/property-based sources
-  above catch — typically a root item with no `P279`/`P361` parent and no `P2341`/`P495` value
-  either (e.g. "mezwed", a Tunisian genre with none of those signals). Each entry carries a
-  `reason` column explaining why a data expert added it; see the file itself for the current list.
-  Expected to stay small — this is a manual backstop for gaps, not the primary classification
-  mechanism. Because these override items typically have no `P279`/`P361` parent at all, they'd
-  otherwise surface as their own orphan roots in `5_regional_hierarchy` instead of nesting under
-  their region — a required `overview_item_id` column gives the override item's `item_id` the QID
-  of a `regional_overview` item (e.g. "music of Japan") as a synthetic parent edge (`relation_type
-  = "manual_override_parent"`), replacing its null-parent row. Every row must set it; a row with it
+  "manual_override"`. A fallback for genres the structural/property-based sources above don't
+  catch — typically a root item with no `P279`/`P361` parent and no `P2341` value either (e.g.
+  "mezwed", a Tunisian genre with neither signal). Each entry carries a `reason` column explaining
+  why a data expert added it; see the file itself for the current list. Because these override
+  items typically have no `P279`/`P361` parent at all, they'd otherwise surface as their own orphan
+  roots in `5_regional_hierarchy` instead of nesting under their region — a required
+  `overview_item_id` column gives the override item's `item_id` the QID of a `regional_overview`
+  item (e.g. "music of Japan") as a synthetic parent edge (`relation_type =
+  "manual_override_parent"`), replacing its null-parent row. Every row must set it; a row with it
   missing or blank fails the pipeline at this step rather than silently leaving the item an orphan
   root.
 
 A genre item is regional if **any one** of its parent edges points at any kind of seed, or at
 an item already flagged regional — propagated down as a multi-source cascade, repeated to a
 fixpoint. `regional_reason` is `"direct"` when the item's own parent set includes a seed
-(`regional_overview`, `indigenous_to`, `country_of_origin`, or `manual_override`) directly,
-`"inherited"` when it only reaches regional status via an already-flagged parent that isn't itself
-a seed.
+(`regional_overview`, `indigenous_to`, or `manual_override`) directly, `"inherited"` when it only
+reaches regional status via an already-flagged parent that isn't itself a seed.
 
 > ⚠️ **ANY-parent, not ALL-parent — confirmed by a real multi-parent case.** A naive "every parent
 > trail dead-ends in a seed" rule would miss real regional genres that also happen to have a clean
@@ -358,17 +356,19 @@ a seed.
 > sufficient, regardless of whether the item also has a clean parent elsewhere. This structural
 > rule alone catches both "morna" (direct seed hit) and "fado" (inherited, two hops through
 > "Portuguese folk music") without any manual help — the curated override list above exists only
-> for items the structural rule and the `P2341`/`P495` signals all miss entirely.
+> for items the structural rule and the `P2341` signal all miss entirely.
 
 > ⚠️ **Exploration phase — this rule will evolve.** Cascading from _every_ `regional_overview`
 > seed, including continent-level overview articles ("music of Asia", "music of Europe", "music of
 > Africa", "music of the Americas") alongside country/ethnic-level ones ("music of Kenya", "music
-> of Cape Verde"), currently flags **~84% of all items** as regional (see profile below) — far more
-> than the ~367-item vanished-from-hierarchy baseline that originally motivated this step. That's
-> because continent-level seeds have large direct fan-out (e.g. "A-pop" is a direct child of
-> "music of Asia"), and now also because the `P495` ("country of origin") seed set alone covers
-> 2,048 items. This is being kept as-is for now since the pipeline is still in an exploration
-> phase, not shipped as a settled design decision — narrowing the seed set to exclude
+> of Cape Verde"), currently flags **~61% of all items** as regional (see profile below) — well
+> more than the ~367-item vanished-from-hierarchy baseline that originally motivated this step.
+> That's largely because continent-level seeds have large direct fan-out (e.g. "A-pop" is a direct
+> child of "music of Asia"). `P495` ("country of origin") was considered as an additional seed
+> source but deliberately excluded — see [Bronze](#bronze) — because it's also set on broad
+> canonical umbrella genres (jazz, heavy metal music, etc.), which would wrongly flag their real
+> subgenres regional too. This is being kept as-is for now since the pipeline is still in an
+> exploration phase, not shipped as a settled design decision — narrowing the seed set to exclude
 > continent-level overview articles (so only country/ethnic-level pages seed the cascade) is a
 > likely future refinement once there's a concrete product need to get the regional/canonical split
 > tighter.
@@ -383,15 +383,14 @@ a seed.
 
 | Metric                                   | Distinct items |
 | ----------------------------------------- | -------------: |
-| Total items                               |          6,344 |
-| `is_regional = true`                      |          5,328 |
-| `is_regional = false`                     |          1,016 |
-| `regional_reason = "seed"`                |            299 |
+| Total items                               |          6,404 |
+| `is_regional = true`                      |          3,879 |
+| `is_regional = false`                     |          2,525 |
+| `regional_reason = "seed"`                |            359 |
 | `regional_reason = "indigenous_to"`       |            179 |
-| `regional_reason = "country_of_origin"`   |          2,048 |
-| `regional_reason = "manual_override"`     |              1 |
-| `regional_reason = "direct"`              |          2,135 |
-| `regional_reason = "inherited"`           |            666 |
+| `regional_reason = "manual_override"`     |            180 |
+| `regional_reason = "direct"`              |          1,614 |
+| `regional_reason = "inherited"`           |          1,547 |
 
 Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/3_regional_classification.parquet`, read-only, no new data fetched) — these
