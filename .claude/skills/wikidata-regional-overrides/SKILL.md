@@ -1,23 +1,34 @@
 ---
 name: wikidata-regional-overrides
-description: Curate pipelines/wikidata's manual_regional_overrides.csv by reviewing 6_canonical_roots.parquet for genres that are actually nationally/ethnically specific (missed by the automated seed/indigenous_to/country_of_origin classification) and mapping each to its "music of <place>" overview item. Use when asked to review canonical roots for regional genres, shrink the canonical root count, or curate/update manual_regional_overrides.csv.
+description: Curate pipelines/wikidata's manual_regional_overrides.csv by reviewing 6_canonical_roots.parquet for genres that are actually nationally/ethnically specific (missed by the automated seed/indigenous_to/country_of_origin classification) and mapping each to its "music of <place>" overview item — also routing any root that turns out to be a technique, not a genre at all, to manual_technique_genres.csv instead. Use when asked to review canonical roots for regional genres or techniques, shrink the canonical root count, or curate/update manual_regional_overrides.csv / manual_technique_genres.csv.
 ---
 
 # Wikidata Silver: manual regional overrides curation
 
 `5_hierarchy.parquet` (canonical) is supposed to collapse toward a handful of
-real genre-family roots. It currently has a long tail of roots that are
-actually national/ethnic genres the automated classification (`3_regional_classification.py`)
-didn't catch — because they have no `P279`/`P361` parent and no `P2341`
-(indigenous to) / `P495` (country of origin) value to seed from. Each generation of
-this file is a manual audit pass over that root list.
+real genre-family roots. It currently has a long tail of roots that fall into
+one of two buckets the automated classification (`3_regional_classification.py`)
+doesn't catch:
+
+- **Regional**: national/ethnic genres with no `P279`/`P361` parent and no
+  `P2341` (indigenous to) / `P495` (country of origin) value to seed from —
+  handled via `manual_regional_overrides.csv` (this skill's main focus).
+- **Technique**: not a genre at all, but a compositional/performance
+  technique (e.g. "crab canon", "fauxbourdon", "call and response") that only
+  ended up in the genre tree because Wikidata classified it `P31` music genre
+  — handled via `manual_technique_genres.csv` (see step 3, technique bullet, below).
+
+Each generation of this file is a manual audit pass over the root list,
+triaging each root into one of: regional, technique, or genuinely a genre
+(left alone).
 
 ## Where things live
 
 - Root list to review: `<SILVER_OUTPUT_DIR>/6_canonical_roots.parquet` (git-ignored — regenerate with `uv run --package wikidata python -m wikidata.silver` if stale or missing; see `pipelines/wikidata/README.md` for `SILVER_OUTPUT_DIR`).
-- File to edit: `pipelines/wikidata/src/wikidata/silver/manual_regional_overrides.csv` (git-tracked, hand-curated — see the comment block atop `regional_classification.py` for why it exists).
+- File to edit (regional): `pipelines/wikidata/src/wikidata/silver/manual_regional_overrides.csv` (git-tracked, hand-curated — see the comment block atop `regional_classification.py` for why it exists).
 - CSV columns: `item_id,item_label,reason,overview_item_id`. `overview_item_id` **must** be the `item_id` of an existing `is_regional_overview` item (a `"music of &lt;place&gt;"` article already in the dataset) — it is not free-form, and the pipeline raises if it isn't found or isn't flagged `is_regional_overview`. That `item_id` is normally a real Wikidata QID, but may be a synthetic `LOCAL:`-prefixed id (see step 4) when the overview item itself was added that way.
 - Second file, only needed when the overview item itself doesn't exist in the dataset yet: `pipelines/wikidata/src/wikidata/silver/manual_regional_overview_additions.csv` (git-tracked, hand-curated — see the comment block atop `regional_overview_classification.py`). Columns: `item_id,item_label,reason`. `item_label` **must** start with `"music of "` and `item_id` not already present anywhere in the genre tree — the pipeline raises otherwise. `item_id` is normally a real Wikidata QID, but a **synthetic id** (no real Wikidata item behind it) is allowed when no matching Wikidata overview item exists — see step 4. Not every Gold-layer grouping concept has a Wikidata counterpart, so this backstop isn't strictly QID-only.
+- File to edit (technique): `pipelines/wikidata/src/wikidata/silver/manual_technique_genres.csv` (git-tracked, hand-curated — see the comment block atop `hierarchy.py` for why it exists). CSV columns: `item_id,item_label,reason` — no `overview_item_id`, since technique items are dropped entirely from both `5_hierarchy.parquet` and `5_regional_hierarchy.parquet`, not nested anywhere. The pipeline raises on an unknown, blank, or duplicate `item_id` — the same `item_id` checks the regional files share, but without their extra `overview_item_id`/`is_regional_overview` and `"music of "`-label-prefix checks, which don't apply here.
 
 ## Procedure
 
@@ -34,6 +45,7 @@ this file is a manual audit pass over that root list.
    - High confidence: label names a place explicitly (e.g. `bunde (Panama)`, `bodabil in the Philippines`), or is a well-known national/regional tradition (Cajun fiddle → Louisiana, Irish fiddle → Ireland).
    - Medium confidence: strongly-associated ethnic/regional style where the country is well known from general knowledge (e.g. Andalusian flamenco substyles, Japanese regional folk-song names, Algerian raï-adjacent genres).
    - **Skip, don't guess**: genres whose country/region is genuinely ambiguous (spans multiple plausible countries that each already have their own valid overview item — e.g. "murga" is iconic to both Uruguay and Argentina). When in doubt, leave it out and say so — false positives corrupt the regional tree silently, while omissions just leave a root uncollapsed for next time.
+   - **Technique, not a genre**: the root isn't a style of music at all, but a compositional or performance technique (e.g. "crab canon", "fauxbourdon", "call and response", "rondellus") — Wikidata classified it `P31` music genre, but it describes a technique applicable across many genres, not a genre itself. Append it to `manual_technique_genres.csv` instead (columns `item_id,item_label,reason`, reason following the existing style e.g. `"compositional technique, not a genre"`), not to `manual_regional_overrides.csv` — it has no regional angle and no `overview_item_id` to assign.
    - Note: `regional_overview_classification.py` (step 2) auto-promotes `"music of &lt;place&gt;"` items that appear only as a `parent_label` in Bronze (never their own `item_id` row) into their own root row, so they're flagged `is_regional_overview` and become legal `overview_item_id` targets too — e.g. "music of Wales" is now in the catalogue from step 2, even though it's never itself `P31` instance-of music genre in Bronze. Curating which broader region a promoted item nests under (e.g. Wales → "music of the United Kingdom") is still exactly what this file is for.
 4. **When a root's country/region is clear but no matching `"music of &lt;place&gt;"` overview item exists in the catalogue at all** (not even via auto-promotion — e.g. "music of Trinidad and Tobago" for "kaiso"), don't force it onto a loose proxy region:
    - **First choice — real Wikidata item exists**: look up the item's real Wikidata QID (e.g. via WebFetch/WebSearch against `wikidata.org`) and confirm its label genuinely starts with `"music of "`; if found, append it to `manual_regional_overview_additions.csv` (columns `item_id,item_label,reason`) so it becomes a legal `overview_item_id` target. Never fabricate a QID and never add an item whose label doesn't literally start with `"music of "` — the pipeline enforces both.
@@ -52,6 +64,7 @@ this file is a manual audit pass over that root list.
    for path in (
        'pipelines/wikidata/src/wikidata/silver/manual_regional_overrides.csv',
        'pipelines/wikidata/src/wikidata/silver/manual_regional_overview_additions.csv',
+       'pipelines/wikidata/src/wikidata/silver/manual_technique_genres.csv',
    ):
        seen = set()
        with open(path) as f:
@@ -62,7 +75,7 @@ this file is a manual audit pass over that root list.
    print('ok')
    "
    ```
-8. **Report honestly**: this file is curated from general/world-music knowledge, not fact-checked against live Wikidata per item (except any newly-added `manual_regional_overview_additions.csv` rows, which are looked up live and should be reported as such). Say how many rows were added to each file, what the root count went from/to, and name the categories of items skipped for being too ambiguous/uncertain — so the user (or a future pass) knows what's still open, and can spot-check before committing. Explicitly call out any **synthetic** (non-QID) overview items added, since they read differently in the resulting hierarchy (no real Wikidata page behind them).
+8. **Report honestly**: this file is curated from general/world-music knowledge, not fact-checked against live Wikidata per item (except any newly-added `manual_regional_overview_additions.csv` rows, which are looked up live and should be reported as such). Say how many rows were added to each file (`manual_regional_overrides.csv`, `manual_regional_overview_additions.csv`, and `manual_technique_genres.csv`), what the root count went from/to, and name the categories of items skipped for being too ambiguous/uncertain — so the user (or a future pass) knows what's still open, and can spot-check before committing. Explicitly call out any **synthetic** (non-QID) overview items added, since they read differently in the resulting hierarchy (no real Wikidata page behind them), and any items routed to the technique file instead of the regional one.
 
 ## Non-goals
 
