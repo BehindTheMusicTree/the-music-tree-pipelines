@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from wikidata.silver import genre_parents as sg
 
@@ -17,6 +18,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
+        "relation_type": "P279",
     },
     # popular music: root item, no parent
     {
@@ -30,6 +32,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
+        "relation_type": None,
     },
     # opera -> composed musical work: parent isn't in the genre extension at all
     {
@@ -43,6 +46,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "classification_reason": None,
         "is_regional": False,
         "regional_reason": None,
+        "relation_type": "P279",
     },
     # some subgenre -> music of Kenya: parent is in the genre extension but tagged non-genre
     {
@@ -56,6 +60,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "classification_reason": None,
         "is_regional": True,
         "regional_reason": "direct",
+        "relation_type": "P279",
     },
     {
         "item_id": "Q3868594",
@@ -68,6 +73,7 @@ REGIONAL_CLASSIFICATION_ROWS = [
         "classification_reason": "regional_overview",
         "is_regional": True,
         "regional_reason": "seed",
+        "relation_type": None,
     },
 ]
 
@@ -102,6 +108,92 @@ def test_flag_genre_parents_marks_parent_status(tmp_path: Path) -> None:
         "Q999999": False,  # parent in the genre extension but is_regional_overview=True
         "Q3868594": None,  # root item, no parent
     }
+
+
+def test_flag_genre_parents_applies_manual_canonical_parent_override(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q9778"],
+            "item_label": ["popular music"],
+            "reason": ["test override"],
+            "parent_item_id": ["Q1344"],
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    result = sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+    rows_by_item = {row["item_id"]: row for row in pl.read_parquet(result).to_dicts()}
+    overridden = rows_by_item["Q9778"]
+    assert overridden["parent_id"] == "Q1344"
+    assert overridden["parent_label"] == "opera"
+    assert overridden["relation_type"] == "manual_canonical_parent"
+    assert overridden["parent_is_genre"] is True
+
+
+def test_flag_genre_parents_raises_on_missing_parent_item_id_column(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame({"item_id": ["Q9778"], "item_label": ["popular music"], "reason": ["test"]}).write_csv(
+        manual_canonical_parents_path
+    )
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="parent_item_id"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
+def test_flag_genre_parents_raises_on_unknown_item_id(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q0000000"],
+            "item_label": ["not in the tree"],
+            "reason": ["test"],
+            "parent_item_id": ["Q1344"],
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q0000000"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
+def test_flag_genre_parents_raises_on_unknown_parent_item_id(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q9778"],
+            "item_label": ["popular music"],
+            "reason": ["test"],
+            "parent_item_id": ["Q0000000"],
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q0000000"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
+def test_flag_genre_parents_raises_on_parent_item_id_is_regional_overview(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q9778"],
+            "item_label": ["popular music"],
+            "reason": ["test"],
+            "parent_item_id": ["Q3868594"],
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q3868594"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
 
 def test_flag_genre_parents_creates_output_dir(tmp_path: Path) -> None:

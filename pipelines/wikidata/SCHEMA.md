@@ -401,6 +401,19 @@ numbers will drift as Wikidata's live genre tree changes.
 `4_genre_parents.parquet`: `3_regional_classification.parquet` unchanged, plus one column flagging
 whether each row's `parent_id` is itself an actual musical style.
 
+Before that flag is computed, this step also reads a git-tracked, hand-curated
+`manual_canonical_parents.csv` (columns: `item_id`, `item_label`, `reason`, `parent_item_id`) and
+applies each row as a synthetic parent edge, replacing the item's null-parent root row. It's a
+backstop for canonical (non-regional) genres with no `P279`/`P361` parent that a data expert has
+identified as a subgenre of an existing canonical genre elsewhere in the tree — typically a
+cross-national fusion genre with no single national/ethnic home, so `manual_regional_overrides.csv`
+doesn't apply (e.g. "metal prehispánico" → "heavy metal music"). Unlike `manual_regional_overrides.csv`
+this doesn't affect `is_regional`/`regional_reason` — it only supplies a missing canonical parent
+edge, tagged `relation_type = "manual_canonical_parent"`. The pipeline fails fast if
+`parent_item_id` is missing/blank, if `item_id` or `parent_item_id` isn't a known item in the tree,
+or if `parent_item_id` points at an item flagged `is_regional_overview` (that's what
+`manual_regional_overrides.csv` is for).
+
 | Column          | Type  | Meaning                                                                                                                    |
 | --------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
 | parent_is_genre | bool? | Whether `parent_id` is `is_regional_overview = False` in `2_regional_overview_classification`; null for root rows (`parent_id` is null) |
