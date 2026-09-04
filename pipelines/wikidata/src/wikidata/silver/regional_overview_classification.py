@@ -41,6 +41,13 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
     if manual_additions.is_empty():
         return df
 
+    blank = manual_additions.filter(pl.col("item_id").is_null() | pl.col("item_label").is_null())
+    if not blank.is_empty():
+        raise ValueError(
+            "manual_regional_overview_additions.csv rows must not have a blank item_id or item_label: "
+            f"{blank.select('item_id').to_series().to_list()}"
+        )
+
     non_prefixed = manual_additions.filter(~pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX))
     if not non_prefixed.is_empty():
         raise ValueError(

@@ -159,6 +159,20 @@ def test_classify_regional_from_overviews_rejects_manual_addition_without_music_
         assert "item_label" in str(exc)
 
 
+def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_item_label(tmp_path: Path) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path, [{"item_id": "Q1", "item_label": None, "reason": "bad row"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    try:
+        sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "blank" in str(exc)
+
+
 def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze(tmp_path: Path) -> None:
     item_links_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
