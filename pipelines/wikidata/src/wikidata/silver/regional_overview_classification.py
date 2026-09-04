@@ -41,7 +41,12 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
     if manual_additions.is_empty():
         return df
 
-    blank = manual_additions.filter(pl.col("item_id").is_null() | pl.col("item_label").is_null())
+    blank = manual_additions.filter(
+        pl.col("item_id").is_null()
+        | (pl.col("item_id").str.strip_chars() == "")
+        | pl.col("item_label").is_null()
+        | (pl.col("item_label").str.strip_chars() == "")
+    )
     if not blank.is_empty():
         raise ValueError(
             "manual_regional_overview_additions.csv rows must not have a blank item_id or item_label: "
