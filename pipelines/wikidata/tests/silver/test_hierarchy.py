@@ -301,3 +301,14 @@ def test_prune_genre_hierarchy_raises_on_unknown_theme_item_id(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="Q0000000"):
         sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)
+
+
+def test_prune_genre_hierarchy_raises_on_blank_theme_item_id(tmp_path: Path) -> None:
+    genre_parents_path = _write_genre_parents(tmp_path)
+    manual_theme_genres_path = _write_manual_theme_genres(
+        tmp_path, [{"item_id": "", "item_label": "blank id", "reason": "test"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="null/blank"):
+        sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)

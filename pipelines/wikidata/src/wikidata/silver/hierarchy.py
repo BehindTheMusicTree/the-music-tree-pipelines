@@ -18,6 +18,13 @@ MANUAL_THEME_GENRES_PATH = Path(__file__).parent / "manual_theme_genres.csv"
 
 
 def _load_theme_ids(df: pl.DataFrame, manual_theme_genres: pl.DataFrame) -> set[str]:
+    if "item_id" not in manual_theme_genres.columns:
+        raise ValueError("manual_theme_genres.csv is missing the required 'item_id' column")
+    manual_theme_genres = manual_theme_genres.with_columns(pl.col("item_id").cast(pl.Utf8).str.strip_chars())
+    blank = manual_theme_genres.filter(pl.col("item_id").is_null() | (pl.col("item_id") == ""))
+    if not blank.is_empty():
+        raise ValueError("manual_theme_genres.csv has row(s) with a null/blank 'item_id'")
+
     known_item_ids = set(df.select("item_id").unique().to_series())
     theme_ids = set(manual_theme_genres.select("item_id").unique().to_series())
     unknown_item_ids = sorted(item_id for item_id in theme_ids if item_id not in known_item_ids)
