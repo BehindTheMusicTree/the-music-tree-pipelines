@@ -353,8 +353,8 @@ def test_prune_genre_hierarchy_raises_on_duplicate_theme_item_id(tmp_path: Path)
 def test_prune_genre_hierarchy_drops_technique_items_from_both_trees(tmp_path: Path) -> None:
     genre_parents_path = _write_genre_parents(tmp_path)
     manual_theme_genres_path = _write_manual_theme_genres(tmp_path, [])
-    # Q11399 (rock music) is the one canonical technique item, Q1198360 (morna) is the one regional
-    # technique item — flag both, mirroring the theme-drop test above.
+    # Reuse existing canonical (Q11399, rock music) and regional (Q1198360, morna) fixture items as
+    # stand-ins for technique items being flagged, mirroring the theme-drop test above.
     manual_technique_genres_path = _write_manual_technique_genres(
         tmp_path,
         [
