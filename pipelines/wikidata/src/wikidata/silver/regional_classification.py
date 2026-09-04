@@ -11,7 +11,8 @@ WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 # not fetched from Wikidata: genres that slip through the automated seed/indigenous_to/
 # country_of_origin classification below (e.g. roots with no P279/P361 parent and no P2341/P495
 # value) get added here by a data expert reviewing 5_hierarchy's root list, with a `reason` for
-# each entry. `overview_item_id` is the QID of the `regional_overview` item (e.g. "music of Japan")
+# each entry. `overview_item_id` is the `item_id` of the `regional_overview` item (e.g. "music of
+# Japan" — normally a real QID, but may be a synthetic `LOCAL:` id, see regional_overview_classification.py)
 # the override item nests under in 5_regional_hierarchy — required, since these override items
 # typically have no P279/P361 parent and would otherwise surface as their own orphan root in the
 # regional tree instead of sitting under their region. See SCHEMA.md#3_regional_classification.
