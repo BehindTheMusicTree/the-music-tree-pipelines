@@ -25,6 +25,10 @@ def _load_theme_ids(df: pl.DataFrame, manual_theme_genres: pl.DataFrame) -> set[
     if not blank.is_empty():
         raise ValueError("manual_theme_genres.csv has row(s) with a null/blank 'item_id'")
 
+    theme_item_ids = manual_theme_genres.select("item_id").to_series().to_list()
+    if len(theme_item_ids) != len(set(theme_item_ids)):
+        raise ValueError("manual_theme_genres.csv contains duplicate item_id rows")
+
     known_item_ids = set(df.select("item_id").unique().to_series())
     theme_ids = set(manual_theme_genres.select("item_id").unique().to_series())
     unknown_item_ids = sorted(item_id for item_id in theme_ids if item_id not in known_item_ids)
