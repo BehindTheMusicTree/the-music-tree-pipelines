@@ -60,6 +60,18 @@ def _apply_canonical_parent_overrides(df: pl.DataFrame, manual_parents: pl.DataF
             "manual_canonical_parents.csv rows reference parent_item_id(s) flagged is_regional_overview in the "
             f"genre tree (use manual_regional_overrides.csv for those): {overview_parent_item_ids}"
         )
+    overridden_ids = set(overrides.select("item_id").unique().to_series())
+    non_root_item_ids = sorted(
+        df.filter(pl.col("item_id").is_in(list(overridden_ids)) & pl.col("parent_id").is_not_null())
+        .select("item_id")
+        .unique()
+        .to_series()
+    )
+    if non_root_item_ids:
+        raise ValueError(
+            "manual_canonical_parents.csv rows reference item_id(s) that already have a parent edge in the genre "
+            f"tree — this backstop is for root items only: {non_root_item_ids}"
+        )
 
     parent_labels = (
         df.select("item_id", "item_label")
@@ -85,7 +97,6 @@ def _apply_canonical_parent_overrides(df: pl.DataFrame, manual_parents: pl.DataF
         )
     synthetic_edges = synthetic_edges.select(df.columns)
 
-    overridden_ids = set(overrides.select("item_id").unique().to_series())
     df = df.filter(~(pl.col("item_id").is_in(list(overridden_ids)) & pl.col("parent_id").is_null()))
     return pl.concat([df, synthetic_edges])
 

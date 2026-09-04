@@ -196,6 +196,23 @@ def test_flag_genre_parents_raises_on_parent_item_id_is_regional_overview(tmp_pa
         sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
 
+def test_flag_genre_parents_raises_on_override_for_non_root_item(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q11399"],  # rock music, already has a parent edge to popular music
+            "item_label": ["rock music"],
+            "reason": ["test"],
+            "parent_item_id": ["Q1344"],
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q11399"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
 def test_flag_genre_parents_creates_output_dir(tmp_path: Path) -> None:
     regional_classification_path = _write_regional_classification(tmp_path)
     manual_canonical_parents_path = _write_manual_canonical_parents(tmp_path)
