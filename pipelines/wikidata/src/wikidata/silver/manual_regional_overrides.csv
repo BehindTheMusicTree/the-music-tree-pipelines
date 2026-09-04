@@ -156,8 +156,8 @@ Q5766737,chirimía,"root item with no P279/P361 parent and no P2341/P495 value, 
 Q13212088,Hori,"root item with no P279/P361 parent and no P2341/P495 value, but an Indian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q531426
 Q4456413,tesnif,"root item with no P279/P361 parent and no P2341/P495 value, but a Turkish genre missed by the automated seed/indigenous_to/country_of_origin classification",Q1074080
 Q6202259,Jing ping,"root item with no P279/P361 parent and no P2341/P495 value, but a Dominica genre missed by the automated seed/indigenous_to/country_of_origin classification",Q16147503
-Q97174666,mahjouz,"root item with no P279/P361 parent and no P2341/P495 value, but an Algerian genre (Constantine/malouf-derived) missed by the automated seed/indigenous_to/country_of_origin classification",Q3328583
-Q6032957,murga,"root item with no P279/P361 parent and no P2341/P495 value; this specific item is the Panamanian carnival murga (distinct from the ambiguous Uruguay/Argentina ""murga"" genre), missed by the automated seed/indigenous_to/country_of_origin classification",Q6942240
+Q97174666,mahjouz,"root item with no P279/P361 parent and no P2341/P495 value, but an Algerian genre (Constantine/malouf-derived) missed by the automated seed/indigenous_to classification",Q3328583
+Q6032957,murga,"root item with no P279/P361 parent and no P2341/P495 value; this specific item is the Panamanian carnival murga (distinct from the ambiguous Uruguay/Argentina ""murga"" genre), missed by the automated seed/indigenous_to classification",Q6942240
 Q126953016,Alza,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
 Q126667587,Andarele,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
 Q126953015,Caramba,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
