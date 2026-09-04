@@ -276,7 +276,7 @@ invisible to this step and cannot legally be used as a `manual_regional_override
 Wikidata QID adds a row here, and this step synthesizes it as a root row (same shape as an
 auto-promoted orphan) before the `classification_reason` rule runs, so it gets
 `is_regional_overview = True` "for free" and becomes a legal `overview_item_id` target. This is still
-not a live fetch — the QID/label pair is authored by hand, same as `manual_regional_overrides.csv`
+not a live fetch — the id/label pair is authored by hand, same as `manual_regional_overrides.csv`
 (Silver never fetches raw data — see `CLAUDE.md`) — and the pipeline fails fast if a row's
 `item_label` doesn't start with `"music of "` or its `item_id` is already present in the genre tree
 (in which case it doesn't need manual addition). `item_id` is normally a real Wikidata QID, but a
