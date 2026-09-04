@@ -53,6 +53,10 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
             f"{blank.select('item_id').to_series().to_list()}"
         )
 
+    manual_additions = manual_additions.with_columns(
+        item_id=pl.col("item_id").str.strip_chars(), item_label=pl.col("item_label").str.strip_chars()
+    )
+
     non_prefixed = manual_additions.filter(~pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX))
     if not non_prefixed.is_empty():
         raise ValueError(

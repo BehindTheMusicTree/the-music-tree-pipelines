@@ -213,3 +213,19 @@ def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bro
         raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "already present" in str(exc)
+
+
+def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze_with_whitespace(
+    tmp_path: Path,
+) -> None:
+    item_links_path = _write_item_links(tmp_path)
+    manual_additions_path = _write_manual_additions(
+        tmp_path, [{"item_id": " Q3868594 ", "item_label": " music of Kenya ", "reason": "already present"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    try:
+        sc.classify_regional_from_overviews(item_links_path, manual_additions_path, output_dir)
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "already present" in str(exc)
