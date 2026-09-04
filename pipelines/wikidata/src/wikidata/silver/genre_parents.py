@@ -71,6 +71,17 @@ def _apply_canonical_parent_overrides(df: pl.DataFrame, manual_parents: pl.DataF
             "manual_canonical_parents.csv rows reference parent_item_id(s) flagged is_regional_overview in the "
             f"genre tree (use manual_regional_overrides.csv for those): {overview_parent_item_ids}"
         )
+    regional_ids = set(df.filter(pl.col("is_regional")).select("item_id").unique().to_series())
+    regional_parent_item_ids = [
+        parent_item_id
+        for parent_item_id in overrides.select("parent_item_id").unique().to_series()
+        if parent_item_id in regional_ids
+    ]
+    if regional_parent_item_ids:
+        raise ValueError(
+            "manual_canonical_parents.csv rows reference parent_item_id(s) flagged is_regional in the genre "
+            f"tree — canonical items cannot point at a regional parent: {regional_parent_item_ids}"
+        )
     overridden_ids = set(overrides.select("item_id").unique().to_series())
     non_canonical_item_ids = sorted(
         df.filter(

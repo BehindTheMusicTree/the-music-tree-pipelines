@@ -237,6 +237,23 @@ def test_flag_genre_parents_raises_on_override_for_regional_item(tmp_path: Path)
         sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
 
+def test_flag_genre_parents_raises_on_parent_item_id_is_regional(tmp_path: Path) -> None:
+    regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        {
+            "item_id": ["Q9778"],
+            "item_label": ["popular music"],
+            "reason": ["test"],
+            "parent_item_id": ["Q999999"],  # some subgenre, is_regional=True
+        }
+    ).write_csv(manual_canonical_parents_path)
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q999999"):
+        sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
+
+
 def test_flag_genre_parents_raises_on_duplicate_item_id(tmp_path: Path) -> None:
     regional_classification_path = _write_regional_classification(tmp_path)
     manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
