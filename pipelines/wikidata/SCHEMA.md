@@ -463,6 +463,12 @@ hand. Every `item_id` in that CSV is dropped entirely from **both** outputs befo
 below runs (unknown `item_id`s raise), and any child edge that pointed at one is treated exactly
 like an edge into a non-genre/non-regional parent (severed, per stage 1) rather than left dangling.
 
+Also reads a second git-tracked, hand-curated `manual_technique_genres.csv` (same columns:
+`item_id`, `item_label`, `reason`) for the same reason but a different category: compositional or
+performance techniques (e.g. "crab canon", "fauxbourdon", "call and response") rather than a genre
+at all. No automated signal distinguishes a technique from a genre either, so it's curated by hand
+the same way, and dropped identically — from both outputs, before either stage below runs.
+
 | Column        | Type | Meaning                                                                          |
 | ------------- | ---- | -------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`) — **unique in this table**             |

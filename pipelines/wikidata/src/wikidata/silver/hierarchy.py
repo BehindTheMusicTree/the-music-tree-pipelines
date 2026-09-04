@@ -16,27 +16,31 @@ OUTPUT_COLUMNS = ["item_id", "item_label", "item_url", "parent_id", "parent_labe
 # to a non-genre/non-regional parent already is (see _prune_canonical/_prune_regional).
 MANUAL_THEME_GENRES_PATH = Path(__file__).parent / "manual_theme_genres.csv"
 
+# Same mechanism as MANUAL_THEME_GENRES_PATH, but for items that are a compositional/performance
+# technique (e.g. "crab canon", "fauxbourdon", "call and response") rather than a genre at all — no
+# automated signal distinguishes a technique from a genre either, so a data expert reviewing the
+# root lists adds them here by hand. Dropped entirely from both outputs the same way theme items are.
+MANUAL_TECHNIQUE_GENRES_PATH = Path(__file__).parent / "manual_technique_genres.csv"
 
-def _load_theme_ids(df: pl.DataFrame, manual_theme_genres: pl.DataFrame) -> set[str]:
-    if "item_id" not in manual_theme_genres.columns:
-        raise ValueError("manual_theme_genres.csv is missing the required 'item_id' column")
-    manual_theme_genres = manual_theme_genres.with_columns(pl.col("item_id").cast(pl.Utf8).str.strip_chars())
-    blank = manual_theme_genres.filter(pl.col("item_id").is_null() | (pl.col("item_id") == ""))
+
+def _load_dropped_ids(df: pl.DataFrame, manual_csv: pl.DataFrame, csv_name: str) -> set[str]:
+    if "item_id" not in manual_csv.columns:
+        raise ValueError(f"{csv_name} is missing the required 'item_id' column")
+    manual_csv = manual_csv.with_columns(pl.col("item_id").cast(pl.Utf8).str.strip_chars())
+    blank = manual_csv.filter(pl.col("item_id").is_null() | (pl.col("item_id") == ""))
     if not blank.is_empty():
-        raise ValueError("manual_theme_genres.csv has row(s) with a null/blank 'item_id'")
+        raise ValueError(f"{csv_name} has row(s) with a null/blank 'item_id'")
 
-    theme_item_ids = manual_theme_genres.select("item_id").to_series().to_list()
-    if len(theme_item_ids) != len(set(theme_item_ids)):
-        raise ValueError("manual_theme_genres.csv contains duplicate item_id rows")
+    dropped_item_ids = manual_csv.select("item_id").to_series().to_list()
+    if len(dropped_item_ids) != len(set(dropped_item_ids)):
+        raise ValueError(f"{csv_name} contains duplicate item_id rows")
 
     known_item_ids = set(df.select("item_id").unique().to_series())
-    theme_ids = set(manual_theme_genres.select("item_id").unique().to_series())
-    unknown_item_ids = sorted(item_id for item_id in theme_ids if item_id not in known_item_ids)
+    dropped_ids = set(manual_csv.select("item_id").unique().to_series())
+    unknown_item_ids = sorted(item_id for item_id in dropped_ids if item_id not in known_item_ids)
     if unknown_item_ids:
-        raise ValueError(
-            f"manual_theme_genres.csv rows reference item_id(s) not found in the genre tree: {unknown_item_ids}"
-        )
-    return theme_ids
+        raise ValueError(f"{csv_name} rows reference item_id(s) not found in the genre tree: {unknown_item_ids}")
+    return dropped_ids
 
 
 def _collapse_to_lowest_qid(edges: pl.DataFrame) -> pl.DataFrame:
@@ -84,15 +88,21 @@ def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
 
 
 def prune_genre_hierarchy(
-    genre_parents_path: Path, manual_theme_genres_path: Path, output_dir: Path
+    genre_parents_path: Path,
+    manual_theme_genres_path: Path,
+    manual_technique_genres_path: Path,
+    output_dir: Path,
 ) -> tuple[Path, Path]:
     logger.info("pruning genre hierarchy from %s", genre_parents_path)
     df = pl.read_parquet(genre_parents_path)
     manual_theme_genres = pl.read_csv(manual_theme_genres_path)
-    theme_ids = _load_theme_ids(df, manual_theme_genres)
+    manual_technique_genres = pl.read_csv(manual_technique_genres_path)
+    theme_ids = _load_dropped_ids(df, manual_theme_genres, "manual_theme_genres.csv")
+    technique_ids = _load_dropped_ids(df, manual_technique_genres, "manual_technique_genres.csv")
+    dropped_ids = theme_ids | technique_ids
 
-    df = df.filter(~pl.col("item_id").is_in(list(theme_ids))).with_columns(
-        parent_is_genre=pl.when(pl.col("parent_id").is_in(list(theme_ids)))
+    df = df.filter(~pl.col("item_id").is_in(list(dropped_ids))).with_columns(
+        parent_is_genre=pl.when(pl.col("parent_id").is_in(list(dropped_ids)))
         .then(pl.lit(False))
         .otherwise(pl.col("parent_is_genre"))
     )
