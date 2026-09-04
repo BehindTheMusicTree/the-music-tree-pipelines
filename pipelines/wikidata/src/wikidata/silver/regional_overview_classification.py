@@ -125,7 +125,8 @@ def classify_regional_from_overviews(item_links_path: Path, manual_additions_pat
     logger.info("classifying regional from overviews %s", item_links_path)
     df = pl.read_parquet(item_links_path)
     df = _promote_orphan_overview_parents(df)
-    df = _add_manual_overview_items(df, pl.read_csv(manual_additions_path))
+    manual_additions_schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
+    df = _add_manual_overview_items(df, pl.read_csv(manual_additions_path, schema_overrides=manual_additions_schema))
 
     is_regional_overview = pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
     df = df.with_columns(
