@@ -78,11 +78,20 @@ def _write_regional_classification(tmp_path: Path) -> Path:
     return regional_classification_path
 
 
+def _write_manual_canonical_parents(tmp_path: Path) -> Path:
+    manual_canonical_parents_path = tmp_path / "manual_canonical_parents.csv"
+    pl.DataFrame(
+        schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8, "parent_item_id": pl.Utf8}
+    ).write_csv(manual_canonical_parents_path)
+    return manual_canonical_parents_path
+
+
 def test_flag_genre_parents_marks_parent_status(tmp_path: Path) -> None:
     regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = _write_manual_canonical_parents(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sg.flag_genre_parents(regional_classification_path, output_dir)
+    result = sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
     assert result == output_dir / "4_genre_parents.parquet"
     parent_is_genre_by_item = {row["item_id"]: row["parent_is_genre"] for row in pl.read_parquet(result).to_dicts()}
@@ -97,8 +106,9 @@ def test_flag_genre_parents_marks_parent_status(tmp_path: Path) -> None:
 
 def test_flag_genre_parents_creates_output_dir(tmp_path: Path) -> None:
     regional_classification_path = _write_regional_classification(tmp_path)
+    manual_canonical_parents_path = _write_manual_canonical_parents(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sg.flag_genre_parents(regional_classification_path, output_dir)
+    sg.flag_genre_parents(regional_classification_path, manual_canonical_parents_path, output_dir)
 
     assert output_dir.is_dir()

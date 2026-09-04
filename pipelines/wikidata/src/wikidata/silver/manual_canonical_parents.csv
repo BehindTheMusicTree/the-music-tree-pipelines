@@ -1,0 +1,3 @@
+item_id,item_label,reason,parent_item_id
+Q16606623,metal prehispánico,root item with no P279/P361 parent; a heavy metal fusion genre from multiple Latin American countries incorporating pre-Hispanic instruments and themes with no single national/ethnic home so manual_regional_overrides.csv does not apply,Q38848
+Q136342757,ameriachi,root item with no P279/P361 parent; a jazz fusion genre blending American jazz with mariachi with no single national/ethnic home so manual_regional_overrides.csv does not apply,Q8341

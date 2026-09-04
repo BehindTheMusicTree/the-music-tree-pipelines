@@ -156,3 +156,27 @@ Q5766737,chirimía,"root item with no P279/P361 parent and no P2341/P495 value, 
 Q13212088,Hori,"root item with no P279/P361 parent and no P2341/P495 value, but an Indian genre missed by the automated seed/indigenous_to/country_of_origin classification",Q531426
 Q4456413,tesnif,"root item with no P279/P361 parent and no P2341/P495 value, but a Turkish genre missed by the automated seed/indigenous_to/country_of_origin classification",Q1074080
 Q6202259,Jing ping,"root item with no P279/P361 parent and no P2341/P495 value, but a Dominica genre missed by the automated seed/indigenous_to/country_of_origin classification",Q16147503
+Q97174666,mahjouz,"root item with no P279/P361 parent and no P2341/P495 value, but an Algerian genre (Constantine/malouf-derived) missed by the automated seed/indigenous_to/country_of_origin classification",Q3328583
+Q6032957,murga,"root item with no P279/P361 parent and no P2341/P495 value; this specific item is the Panamanian carnival murga (distinct from the ambiguous Uruguay/Argentina ""murga"" genre), missed by the automated seed/indigenous_to/country_of_origin classification",Q6942240
+Q126953016,Alza,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
+Q126667587,Andarele,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
+Q126953015,Caramba,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Ecuador in Wikidata, missed by the automated classification",Q6942068
+Q136704497,Pum pin,"root item with no P279/P361 parent and no P2341/P495 value, but described as a musical genre from Ayacucho, Peru (P17 confirms Peru), missed by the automated classification",Q3085344
+Q139219215,gacha pop,"root item with no P279/P361 parent and no P2341/P495 value in the tree, but P17 (country) is Japan in Wikidata, missed by the automated classification",Q257533
+Q5024683,Calypso War,"root item with no P279/P361 parent and no P2341/P495 value, but a Trinidadian genre (calypso lyrical dueling tradition) missed by the automated classification",Q6942303
+Q60914635,Hacha'a,"root item with no P279/P361 parent and no P2341/P495 value, but described in Wikidata as an Iraqi dance style, missed by the automated classification",Q3328692
+Q12890903,gaga,"root item with no P279/P361 parent and no P2341/P495 value, but described in Wikidata as a Haitian music genre, missed by the automated classification",Q3710513
+Q13980030,paahan chare,"root item with no P279/P361 parent and no P2341/P495 value, but described in Wikidata as a music movement of the Newah, a Nepalese people, missed by the automated classification",Q3328735
+Q110810872,Siren kings,"root item with no P279/P361 parent and no P2341/P495 value, but described in Wikidata as a Pasifika subculture in New Zealand, missed by the automated classification",Q6942216
+Q97160109,kouh ghan,"root item with no P279/P361 parent and no P2341/P495 value, but a traditional dance of the Bamileke people of western Cameroon, missed by the automated classification",Q10334892
+Q97365272,medjong,"root item with no P279/P361 parent and no P2341/P495 value, but a traditional dance of the Bamileke people of western Cameroon, missed by the automated classification",Q10334892
+Q3572987,youssoumba,"root item with no P279/P361 parent and no P2341/P495 value, but a music genre from southern Ivory Coast, missed by the automated classification",Q3328693
+Q61693382,pilantragem,"root item with no P279/P361 parent and no P2341/P495 value, but a Brazilian (Rio de Janeiro) cultural/music movement, missed by the automated classification",Q899215
+Q25092815,nhari,"root item with no P279/P361 parent and no P2341/P495 value, but an Algerian traditional warrior music/dance from the Oranie region, missed by the automated classification",Q3328583
+Q84433946,ainam,"root item with no P279/P361 parent and no P2341/P495 value, but an Assamese (India) folk song tradition, missed by the automated classification",Q6942006
+Q109041707,Kokoman,"root item with no P279/P361 parent and no P2341/P495 value, but a traditional genre/dance from northern Benin, missed by the automated classification",Q10334885
+Q11180043,Guci,"root item with no P279/P361 parent and no P2341/P495 value, but a Chinese narrative-singing genre (drum storytelling), missed by the automated classification",Q277393
+Q18660751,Manserock,"root item with no P279/P361 parent and no P2341/P495 value, but a Finnish (Tampere) rock genre, missed by the automated classification",Q1417976
+Q10683897,Sunkadelica,"root item with no P279/P361 parent and no P2341/P495 value, but a Swedish term/genre-concept, missed by the automated classification",Q846784
+Q23499405,rúmbia,root item with no P279/P361 parent and no P2341/P495 value; a genre rooted in the Vallès region of Catalonia (fusing Catalan rumba with Latin cumbia) missed by the automated classification since it was mistakenly treated as an ambiguous cross-national fusion rather than a Catalan regional genre,Q3808055
+Q7334835,Ringbang,"root item with no P279/P361 parent and no P2341/P495 value; a pan-Caribbean soca/calypso-derived genre with no single national home, missed by the automated classification",Q3394906
