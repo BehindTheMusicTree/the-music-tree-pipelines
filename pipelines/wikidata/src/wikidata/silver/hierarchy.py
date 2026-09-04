@@ -7,6 +7,26 @@ logger = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS = ["item_id", "item_label", "item_url", "parent_id", "parent_label", "parent_url", "relation_type"]
 
+# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
+# not fetched from Wikidata: genre items organized around a subject/theme/subculture (e.g. "LGBT
+# music", "steampunk music", "bronycore") rather than a geography, ethnicity, or musical style
+# don't belong in either the canonical or regional genre tree. A data expert reviewing the root
+# lists adds them here with a `reason`; they're dropped entirely from both 5_hierarchy.parquet and
+# 5_regional_hierarchy.parquet, and any child edge pointing at one is severed the same way an edge
+# to a non-genre/non-regional parent already is (see _prune_canonical/_prune_regional).
+MANUAL_THEME_GENRES_PATH = Path(__file__).parent / "manual_theme_genres.csv"
+
+
+def _load_theme_ids(df: pl.DataFrame, manual_theme_genres: pl.DataFrame) -> set[str]:
+    known_item_ids = set(df.select("item_id").unique().to_series())
+    theme_ids = set(manual_theme_genres.select("item_id").unique().to_series())
+    unknown_item_ids = sorted(item_id for item_id in theme_ids if item_id not in known_item_ids)
+    if unknown_item_ids:
+        raise ValueError(
+            f"manual_theme_genres.csv rows reference item_id(s) not found in the genre tree: {unknown_item_ids}"
+        )
+    return theme_ids
+
 
 def _collapse_to_lowest_qid(edges: pl.DataFrame) -> pl.DataFrame:
     # Wikidata's P279/P361 graph isn't a strict tree: ~43% of genre items have more than one
@@ -52,9 +72,19 @@ def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
     return pl.concat([collapsed, orphans])
 
 
-def prune_genre_hierarchy(genre_parents_path: Path, output_dir: Path) -> tuple[Path, Path]:
+def prune_genre_hierarchy(
+    genre_parents_path: Path, manual_theme_genres_path: Path, output_dir: Path
+) -> tuple[Path, Path]:
     logger.info("pruning genre hierarchy from %s", genre_parents_path)
     df = pl.read_parquet(genre_parents_path)
+    manual_theme_genres = pl.read_csv(manual_theme_genres_path)
+    theme_ids = _load_theme_ids(df, manual_theme_genres)
+
+    df = df.filter(~pl.col("item_id").is_in(list(theme_ids))).with_columns(
+        parent_is_genre=pl.when(pl.col("parent_id").is_in(list(theme_ids)))
+        .then(pl.lit(False))
+        .otherwise(pl.col("parent_is_genre"))
+    )
 
     parent_is_regional = df.select(
         pl.col("item_id").alias("parent_id"), pl.col("is_regional").alias("parent_is_regional")

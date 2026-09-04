@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from wikidata.silver import hierarchy as sh
 
@@ -176,17 +177,25 @@ GENRE_PARENTS_ROWS = [
 ]
 
 
-def _write_genre_parents(tmp_path: Path) -> Path:
+def _write_genre_parents(tmp_path: Path, rows: list[dict] = GENRE_PARENTS_ROWS) -> Path:
     genre_parents_path = tmp_path / "4_genre_parents.parquet"
-    pl.DataFrame(GENRE_PARENTS_ROWS).write_parquet(genre_parents_path)
+    pl.DataFrame(rows).write_parquet(genre_parents_path)
     return genre_parents_path
+
+
+def _write_manual_theme_genres(tmp_path: Path, rows: list[dict]) -> Path:
+    manual_theme_genres_path = tmp_path / "manual_theme_genres.csv"
+    schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
+    pl.DataFrame(rows, schema=schema).write_csv(manual_theme_genres_path)
+    return manual_theme_genres_path
 
 
 def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> None:
     genre_parents_path = _write_genre_parents(tmp_path)
+    manual_theme_genres_path = _write_manual_theme_genres(tmp_path, [])
     output_dir = tmp_path / "silver"
 
-    canonical_path, regional_path = sh.prune_genre_hierarchy(genre_parents_path, output_dir)
+    canonical_path, regional_path = sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)
 
     assert canonical_path == output_dir / "5_hierarchy.parquet"
     assert regional_path == output_dir / "5_regional_hierarchy.parquet"
@@ -216,9 +225,10 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
 
 def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: Path) -> None:
     genre_parents_path = _write_genre_parents(tmp_path)
+    manual_theme_genres_path = _write_manual_theme_genres(tmp_path, [])
     output_dir = tmp_path / "silver"
 
-    _, regional_path = sh.prune_genre_hierarchy(genre_parents_path, output_dir)
+    _, regional_path = sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)
 
     regional_df = pl.read_parquet(regional_path)
     assert regional_df.columns == sh.OUTPUT_COLUMNS
@@ -244,8 +254,50 @@ def test_prune_genre_hierarchy_regional_items_land_in_regional_output(tmp_path: 
 
 def test_prune_genre_hierarchy_creates_output_dir(tmp_path: Path) -> None:
     genre_parents_path = _write_genre_parents(tmp_path)
+    manual_theme_genres_path = _write_manual_theme_genres(tmp_path, [])
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sh.prune_genre_hierarchy(genre_parents_path, output_dir)
+    sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)
 
     assert output_dir.is_dir()
+
+
+def test_prune_genre_hierarchy_drops_theme_items_from_both_trees(tmp_path: Path) -> None:
+    genre_parents_path = _write_genre_parents(tmp_path)
+    # Q11399 (rock music) is canonical, Q1198360 (morna) is regional — flag both as themes.
+    manual_theme_genres_path = _write_manual_theme_genres(
+        tmp_path,
+        [
+            {"item_id": "Q11399", "item_label": "rock music", "reason": "test"},
+            {"item_id": "Q1198360", "item_label": "morna", "reason": "test"},
+        ],
+    )
+    output_dir = tmp_path / "silver"
+
+    canonical_path, regional_path = sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)
+
+    canonical_df = pl.read_parquet(canonical_path)
+    canonical_parent_by_item = {row["item_id"]: row["parent_id"] for row in canonical_df.to_dicts()}
+    # the theme item itself is gone entirely
+    assert "Q11399" not in canonical_parent_by_item
+    # its child's edge into the theme parent is severed, dropping the child too (mirrors the
+    # existing genre -> non-genre parent behavior, e.g. opera above)
+    assert "Q999999" not in canonical_parent_by_item
+
+    regional_df = pl.read_parquet(regional_path)
+    regional_parent_by_item = {row["item_id"]: row["parent_id"] for row in regional_df.to_dicts()}
+    # the theme item itself is gone entirely
+    assert "Q1198360" not in regional_parent_by_item
+    # its child (fado) loses that parent edge and is promoted to an orphan root instead of vanishing
+    assert regional_parent_by_item["Q182142"] is None
+
+
+def test_prune_genre_hierarchy_raises_on_unknown_theme_item_id(tmp_path: Path) -> None:
+    genre_parents_path = _write_genre_parents(tmp_path)
+    manual_theme_genres_path = _write_manual_theme_genres(
+        tmp_path, [{"item_id": "Q0000000", "item_label": "not in the tree", "reason": "test"}]
+    )
+    output_dir = tmp_path / "silver"
+
+    with pytest.raises(ValueError, match="Q0000000"):
+        sh.prune_genre_hierarchy(genre_parents_path, manual_theme_genres_path, output_dir)

@@ -5,7 +5,7 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 import wikidata
 from wikidata.silver.canonical_roots import extract_canonical_roots
 from wikidata.silver.genre_parents import MANUAL_CANONICAL_PARENTS_PATH, flag_genre_parents
-from wikidata.silver.hierarchy import prune_genre_hierarchy
+from wikidata.silver.hierarchy import MANUAL_THEME_GENRES_PATH, prune_genre_hierarchy
 from wikidata.silver.item_links import add_item_links
 from wikidata.silver.regional_classification import MANUAL_OVERRIDES_PATH, classify_regional_genres
 from wikidata.silver.regional_overview_classification import (
@@ -28,5 +28,5 @@ regional_classification_path = classify_regional_genres(
     silver_dir,
 )
 genre_parents_path = flag_genre_parents(regional_classification_path, MANUAL_CANONICAL_PARENTS_PATH, silver_dir)
-hierarchy_path, _ = prune_genre_hierarchy(genre_parents_path, silver_dir)
+hierarchy_path, _ = prune_genre_hierarchy(genre_parents_path, MANUAL_THEME_GENRES_PATH, silver_dir)
 extract_canonical_roots(hierarchy_path, silver_dir)

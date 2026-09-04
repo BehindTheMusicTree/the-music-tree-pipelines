@@ -437,6 +437,14 @@ row per genre item, split into two clean, directly-consumable genre hierarchy ed
 canonical one, excluding every `is_regional = true` item, and a regional one, containing only
 `is_regional = true` items (which now includes the `regional_overview` seed items themselves).
 
+Also reads a git-tracked, hand-curated `manual_theme_genres.csv` (columns: `item_id`, `item_label`,
+`reason`) listing genre items organized around a subject/theme/subculture (e.g. "LGBT music",
+"steampunk music", "bronycore") rather than a geography, ethnicity, or musical style — no automated
+signal distinguishes these from real genres, so a data expert reviewing the root lists adds them by
+hand. Every `item_id` in that CSV is dropped entirely from **both** outputs before either stage
+below runs (unknown `item_id`s raise), and any child edge that pointed at one is treated exactly
+like an edge into a non-genre/non-regional parent (severed, per stage 1) rather than left dangling.
+
 | Column        | Type | Meaning                                                                          |
 | ------------- | ---- | -------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`) — **unique in this table**             |
