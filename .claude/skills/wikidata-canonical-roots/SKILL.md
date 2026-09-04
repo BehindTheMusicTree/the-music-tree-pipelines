@@ -1,5 +1,5 @@
 ---
-name: wikidata-regional-overrides
+name: wikidata-canonical-roots
 description: Curate pipelines/wikidata's canonical roots (6_canonical_roots.parquet) by giving each one a real place, a real parent genre, or a flag explaining why it's excluded — mapping nationally/ethnically-specific genres to their "music of <place>" overview item (manual_regional_overrides.csv), attaching orphaned subgenres to a real parent genre already in the tree (manual_canonical_parents.csv), and flagging roots that are a technique, not a genre at all (manual_technique_genres.csv), or aren't a music genre at all — a Wikidata misclassification (manual_out_of_scope_genres.csv). Use when asked to review/triage canonical roots, shrink the canonical root count, link roots to their actual parent genre, or curate/update manual_regional_overrides.csv / manual_canonical_parents.csv / manual_technique_genres.csv / manual_out_of_scope_genres.csv.
 ---
 
