@@ -11,3 +11,4 @@ Q11787400,vocal-instrumental music,overly broad umbrella description (any music 
 Q863539,binaural beats,"an auditory perception phenomenon/audio effect, not a music genre"
 Q127471000,obscuro,"vague AllMusic catch-all label for unclassifiable/experimental records, not a coherent music genre"
 Q23072435,chant,"broad liturgical/ritual vocal-recitation umbrella (form, not a genre in its own right); manual triage per user"
+Q373342,popular music,"overly broad umbrella spanning rock, jazz, hip-hop, funk, ska, world music etc. as direct children; excluding it lets those families surface as their own canonical roots instead of collapsing under one umbrella node"
