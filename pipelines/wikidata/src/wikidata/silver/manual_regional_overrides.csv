@@ -459,3 +459,14 @@ Q4452845,tahpah,"root item with no P279/P361 parent; Khakas (Siberia, Russia) tr
 Q4869661,battaglia,"root item with no P279/P361 parent; Italian Renaissance/Baroque battle-piece genre, disambiguated by user against the broader pan-European usage",Q3679098
 Q252821,Viennese couplet,root item with no P279/P361 parent; Austrian cabaret/operetta song genre missed by the automated classification,Q2090712
 Q140774743,freilach,root item with no P279/P361 parent; Yiddish/Ashkenazi klezmer dance genre with no single national home; user requested a distinct Jewish-diasporic (non-liturgical) umbrella,LOCAL:jewish-diasporic-music
+Q123177120,franco,"root item with no P279/P361 parent; Quebecois popular-music style, user requested the more precise music of Quebec overview over a generic Canada one",Q3328756
+Q116884389,son,root item with no P279/P361 parent; Cuban genre missed by the automated seed/indigenous_to/country_of_origin classification,Q1544863
+Q107124397,sonero music,root item with no P279/P361 parent; Cuban son-derived genre missed by the automated classification,Q1544863
+Q107740285,cumbia,root item with no P279/P361 parent; user requested the broader music of Latin America overview over a single-country fit,Q727781
+Q9048261,urbano music,"root item with no P279/P361 parent; pan-Latin American urban genre with no single national home, nested under music of Latin America per user request",Q727781
+Q768134,mestizo,"root item with no P279/P361 parent; pan-Latin American mestizo genre with no single national home, nested under music of Latin America per user request",Q727781
+Q6705212,Lusophone music,"root item with no P279/P361 parent; Portuguese-speaking-world genre with no single national home, nested under the existing synthetic Lusophone overview",LOCAL:lusophone-music
+Q111540535,cantautor music,"root item with no P279/P361 parent; Hispanic singer-songwriter tradition with no single national home, nested under the new synthetic Hispanic-world overview per user request",LOCAL:hispanic-world
+Q107718509,Hispanic music,"root item with no P279/P361 parent; broad umbrella with no single national home, promoted to its own synthetic regional overview per user request",LOCAL:hispanic-world
+Q1716019,Jewish music,"root item with no P279/P361 parent; broad umbrella with no single national home, promoted to its own synthetic regional overview per user request",LOCAL:jewish-tradition-music
+Q107024992,ancient Levitical music,"root item with no P279/P361 parent; ancient Temple-era Jewish liturgical music, nested under the existing synthetic Jewish-liturgical overview",LOCAL:jewish-liturgical-music
