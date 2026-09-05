@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `wikidata` Bronze: `wikidata_client.run_query` widens its retry budget (`stop_after_attempt` 3→5, `wait_exponential` max 10s→30s) to better ride out the live SPARQL endpoint truncating large query responses mid-stream (`json.JSONDecodeError`), observed recurring in CI's integration test even after the existing retry-on-decode-error path.
 - `wikidata` Silver: `manual_canonical_parents.csv` pointed "metal prehispánico" at "heavy metal music" as a canonical parent, but "heavy metal music" is flagged `is_regional` (Wikidata's `P2341` "indigenous to" is set to United States/United Kingdom on it), which `genre_parents.py` correctly rejects — a canonical item can't point at a regional parent. Removed that row and reclassified "metal prehispánico" itself as regional instead (see above).
 
+### Documentation
+
+- `.claude/skills/wikidata-canonical-roots/SKILL.md`: aligned the phantom-parent triage notes with the `_prune_canonical` orphan-recovery fix above — most non-genre-only-parent items now surface as roots directly at step 5 instead of leaving a dangling phantom pointer for step 6 to catch, and "popular music" is no longer cited as a phantom-parent example since it's excluded outright.
+
 ## [0.1.3] - 2026-08-28
 
 ### Documentation
