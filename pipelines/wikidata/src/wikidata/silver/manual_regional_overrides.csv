@@ -393,3 +393,69 @@ Q7920719,Ver,"root item with no P279/P361 parent, but a Goan (India) folk-song g
 Q124130234,Burlesque,"root item with no P279/P361 parent, but a comic/satirical musical-theatre genre originating in 18th-century Europe with no single national home missed by the automated seed/indigenous_to/country_of_origin classification",Q3328676
 Q5150913,Combined rhythm,"root item with no P279/P361 parent and no P2341/P495 value, but a Dutch Antillean genre (Ritmo Kombina, sung in Papiamento) missed by the automated seed/indigenous_to/country_of_origin classification",Q28129954
 Q11300154,ground beat,"root item with no P279/P361 parent and no P2341/P495 value, but an early-1990s London (UK) acid jazz/rare-groove offshoot missed by the automated seed/indigenous_to/country_of_origin classification",Q268673
+Q6367434,Kar,root item with no P279/P361 parent; Ottoman/Turkish classical vocal genre missed by the automated seed/indigenous_to/country_of_origin classification,Q1074080
+Q8074593,Zoti,root item with no P279/P361 parent; Goan (India) wedding song genre missed by the automated classification,Q6942096
+Q131926355,Chuntunqui,root item with no P279/P361 parent; Bolivian (Chuquisaca) genre missed by the automated classification,Q3328603
+Q3026173,diane,root item with no P279/P361 parent; French military reveille drum-call genre missed by the automated classification,Q672134
+Q3868755,mutu,root item with no P279/P361 parent; Sardinian (Italy) improvised sung-poetry genre missed by the automated classification,Q6942263
+Q6109162,ritmo de panaderas,root item with no P279/P361 parent; Castilian (Spain) work-song genre missed by the automated classification,Q964987
+Q16674705,matanya,root item with no P279/P361 parent; Russian chastushka-family folk-song genre missed by the automated classification,Q2498201
+Q5001430,bush ballad,root item with no P279/P361 parent; Australian ballad genre missed by the automated classification,Q3114644
+Q7694469,teenage tragedy song,root item with no P279/P361 parent; American 1950s-60s pop ballad genre missed by the automated classification,Q2267955
+Q966438,blues ballad,root item with no P279/P361 parent; American blues/ballad hybrid genre missed by the automated classification,Q2267955
+Q1947846,murder ballad,root item with no P279/P361 parent; transatlantic Anglo-American ballad genre missed by the automated classification,LOCAL:anglo-american-music
+Q106590023,execution ballad,root item with no P279/P361 parent; transatlantic Anglo-American ballad genre missed by the automated classification,LOCAL:anglo-american-music
+Q579955,regueifa,root item with no P279/P361 parent; Galician (Spain) improvisational singing-duel genre missed by the automated classification,Q10334896
+Q1033810,cantiga de amigo,root item with no P279/P361 parent; medieval Galician-Portuguese lyric genre missed by the automated classification,Q110592632
+Q1779319,cantiga de amor,root item with no P279/P361 parent; medieval Galician-Portuguese lyric genre missed by the automated classification,Q110592632
+Q1779217,cantiga de escarnio e maldizer,root item with no P279/P361 parent; medieval Galician-Portuguese lyric genre missed by the automated classification,Q110592632
+Q8083433,Żurawiejka,root item with no P279/P361 parent; Polish cavalry-regiment song genre missed by the automated classification,Q473602
+Q5449121,Filmi-ghazal,root item with no P279/P361 parent; Indian (Bollywood) film-ghazal genre missed by the automated classification,Q531426
+Q7634691,Sugama Sangeetha,root item with no P279/P361 parent; Kannada (India) light-music genre missed by the automated classification,Q531426
+Q896981,field holler,root item with no P279/P361 parent; African-American work-song genre missed by the automated classification,Q2267955
+Q4993817,military cadence,root item with no P279/P361 parent; American military marching-cadence genre missed by the automated classification,Q2267955
+Q16820420,American march music,root item with no P279/P361 parent; American march genre missed by the automated classification,Q2267955
+Q122730605,Cosmic American,root item with no P279/P361 parent; American genre term (coined by Gram Parsons) missed by the automated classification,Q2267955
+Q107539904,estrada music,root item with no P279/P361 parent; Soviet-era popular-music genre spanning the USSR missed by the automated classification,Q130572
+Q97326344,musica leggera,root item with no P279/P361 parent; Italian light-pop genre missed by the automated classification,Q3679098
+Q3980643,tammurriata,root item with no P279/P361 parent; Campanian (Italy) folk-dance genre missed by the automated classification,Q3679098
+Q120413103,tarantella napoletana,root item with no P279/P361 parent; Neapolitan (Italy) tarantella genre missed by the automated classification,Q3679098
+Q448738,ensalada,root item with no P279/P361 parent; Spanish Renaissance quodlibet genre missed by the automated classification,Q964987
+Q2447826,katta ashula,root item with no P279/P361 parent; Uzbek vocal genre missed by the automated classification,Q3328738
+Q1540495,puirt à beul,root item with no P279/P361 parent; Scottish Gaelic mouth-music genre missed by the automated classification,Q1048469
+Q111212208,xoan,root item with no P279/P361 parent; Vietnamese (Phu Tho) folk-song genre missed by the automated classification,Q1156957
+Q135472492,Dangdut hip-hop,root item with no P279/P361 parent; Indonesian genre fusion missed by the automated classification,Q1210921
+Q124342217,Cateretê,root item with no P279/P361 parent; Brazilian folk-dance genre missed by the automated classification,Q899215
+Q124342216,Tanguinho,root item with no P279/P361 parent; Brazilian genre missed by the automated classification,Q899215
+Q115632110,batuque paulista,root item with no P279/P361 parent; Brazilian (São Paulo) genre missed by the automated classification,Q899215
+Q812605,Bavarian polka,root item with no P279/P361 parent; Bavarian (Germany) regional genre missed by the automated classification,Q110167313
+Q79054127,Kengë malsorqe,root item with no P279/P361 parent; Albanian highland song genre missed by the automated classification,Q1075799
+Q8062662,Yōkyoku,root item with no P279/P361 parent; Japanese Noh vocal genre missed by the automated classification,Q257533
+Q5242609,Dawr,root item with no P279/P361 parent; Egyptian classical vocal genre missed by the automated classification,Q18129813
+Q11497177,Temari song,root item with no P279/P361 parent; Japanese children's-song genre missed by the automated classification,Q257533
+Q60792489,Galician chant,root item with no P279/P361 parent; Galician (Spain) chant genre missed by the automated classification,Q10334896
+Q2956242,Messinian chant,root item with no P279/P361 parent; Greek chant genre missed by the automated classification,Q1465419
+Q25400286,Nyabinghi chanting,root item with no P279/P361 parent; Jamaican Rastafari chant genre missed by the automated classification,Q572717
+Q7663254,Syriac chant,root item with no P279/P361 parent; Aramaic/Syriac liturgical chant genre with no single national home missed by the automated classification,LOCAL:aramaic-music
+Q48747276,lamentu,root item with no P279/P361 parent; Corsican funeral-lament genre missed by the automated classification,Q2378916
+Q2894547,keening,root item with no P279/P361 parent; Irish/Scottish Gaelic mourning-lament genre missed by the automated classification,Q1378776
+Q118744385,Latin dance music,root item with no P279/P361 parent; pan-Latin-American dance genre missed by the automated classification,Q727781
+Q98528166,Latin electronic music,root item with no P279/P361 parent; pan-Latin-American electronic genre missed by the automated classification,Q727781
+Q110592440,Contemporary Latin music,root item with no P279/P361 parent; pan-Latin-American genre missed by the automated classification,Q727781
+Q1233698,Harmonie,"root item with no P279/P361 parent; Austrian court wind-ensemble tradition (Harmoniemusik), disambiguated by user against the German alternative",Q2090712
+Q3395292,Bugarštica,"root item with no P279/P361 parent; South Slavic epic ballad genre spanning Dalmatia and the Bay of Kotor, disambiguated by user to the Yugoslav umbrella rather than a single successor state",Q1522794
+Q4469861,ozlau,"root item with no P279/P361 parent; Turkic overtone-singing style spanning Kazakh/Bashkir/Tatar traditions, no single national home; user requested a Turkic-peoples umbrella",LOCAL:turkic-peoples-music
+Q15990884,cantillation,root item with no P279/P361 parent; Jewish liturgical chant tradition with no single national home; user requested a Jewish-liturgical umbrella,LOCAL:jewish-liturgical-music
+Q108297215,chazzanut,root item with no P279/P361 parent; Jewish cantorial liturgical tradition with no single national home; user requested a Jewish-liturgical umbrella,LOCAL:jewish-liturgical-music
+Q6410349,kinah,root item with no P279/P361 parent; Jewish liturgical lamentation genre with no single national home; user requested a Jewish-liturgical umbrella,LOCAL:jewish-liturgical-music
+Q4202963,Ypakoe,root item with no P279/P361 parent; Eastern Orthodox liturgical chant genre with no single national home; user requested an Eastern Orthodox umbrella,LOCAL:eastern-orthodox-chant
+Q1969410,ikos,root item with no P279/P361 parent; Eastern Orthodox liturgical chant genre with no single national home; user requested an Eastern Orthodox umbrella,LOCAL:eastern-orthodox-chant
+Q919516,troparion,root item with no P279/P361 parent; Eastern Orthodox liturgical chant genre with no single national home; user requested an Eastern Orthodox umbrella,LOCAL:eastern-orthodox-chant
+Q21654728,calophonic chant,root item with no P279/P361 parent; Eastern Orthodox ('kalophonic') ornamented chant style with no single national home; user requested an Eastern Orthodox umbrella,LOCAL:eastern-orthodox-chant
+Q5202394,cântec batrânesc,root item with no P279/P361 parent; Romanian epic ballad genre missed by the automated classification,Q852210
+Q1432540,trallalero,"root item with no P279/P361 parent; Genoese (Liguria, Italy) polyphonic singing genre missed by the automated classification",Q3679098
+Q100321326,Dahira,root item with no P279/P361 parent; Senegalese Mouride Sufi devotional chant genre missed by the automated classification,Q3328770
+Q4452845,tahpah,"root item with no P279/P361 parent; Khakas (Siberia, Russia) traditional vocal genre, confirmed via web search and matched to the existing music of Khakassia overview",Q6941928
+Q4869661,battaglia,"root item with no P279/P361 parent; Italian Renaissance/Baroque battle-piece genre, disambiguated by user against the broader pan-European usage",Q3679098
+Q252821,Viennese couplet,root item with no P279/P361 parent; Austrian cabaret/operetta song genre missed by the automated classification,Q2090712
+Q140774743,freilach,root item with no P279/P361 parent; Yiddish/Ashkenazi klezmer dance genre with no single national home; user requested a distinct Jewish-diasporic (non-liturgical) umbrella,LOCAL:jewish-diasporic-music
