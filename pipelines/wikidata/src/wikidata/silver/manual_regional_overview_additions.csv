@@ -9,3 +9,9 @@ LOCAL:anglo-american-music,music of the Anglo-American world,"synthetic (no matc
 LOCAL:aramaic-music,music of the Aramaic-speaking world,"synthetic (no matching Wikidata overview item) - needed to reclassify Aramaic music, a cross-national linguistic/ethnic grouping (Assyrian/Syriac communities across Iraq, Syria, Turkey, Iran and the diaspora) with no single-country home, as regional instead of leaving it as an uncollapsed canonical root"
 LOCAL:nordic-music,music of the Nordic countries,"synthetic (no matching Wikidata overview item) - needed to reclassify Nordic tone, a cross-national Scandinavian/Nordic grouping with no single-country home, as regional instead of leaving it as an uncollapsed canonical root"
 LOCAL:southern-cone,music of the Southern Cone,"synthetic (no matching Wikidata overview item) - needed to reclassify Southern cone music, a cross-national grouping (Argentina, Chile, Uruguay, southern Brazil/Paraguay) with no single-country home, as regional instead of leaving it as an uncollapsed canonical root"
+LOCAL:turkic-peoples-music,music of Turkic peoples,synthetic (no matching Wikidata overview item)
+LOCAL:jewish-liturgical-music,music of Jewish liturgical tradition,synthetic (no matching Wikidata overview item)
+LOCAL:eastern-orthodox-chant,music of Eastern Orthodox Christianity,synthetic (no matching Wikidata overview item)
+LOCAL:jewish-diasporic-music,music of the Jewish diaspora,synthetic (no matching Wikidata overview item)
+LOCAL:hispanic-world,music of the Hispanic world,synthetic (no matching Wikidata overview item)
+LOCAL:jewish-tradition-music,music of Jewish tradition,synthetic (no matching Wikidata overview item)

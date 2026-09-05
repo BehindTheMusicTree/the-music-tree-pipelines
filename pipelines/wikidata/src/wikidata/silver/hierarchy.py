@@ -66,8 +66,25 @@ def _collapse_to_lowest_qid(edges: pl.DataFrame) -> pl.DataFrame:
 
 
 def _prune_canonical(items: pl.DataFrame) -> pl.DataFrame:
+    # Mirrors _prune_regional below: an item whose parent edges all lead to a non-genre item (e.g.
+    # "electronic music" -> "music") would otherwise vanish entirely instead of surfacing as a root,
+    # unlike an item with no parent edge at all.
     is_genre_edge = pl.col("parent_id").is_null() | pl.col("parent_is_genre")
-    return _collapse_to_lowest_qid(items.filter(is_genre_edge))
+    collapsed = _collapse_to_lowest_qid(items.filter(is_genre_edge))
+
+    orphans = (
+        items.select("item_id", "item_label", "item_url")
+        .unique(subset="item_id")
+        .join(collapsed.select("item_id"), on="item_id", how="anti")
+        .with_columns(
+            parent_id=pl.lit(None, dtype=pl.Utf8),
+            parent_label=pl.lit(None, dtype=pl.Utf8),
+            parent_url=pl.lit(None, dtype=pl.Utf8),
+            relation_type=pl.lit(None, dtype=pl.Utf8),
+        )
+        .select(OUTPUT_COLUMNS)
+    )
+    return pl.concat([collapsed, orphans])
 
 
 def _prune_regional(items: pl.DataFrame) -> pl.DataFrame:
