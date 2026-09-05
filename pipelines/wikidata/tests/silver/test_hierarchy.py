@@ -231,9 +231,9 @@ def test_prune_genre_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> N
         "Q9778": None,  # root item
         "Q999999": "Q11399",  # non-genre parent edge dropped, genre parent edge survives
         "Q42": "Q9",  # lowest numeric QID wins over Q100
+        "Q1344": None,  # opera: genre -> non-genre parent, promoted to an orphan root
     }
-    # opera (genre -> non-genre parent) and music of Kenya (seed item) both vanish entirely
-    assert "Q1344" not in parent_by_item
+    # music of Kenya (seed item, regional) never reaches the canonical output
     assert "Q3868594" not in parent_by_item
     # regional items never appear in the canonical output
     assert "Q1198360" not in parent_by_item
@@ -327,9 +327,9 @@ def test_prune_genre_hierarchy_drops_theme_items_from_both_trees(tmp_path: Path)
     canonical_parent_by_item = {row["item_id"]: row["parent_id"] for row in canonical_df.to_dicts()}
     # the theme item itself is gone entirely
     assert "Q11399" not in canonical_parent_by_item
-    # its child's edge into the theme parent is severed, dropping the child too (mirrors the
-    # existing genre -> non-genre parent behavior, e.g. opera above)
-    assert "Q999999" not in canonical_parent_by_item
+    # its child's edge into the theme parent is severed; the child's only other edge is already
+    # non-genre, so it's promoted to an orphan root instead of vanishing
+    assert canonical_parent_by_item["Q999999"] is None
 
     regional_df = pl.read_parquet(regional_path)
     regional_parent_by_item = {row["item_id"]: row["parent_id"] for row in regional_df.to_dicts()}
@@ -426,7 +426,8 @@ def test_prune_genre_hierarchy_drops_technique_items_from_both_trees(tmp_path: P
     canonical_df = pl.read_parquet(canonical_path)
     canonical_parent_by_item = {row["item_id"]: row["parent_id"] for row in canonical_df.to_dicts()}
     assert "Q11399" not in canonical_parent_by_item
-    assert "Q999999" not in canonical_parent_by_item
+    # Q999999's only other edge is already non-genre, so it's promoted to an orphan root
+    assert canonical_parent_by_item["Q999999"] is None
 
     regional_df = pl.read_parquet(regional_path)
     regional_parent_by_item = {row["item_id"]: row["parent_id"] for row in regional_df.to_dicts()}
@@ -502,7 +503,8 @@ def test_prune_genre_hierarchy_drops_out_of_scope_items_from_both_trees(tmp_path
     canonical_df = pl.read_parquet(canonical_path)
     canonical_parent_by_item = {row["item_id"]: row["parent_id"] for row in canonical_df.to_dicts()}
     assert "Q11399" not in canonical_parent_by_item
-    assert "Q999999" not in canonical_parent_by_item
+    # Q999999's only other edge is already non-genre, so it's promoted to an orphan root
+    assert canonical_parent_by_item["Q999999"] is None
 
     regional_df = pl.read_parquet(regional_path)
     regional_parent_by_item = {row["item_id"]: row["parent_id"] for row in regional_df.to_dicts()}
