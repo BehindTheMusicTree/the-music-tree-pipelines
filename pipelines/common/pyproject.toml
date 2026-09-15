@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "common"
-version = "1.0.0"
+version = "1.1.0"
 description = "Shared utilities for the-music-tree-pipelines pipelines."
 requires-python = ">=3.12"
 dependencies = [
