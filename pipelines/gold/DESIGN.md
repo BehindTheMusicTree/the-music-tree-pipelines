@@ -81,3 +81,27 @@ exported tree. Everything else is implicitly "core" (unmarked), matching the gen
 null-means-core convention, so `"side"` never appears with value `"core"`. Only the canonical tree
 gets this treatment — `1_regional_genre_tree.json`'s roots are geographic regions, not genres, so the
 pop/core distinction doesn't apply there.
+
+## Quality checks at the Silver → Gold boundary
+
+`gold`'s two lookups (`genre_match`'s musicbrainz-tag-to-wikidata-label match, and
+`genre_tree_builder`'s recursive hierarchy-to-tree build) never `pl.join`, so today's code can't
+fan out or drop rows by construction — but a future refactor could turn either into a real join
+without anyone noticing the row-multiplication risk. `quality_checks.py` (`check_non_empty`,
+`check_null_rate`, `check_unique_key`, `check_row_count_delta`) exists as that guardrail, raising
+`ValueError` (fail fast, same as the manual-CSV validation above) rather than letting a silently
+corrupted export reach `grow-the-music-tree-api`:
+
+- `genre_tree_builder.build_genre_tree` checks the incoming hierarchy's `item_id` (the wikidata QID
+  join key) is non-null and unique, then compares the hierarchy's unique `item_id` count against the
+  built tree's total node count — catching a `parent_id` cycle, which leaves both items out of
+  `roots` (each has a known parent) and unreachable from any real root, silently vanishing from the
+  tree instead of raising.
+- `genre_match` checks `3_song_example.parquet`'s `genre_name` (the musicbrainz-side join key) and
+  `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) are non-null, and that
+  the matched output's row count exactly equals the input song count (a per-row lookup can never
+  legitimately change height).
+
+Deliberately plain Polars, not a dedicated data-quality tool (Great Expectations, dbt tests): this is
+a handful of checks at one boundary in one pipeline, and a new dependency plus its own DSL isn't
+worth it here.

@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold`: fail-fast data-quality checks at the Silver → Gold boundary (`quality_checks.py`) — non-empty/null-rate checks on join keys (musicbrainz `genre_name`, wikidata `item_id`/`item_label`) and row-count delta checks guarding against silent duplication/loss in `genre_match` and `genre_tree_builder`.
+
 ## [1.1.0] - 2026-09-11
 
 ### Added
