@@ -739,3 +739,11 @@ LOCAL:southern-cone,music of the Southern Cone,user-requested: nest all existing
 Q16931692,music of the Virgin Islands,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 Q1065742,religious music,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 Q127471539,ethnic fusion,"newly orphaned root after world music (Q205049) was excluded as an overly broad umbrella; user requested it be classified as regional rather than canonical, nested under the new top-level 'music of the world' overview node",Q205049,
+Q2379616,Arabesque pop,child of pop music with no single national home; nested under the Arab-world regional overview (no per-country QID fits an Arabesque-pop tradition spanning the Arab world),LOCAL:arab-world,true
+Q117000942,Croatian pop,child of pop music; a Croatian national-scene genre nested under music of Croatia,Q1236268,true
+Q106634246,Irish showband,child of pop music; an Irish national-scene tradition nested under music of Ireland,Q1378776,true
+Q547137,Latin pop,child of pop music; a Latin American/Spanish-language regional genre nested under music of Latin America,Q727781,true
+Q108177317,Māori showband,"child of pop music; a Māori (indigenous to New Zealand) tradition nested under music of New Zealand, the closest available regional overview",Q6942216,true
+Q110020243,Swedish pop,child of pop music; a Swedish national-scene genre nested under music of Sweden,Q846784,true
+Q4971422,British pop,child of pop music; a UK national-scene genre nested under music of the United Kingdom,Q268673,true
+Q97216998,Java-pop,child of pop music; a Javanese regional genre nested under music of Java,Q6942130,true
