@@ -50,7 +50,11 @@ REGIONAL_CLASSIFICATION_ROWS = [
 
 def _write_regional_classification(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     regional_classification_path = tmp_path / "4_regional_classification.parquet"
-    pl.DataFrame(rows if rows is not None else REGIONAL_CLASSIFICATION_ROWS).write_parquet(regional_classification_path)
+    rows = rows if rows is not None else REGIONAL_CLASSIFICATION_ROWS
+    rows = [
+        {**row, "item_display_label": row["item_label"], "parent_display_label": row["parent_label"]} for row in rows
+    ]
+    pl.DataFrame(rows).write_parquet(regional_classification_path)
     return regional_classification_path
 
 

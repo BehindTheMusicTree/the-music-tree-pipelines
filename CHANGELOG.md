@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `wikidata`: `manual_label_overrides.csv` lets a data expert pin an alternate display name for a genre tree node (e.g. "pop music" → "Mainstream Pop") without touching the real Wikidata label used for classification and genre-tag matching. Plumbed through Silver as `item_display_label`/`parent_display_label`, consumed by `gold`'s `genre_tree_builder` as each node's exported `"name"`.
+- `gold`: `export_canonical_genre_tree` now raises if the exported tree has no root named "Mainstream Pop" — `grow-the-music-tree-api` requires this root on every genre tree it imports, so failing here is cheaper than failing the downstream import.
 - `gold`: fail-fast data-quality checks at the Silver → Gold boundary (`quality_checks.py`) — non-empty/null-rate checks on join keys (musicbrainz `genre_name`, wikidata `item_id`/`item_label`) and row-count delta checks guarding against silent duplication/loss in `genre_match` and `genre_tree_builder`.
 - `common`: `quality_checks.py` moved here from `gold` so `musicbrainz` and `wikidata` Bronze ingestion can share the same non-empty check — both now raise if an extraction comes back with zero rows, before Silver can build on missing source data. `gold`'s `song_export` also gained a non-empty check on the final `2_songs.json` output.
 

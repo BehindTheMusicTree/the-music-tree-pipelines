@@ -90,8 +90,10 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
         )
 
     added = manual_additions.with_columns(
+        item_display_label=pl.col("item_label"),
         parent_id=pl.lit(None, dtype=pl.Utf8),
         parent_label=pl.lit(None, dtype=pl.Utf8),
+        parent_display_label=pl.lit(None, dtype=pl.Utf8),
         relation_type=pl.lit(None, dtype=pl.Utf8),
         item_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("item_id"),
         parent_url=pl.lit(None, dtype=pl.Utf8),
@@ -175,15 +177,17 @@ def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
             & pl.col("parent_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
             & ~pl.col("parent_id").is_in(list(known_item_ids))
         )
-        .select(item_id="parent_id", item_label="parent_label")
+        .select(item_id="parent_id", item_label="parent_label", item_display_label="parent_display_label")
         .unique(subset="item_id")
     )
     if orphan_parents.is_empty():
         return df
 
     promoted = orphan_parents.with_columns(
+        item_display_label=pl.coalesce("item_display_label", "item_label"),
         parent_id=pl.lit(None, dtype=pl.Utf8),
         parent_label=pl.lit(None, dtype=pl.Utf8),
+        parent_display_label=pl.lit(None, dtype=pl.Utf8),
         relation_type=pl.lit(None, dtype=pl.Utf8),
         item_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("item_id"),
         parent_url=pl.lit(None, dtype=pl.Utf8),

@@ -12,6 +12,7 @@ TREE_ROWS = [
     {"item_id": "Q3", "item_label": "hardcore punk", "parent_id": "Q2"},
     {"item_id": "Q4", "item_label": "pop rock", "parent_id": "Q1"},
     {"item_id": "Q5", "item_label": "jazz", "parent_id": None},
+    {"item_id": "Q7", "item_label": "Mainstream Pop", "parent_id": None},
 ]
 
 
@@ -37,7 +38,7 @@ def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
 
     assert result == output_dir / "1_canonical_genre_tree.json"
     tree = json.loads(result.read_text())
-    assert {node["name"] for node in tree["tree"]} == {"rock", "jazz"}
+    assert {node["name"] for node in tree["tree"]} == {"rock", "jazz", "Mainstream Pop"}
 
 
 def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path) -> None:
@@ -58,7 +59,11 @@ def test_export_canonical_genre_tree_raises_on_schema_violation(
 ) -> None:
     import gold.canonical_genre_tree_export as module
 
-    monkeypatch.setattr(module, "build_genre_tree", lambda hierarchy, pop_sides: {"tree": [{"name": "rock"}]})
+    monkeypatch.setattr(
+        module,
+        "build_genre_tree",
+        lambda hierarchy, pop_sides: {"tree": [{"name": "rock"}, {"name": "Mainstream Pop"}]},
+    )
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -83,6 +88,18 @@ def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path) -> None:
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     pop_rock = next(child for child in rock["children"] if child["name"] == "pop rock")
     assert pop_rock["side"] == "pop"
+
+
+def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(tmp_path: Path) -> None:
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    rows = [row for row in TREE_ROWS if row["item_label"] != "Mainstream Pop"]
+    pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
+    _write_pop_side_csv(pop_side_path, [])
+
+    with pytest.raises(ValueError, match="Mainstream Pop"):
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
 
 
 def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path) -> None:
