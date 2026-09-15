@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Corrected `CLAUDE.md`'s production-deployment section: Gold's exports sync to `grow-the-music-tree-api` on both prod and staging (infra commit `77361c92`), not staging only.
+
 ### Added
 
 - `gold`: fail-fast data-quality checks at the Silver → Gold boundary (`quality_checks.py`) — non-empty/null-rate checks on join keys (musicbrainz `genre_name`, wikidata `item_id`/`item_label`) and row-count delta checks guarding against silent duplication/loss in `genre_match` and `genre_tree_builder`.
