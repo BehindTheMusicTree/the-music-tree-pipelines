@@ -1,6 +1,6 @@
 import polars as pl
 
-from gold.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
+from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
 
 
 def _count_tree_nodes(nodes: list[dict]) -> int:

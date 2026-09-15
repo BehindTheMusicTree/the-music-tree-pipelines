@@ -3,7 +3,7 @@ from pathlib import Path
 
 import polars as pl
 
-from gold.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
+from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
 
 logger = logging.getLogger(__name__)
 

@@ -54,6 +54,9 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
     if writer is not None:
         writer.close()
 
+    if total_rows == 0:
+        raise ValueError(f"{table} is empty")
+
     logger.info("wrote %d rows to %s", total_rows, output_path)
     return output_path
 

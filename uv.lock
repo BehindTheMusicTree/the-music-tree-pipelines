@@ -442,11 +442,15 @@ name = "common"
 version = "1.0.0"
 source = { editable = "pipelines/common" }
 dependencies = [
+    { name = "polars" },
     { name = "python-dotenv" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "python-dotenv", specifier = "==1.2.2" }]
+requires-dist = [
+    { name = "polars", specifier = "==1.42.1" },
+    { name = "python-dotenv", specifier = "==1.2.2" },
+]
 
 [[package]]
 name = "contourpy"

@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.quality_checks import check_non_empty
 from jsonschema import ValidationError, validate
 
 SONGS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "songs.schema.json"
@@ -18,6 +19,7 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
         .select("title", "artist", "youtube_video_id", "wikidata_genre_name")
         .rename({"wikidata_genre_name": "genre_name"})
     )
+    check_non_empty(songs, "2_songs")
     songs_list = songs.to_dicts()
 
     schema = json.loads(SONGS_SCHEMA_PATH.read_text())

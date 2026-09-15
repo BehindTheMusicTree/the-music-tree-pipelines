@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 A `uv` workspace monorepo of data pipelines feeding the BTMT (Behind The Music Tree) ecosystem. Each pipeline is an independent workspace member under `pipelines/`, sharing only the `common` package. `wikidata` and `musicbrainz` each implement a **Bronze layer** (raw extraction to Parquet) and a **Silver layer** (cleaned, joined, hierarchy-built data) — `wikidata` (nine steps, `1_item_links` → `9_canonical_roots` — see below), `musicbrainz` (three steps so far, `1_recording_link` → `3_song_example` — see below). `pipelines/gold` is the consumer-facing **Gold layer** sitting on top of both.
 
-- `pipelines/common` — shared utilities (currently just per-pipeline `.env` loading).
+- `pipelines/common` — shared utilities: per-pipeline `.env` loading, and data-quality check helpers (`common.quality_checks`) used at Bronze ingestion in `musicbrainz`/`wikidata` and at the Silver→Gold boundary in `gold`.
 - `pipelines/musicbrainz` — Bronze ingestion from a Postgres MusicBrainz mirror (11 tables: `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`), plus a Silver pipeline (`musicbrainz.silver`) that derives a recording ↔ link correspondence (typed by platform via `link_type`), a recording ↔ genre correspondence, and a small capped example-song dataset.
 - `pipelines/wikidata` — Bronze ingestion of the music-genre tree from the live Wikidata SPARQL endpoint, plus a Silver pipeline (`wikidata.silver`) that classifies and prunes that tree into global and regional genre hierarchies.
 - `pipelines/gold` — the first (so far only) cross-pipeline consumer: exports a canonical genre tree from wikidata's Silver output and reconciles musicbrainz's raw genre-tag names against it, producing the JSON artifacts `grow-the-music-tree-api` imports.
@@ -39,6 +39,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 
 - `musicbrainz`: connects to Postgres via `psycopg`, reads each of the 8 raw tables with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{ingest.py,db.py}`.
 - `wikidata`: queries the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`) live — no local DB. Pulls every item classified `P31` "instance of" music genre (`Q188451`) plus each genre's direct `P279` "subclass of" parent edges (unfiltered — pruning to genre-only parents is Silver-layer work), writes `wikidata_genre_tree.parquet`. See `pipelines/wikidata/src/wikidata/wikidata_client.py`.
+- Both pipelines raise (`common.quality_checks.check_non_empty`, `musicbrainz` inlining the same non-empty check on its streamed row count) if a Bronze extraction comes back with zero rows, failing the daily run loudly rather than letting Silver build on missing source data.
 
 **Silver layer, `wikidata`:** nine sequential classification/pruning steps producing a canonical genre hierarchy and a separate regional hierarchy — see `pipelines/wikidata/CLAUDE.md` for the full step-by-step breakdown, target shape, and manual-CSV curation mechanism.
 
