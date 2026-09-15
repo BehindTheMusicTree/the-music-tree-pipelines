@@ -1,4 +1,5 @@
 import polars as pl
+import pytest
 
 from gold.genre_tree_builder import build_genre_tree
 
@@ -58,3 +59,31 @@ def test_build_genre_tree_ignores_pop_side_for_root_without_entry() -> None:
 
     jazz = next(node for node in tree["tree"] if node["name"] == "jazz")
     assert "side" not in jazz
+
+
+def test_build_genre_tree_raises_on_empty_hierarchy() -> None:
+    with pytest.raises(ValueError, match="is empty"):
+        build_genre_tree(pl.DataFrame({"item_id": [], "item_label": [], "parent_id": []}))
+
+
+def test_build_genre_tree_raises_on_null_item_id() -> None:
+    rows = [*TREE_ROWS, {"item_id": None, "item_label": "orphan", "parent_id": None}]
+    with pytest.raises(ValueError, match="null rate"):
+        build_genre_tree(pl.DataFrame(rows))
+
+
+def test_build_genre_tree_raises_on_duplicate_item_id() -> None:
+    rows = [*TREE_ROWS, {"item_id": "Q1", "item_label": "rock duplicate", "parent_id": None}]
+    with pytest.raises(ValueError, match="not unique"):
+        build_genre_tree(pl.DataFrame(rows))
+
+
+def test_build_genre_tree_raises_on_parent_id_cycle() -> None:
+    # Q6 <-> Q7 point at each other: both have a known parent, so neither is a root, and neither is
+    # reachable from a real root — they'd silently vanish from the tree without the node-count check.
+    rows = [
+        {"item_id": "Q6", "item_label": "cycle a", "parent_id": "Q7"},
+        {"item_id": "Q7", "item_label": "cycle b", "parent_id": "Q6"},
+    ]
+    with pytest.raises(ValueError, match="genre tree build"):
+        build_genre_tree(pl.DataFrame(rows))

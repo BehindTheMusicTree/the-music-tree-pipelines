@@ -207,6 +207,23 @@ def test_genre_match_raises_on_non_genre_conflicting_with_auto_match(tmp_path: P
         )
 
 
+def test_genre_match_raises_on_empty_songs(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="is empty"):
+        _run_genre_match(tmp_path, [])
+
+
+def test_genre_match_raises_on_null_genre_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="null rate"):
+        _run_genre_match(
+            tmp_path, [{"title": "Song", "artist": "Artist", "youtube_video_id": "abc123", "genre_name": None}]
+        )
+
+
+def test_genre_match_raises_on_empty_hierarchy(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="is empty"):
+        _run_genre_match(tmp_path, [_song("Rock")], hierarchy_rows=[])
+
+
 def test_genre_match_raises_on_non_genre_conflicting_with_alias_csv(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="conflict"):
         _run_genre_match(
