@@ -4,6 +4,7 @@ members = ["pipelines/*"]
 [dependency-groups]
 dev = [
     "ruff==0.15.20",
+    "mypy==1.18.2",
     "pytest==9.1.1",
     "pre-commit==4.6.0",
     "pytest-cov==7.1.0",
@@ -18,6 +19,11 @@ notebook = [
 
 [tool.ruff]
 line-length = 120
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+exclude = ["/tests/"]
 
 [tool.pytest.ini_options]
 testpaths = ["pipelines"]

@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Corrected `CLAUDE.md`'s production-deployment section: Gold's exports sync to `grow-the-music-tree-api` on both prod and staging (infra commit `77361c92`), not staging only.
 
+### Changed
+
+- CI: added `mypy` to the `Lint` job (`uv run mypy pipelines`), type-checking `pipelines` source excluding tests. Config in root `pyproject.toml`'s `[tool.mypy]`, matching `grow-the-music-tree-api`'s CI-only (no pre-commit hook) setup.
+
 ### Added
 
 - `wikidata`: `manual_label_overrides.csv` lets a data expert pin an alternate display name for a genre tree node (e.g. "pop music" → "Mainstream Pop") without touching the real Wikidata label used for classification and genre-tag matching. Plumbed through Silver as `item_display_label`/`parent_display_label`, consumed by `gold`'s `genre_tree_builder` as each node's exported `"name"`.
