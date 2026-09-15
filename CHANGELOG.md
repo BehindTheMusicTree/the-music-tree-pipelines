@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `gold`: fail-fast data-quality checks at the Silver → Gold boundary (`quality_checks.py`) — non-empty/null-rate checks on join keys (musicbrainz `genre_name`, wikidata `item_id`/`item_label`) and row-count delta checks guarding against silent duplication/loss in `genre_match` and `genre_tree_builder`.
+- `common`: `quality_checks.py` moved here from `gold` so `musicbrainz` and `wikidata` Bronze ingestion can share the same non-empty check — both now raise if an extraction comes back with zero rows, before Silver can build on missing source data. `gold`'s `song_export` also gained a non-empty check on the final `2_songs.json` output.
 
 ## [1.1.0] - 2026-09-11
 

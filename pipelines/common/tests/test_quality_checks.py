@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 
-from gold.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
+from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
 
 
 def test_check_non_empty_passes_on_non_empty_df() -> None:

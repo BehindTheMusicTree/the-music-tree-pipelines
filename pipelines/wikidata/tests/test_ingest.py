@@ -49,13 +49,11 @@ def test_ingest_genre_tree_writes_parquet_with_qids_extracted(monkeypatch: pytes
     ]
 
 
-def test_ingest_genre_tree_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ingest_genre_tree_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
-    output_dir = tmp_path / "does" / "not" / "exist"
-    bw.ingest_genre_tree(output_dir)
-
-    assert output_dir.is_dir()
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_genre_tree(tmp_path / "does" / "not" / "exist")
 
 
 INDIGENOUS_TO_ROW = {
@@ -87,13 +85,11 @@ def test_ingest_indigenous_to_writes_parquet_with_qids_extracted(
     ]
 
 
-def test_ingest_indigenous_to_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ingest_indigenous_to_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
-    output_dir = tmp_path / "does" / "not" / "exist"
-    bw.ingest_indigenous_to(output_dir)
-
-    assert output_dir.is_dir()
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_indigenous_to(tmp_path / "does" / "not" / "exist")
 
 
 COUNTRY_OF_ORIGIN_ROW = {
@@ -125,10 +121,8 @@ def test_ingest_country_of_origin_writes_parquet_with_qids_extracted(
     ]
 
 
-def test_ingest_country_of_origin_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ingest_country_of_origin_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
-    output_dir = tmp_path / "does" / "not" / "exist"
-    bw.ingest_country_of_origin(output_dir)
-
-    assert output_dir.is_dir()
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_country_of_origin(tmp_path / "does" / "not" / "exist")
