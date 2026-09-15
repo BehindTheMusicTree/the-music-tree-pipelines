@@ -16,3 +16,4 @@ LOCAL:jewish-diasporic-music,music of the Jewish diaspora,synthetic (no matching
 LOCAL:hispanic-world,music of the Hispanic world,synthetic (no matching Wikidata overview item)
 LOCAL:jewish-tradition-music,music of Jewish tradition,synthetic (no matching Wikidata overview item)
 Q14548294,music of Niue,"missing from Bronze entirely; found via WebSearch, confirmed live on Wikidata"
+LOCAL:arab-world,music of the Arab world,"synthetic (no matching Wikidata overview item) - real item Q624044 'Arabic music' exists but its literal label doesn't start with ""music of "" (that phrasing is only an alias/description), and it's already present in the genre tree as a canonical parent so its item_id can't be reused as a new overview row; needed to reclassify Arabesque pop as regional"

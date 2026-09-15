@@ -45,6 +45,13 @@ def test_ingest_table_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert output_dir.is_dir()
 
 
+def test_ingest_table_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bm.pl, "read_database", MagicMock(return_value=iter([])))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bm.ingest_table(MagicMock(), "recording", tmp_path)
+
+
 def test_run_bronze_ingestion_ingests_every_bronze_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     ingest_table = MagicMock(side_effect=lambda conn, table, output_dir: output_dir / f"{table}.parquet")
     monkeypatch.setattr(bm, "ingest_table", ingest_table)

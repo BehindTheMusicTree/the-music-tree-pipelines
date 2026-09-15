@@ -10,9 +10,11 @@ logger = logging.getLogger(__name__)
 SECONDARY_PARENT_COLUMNS = [
     "item_id",
     "item_label",
+    "item_display_label",
     "item_url",
     "parent_id",
     "parent_label",
+    "parent_display_label",
     "parent_url",
     "relation_type",
 ]

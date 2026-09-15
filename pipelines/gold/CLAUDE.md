@@ -14,6 +14,8 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 **JSON Schema validation**: both JSON exports are validated (`jsonschema.validate`) against a schema in `src/gold/schemas/` before being written, raising `ValueError` on mismatch — a malformed export should fail the run loudly rather than ship a broken file to `grow-the-music-tree-api`.
 
+**Quality checks**: `genre_match` and `genre_tree_builder` validate join-key null rates/uniqueness and row-count deltas (`common.quality_checks`, shared with `musicbrainz`/`wikidata` Bronze ingestion) before writing output; `song_export` checks the final `2_songs.json` output is non-empty. All raise `ValueError` on failure — same fail-loud rationale as the JSON Schema validation above.
+
 ## Docs
 
 - `SCHEMA.md` — pure data dictionary (columns, types, meaning).

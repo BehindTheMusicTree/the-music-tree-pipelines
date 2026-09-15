@@ -3,6 +3,7 @@ from pathlib import Path
 
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
+from common.quality_checks import check_non_empty
 
 from wikidata import wikidata_client
 
@@ -30,6 +31,7 @@ def ingest_genre_tree(output_dir: Path) -> Path:
             "relation_type": [row["relation"] for row in rows],
         }
     )
+    check_non_empty(df, "wikidata_genre_tree")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "wikidata_genre_tree.parquet"
@@ -52,6 +54,7 @@ def ingest_indigenous_to(output_dir: Path) -> Path:
             "indigenous_to_label": [row["indigenousToLabel"] for row in rows],
         }
     )
+    check_non_empty(df, "wikidata_genre_indigenous_to")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "wikidata_genre_indigenous_to.parquet"
@@ -74,6 +77,7 @@ def ingest_country_of_origin(output_dir: Path) -> Path:
             "country_of_origin_label": [row["countryOfOriginLabel"] for row in rows],
         }
     )
+    check_non_empty(df, "wikidata_genre_country_of_origin")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "wikidata_genre_country_of_origin.parquet"

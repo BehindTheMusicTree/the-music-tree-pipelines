@@ -73,6 +73,13 @@ def test_export_songs_creates_output_dir(tmp_path: Path) -> None:
     assert output_dir.is_dir()
 
 
+def test_export_songs_raises_on_empty_result(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[row for row in MATCH_ROWS if row["match_method"] != "exact"])
+
+    with pytest.raises(ValueError, match="is empty"):
+        export_songs(genre_match_path, tmp_path / "gold")
+
+
 def test_export_songs_raises_on_schema_violation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import gold.song_export as module
 

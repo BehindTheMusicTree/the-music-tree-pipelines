@@ -112,8 +112,10 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
         )
 
     added = manual_additions.with_columns(
+        item_display_label=pl.col("item_label"),
         parent_id=pl.lit(None, dtype=pl.Utf8),
         parent_label=pl.lit(None, dtype=pl.Utf8),
+        parent_display_label=pl.lit(None, dtype=pl.Utf8),
         relation_type=pl.lit(None, dtype=pl.Utf8),
         item_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("item_id"),
         parent_url=pl.lit(None, dtype=pl.Utf8),
@@ -209,14 +211,25 @@ def _apply_manual_main_parent(df: pl.DataFrame, manual_parents: pl.DataFrame) ->
         .unique(subset="item_id")
         .rename({"item_id": "parent_item_id", "item_label": "parent_item_label"})
     )
-    item_columns = [c for c in df.columns if c not in ("parent_id", "parent_label", "parent_url", "relation_type")]
+    parent_display_labels = (
+        df.select("item_id", "item_display_label")
+        .unique(subset="item_id")
+        .rename({"item_id": "parent_item_id", "item_display_label": "parent_item_display_label"})
+    )
+    item_columns = [
+        c
+        for c in df.columns
+        if c not in ("parent_id", "parent_label", "parent_display_label", "parent_url", "relation_type")
+    ]
     synthetic_edges = (
         overrides.select("item_id", "parent_item_id")
         .join(parent_labels, on="parent_item_id", how="left")
+        .join(parent_display_labels, on="parent_item_id", how="left")
         .join(df.select(item_columns).unique(subset="item_id"), on="item_id", how="left")
         .with_columns(
             parent_id=pl.col("parent_item_id"),
             parent_label=pl.col("parent_item_label"),
+            parent_display_label=pl.col("parent_item_display_label"),
             parent_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("parent_item_id"),
             relation_type=pl.lit(MANUAL_MAIN_PARENT_RELATION_TYPE),
         )
@@ -296,14 +309,25 @@ def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) 
         .unique(subset="item_id")
         .rename({"item_id": "overview_item_id", "item_label": "overview_item_label"})
     )
-    item_columns = [c for c in df.columns if c not in ("parent_id", "parent_label", "parent_url", "relation_type")]
+    overview_display_labels = (
+        df.select("item_id", "item_display_label")
+        .unique(subset="item_id")
+        .rename({"item_id": "overview_item_id", "item_display_label": "overview_item_display_label"})
+    )
+    item_columns = [
+        c
+        for c in df.columns
+        if c not in ("parent_id", "parent_label", "parent_display_label", "parent_url", "relation_type")
+    ]
     synthetic_edges = (
         overrides.select("item_id", "overview_item_id")
         .join(overview_labels, on="overview_item_id", how="left")
+        .join(overview_display_labels, on="overview_item_id", how="left")
         .join(df.select(item_columns).unique(subset="item_id"), on="item_id", how="left")
         .with_columns(
             parent_id=pl.col("overview_item_id"),
             parent_label=pl.col("overview_item_label"),
+            parent_display_label=pl.col("overview_item_display_label"),
             parent_url=pl.lit(WIKIDATA_ITEM_URL_PREFIX) + pl.col("overview_item_id"),
             relation_type=pl.lit("manual_override_parent"),
         )

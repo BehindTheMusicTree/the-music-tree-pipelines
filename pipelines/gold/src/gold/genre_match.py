@@ -3,6 +3,8 @@ from pathlib import Path
 
 import polars as pl
 
+from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
+
 logger = logging.getLogger(__name__)
 
 # Committed alongside the code (not a gitignored gold output): a data expert's triage decisions for
@@ -87,6 +89,11 @@ def genre_match(
     songs = pl.read_parquet(song_example_path)
     hierarchy = pl.read_parquet(canonical_hierarchy_path)
 
+    check_non_empty(songs, song_example_path.name)
+    check_null_rate(songs, "genre_name", song_example_path.name)
+    check_non_empty(hierarchy, canonical_hierarchy_path.name)
+    check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
+
     canonical_labels = set(hierarchy.select("item_label").unique().to_series())
     canonical_lookup = {label.lower(): label for label in canonical_labels}
 
@@ -132,6 +139,10 @@ def genre_match(
         )
         .select("title", "artist", "youtube_video_id", "genre_name", "wikidata_genre_name", "match_method")
     )
+
+    # genre_match is a per-row lookup, not a join — height must stay exactly equal to `songs`; any
+    # drift would mean a future change accidentally turned this into a fan-out/fan-in join.
+    check_row_count_delta(songs.height, matched.height, "genre_match")
 
     unresolved = matched.filter(pl.col("match_method") == "unmatched").select(
         "genre_name", "title", "artist", "youtube_video_id"
