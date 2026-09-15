@@ -144,6 +144,11 @@ GENRE_CLASSIFICATION_ROWS = [
     },
 ]
 
+GENRE_CLASSIFICATION_ROWS = [
+    {**row, "item_display_label": row["item_label"], "parent_display_label": row["parent_label"]}
+    for row in GENRE_CLASSIFICATION_ROWS
+]
+
 INDIGENOUS_TO_ROWS = [
     {
         "item_id": "Q10376827",
@@ -255,35 +260,37 @@ def test_classify_regional_genres_cascades_from_seeds(tmp_path: Path) -> None:
 
 def test_classify_regional_genres_treats_manual_overview_reclassification_as_seed(tmp_path: Path) -> None:
     regional_overview_classification_path = tmp_path / "3_regional_overview_classification.parquet"
-    pl.DataFrame(
-        [
-            # European folk music: reclassified as a regional overview (not via the "music of "
-            # prefix rule), so it must seed the cascade the same as a regular regional_overview item.
-            {
-                "item_id": "Q98528192",
-                "item_label": "European folk music",
-                "parent_id": None,
-                "parent_label": None,
-                "relation_type": None,
-                "item_url": "https://www.wikidata.org/wiki/Q98528192",
-                "parent_url": None,
-                "is_regional_overview": True,
-                "classification_reason": "manual_overview_reclassification",
-            },
-            # Hungarian folk music: direct child of the reclassified seed
-            {
-                "item_id": "Q1361992",
-                "item_label": "Hungarian folk music",
-                "parent_id": "Q98528192",
-                "parent_label": "European folk music",
-                "relation_type": "P279",
-                "item_url": "https://www.wikidata.org/wiki/Q1361992",
-                "parent_url": "https://www.wikidata.org/wiki/Q98528192",
-                "is_regional_overview": False,
-                "classification_reason": None,
-            },
-        ]
-    ).write_parquet(regional_overview_classification_path)
+    rows = [
+        # European folk music: reclassified as a regional overview (not via the "music of "
+        # prefix rule), so it must seed the cascade the same as a regular regional_overview item.
+        {
+            "item_id": "Q98528192",
+            "item_label": "European folk music",
+            "parent_id": None,
+            "parent_label": None,
+            "relation_type": None,
+            "item_url": "https://www.wikidata.org/wiki/Q98528192",
+            "parent_url": None,
+            "is_regional_overview": True,
+            "classification_reason": "manual_overview_reclassification",
+        },
+        # Hungarian folk music: direct child of the reclassified seed
+        {
+            "item_id": "Q1361992",
+            "item_label": "Hungarian folk music",
+            "parent_id": "Q98528192",
+            "parent_label": "European folk music",
+            "relation_type": "P279",
+            "item_url": "https://www.wikidata.org/wiki/Q1361992",
+            "parent_url": "https://www.wikidata.org/wiki/Q98528192",
+            "is_regional_overview": False,
+            "classification_reason": None,
+        },
+    ]
+    rows = [
+        {**row, "item_display_label": row["item_label"], "parent_display_label": row["parent_label"]} for row in rows
+    ]
+    pl.DataFrame(rows).write_parquet(regional_overview_classification_path)
     indigenous_to_path = _write_indigenous_to(tmp_path)
     manual_overrides_path = tmp_path / "manual_regional_overrides.csv"
     pl.DataFrame(

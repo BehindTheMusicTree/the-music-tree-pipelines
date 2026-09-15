@@ -9,6 +9,11 @@ from gold.genre_tree_builder import build_genre_tree
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
 
+# grow-the-music-tree-api requires every genre tree it imports to have a root named exactly this —
+# see its GenreManager.assert_mainstream_pop_root_present. Failing here, before export, is cheaper
+# than failing the downstream import.
+CANONICAL_MAINSTREAM_POP_ROOT_NAME = "Mainstream Pop"
+
 # Committed alongside the code (not a gitignored gold output): a data expert's curated pick of which
 # direct child of each canonical root is the-music-tree-genre-kit's "pop" side (crossover/mainstream
 # branch, e.g. Electropop under Electronic) — everything else defaults to "core". Wikidata has no
@@ -79,6 +84,11 @@ def export_canonical_genre_tree(
     hierarchy = pl.read_parquet(hierarchy_path)
     pop_sides = _load_pop_sides(manual_canonical_genre_pop_side_path, hierarchy)
     tree = build_genre_tree(hierarchy, pop_sides)
+
+    if not any(node["name"] == CANONICAL_MAINSTREAM_POP_ROOT_NAME for node in tree["tree"]):
+        raise ValueError(
+            f"canonical genre tree has no root named {CANONICAL_MAINSTREAM_POP_ROOT_NAME!r} (source: {hierarchy_path})"
+        )
 
     schema = json.loads(GENRE_TREE_SCHEMA_PATH.read_text())
     try:

@@ -24,6 +24,11 @@ ITEM_LINKS_ROWS = [
     },
 ]
 
+ITEM_LINKS_ROWS = [
+    {**row, "item_display_label": row["item_label"], "parent_display_label": row["parent_label"]}
+    for row in ITEM_LINKS_ROWS
+]
+
 
 def _write_item_links(tmp_path: Path) -> Path:
     non_genre_pruning_path = tmp_path / "2_non_genre_pruning.parquet"
@@ -63,8 +68,10 @@ def test_classify_regional_from_overviews_flags_regional_overview_items(tmp_path
         {
             "item_id": "Q11399",
             "item_label": "rock music",
+            "item_display_label": "rock music",
             "parent_id": "Q9778",
             "parent_label": "popular music",
+            "parent_display_label": "popular music",
             "item_url": "https://www.wikidata.org/wiki/Q11399",
             "parent_url": "https://www.wikidata.org/wiki/Q9778",
             "is_regional_overview": False,
@@ -73,8 +80,10 @@ def test_classify_regional_from_overviews_flags_regional_overview_items(tmp_path
         {
             "item_id": "Q3868594",
             "item_label": "music of Kenya",
+            "item_display_label": "music of Kenya",
             "parent_id": None,
             "parent_label": None,
+            "parent_display_label": None,
             "item_url": "https://www.wikidata.org/wiki/Q3868594",
             "parent_url": None,
             "is_regional_overview": True,
@@ -104,8 +113,10 @@ def test_classify_regional_from_overviews_promotes_orphan_music_of_parent(tmp_pa
             {
                 "item_id": "Q28371127",
                 "item_label": "cymrucana",
+                "item_display_label": "cymrucana",
                 "parent_id": "Q6942327",
                 "parent_label": "music of Wales",
+                "parent_display_label": "music of Wales",
                 "item_url": "https://www.wikidata.org/wiki/Q28371127",
                 "parent_url": "https://www.wikidata.org/wiki/Q6942327",
             },
@@ -124,8 +135,10 @@ def test_classify_regional_from_overviews_promotes_orphan_music_of_parent(tmp_pa
     assert promoted == {
         "item_id": "Q6942327",
         "item_label": "music of Wales",
+        "item_display_label": "music of Wales",
         "parent_id": None,
         "parent_label": None,
+        "parent_display_label": None,
         "item_url": "https://www.wikidata.org/wiki/Q6942327",
         "parent_url": None,
         "is_regional_overview": True,
@@ -157,8 +170,10 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_missing_from
     assert added == {
         "item_id": "Q16147503",
         "item_label": "music of Dominica",
+        "item_display_label": "music of Dominica",
         "parent_id": None,
         "parent_label": None,
+        "parent_display_label": None,
         "item_url": "https://www.wikidata.org/wiki/Q16147503",
         "parent_url": None,
         "is_regional_overview": True,
@@ -190,8 +205,10 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_with_synthet
     assert added == {
         "item_id": "LOCAL:indigenous-americas",
         "item_label": "music of Indigenous peoples of the Americas",
+        "item_display_label": "music of Indigenous peoples of the Americas",
         "parent_id": None,
         "parent_label": None,
+        "parent_display_label": None,
         "item_url": "https://www.wikidata.org/wiki/LOCAL:indigenous-americas",
         "parent_url": None,
         "is_regional_overview": True,

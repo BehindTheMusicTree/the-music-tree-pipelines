@@ -100,6 +100,11 @@ CANONICAL_PARENTS_ROWS = [
     },
 ]
 
+CANONICAL_PARENTS_ROWS = [
+    {**row, "item_display_label": row["item_label"], "parent_display_label": row["parent_label"]}
+    for row in CANONICAL_PARENTS_ROWS
+]
+
 
 def _write_canonical_parents(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     canonical_parents_path = tmp_path / "5_canonical_parents.parquet"

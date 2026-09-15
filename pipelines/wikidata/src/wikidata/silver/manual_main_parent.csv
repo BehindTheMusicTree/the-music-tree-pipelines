@@ -299,3 +299,5 @@ Q539089,third stream,"user-requested regrouping under new synthetic ""Core jazz"
 Q492643,trad jazz,"user-requested regrouping under new synthetic ""Core jazz"" node (remaining jazz subgenres not routed to Pop jazz)",LOCAL:core-jazz,
 Q4020968,world fusion,"user-requested regrouping under new synthetic ""Core jazz"" node (remaining jazz subgenres not routed to Pop jazz)",LOCAL:core-jazz,
 Q669738,yass,"user-requested regrouping under new synthetic ""Core jazz"" node (remaining jazz subgenres not routed to Pop jazz)",LOCAL:core-jazz,
+Q1374731,Eurodisco,"child of pop music but a disco subgenre by style, not a pop subgenre; re-parented under disco",Q58339,true
+Q2104067,jazz pop,"child of pop music but a jazz/pop-crossover subgenre by style; re-parented under the synthetic ""Pop jazz"" node alongside smooth jazz/vocal jazz",LOCAL:pop-jazz,true
