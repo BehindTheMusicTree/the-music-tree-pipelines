@@ -28,7 +28,11 @@ def test_run_query_sends_query_and_headers(monkeypatch: pytest.MonkeyPatch) -> N
     httpx_get.assert_called_once_with(
         wikidata_client.SPARQL_ENDPOINT,
         params={"query": "SELECT * WHERE {}"},
-        headers={"User-Agent": wikidata_client.USER_AGENT, "Accept": "application/sparql-results+json"},
+        headers={
+            "User-Agent": wikidata_client.USER_AGENT,
+            "Accept": "application/sparql-results+json",
+            "Cache-Control": "no-cache",
+        },
         timeout=10.0,
     )
 
