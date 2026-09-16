@@ -7,6 +7,10 @@ def _count_tree_nodes(nodes: list[dict]) -> int:
     return sum(1 + _count_tree_nodes(node["children"]) for node in nodes)
 
 
+def _collect_names(nodes: list[dict]) -> list[str]:
+    return [node["name"] for node in nodes] + [name for node in nodes for name in _collect_names(node["children"])]
+
+
 def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | None = None) -> dict:
     check_non_empty(hierarchy, "hierarchy")
     check_null_rate(hierarchy, "item_id", "hierarchy")
@@ -63,5 +67,12 @@ def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | N
     # A parent_id cycle (A -> B -> A) leaves both items out of `roots` (each has a known parent) and
     # unreachable from any real root, silently dropping them from the tree instead of raising.
     check_row_count_delta(hierarchy.select("item_id").n_unique(), _count_tree_nodes(tree), "genre tree build")
+
+    # grow-the-music-tree-api rejects an imported tree containing duplicate node names
+    # (`tree_value_duplicate`) — failing here, before export, is cheaper than failing the import.
+    names = _collect_names(tree)
+    duplicate_names = sorted({name for name in names if names.count(name) > 1})
+    if duplicate_names:
+        raise ValueError(f"genre tree has duplicate node name(s): {duplicate_names}")
 
     return {"tree": tree}

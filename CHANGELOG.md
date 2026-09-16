@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold`: `genre_tree_builder.build_genre_tree` now raises if the exported tree contains duplicate node names — mirrors `grow-the-music-tree-api`'s own `tree_value_duplicate` import constraint, failing Gold locally instead of shipping a tree the import will reject.
+
 ### Fixed
 
 - `wikidata`: added the missing `manual_label_overrides.csv` row renaming "pop music" to "Mainstream Pop" — the guard added in 1.2.0 (`export_canonical_genre_tree` requiring that root) shipped with an empty overrides CSV, failing every Gold run.
