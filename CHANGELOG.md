@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Triaged two new Wikidata canonical roots (Lagan Geet, music and mathematics) surfaced by the daily pipeline run.
+- `wikidata`: `wikidata_client.run_query` now sends `Cache-Control: no-cache` and retries up to 8 times (was 5) — CI intermittently saw a truncated, non-JSON-parseable response from WDQS survive every retry attempt, consistent with a caching layer serving back the same bad response.
 
 ## [1.2.0] - 2026-09-15
 
