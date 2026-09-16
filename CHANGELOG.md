@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Triaged two new Wikidata canonical roots (Lagan Geet, music and mathematics) surfaced by the daily pipeline run.
+
 ## [1.2.0] - 2026-09-15
 
 ### Documentation

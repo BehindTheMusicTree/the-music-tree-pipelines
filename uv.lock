@@ -440,7 +440,7 @@ wheels = [
 
 [[package]]
 name = "common"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "pipelines/common" }
 dependencies = [
     { name = "polars" },
@@ -715,7 +715,7 @@ wheels = [
 
 [[package]]
 name = "gold"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "pipelines/gold" }
 dependencies = [
     { name = "common" },
@@ -1410,7 +1410,7 @@ wheels = [
 
 [[package]]
 name = "musicbrainz"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "pipelines/musicbrainz" }
 dependencies = [
     { name = "common" },
@@ -2597,7 +2597,7 @@ wheels = [
 
 [[package]]
 name = "wikidata"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "pipelines/wikidata" }
 dependencies = [
     { name = "common" },
