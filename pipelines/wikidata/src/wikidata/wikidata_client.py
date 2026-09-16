@@ -112,16 +112,23 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
     wait=tenacity.wait_exponential(multiplier=1, max=30),
-    stop=tenacity.stop_after_attempt(5),
+    stop=tenacity.stop_after_attempt(8),
     reraise=True,
 )
 def run_query(
     query: str, variables: Sequence[str] = GENRE_TREE_QUERY_VARIABLES, timeout: float = 60.0
 ) -> list[dict[str, str | None]]:
+    # WDQS (or a caching layer in front of it) has been observed serving a truncated,
+    # non-JSON-parseable body under load; Cache-Control: no-cache keeps a retry after
+    # such a truncation from being served the same cached bad response again.
     response = httpx.get(
         SPARQL_ENDPOINT,
         params={"query": query},
-        headers={"User-Agent": USER_AGENT, "Accept": "application/sparql-results+json"},
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "application/sparql-results+json",
+            "Cache-Control": "no-cache",
+        },
         timeout=timeout,
     )
     response.raise_for_status()
