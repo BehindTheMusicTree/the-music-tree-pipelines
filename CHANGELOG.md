@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `wikidata`: added the missing `manual_label_overrides.csv` row renaming "pop music" to "Mainstream Pop" — the guard added in 1.2.0 (`export_canonical_genre_tree` requiring that root) shipped with an empty overrides CSV, failing every Gold run.
 - `wikidata`: `2_non_genre_pruning` now drops "meme techno" (`Q25408203`), a near-empty Wikidata stub duplicating the real "meme techno" genre item (`Q114238485`), via a new `manual_duplicate_genres.csv` — the two shared a display name in the exported canonical genre tree, which `grow-the-music-tree-api` rejects as a duplicate node name.
+- `wikidata`: added `manual_label_overrides.csv` rows disambiguating the remaining 6 duplicate canonical genre names (artcore, darkcore, deathcore, doomcore, electro, wave) by parenthetical genre, e.g. "Deathcore (Techno)" / "Deathcore (Metal)" — each pair is a genuine Wikidata homonym (or, for electro, a same-parent scope overlap), not a duplicate/error, so renaming rather than dropping resolves the `tree_value_duplicate` import constraint.
 
 ## [1.2.1] - 2026-09-16
 
