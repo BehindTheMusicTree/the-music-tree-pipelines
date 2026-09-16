@@ -120,9 +120,9 @@ downstream.
 
 ### 2.1 2_non_genre_pruning
 
-Four git-tracked, hand-curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
+Five git-tracked, hand-curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
 items that no automated signal distinguishes from a real genre, so a data expert reviewing the
-root lists adds them by hand. Every `item_id` across all four is dropped from the genre tree
+root lists adds them by hand. Every `item_id` across all five is dropped from the genre tree
 entirely (unknown `item_id`s raise), right after `1_item_links` and before any other classification
 step runs — so a dropped item can never sit on a cascade path and hand its `is_regional` status
 down to a real genre beneath it, and can never survive as a dangling parent for
@@ -142,6 +142,14 @@ down to a real genre beneath it, and can never survive as a dangling parent for
   (`manual_out_of_scope_genres.csv`), an off-topic theme (`manual_theme_genres.csv`), or a
   technique (`manual_technique_genres.csv`). Dropping it lets its children (or the item itself, if
   parentless) surface as their own canonical roots instead of collapsing under one umbrella node.
+- `manual_duplicate_genres.csv` — a genuine Wikidata duplicate: two distinct items sharing the same
+  display name, where one is a near-empty stub duplicating a better-described item (e.g. "meme
+  techno", `Q25408203`, a stub duplicating `Q114238485`) — as opposed to two real genres that
+  happen to share a name (a homonym, resolved by renaming via
+  `manual_label_overrides.csv`, not by dropping either). `grow-the-music-tree-api` rejects an
+  imported tree containing duplicate node names, and `gold`'s `genre_tree_builder` raises before
+  export if one slips through — this CSV, and homonym renaming, are how those duplicates get
+  resolved upstream.
 
 This runs as the very first classification step, before `3_regional_overview_classification` and
 `4_regional_classification`, because none of this is about region — it's non-genre pruning, and

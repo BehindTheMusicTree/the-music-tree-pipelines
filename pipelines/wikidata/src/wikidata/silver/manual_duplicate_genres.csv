@@ -1,0 +1,2 @@
+item_id,item_label,reason
+Q25408203,meme techno,"near-empty Wikidata stub (description is just ""music genre"") duplicating Q114238485, the actual meme techno genre item (""hard techno music genre emerged in early 2020s""); both shared the display name ""meme techno"" in the exported canonical genre tree, which grow-the-music-tree-api rejects as a duplicate node name"

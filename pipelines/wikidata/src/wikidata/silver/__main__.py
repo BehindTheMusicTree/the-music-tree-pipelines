@@ -9,6 +9,7 @@ from wikidata.silver.canonical_roots import MANUAL_ACCEPTED_ROOTS_PATH, extract_
 from wikidata.silver.item_links import MANUAL_LABEL_OVERRIDES_PATH, add_item_links
 from wikidata.silver.main_parent_selection import select_main_parents
 from wikidata.silver.non_genre_pruning import (
+    MANUAL_DUPLICATE_GENRES_PATH,
     MANUAL_OUT_OF_SCOPE_GENRES_PATH,
     MANUAL_TECHNIQUE_GENRES_PATH,
     MANUAL_THEME_GENRES_PATH,
@@ -40,6 +41,7 @@ non_genre_pruning_path = prune_non_genre_items(
     MANUAL_TECHNIQUE_GENRES_PATH,
     MANUAL_OUT_OF_SCOPE_GENRES_PATH,
     MANUAL_UMBRELLA_CANONICAL_GENRES_PATH,
+    MANUAL_DUPLICATE_GENRES_PATH,
     silver_dir,
 )
 regional_overview_classification_path = classify_regional_from_overviews(
