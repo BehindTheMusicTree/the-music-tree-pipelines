@@ -97,7 +97,7 @@ corrupted export reach `grow-the-music-tree-api`:
   built tree's total node count — catching a `parent_id` cycle, which leaves both items out of
   `roots` (each has a known parent) and unreachable from any real root, silently vanishing from the
   tree instead of raising.
-- `genre_match` checks `3_song_example.parquet`'s `genre_name` (the musicbrainz-side join key) and
+- `genre_match` checks `3_songs.parquet`'s `genre_name` (the musicbrainz-side join key) and
   `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) are non-null, and that
   the matched output's row count exactly equals the input song count (a per-row lookup can never
   legitimately change height).

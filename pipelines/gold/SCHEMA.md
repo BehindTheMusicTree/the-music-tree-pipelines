@@ -13,7 +13,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 ## 1. Inputs
 
 - `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`: `item_id, item_label, item_url, parent_id, parent_label, parent_url, relation_type` — see `pipelines/wikidata/SCHEMA.md`.
-- `musicbrainz`'s `3_song_example.parquet`: `title, artist, youtube_video_id, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
+- `musicbrainz`'s `3_songs.parquet`: `title, artist, youtube_video_id, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
 
 ## 2. Outputs
 
@@ -21,7 +21,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_regional_genre_tree.json`** — same shape as `1_canonical_genre_tree.json` above (validated against the same `src/gold/schemas/genre_tree.schema.json`), but built from `8_regional_hierarchy` instead — one entry per regional/geographic root (e.g. "music of Cape Verde") with that region's genres nested underneath.
 
-**`1_genre_match.parquet`** — `title, artist, youtube_video_id, genre_name` (carried through from `3_song_example.parquet`), plus:
+**`1_genre_match.parquet`** — `title, artist, youtube_video_id, genre_name` (carried through from `3_songs.parquet`), plus:
 
 | Column               | Type | Meaning |
 | -------------------- | ---- | ------- |
