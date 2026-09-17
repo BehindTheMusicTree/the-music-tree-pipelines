@@ -18,7 +18,7 @@ export_canonical_genre_tree(wikidata_silver_dir, gold_output_dir, MANUAL_CANONIC
 # duplicate node names (cross-region/era homonyms) that the tree builder rejects; re-enable
 # once those are disambiguated (see manual_label_overrides.csv precedent for the canonical tree).
 genre_match_path = genre_match(
-    musicbrainz_silver_dir / "3_song_example.parquet",
+    musicbrainz_silver_dir / "3_songs.parquet",
     wikidata_silver_dir / "7_canonical_hierarchy.parquet",
     MANUAL_GENRE_ALIAS_PATH,
     MANUAL_ACCEPTED_NON_GENRE_TAGS_PATH,

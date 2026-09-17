@@ -13,7 +13,7 @@ HIERARCHY_ROWS = [
 
 
 def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
-    path = tmp_path / "3_song_example.parquet"
+    path = tmp_path / "3_songs.parquet"
     pl.DataFrame(rows).write_parquet(path)
     return path
 

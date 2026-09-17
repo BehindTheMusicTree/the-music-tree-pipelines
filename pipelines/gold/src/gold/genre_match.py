@@ -79,18 +79,18 @@ def _validate_manual_accepted_non_genre_tags(
 
 
 def genre_match(
-    song_example_path: Path,
+    songs_path: Path,
     canonical_hierarchy_path: Path,
     manual_genre_alias_path: Path,
     manual_accepted_non_genre_tags_path: Path,
     output_dir: Path,
 ) -> Path:
-    logger.info("matching %s genres against %s", song_example_path, canonical_hierarchy_path)
-    songs = pl.read_parquet(song_example_path)
+    logger.info("matching %s genres against %s", songs_path, canonical_hierarchy_path)
+    songs = pl.read_parquet(songs_path)
     hierarchy = pl.read_parquet(canonical_hierarchy_path)
 
-    check_non_empty(songs, song_example_path.name)
-    check_null_rate(songs, "genre_name", song_example_path.name)
+    check_non_empty(songs, songs_path.name)
+    check_null_rate(songs, "genre_name", songs_path.name)
     check_non_empty(hierarchy, canonical_hierarchy_path.name)
     check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
 
