@@ -15,6 +15,7 @@ pipeline. See [SCHEMA.md](SCHEMA.md) for column definitions and data profiles.
     - [1.2 wikidata_genre_indigenous_to.parquet and wikidata_genre_country_of_origin.parquet](#12-wikidata_genre_indigenous_toparquet-and-wikidata_genre_country_of_originparquet)
       - [1.2.1 Why separate tables, not extra columns on `wikidata_genre_tree.parquet`](#121-why-separate-tables-not-extra-columns-on-wikidata_genre_treeparquet)
   - [2. Silver](#2-silver)
+    - [2.0 1_item_links — display-label casing](#20-1_item_links--display-label-casing)
     - [2.1 2_non_genre_pruning](#21-2_non_genre_pruning)
     - [2.2 3_regional_overview_classification](#22-3_regional_overview_classification)
       - [2.2.1 Why classification is needed](#221-why-classification-is-needed)
@@ -117,6 +118,30 @@ Each is therefore its own query, producing its own (item, value) table. See
 downstream.
 
 ## 2. Silver
+
+### 2.0 1_item_links — display-label casing
+
+`item_label`/`parent_label` stay the raw, untouched Wikidata string everywhere — every exact-match
+comparison downstream (`genre_match.py`, `genre_tree_builder.py`'s pop_sides matching,
+`canonical_genre_tree_export.py`'s root/child lookups, every manual CSV that references a genre by
+name) keys off it. `item_display_label`/`parent_display_label` is the separate, display-only field
+gold's `genre_tree_builder` actually emits as a tree node's `"name"`, derived with this precedence:
+
+1. `manual_label_overrides.csv` (highest — a data expert's explicit pick, e.g. "pop music" ->
+   "Mainstream Pop").
+2. Sentence-case the raw label (default, when no override exists): first, replace any whole word
+   (hyphen- or space-delimited) that matches an entry in `manual_capitalized_words.csv` — a
+   git-tracked, pre-seeded list of country demonyms, continent/region adjectives, and common
+   compound-adjective prefixes (afro-, anglo-, etc.) — with its capitalized form, wherever it
+   appears in the label (not just at the start); then capitalize the label's first character if
+   it isn't already. This is deliberately not "lowercase everything then capitalize the first
+   letter" — that would destroy legitimate mid-string proper-noun capitalization Wikidata already
+   provides (e.g. "music of Kenya" must not become "Music of kenya").
+
+Gaps in the seeded word list (a proper noun that isn't a demonym, e.g. a person or place name) get
+added to `manual_capitalized_words.csv` the same way other manual CSVs in this pipeline grow over
+time — this one just starts pre-seeded with a comprehensive list of demonyms instead of starting
+empty.
 
 ### 2.1 2_non_genre_pruning
 
