@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `gold`: `genre_tree_builder.build_genre_tree` now raises if the exported tree contains duplicate node names — mirrors `grow-the-music-tree-api`'s own `tree_value_duplicate` import constraint, failing Gold locally instead of shipping a tree the import will reject.
 - `gold`: new on-demand `playground_fixture_export.py` module, flattening `export_canonical_genre_tree`'s nested output into the flat `GenreTreeNode[]` shape the `genre-tree-view` repo's playground fixture consumes, with each node's `itemCount` rolled up from `genre_match`'s resolved song matches (a node's count includes its descendants') — run via `python -m gold.playground_fixture_export <canonical_tree.json> <genre_match.parquet> <output.json>`, not part of `__main__.py`.
+- Gold now rejects canonical genre trees where two different genre names slugify to the same id, instead of only failing later in the playground fixture export.
 
 ### Changed
 

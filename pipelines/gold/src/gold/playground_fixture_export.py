@@ -16,24 +16,15 @@ Usage:
 import argparse
 import json
 import logging
-import re
 from pathlib import Path
 
 import polars as pl
 from jsonschema import ValidationError, validate
 
 from gold.canonical_genre_tree_export import GENRE_TREE_SCHEMA_PATH
+from gold.genre_slug import slugify_genre_name
 
 logger = logging.getLogger(__name__)
-
-_SLUG_NON_ALNUM = re.compile(r"[^a-z0-9]+")
-
-
-def _slugify(name: str) -> str:
-    slug = _SLUG_NON_ALNUM.sub("-", name.lower()).strip("-")
-    if not slug:
-        raise ValueError(f"genre name {name!r} slugifies to an empty id")
-    return slug
 
 
 def _direct_item_counts(genre_match_path: Path) -> dict[str, int]:
@@ -49,7 +40,7 @@ def _flatten(
     flat: list[dict] = []
     subtree_total = 0
     for node in nodes:
-        node_id = _slugify(node["name"])
+        node_id = slugify_genre_name(node["name"])
         if node_id in seen_ids and seen_ids[node_id] != node["name"]:
             raise ValueError(f"genre names {seen_ids[node_id]!r} and {node['name']!r} both slugify to id {node_id!r}")
         seen_ids[node_id] = node["name"]

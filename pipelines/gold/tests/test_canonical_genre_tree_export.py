@@ -162,6 +162,22 @@ def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path
         export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
 
 
+def test_export_canonical_genre_tree_raises_on_slug_collision(tmp_path: Path) -> None:
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    rows = [
+        *TREE_ROWS,
+        {"item_id": "Q8", "item_label": "Blues/Rock", "parent_id": "Q7"},
+        {"item_id": "Q9", "item_label": "blues rock", "parent_id": "Q7"},
+    ]
+    pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
+    _write_pop_side_csv(pop_side_path, [])
+
+    with pytest.raises(ValueError, match=r"'Blues/Rock' and 'blues rock' both slugify to id 'blues-rock'"):
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+
+
 def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()

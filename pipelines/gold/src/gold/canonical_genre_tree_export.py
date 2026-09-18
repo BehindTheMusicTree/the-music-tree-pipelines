@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
+from gold.genre_slug import slugify_genre_name
 from gold.genre_tree_builder import build_genre_tree
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
@@ -74,6 +75,15 @@ def _load_pop_sides(manual_canonical_genre_pop_side_path: Path, hierarchy: pl.Da
     return pop_sides
 
 
+def _assert_unique_slugs(nodes: list[dict], seen: dict[str, str]) -> None:
+    for node in nodes:
+        slug = slugify_genre_name(node["name"])
+        if slug in seen and seen[slug] != node["name"]:
+            raise ValueError(f"genre names {seen[slug]!r} and {node['name']!r} both slugify to id {slug!r}")
+        seen[slug] = node["name"]
+        _assert_unique_slugs(node.get("children", []), seen)
+
+
 def export_canonical_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
@@ -89,6 +99,8 @@ def export_canonical_genre_tree(
         raise ValueError(
             f"canonical genre tree has no root named {CANONICAL_MAINSTREAM_POP_ROOT_NAME!r} (source: {hierarchy_path})"
         )
+
+    _assert_unique_slugs(tree["tree"], {})
 
     schema = json.loads(GENRE_TREE_SCHEMA_PATH.read_text())
     try:
