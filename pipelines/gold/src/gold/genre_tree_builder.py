@@ -70,9 +70,13 @@ def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | N
 
     # grow-the-music-tree-api rejects an imported tree containing duplicate node names
     # (`tree_value_duplicate`) — failing here, before export, is cheaper than failing the import.
+    # Case-insensitive: a title-cased synthetic node and a lowercase real Wikidata label (e.g.
+    # "Pop reggae" vs "pop reggae") are the same name to the API's own uniqueness check.
     names = _collect_names(tree)
-    duplicate_names = sorted({name for name in names if names.count(name) > 1})
+    lowered_names = [name.lower() for name in names]
+    duplicate_lowered = {name for name in lowered_names if lowered_names.count(name) > 1}
+    duplicate_names = sorted({name for name in names if name.lower() in duplicate_lowered})
     if duplicate_names:
-        raise ValueError(f"genre tree has duplicate node name(s): {duplicate_names}")
+        raise ValueError(f"genre tree has duplicate node name(s) (case-insensitive): {duplicate_names}")
 
     return {"tree": tree}
