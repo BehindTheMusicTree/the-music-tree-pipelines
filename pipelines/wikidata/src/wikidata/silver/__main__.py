@@ -6,7 +6,7 @@ import wikidata
 from wikidata.silver.canonical_hierarchy import prune_canonical_hierarchy
 from wikidata.silver.canonical_parents import flag_canonical_parents
 from wikidata.silver.canonical_roots import MANUAL_ACCEPTED_ROOTS_PATH, extract_canonical_roots
-from wikidata.silver.item_links import MANUAL_LABEL_OVERRIDES_PATH, add_item_links
+from wikidata.silver.item_links import MANUAL_CAPITALIZED_WORDS_PATH, MANUAL_LABEL_OVERRIDES_PATH, add_item_links
 from wikidata.silver.main_parent_selection import select_main_parents
 from wikidata.silver.non_genre_pruning import (
     MANUAL_DUPLICATE_GENRES_PATH,
@@ -34,7 +34,9 @@ logging.basicConfig(level=logging.INFO)
 load_pipeline_env(wikidata.__file__)
 bronze_dir = resolve_pipeline_path(wikidata.__file__, require_env("BRONZE_OUTPUT_DIR"))
 silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
-item_links_path = add_item_links(bronze_dir / "wikidata_genre_tree.parquet", silver_dir, MANUAL_LABEL_OVERRIDES_PATH)
+item_links_path = add_item_links(
+    bronze_dir / "wikidata_genre_tree.parquet", silver_dir, MANUAL_LABEL_OVERRIDES_PATH, MANUAL_CAPITALIZED_WORDS_PATH
+)
 non_genre_pruning_path = prune_non_genre_items(
     item_links_path,
     MANUAL_THEME_GENRES_PATH,
