@@ -411,14 +411,32 @@ kept, see [2.4.2](#242-secondary-parents-are-kept-not-dropped)), reserved for ca
 needs to leave the regional graph entirely, not just get a better main parent.
 
 `manual_main_parent.csv`'s `parent_item_id` is usually a real Wikidata item already in the tree, but
-can also be a synthetic grouping node with no Wikidata counterpart (e.g. "Reggae/Dub", grouping
-"reggae" and "dub music" — no single Wikidata item represents that pairing). Such nodes are added via
-a third git-tracked, hand-curated CSV, `manual_canonical_parent_additions.csv` (columns: `item_id`,
-`item_label`, `reason`), applied just before `manual_main_parent.csv` so the new node is a legal
-`parent_item_id` target. `item_id` must start with `LOCAL:` (never a fabricated QID-shaped id) and
-must not already exist in the tree — the mirror image of the synthetic-id fallback in
+can also be a synthetic grouping node with no Wikidata counterpart (e.g. "Reggae/Dub (grouping)",
+grouping "reggae" and "dub music" — no single Wikidata item represents that pairing). Such nodes are
+added via a third git-tracked, hand-curated CSV, `manual_canonical_parent_additions.csv` (columns:
+`item_id`, `item_label`, `reason`), applied just before `manual_main_parent.csv` so the new node is a
+legal `parent_item_id` target. `item_id` must start with `LOCAL:` (never a fabricated QID-shaped id)
+and must not already exist in the tree — the mirror image of the synthetic-id fallback in
 `manual_regional_overview_additions.csv` ([2.2](#22-3_regional_overview_classification)), but for
 the canonical side instead of the regional-overview side.
+
+#### 2.3.5 Naming synthetic grouping nodes
+
+Gold's `slugify_genre_name` (`pipelines/gold/src/gold/genre_slug.py`) normalizes a node's display
+name into an id by collapsing every run of non-alphanumeric characters (including both `/` and
+plain spaces) to a single `-`. That means a synthetic grouping node named e.g. "Blues/Rock" and a
+real Wikidata item labeled "blues rock" slugify to the same id (`blues-rock`) even though they're
+different tree nodes — a real collision hit in production when the real Wikidata item "blues rock"
+(Q193355, a genuine subgenre of blues) turned out to share every word with the unrelated synthetic
+`LOCAL:blues-rock` grouping node.
+
+Convention: every synthetic (`LOCAL:`-prefixed) grouping node's `item_label` in
+`manual_canonical_parent_additions.csv` (and any place that references it by label, e.g.
+`manual_canonical_genre_pop_side.csv`'s `root_genre_name`) carries a trailing `" (grouping)"` suffix,
+e.g. `"Blues/Rock (grouping)"`, `"Disco/Funk (grouping)"`, `"Reggae/Dub (grouping)"`. This guarantees
+the slug stays distinct from any real Wikidata item's slug regardless of word overlap, rather than
+relying on no real genre ever sharing the same words as a grouping label. Apply this suffix to every
+new `LOCAL:` grouping node going forward.
 
 ### 2.4 5_main_parent_selection
 

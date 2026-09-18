@@ -1,5 +1,5 @@
 item_id,item_label
-LOCAL:reggae-dub,Reggae/Dub
+LOCAL:reggae-dub,Reggae/Dub (grouping)
 Q1583807,art music
 Q9778,electronic music
 Q1640319,experimental music
@@ -9,5 +9,5 @@ Q8341,jazz
 Q37073,pop music
 Q45981,rhythm and blues
 Q54365,ska
-LOCAL:disco-funk,Disco/Funk
-LOCAL:blues-rock,Blues/Rock
+LOCAL:disco-funk,Disco/Funk (grouping)
+LOCAL:blues-rock,Blues/Rock (grouping)
