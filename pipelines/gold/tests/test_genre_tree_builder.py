@@ -102,6 +102,16 @@ def test_build_genre_tree_raises_on_duplicate_node_name() -> None:
         build_genre_tree(pl.DataFrame(rows))
 
 
+def test_build_genre_tree_raises_on_duplicate_node_name_case_insensitive() -> None:
+    rows = [
+        {"item_id": "Q1", "item_label": "rock", "parent_id": None},
+        {"item_id": "Q2", "item_label": "Pop reggae", "parent_id": "Q1"},
+        {"item_id": "Q3", "item_label": "pop reggae", "parent_id": "Q1"},
+    ]
+    with pytest.raises(ValueError, match=r"duplicate node name.*[Pp]op reggae"):
+        build_genre_tree(pl.DataFrame(rows))
+
+
 def test_build_genre_tree_raises_on_parent_id_cycle() -> None:
     # Q6 <-> Q7 point at each other: both have a known parent, so neither is a root, and neither is
     # reachable from a real root — they'd silently vanish from the tree without the node-count check.
