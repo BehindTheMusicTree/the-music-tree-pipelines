@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `wikidata`: added synthetic `LOCAL:malay-world` "music of the Malay world" regional overview (nested under music of Asia) and routed `Q12501487` (Malay orchestra) to it — it has no `P279` parent and a multi-country `P495`, and its appearance as an unaccepted canonical root failed the 2026-09-21 daily run at `9_canonical_roots`.
 - `musicbrainz`: renamed the Silver `song_example` step to `songs` (`3_song_example.parquet` → `3_songs.parquet`, `scripts/export_song_example_json.py` → `scripts/export_songs_json.py`) and removed the `RECORDINGS_PER_GENRE` cap — this dataset is production data consumed by `gold`, not a demo fixture.
 
 - `wikidata`: `item_display_label`/`parent_display_label` now default to a sentence-cased form of `item_label`/`parent_label` (first character capitalized, plus word-level demonym/nationality-adjective capitalization from a new `manual_capitalized_words.csv`) instead of the raw, inconsistently-cased Wikidata label — genre names shown by `gold` and `grow-the-music-tree-api` are now sentence-cased end-to-end. `item_label`/`parent_label` themselves are untouched, still used everywhere as exact-match keys.

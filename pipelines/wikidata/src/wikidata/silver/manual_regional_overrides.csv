@@ -747,3 +747,5 @@ Q110020243,Swedish pop,child of pop music; a Swedish national-scene genre nested
 Q4971422,British pop,child of pop music; a UK national-scene genre nested under music of the United Kingdom,Q268673,true
 Q97216998,Java-pop,child of pop music; a Javanese regional genre nested under music of Java,Q6942130,true
 Q141439026,Lagan Geet,"root item with no P279/P361 parent and no P2341/P495 value, but a Gujarati wedding-song genre missed by the automated seed/indigenous_to/country_of_origin classification",Q531426,
+Q12501487,Malay orchestra,"root item with no P279/P361 parent; P495 (country of origin) lists Malaysia, Indonesia, Brunei and Singapore with no single clear attribution, so classified under a shared Malay-world overview",LOCAL:malay-world,
+LOCAL:malay-world,music of the Malay world,nest under music of Asia,Q525073,
