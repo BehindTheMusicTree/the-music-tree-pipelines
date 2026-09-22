@@ -1,7 +1,7 @@
 root_genre_name,pop_child_genre_name,reason
 electronic music,Pop electronic,user-requested pop/dance/rock crossover side of the electronic music split
 hip-hop,Pop hip-hop,user-requested mainstream/pop/dance crossover side of the hip-hop split
-Disco/Funk,disco,user-requested pop/dance crossover side of the Disco/Funk split
-Blues/Rock,pop rock,user-requested pop crossover side of the Blues/Rock split
-Reggae/Dub,Pop reggae,user-requested pop/mainstream crossover side of the Reggae/Dub split
+Disco/Funk (grouping),disco,user-requested pop/dance crossover side of the Disco/Funk split
+Blues/Rock (grouping),pop rock,user-requested pop crossover side of the Blues/Rock split
+Reggae/Dub (grouping),pop reggae,user-requested pop/mainstream crossover side of the Reggae/Dub split
 jazz,Pop jazz,user-requested pop/mainstream crossover side of the jazz split

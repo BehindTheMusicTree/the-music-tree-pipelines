@@ -168,7 +168,7 @@ shape — see below.
 
 | Step                                                                        | Reads                                        | Writes                                                                       | Adds                                | Key result (as of this writing)                                                                                                                                                 |
 | --------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`1_item_links`](#32-1_item_links)                                          | Bronze `wikidata_genre_tree.parquet`         | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
+| [`1_item_links`](#32-1_item_links)                                          | Bronze `wikidata_genre_tree.parquet`, `manual_label_overrides.csv`, `manual_capitalized_words.csv` | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label`, `item_display_label`, `parent_display_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
 | [`2_non_genre_pruning`](#33-2_non_genre_pruning)                            | `1_item_links.parquet`, `manual_theme_genres.csv`, `manual_technique_genres.csv`, `manual_out_of_scope_genres.csv` | `2_non_genre_pruning.parquet`                                                | none — drops rows only              | theme/technique/out-of-scope items dropped entirely (see [DESIGN.md#21-2_non_genre_pruning](DESIGN.md#21-2_non_genre_pruning))                                                    |
 | [`3_regional_overview_classification`](#34-3_regional_overview_classification) | `2_non_genre_pruning.parquet`                | `3_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,729 rows (299 of 6,344 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
 | [`4_regional_classification`](#35-4_regional_classification)                | `3_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `manual_regional_overrides.csv`, `manual_main_parent.csv` | `4_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 remaining items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_override, 1,614 direct, 1,547 inherited (see [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification))                                      |
@@ -184,15 +184,18 @@ numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
 ### 3.2 1_item_links
 
 `1_item_links.parquet`: `wikidata_genre_tree.parquet` (Bronze) unchanged, plus two columns giving
-the human-browsable Wikidata page for `item_id` and, where present, `parent_id`, and two columns
-flagging whether `item_label`/`parent_label` are a real label or the QID-fallback string.
+the human-browsable Wikidata page for `item_id` and, where present, `parent_id`, two columns
+flagging whether `item_label`/`parent_label` are a real label or the QID-fallback string, and two
+display-only label columns (see [DESIGN.md#20-1_item_links--display-label-casing](DESIGN.md#20-1_item_links--display-label-casing)).
 
-| Column           | Type | Meaning                                                                            |
-| ---------------- | ---- | ----------------------------------------------------------------------------------- |
-| item_url         | str  | `https://www.wikidata.org/wiki/` + `item_id` — the item's browsable Wikidata page   |
-| parent_url       | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null when `parent_id` is null    |
-| has_item_label   | bool | `False` when `item_label == item_id` (Wikidata's label service found no English/`mul` label and fell back to printing the QID) |
-| has_parent_label | bool? | Same check for `parent_label`/`parent_id`, or null when `parent_id` is null       |
+| Column                | Type | Meaning                                                                            |
+| --------------------- | ---- | ----------------------------------------------------------------------------------- |
+| item_url              | str  | `https://www.wikidata.org/wiki/` + `item_id` — the item's browsable Wikidata page   |
+| parent_url            | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null when `parent_id` is null    |
+| has_item_label        | bool | `False` when `item_label == item_id` (Wikidata's label service found no English/`mul` label and fell back to printing the QID) |
+| has_parent_label      | bool? | Same check for `parent_label`/`parent_id`, or null when `parent_id` is null       |
+| item_display_label    | str  | Display-only genre name: `manual_label_overrides.csv` override, else `item_label` sentence-cased (word-list capitalization from `manual_capitalized_words.csv`, then first-character capitalization) |
+| parent_display_label  | str? | Same derivation for `parent_label`, or null when `parent_id` is null              |
 
 **Data profile (as of this writing):**
 

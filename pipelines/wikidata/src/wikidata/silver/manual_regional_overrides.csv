@@ -378,7 +378,7 @@ Q6772364,Maroon music,"root item with no P279/P361/P495 parent; Maroon (escaped-
 Q3470607,Sama'i,"root item with no P279/P361 parent, but a Turkish Ottoman classical vocal/instrumental form (country of origin Turkey) missed by the automated seed/indigenous_to/country_of_origin classification",Q1074080,
 Q4065202,Anglo-American music,"root item with no P279/P361 parent and no P2341/P495 value, a cross-national English-speaking-world genre grouping missed by the automated seed/indigenous_to/country_of_origin classification",LOCAL:anglo-american-music,
 Q86679227,Aramaic music,"root item with no P279/P361 parent and no P2341/P495 value, a cross-national Aramaic/Assyrian-Syriac genre grouping missed by the automated seed/indigenous_to/country_of_origin classification",LOCAL:aramaic-music,
-Q16724491,Nordic tone,"root item with no P279/P361 parent and no P2341/P495 value, a cross-national Nordic/Scandinavian genre grouping missed by the automated seed/indigenous_to/country_of_origin classification",LOCAL:nordic-music,
+Q16724491,Nordic tone,"root item with no P279/P361 parent and no P2341/P495 value, a cross-national Nordic/Scandinavian genre grouping missed by the automated seed/indigenous_to/country_of_origin classification; targets Q26302245 directly rather than a synthetic LOCAL: node, since a real Wikidata ""music of the Nordic countries"" overview item already exists",Q26302245,
 Q7570655,Southern cone music,"root item with no P279/P361 parent and no P2341/P495 value, a cross-national Southern Cone genre grouping missed by the automated seed/indigenous_to/country_of_origin classification",LOCAL:southern-cone,
 Q3398980,Bailada,"root item with no P279/P361 parent, but a Spanish genre missed by the automated seed/indigenous_to/country_of_origin classification",Q964987,
 Q1217862,Die anderen Bands,"root item with no P279/P361 parent, but a German genre missed by the automated seed/indigenous_to/country_of_origin classification",Q2743758,
@@ -734,7 +734,6 @@ LOCAL:jewish-diasporic-music,music of the Jewish diaspora,user-requested: nest a
 Q6942376,music of the Lesser Antilles,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 LOCAL:lusophone-music,music of the Lusophone world,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 Q6942381,music of the Maritimes,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
-LOCAL:nordic-music,music of the Nordic countries,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 LOCAL:southern-cone,music of the Southern Cone,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 Q16931692,music of the Virgin Islands,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
 Q1065742,religious music,user-requested: nest all existing root-level regional overviews under a new top-level 'music of the world' overview node,Q205049,
@@ -748,3 +747,5 @@ Q110020243,Swedish pop,child of pop music; a Swedish national-scene genre nested
 Q4971422,British pop,child of pop music; a UK national-scene genre nested under music of the United Kingdom,Q268673,true
 Q97216998,Java-pop,child of pop music; a Javanese regional genre nested under music of Java,Q6942130,true
 Q141439026,Lagan Geet,"root item with no P279/P361 parent and no P2341/P495 value, but a Gujarati wedding-song genre missed by the automated seed/indigenous_to/country_of_origin classification",Q531426,
+Q12501487,Malay orchestra,"root item with no P279/P361 parent; P495 (country of origin) lists Malaysia, Indonesia, Brunei and Singapore with no single clear attribution, so classified under a shared Malay-world overview",LOCAL:malay-world,
+LOCAL:malay-world,music of the Malay world,nest under music of Asia,Q525073,

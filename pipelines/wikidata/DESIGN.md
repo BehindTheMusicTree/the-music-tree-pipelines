@@ -15,6 +15,7 @@ pipeline. See [SCHEMA.md](SCHEMA.md) for column definitions and data profiles.
     - [1.2 wikidata_genre_indigenous_to.parquet and wikidata_genre_country_of_origin.parquet](#12-wikidata_genre_indigenous_toparquet-and-wikidata_genre_country_of_originparquet)
       - [1.2.1 Why separate tables, not extra columns on `wikidata_genre_tree.parquet`](#121-why-separate-tables-not-extra-columns-on-wikidata_genre_treeparquet)
   - [2. Silver](#2-silver)
+    - [2.0 1_item_links — display-label casing](#20-1_item_links--display-label-casing)
     - [2.1 2_non_genre_pruning](#21-2_non_genre_pruning)
     - [2.2 3_regional_overview_classification](#22-3_regional_overview_classification)
       - [2.2.1 Why classification is needed](#221-why-classification-is-needed)
@@ -118,11 +119,35 @@ downstream.
 
 ## 2. Silver
 
+### 2.0 1_item_links — display-label casing
+
+`item_label`/`parent_label` stay the raw, untouched Wikidata string everywhere — every exact-match
+comparison downstream (`genre_match.py`, `genre_tree_builder.py`'s pop_sides matching,
+`canonical_genre_tree_export.py`'s root/child lookups, every manual CSV that references a genre by
+name) keys off it. `item_display_label`/`parent_display_label` is the separate, display-only field
+gold's `genre_tree_builder` actually emits as a tree node's `"name"`, derived with this precedence:
+
+1. `manual_label_overrides.csv` (highest — a data expert's explicit pick, e.g. "pop music" ->
+   "Mainstream Pop").
+2. Sentence-case the raw label (default, when no override exists): first, replace any whole word
+   (hyphen- or space-delimited) that matches an entry in `manual_capitalized_words.csv` — a
+   git-tracked, pre-seeded list of country demonyms, continent/region adjectives, and common
+   compound-adjective prefixes (afro-, anglo-, etc.) — with its capitalized form, wherever it
+   appears in the label (not just at the start); then capitalize the label's first character if
+   it isn't already. This is deliberately not "lowercase everything then capitalize the first
+   letter" — that would destroy legitimate mid-string proper-noun capitalization Wikidata already
+   provides (e.g. "music of Kenya" must not become "Music of kenya").
+
+Gaps in the seeded word list (a proper noun that isn't a demonym, e.g. a person or place name) get
+added to `manual_capitalized_words.csv` the same way other manual CSVs in this pipeline grow over
+time — this one just starts pre-seeded with a comprehensive list of demonyms instead of starting
+empty.
+
 ### 2.1 2_non_genre_pruning
 
-Four git-tracked, hand-curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
+Five git-tracked, hand-curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
 items that no automated signal distinguishes from a real genre, so a data expert reviewing the
-root lists adds them by hand. Every `item_id` across all four is dropped from the genre tree
+root lists adds them by hand. Every `item_id` across all five is dropped from the genre tree
 entirely (unknown `item_id`s raise), right after `1_item_links` and before any other classification
 step runs — so a dropped item can never sit on a cascade path and hand its `is_regional` status
 down to a real genre beneath it, and can never survive as a dangling parent for
@@ -142,6 +167,14 @@ down to a real genre beneath it, and can never survive as a dangling parent for
   (`manual_out_of_scope_genres.csv`), an off-topic theme (`manual_theme_genres.csv`), or a
   technique (`manual_technique_genres.csv`). Dropping it lets its children (or the item itself, if
   parentless) surface as their own canonical roots instead of collapsing under one umbrella node.
+- `manual_duplicate_genres.csv` — a genuine Wikidata duplicate: two distinct items sharing the same
+  display name, where one is a near-empty stub duplicating a better-described item (e.g. "meme
+  techno", `Q25408203`, a stub duplicating `Q114238485`) — as opposed to two real genres that
+  happen to share a name (a homonym, resolved by renaming via
+  `manual_label_overrides.csv`, not by dropping either). `grow-the-music-tree-api` rejects an
+  imported tree containing duplicate node names, and `gold`'s `genre_tree_builder` raises before
+  export if one slips through — this CSV, and homonym renaming, are how those duplicates get
+  resolved upstream.
 
 This runs as the very first classification step, before `3_regional_overview_classification` and
 `4_regional_classification`, because none of this is about region — it's non-genre pruning, and
@@ -403,14 +436,32 @@ kept, see [2.4.2](#242-secondary-parents-are-kept-not-dropped)), reserved for ca
 needs to leave the regional graph entirely, not just get a better main parent.
 
 `manual_main_parent.csv`'s `parent_item_id` is usually a real Wikidata item already in the tree, but
-can also be a synthetic grouping node with no Wikidata counterpart (e.g. "Reggae/Dub", grouping
-"reggae" and "dub music" — no single Wikidata item represents that pairing). Such nodes are added via
-a third git-tracked, hand-curated CSV, `manual_canonical_parent_additions.csv` (columns: `item_id`,
-`item_label`, `reason`), applied just before `manual_main_parent.csv` so the new node is a legal
-`parent_item_id` target. `item_id` must start with `LOCAL:` (never a fabricated QID-shaped id) and
-must not already exist in the tree — the mirror image of the synthetic-id fallback in
+can also be a synthetic grouping node with no Wikidata counterpart (e.g. "Reggae/Dub (grouping)",
+grouping "reggae" and "dub music" — no single Wikidata item represents that pairing). Such nodes are
+added via a third git-tracked, hand-curated CSV, `manual_canonical_parent_additions.csv` (columns:
+`item_id`, `item_label`, `reason`), applied just before `manual_main_parent.csv` so the new node is a
+legal `parent_item_id` target. `item_id` must start with `LOCAL:` (never a fabricated QID-shaped id)
+and must not already exist in the tree — the mirror image of the synthetic-id fallback in
 `manual_regional_overview_additions.csv` ([2.2](#22-3_regional_overview_classification)), but for
 the canonical side instead of the regional-overview side.
+
+#### 2.3.5 Naming synthetic grouping nodes
+
+Gold's `slugify_genre_name` (`pipelines/gold/src/gold/genre_slug.py`) normalizes a node's display
+name into an id by collapsing every run of non-alphanumeric characters (including both `/` and
+plain spaces) to a single `-`. That means a synthetic grouping node named e.g. "Blues/Rock" and a
+real Wikidata item labeled "blues rock" slugify to the same id (`blues-rock`) even though they're
+different tree nodes — a real collision hit in production when the real Wikidata item "blues rock"
+(Q193355, a genuine subgenre of blues) turned out to share every word with the unrelated synthetic
+`LOCAL:blues-rock` grouping node.
+
+Convention: every synthetic (`LOCAL:`-prefixed) grouping node's `item_label` in
+`manual_canonical_parent_additions.csv` (and any place that references it by label, e.g.
+`manual_canonical_genre_pop_side.csv`'s `root_genre_name`) carries a trailing `" (grouping)"` suffix,
+e.g. `"Blues/Rock (grouping)"`, `"Disco/Funk (grouping)"`, `"Reggae/Dub (grouping)"`. This guarantees
+the slug stays distinct from any real Wikidata item's slug regardless of word overlap, rather than
+relying on no real genre ever sharing the same words as a grouping label. Apply this suffix to every
+new `LOCAL:` grouping node going forward.
 
 ### 2.4 5_main_parent_selection
 

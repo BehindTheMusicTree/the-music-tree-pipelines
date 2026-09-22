@@ -1,4 +1,5 @@
 import logging
+import re
 from pathlib import Path
 
 import polars as pl
@@ -14,6 +15,15 @@ WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 # node's "name") — `item_label`/`parent_label` (the real Wikidata label, used for genre-tag matching in
 # gold's genre_match.py and for all internal classification logic) are never touched by it.
 MANUAL_LABEL_OVERRIDES_PATH = Path(__file__).parent / "manual_label_overrides.csv"
+
+# Committed alongside the code: a seeded, git-tracked list of nationality/ethnic/region adjectives
+# (e.g. "cuban" -> "Cuban") that Wikidata is inconsistent about capitalizing inside a genre label (e.g.
+# "afro-cuban jazz"). Applied word-by-word, wherever the word appears in the label — not just at the
+# start — as part of deriving the default `item_display_label` below. Gaps found later (a proper noun
+# that isn't a demonym) get added here the same way other manual CSVs in this pipeline grow over time.
+MANUAL_CAPITALIZED_WORDS_PATH = Path(__file__).parent / "manual_capitalized_words.csv"
+
+_WORD_PATTERN = re.compile(r"[A-Za-z]+")
 
 
 def _load_display_labels(df: pl.DataFrame, manual_label_overrides: pl.DataFrame) -> pl.DataFrame:
@@ -36,18 +46,56 @@ def _load_display_labels(df: pl.DataFrame, manual_label_overrides: pl.DataFrame)
     return manual_label_overrides.select("item_id", "display_label")
 
 
-def add_item_links(bronze_path: Path, output_dir: Path, manual_label_overrides_path: Path) -> Path:
+def _load_capitalized_words(manual_capitalized_words: pl.DataFrame) -> dict[str, str]:
+    csv_name = "manual_capitalized_words.csv"
+
+    for column in ("word", "capitalized"):
+        blank = manual_capitalized_words.filter(pl.col(column).is_null() | (pl.col(column).str.strip_chars() == ""))
+        if not blank.is_empty():
+            raise ValueError(f"{csv_name} has row(s) with a null/blank '{column}'")
+
+    words = manual_capitalized_words.select("word").to_series().to_list()
+    if len(words) != len(set(words)):
+        raise ValueError(f"{csv_name} contains duplicate word rows")
+
+    return dict(manual_capitalized_words.select("word", "capitalized").iter_rows())
+
+
+def _sentence_case(label: str, capitalized_words: dict[str, str]) -> str:
+    def replace_word(match: re.Match) -> str:
+        return capitalized_words.get(match.group(0).lower(), match.group(0))
+
+    label = _WORD_PATTERN.sub(replace_word, label)
+    return label[:1].upper() + label[1:] if label else label
+
+
+def add_item_links(
+    bronze_path: Path,
+    output_dir: Path,
+    manual_label_overrides_path: Path,
+    manual_capitalized_words_path: Path,
+) -> Path:
     logger.info("adding item links to %s", bronze_path)
     df = pl.read_parquet(bronze_path)
 
     manual_label_overrides = pl.read_csv(manual_label_overrides_path)
     display_labels = _load_display_labels(df, manual_label_overrides)
+    capitalized_words = _load_capitalized_words(pl.read_csv(manual_capitalized_words_path))
 
     df = df.join(display_labels, on="item_id", how="left").rename({"display_label": "item_display_label"})
     df = df.join(
         display_labels.rename({"item_id": "parent_id", "display_label": "parent_display_label"}),
         on="parent_id",
         how="left",
+    )
+
+    sentence_cased_item_label = pl.col("item_label").map_elements(
+        lambda label: _sentence_case(label, capitalized_words) if label is not None else None,
+        return_dtype=pl.Utf8,
+    )
+    sentence_cased_parent_label = pl.col("parent_label").map_elements(
+        lambda label: _sentence_case(label, capitalized_words) if label is not None else None,
+        return_dtype=pl.Utf8,
     )
 
     df = df.with_columns(
@@ -59,9 +107,9 @@ def add_item_links(bronze_path: Path, output_dir: Path, manual_label_overrides_p
         has_parent_label=pl.when(pl.col("parent_id").is_not_null())
         .then(pl.col("parent_label").is_not_null() & (pl.col("parent_label") != pl.col("parent_id")))
         .otherwise(None),
-        item_display_label=pl.coalesce("item_display_label", "item_label"),
+        item_display_label=pl.coalesce("item_display_label", sentence_cased_item_label),
         parent_display_label=pl.when(pl.col("parent_id").is_not_null())
-        .then(pl.coalesce("parent_display_label", "parent_label"))
+        .then(pl.coalesce("parent_display_label", sentence_cased_parent_label))
         .otherwise(None),
     )
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [1.3.0](#130---2026-09-22)
 - [1.2.1](#121---2026-09-16)
 - [1.2.0](#120---2026-09-15)
 - [1.1.0](#110---2026-09-11)
@@ -27,6 +28,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-09-22
+
+### Added
+
+- `gold`: `genre_tree_builder.build_genre_tree` now raises if the exported tree contains duplicate node names — mirrors `grow-the-music-tree-api`'s own `tree_value_duplicate` import constraint, failing Gold locally instead of shipping a tree the import will reject.
+- `gold`: new on-demand `playground_fixture_export.py` module, flattening `export_canonical_genre_tree`'s nested output into the flat `GenreTreeNode[]` shape the `genre-tree-view` repo's playground fixture consumes, with each node's `itemCount` rolled up from `genre_match`'s resolved song matches (a node's count includes its descendants') — run via `python -m gold.playground_fixture_export <canonical_tree.json> <genre_match.parquet> <output.json>`, not part of `__main__.py`.
+
+### Changed
+
+- `wikidata`: added synthetic `LOCAL:malay-world` "music of the Malay world" regional overview (nested under music of Asia) and routed `Q12501487` (Malay orchestra) to it — it has no `P279` parent and a multi-country `P495`, and its appearance as an unaccepted canonical root failed the 2026-09-21 daily run at `9_canonical_roots`.
+- `musicbrainz`: renamed the Silver `song_example` step to `songs` (`3_song_example.parquet` → `3_songs.parquet`, `scripts/export_song_example_json.py` → `scripts/export_songs_json.py`) and removed the `RECORDINGS_PER_GENRE` cap — this dataset is production data consumed by `gold`, not a demo fixture.
+
+- `wikidata`: `item_display_label`/`parent_display_label` now default to a sentence-cased form of `item_label`/`parent_label` (first character capitalized, plus word-level demonym/nationality-adjective capitalization from a new `manual_capitalized_words.csv`) instead of the raw, inconsistently-cased Wikidata label — genre names shown by `gold` and `grow-the-music-tree-api` are now sentence-cased end-to-end. `item_label`/`parent_label` themselves are untouched, still used everywhere as exact-match keys.
+
+### Fixed
+
+- `wikidata`: added the missing `manual_label_overrides.csv` row renaming "pop music" to "Mainstream Pop" — the guard added in 1.2.0 (`export_canonical_genre_tree` requiring that root) shipped with an empty overrides CSV, failing every Gold run.
+- `wikidata`: `2_non_genre_pruning` now drops "meme techno" (`Q25408203`), a near-empty Wikidata stub duplicating the real "meme techno" genre item (`Q114238485`), via a new `manual_duplicate_genres.csv` — the two shared a display name in the exported canonical genre tree, which `grow-the-music-tree-api` rejects as a duplicate node name.
+- `wikidata`: added `manual_label_overrides.csv` rows disambiguating the remaining 6 duplicate canonical genre names (artcore, darkcore, deathcore, doomcore, electro, wave) by parenthetical genre, e.g. "Deathcore (Techno)" / "Deathcore (Metal)" — each pair is a genuine Wikidata homonym (or, for electro, a same-parent scope overlap), not a duplicate/error, so renaming rather than dropping resolves the `tree_value_duplicate` import constraint.
+- `gold`: `__main__` no longer calls `export_regional_genre_tree` — `8_regional_hierarchy.parquet` has 12 duplicate node names (cross-region/era homonyms like "bolero" under both Latin America and Spain, plus a few likely main-parent-selection bugs) that the duplicate-name guard added above now correctly rejects, crashing the whole daily run. Disabled until those are triaged and disambiguated; `1_regional_genre_tree.json` will not be produced or synced to `grow-the-music-tree-api` in the meantime.
+- `wikidata`: renamed the three synthetic `LOCAL:`-prefixed grouping node labels ("Blues/Rock", "Disco/Funk", "Reggae/Dub") to add a `" (grouping)"` suffix, and documented the convention in `DESIGN.md` — the real Wikidata item "blues rock" (Q193355) slugified to the same id as the unrelated synthetic "Blues/Rock" grouping node, tripping Gold's genre-name slug collision guard.
+- `gold`: `genre_tree_builder.build_genre_tree`'s duplicate node-name guard now compares case-insensitively — a title-cased synthetic grouping node and a real Wikidata item's lowercase label (e.g. "Pop reggae" vs "pop reggae") previously coexisted in the exported tree undetected, since the guard compared names with case-sensitive equality.
+- `musicbrainz`: `3_songs`'s YouTube video id extraction now anchors to exactly 11 characters instead of `{6,}` — a handful of real MusicBrainz URLs produced ids either short (truncated) or long (a stray trailing character swallowed into the match), which then failed `grow-the-music-tree-api`'s `varchar(11)` column and aborted its entire songs-import transaction. `gold`'s `genre_match` now also drops any row with a malformed `youtube_video_id` (not exactly 11 characters) before genre matching, as a defensive second check — logged as a warning, not raised, so a regression here can't abort the whole export the way the original bug aborted the whole songs import. `song_export`'s `songs.schema.json` still enforces the same `^[A-Za-z0-9_-]{11}$` pattern as a last-resort net.
+- `wikidata`: dropped the synthetic `LOCAL:pop-reggae` grouping node in favor of the real Wikidata item "pop reggae" (Q98528253), re-parented under `Reggae/Dub (grouping)` with "ragga pop" moved to it as a child — the synthetic node's title-cased "Pop reggae" label had silently coexisted with the real item's lowercase "pop reggae" in the exported tree, evading Gold's duplicate-name guard on casing alone.
+- `wikidata`: added `manual_label_overrides.csv` rows disambiguating 13 more duplicate node-name groups surfaced by re-enabling the regional tree export (banda music, corrido, Dominican hip hop, mass song, batuque, bolero, bomba, chanson, cumbia, daina, forró, murga, tirana), each a genuine cross-region/era Wikidata homonym, by parenthetical region/scope, e.g. "Bolero (Cuba)" / "Bolero (Spain)".
+- `wikidata`: removed the synthetic `LOCAL:nordic-music` regional-overview node — it duplicated the display name of the real, already-linked Wikidata item "music of the Nordic countries" (Q26302245), which serves the same overview role elsewhere in the tree. "Nordic tone" (previously nested under the synthetic node) is now nested directly under Q26302245 instead.
+- `gold`: re-enabled `export_regional_genre_tree` in `__main__` now that all duplicate node names in `8_regional_hierarchy.parquet` are resolved — `1_regional_genre_tree.json` is produced and synced to `grow-the-music-tree-api` again.
 
 ## [1.2.1] - 2026-09-16
 
