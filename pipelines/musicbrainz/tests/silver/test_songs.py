@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import polars as pl
@@ -97,3 +98,15 @@ def test_songs_creates_output_dir(tmp_path: Path) -> None:
     sl.songs(bronze_dir, silver_dir, output_dir)
 
     assert output_dir.is_dir()
+
+
+def test_video_id_pattern_truncates_stray_trailing_character() -> None:
+    # Real MusicBrainz data has been seen with a stray trailing `-` after an otherwise-valid id.
+    match = re.search(sl._VIDEO_ID_PATTERN, "https://youtu.be/eeeeeeeeeee-")
+    assert match is not None
+    assert match.group(1) == "eeeeeeeeeee"
+
+
+def test_video_id_pattern_rejects_fewer_than_eleven_characters() -> None:
+    match = re.search(sl._VIDEO_ID_PATTERN, "https://youtu.be/fffffffff")
+    assert match is None
