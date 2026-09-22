@@ -10,7 +10,7 @@ MATCH_ROWS = [
     {
         "title": "Resolved Song",
         "artist": "Artist A",
-        "youtube_video_id": "abc123",
+        "youtube_video_id": "abc123abc12",
         "genre_name": "Rock",
         "wikidata_genre_name": "rock",
         "match_method": "exact",
@@ -18,7 +18,7 @@ MATCH_ROWS = [
     {
         "title": "Non Genre Song",
         "artist": "Artist B",
-        "youtube_video_id": "def456",
+        "youtube_video_id": "def456def45",
         "genre_name": "asmr",
         "wikidata_genre_name": None,
         "match_method": "accepted_non_genre",
@@ -26,7 +26,7 @@ MATCH_ROWS = [
     {
         "title": "Unmatched Song",
         "artist": "Artist C",
-        "youtube_video_id": "ghi789",
+        "youtube_video_id": "ghi789ghi78",
         "genre_name": "some random tag",
         "wikidata_genre_name": None,
         "match_method": "unmatched",
@@ -59,7 +59,7 @@ def test_export_songs_renames_wikidata_genre_name_to_genre_name(tmp_path: Path) 
     assert songs[0] == {
         "title": "Resolved Song",
         "artist": "Artist A",
-        "youtube_video_id": "abc123",
+        "youtube_video_id": "abc123abc12",
         "genre_name": "rock",
     }
 
@@ -99,3 +99,25 @@ def test_export_songs_raises_on_schema_violation(tmp_path: Path, monkeypatch: py
 
     with pytest.raises(ValueError, match="schema validation"):
         module.export_songs(genre_match_path, tmp_path / "gold")
+
+
+def test_export_songs_raises_on_malformed_youtube_video_id(tmp_path: Path) -> None:
+    # Regression: real MusicBrainz data has produced ids that aren't exactly 11 characters
+    # (a stray trailing character, or a truncated id) — this must be caught here, not shipped
+    # downstream to blow up grow-the-music-tree-api's `varchar(11)` column.
+    genre_match_path = _write_genre_match(
+        tmp_path,
+        rows=[
+            {
+                "title": "Malformed Id Song",
+                "artist": "Artist",
+                "youtube_video_id": "abc123abc123",
+                "genre_name": "Rock",
+                "wikidata_genre_name": "rock",
+                "match_method": "exact",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="schema validation"):
+        export_songs(genre_match_path, tmp_path / "gold")

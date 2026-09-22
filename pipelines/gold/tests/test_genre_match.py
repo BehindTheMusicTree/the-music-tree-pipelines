@@ -54,7 +54,7 @@ def _run_genre_match(
 
 
 def _song(genre_name: str, title: str = "Song") -> dict:
-    return {"title": title, "artist": "Artist", "youtube_video_id": "abc123", "genre_name": genre_name}
+    return {"title": title, "artist": "Artist", "youtube_video_id": "abc123abc12", "genre_name": genre_name}
 
 
 def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
@@ -117,7 +117,7 @@ def test_genre_match_writes_unresolved_report_for_untriaged_names(tmp_path: Path
             "genre_name": "some random tag",
             "title": "Untriaged Song",
             "artist": "Artist",
-            "youtube_video_id": "abc123",
+            "youtube_video_id": "abc123abc12",
         }
     ]
 
@@ -215,13 +215,44 @@ def test_genre_match_raises_on_empty_songs(tmp_path: Path) -> None:
 def test_genre_match_raises_on_null_genre_name(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="null rate"):
         _run_genre_match(
-            tmp_path, [{"title": "Song", "artist": "Artist", "youtube_video_id": "abc123", "genre_name": None}]
+            tmp_path,
+            [{"title": "Song", "artist": "Artist", "youtube_video_id": "abc123abc12", "genre_name": None}],
         )
 
 
 def test_genre_match_raises_on_empty_hierarchy(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="is empty"):
         _run_genre_match(tmp_path, [_song("Rock")], hierarchy_rows=[])
+
+
+def test_genre_match_drops_malformed_youtube_video_id(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [
+            _song("Rock", title="Good Song"),
+            {"title": "Bad Song", "artist": "Artist", "youtube_video_id": "tooshort", "genre_name": "Rock"},
+        ],
+    )
+
+    df = pl.read_parquet(result)
+    assert df.to_dicts() == [
+        {
+            "title": "Good Song",
+            "artist": "Artist",
+            "youtube_video_id": "abc123abc12",
+            "genre_name": "Rock",
+            "wikidata_genre_name": "rock",
+            "match_method": "exact",
+        }
+    ]
+
+
+def test_genre_match_raises_when_all_youtube_video_ids_malformed(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="is empty"):
+        _run_genre_match(
+            tmp_path,
+            [{"title": "Bad Song", "artist": "Artist", "youtube_video_id": "tooshort", "genre_name": "Rock"}],
+        )
 
 
 def test_genre_match_raises_on_non_genre_conflicting_with_alias_csv(tmp_path: Path) -> None:

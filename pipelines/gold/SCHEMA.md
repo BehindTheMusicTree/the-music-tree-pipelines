@@ -30,7 +30,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_genre_match_unresolved.csv`** — `genre_name, title, artist, youtube_video_id`, one row per unmatched `(genre_name, title, artist, youtube_video_id)` combination (not deduplicated by genre name) — written every run, even when empty. A data expert reviews this to promote each name into `manual_genre_alias.csv` or `manual_accepted_non_genre_tags.csv`.
 
-**`2_songs.json`** — flat list, one entry per row of `1_genre_match.parquet` with a resolved genre (`match_method` not `unmatched`/`accepted_non_genre`): `{"title": str, "artist": str, "youtube_video_id": str, "genre_name": str}` (the resolved `wikidata_genre_name`, renamed to match `SongExampleImportSerializer`'s expected field), validated against `src/gold/schemas/songs.schema.json`.
+**`2_songs.json`** — flat list, one entry per row of `1_genre_match.parquet` with a resolved genre (`match_method` not `unmatched`/`accepted_non_genre`): `{"title": str, "artist": str, "youtube_video_id": str, "genre_name": str}` (the resolved `wikidata_genre_name`, renamed to match `SongExampleImportSerializer`'s expected field), validated against `src/gold/schemas/songs.schema.json`. `youtube_video_id` must match `^[A-Za-z0-9_-]{11}$` (a real YouTube video id's fixed length); this is enforced twice — `genre_match` drops any malformed row before matching (logged as a warning, see [DESIGN.md](DESIGN.md)), and the schema pattern here is a last-resort net that should never actually trigger. Both mirror the same constraint musicbrainz's `3_songs` step already enforces at extraction time.
 
 ## 3. Manual CSVs
 

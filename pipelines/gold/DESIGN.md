@@ -45,6 +45,20 @@ human-scannable triage surface. A data expert reviews it and promotes each name 
 `manual_genre_alias.csv` (real genre, different name) or `manual_accepted_non_genre_tags.csv` (permanent
 noise), same closing-the-loop shape as `wikidata`'s manual-CSV backstops, just non-blocking.
 
+## Malformed `youtube_video_id` is dropped, not raised
+
+`genre_match` also drops any row whose `youtube_video_id` isn't exactly 11 characters (a real YouTube
+video id's fixed length) before genre matching, logging a warning rather than raising — same rationale
+as `unmatched` above: `musicbrainz`'s `3_songs` step already filters these at extraction time (see
+`pipelines/musicbrainz/SCHEMA.md`), so this is a defensive second check against a regression there, and
+a handful of malformed ids shouldn't block the whole daily run over rows that were always going to be
+dropped. Filtering happens here rather than in `song_export`'s schema validation deliberately — that
+validation raises hard, and raising over a single bad row would abort the entire `2_songs.json` export
+(and, transitively, block the systemd job from syncing the already-good `1_canonical_genre_tree.json`
+too) — the same all-or-nothing failure mode that motivated this check in the first place (see
+`CHANGELOG.md`). The schema's `youtube_video_id` pattern still enforces the same 11-character constraint
+as a last-resort net, but by construction should never actually trigger.
+
 ## Manual CSV validation
 
 Both manual CSVs are validated the same way `wikidata`'s manual CSVs are (see

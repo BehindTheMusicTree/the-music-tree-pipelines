@@ -8,7 +8,7 @@
     "properties": {
       "title": { "type": "string", "minLength": 1 },
       "artist": { "type": "string", "minLength": 1 },
-      "youtube_video_id": { "type": "string", "minLength": 1 },
+      "youtube_video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
       "genre_name": { "type": "string", "minLength": 1 }
     },
     "required": ["title", "artist", "youtube_video_id", "genre_name"],

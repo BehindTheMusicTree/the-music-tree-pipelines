@@ -17,6 +17,14 @@ MANUAL_ACCEPTED_NON_GENRE_TAGS_PATH = Path(__file__).parent / "manual_accepted_n
 
 _MUSIC_SUFFIX_PATTERN = r" music$"
 
+# A real YouTube video id is always exactly 11 characters. Malformed ids (seen in real MusicBrainz
+# data — a truncated match or a stray trailing character) must be dropped here, before matching,
+# rather than reaching `song_export`'s schema validation: that validation raises hard, which would
+# abort the *entire* export over a single bad row — the same all-or-nothing failure this repo is
+# trying to avoid (see CHANGELOG). Dropping (with a warning, not a raise) mirrors the unmatched-genre
+# handling below.
+_YOUTUBE_VIDEO_ID_PATTERN = r"^[A-Za-z0-9_-]{11}$"
+
 
 def _blank_mask(df: pl.DataFrame, column: str) -> pl.Expr:
     return pl.col(column).is_null() | (pl.col(column).str.strip_chars() == "")
@@ -93,6 +101,16 @@ def genre_match(
     check_null_rate(songs, "genre_name", songs_path.name)
     check_non_empty(hierarchy, canonical_hierarchy_path.name)
     check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
+
+    malformed_video_id = songs.filter(~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN))
+    if not malformed_video_id.is_empty():
+        logger.warning(
+            "%d song(s) with a malformed youtube_video_id, dropped before genre matching: %s",
+            malformed_video_id.height,
+            sorted(set(malformed_video_id.select("youtube_video_id").to_series())),
+        )
+        songs = songs.filter(pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN))
+        check_non_empty(songs, f"{songs_path.name} (after dropping malformed youtube_video_id)")
 
     canonical_labels = set(hierarchy.select("item_label").unique().to_series())
     canonical_lookup = {label.lower(): label for label in canonical_labels}
