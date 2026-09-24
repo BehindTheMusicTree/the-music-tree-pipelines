@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold`: canonical/regional genre tree exports now include each node's Wikidata QID as a stable `id`, alongside `name`, so downstream consumers can match a genre across label changes.
+
 ## [1.3.0] - 2026-09-22
 
 ### Added

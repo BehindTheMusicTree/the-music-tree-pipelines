@@ -24,7 +24,7 @@ def test_build_genre_tree_nests_children_under_parent() -> None:
     assert child_names == {"punk rock", "pop rock"}
 
     punk_rock = next(child for child in rock["children"] if child["name"] == "punk rock")
-    assert punk_rock["children"] == [{"name": "hardcore punk", "children": []}]
+    assert punk_rock["children"] == [{"id": "Q3", "name": "hardcore punk", "children": []}]
 
 
 def test_build_genre_tree_handles_multiple_roots() -> None:

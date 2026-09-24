@@ -41,6 +41,7 @@ def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | N
 
     def build_node(item_id: str) -> dict:
         return {
+            "id": item_id,
             "name": display_labels_by_id[item_id],
             "children": [build_node(child_id) for child_id in children_by_parent.get(item_id, [])],
         }
