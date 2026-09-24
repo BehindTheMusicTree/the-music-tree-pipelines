@@ -15,6 +15,7 @@
     "node": {
       "type": "object",
       "properties": {
+        "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "side": { "type": "string", "enum": ["pop"] },
         "children": {
@@ -22,7 +23,7 @@
           "items": { "$ref": "#/$defs/node" }
         }
       },
-      "required": ["name", "children"],
+      "required": ["id", "name", "children"],
       "additionalProperties": false
     }
   }
