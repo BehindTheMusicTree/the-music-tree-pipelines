@@ -7,6 +7,7 @@ import pytest
 from gold.playground_fixture_export import export_playground_fixture
 
 TREE = {
+    "allowsMultiplePrimaryParents": False,
     "tree": [
         {
             "id": "Q1",
@@ -17,7 +18,7 @@ TREE = {
             ],
         },
         {"id": "Q4", "name": "Mainstream Pop", "children": []},
-    ]
+    ],
 }
 
 GENRE_MATCH_ROWS = [
@@ -139,7 +140,10 @@ def test_export_playground_fixture_raises_on_schema_violation(tmp_path: Path) ->
 def test_export_playground_fixture_raises_on_slug_collision(tmp_path: Path) -> None:
     tree_path = _write_tree(
         tmp_path,
-        tree={"tree": [{"id": "Q1", "name": "R&B", "children": []}, {"id": "Q2", "name": "R B", "children": []}]},
+        tree={
+            "allowsMultiplePrimaryParents": False,
+            "tree": [{"id": "Q1", "name": "R&B", "children": []}, {"id": "Q2", "name": "R B", "children": []}],
+        },
     )
     genre_match_path = _write_genre_match(tmp_path, rows=[])
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
-from gold.genre_tree_builder import build_genre_tree
+from gold.genre_tree_builder import build_genre_tree, edges_to_parent_map, load_extra_parent_edges
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
 
@@ -83,7 +83,14 @@ def export_canonical_genre_tree(
     logger.info("building canonical genre tree from %s", hierarchy_path)
     hierarchy = pl.read_parquet(hierarchy_path)
     pop_sides = _load_pop_sides(manual_canonical_genre_pop_side_path, hierarchy)
-    tree = build_genre_tree(hierarchy, pop_sides)
+    # Imported first into grow, so a secondary ref can only resolve against this tree's own rows —
+    # an edge to a regional (or unexported) item is dropped here rather than failing the import.
+    item_ids = set(hierarchy.get_column("item_id"))
+    secondary_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
+    tree = {
+        "allowsMultiplePrimaryParents": False,
+        **build_genre_tree(hierarchy, pop_sides, secondary_parents=edges_to_parent_map(secondary_edges)),
+    }
 
     if not any(node["name"] == CANONICAL_MAINSTREAM_POP_ROOT_NAME for node in tree["tree"]):
         raise ValueError(

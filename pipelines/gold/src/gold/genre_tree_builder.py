@@ -1,6 +1,40 @@
+import logging
+from pathlib import Path
+
 import polars as pl
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
+
+
+logger = logging.getLogger(__name__)
+
+
+def load_extra_parent_edges(secondary_parents_path: Path, item_ids: set[str], ref_ids: set[str]) -> pl.DataFrame:
+    """Wikidata's non-main parent edges (`5_secondary_parents.parquet`) of `item_ids`, restricted to
+    parents in `ref_ids` — the rows grow-the-music-tree-api can resolve when the tree is imported."""
+    edges = pl.read_parquet(secondary_parents_path).filter(pl.col("item_id").is_in(list(item_ids)))
+    kept = (
+        edges.filter(pl.col("parent_id").is_in(list(ref_ids)))
+        .select("item_id", "parent_id")
+        .unique()
+        .with_columns(parent_numeric_id=pl.col("parent_id").str.slice(1).cast(pl.Int64, strict=False))
+        .sort("item_id", "parent_numeric_id", "parent_id")
+        .drop("parent_numeric_id")
+    )
+    logger.info(
+        "kept %d extra parent edge(s) from %s, dropped %d pointing outside the resolvable set",
+        kept.height,
+        secondary_parents_path,
+        edges.height - kept.height,
+    )
+    return kept
+
+
+def edges_to_parent_map(edges: pl.DataFrame) -> dict[str, list[str]]:
+    parents: dict[str, list[str]] = {}
+    for item_id, parent_id in edges.select("item_id", "parent_id").iter_rows():
+        parents.setdefault(item_id, []).append(parent_id)
+    return parents
 
 
 def _count_tree_nodes(nodes: list[dict]) -> int:
@@ -11,7 +45,13 @@ def _collect_names(nodes: list[dict]) -> list[str]:
     return [node["name"] for node in nodes] + [name for node in nodes for name in _collect_names(node["children"])]
 
 
-def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | None = None) -> dict:
+def build_genre_tree(
+    hierarchy: pl.DataFrame,
+    pop_sides: dict[str, set[str]] | None = None,
+    primary_parents: dict[str, list[str]] | None = None,
+    secondary_parents: dict[str, list[str]] | None = None,
+    external_ids: set[str] | None = None,
+) -> dict:
     check_non_empty(hierarchy, "hierarchy")
     check_null_rate(hierarchy, "item_id", "hierarchy")
     check_unique_key(hierarchy, "item_id", "hierarchy")
@@ -39,12 +79,26 @@ def build_genre_tree(hierarchy: pl.DataFrame, pop_sides: dict[str, set[str]] | N
     # root just as much as one with a null parent_id. Mirrors canonical_roots.py's root definition.
     known_item_ids = set(hierarchy.select("item_id").unique().to_series().to_list())
 
+    # `external_ids`: rows grow already holds from a previously imported tree (the canonical one, for
+    # the regional tree), which a primaryParents/secondaryParents ref may point at too.
+    resolvable_ids = known_item_ids | (external_ids or set())
+    extra_parents = {"primaryParents": primary_parents or {}, "secondaryParents": secondary_parents or {}}
+    for key, parents_by_item in extra_parents.items():
+        unknown_items = sorted(set(parents_by_item) - known_item_ids)
+        unknown_refs = sorted({ref for refs in parents_by_item.values() for ref in refs} - resolvable_ids)
+        if unknown_items or unknown_refs:
+            raise ValueError(f"{key} has unknown item id(s) {unknown_items} / parent ref(s) {unknown_refs}")
+
     def build_node(item_id: str) -> dict:
-        return {
+        node = {
             "id": item_id,
             "name": display_labels_by_id[item_id],
             "children": [build_node(child_id) for child_id in children_by_parent.get(item_id, [])],
         }
+        for key, parents_by_item in extra_parents.items():
+            if item_id in parents_by_item:
+                node[key] = parents_by_item[item_id]
+        return node
 
     roots = (
         hierarchy.filter(pl.col("parent_id").is_null() | ~pl.col("parent_id").is_in(known_item_ids))
