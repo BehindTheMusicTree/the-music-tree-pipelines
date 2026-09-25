@@ -4,12 +4,13 @@
   "title": "Genre tree export",
   "type": "object",
   "properties": {
+    "allowsMultiplePrimaryParents": { "type": "boolean" },
     "tree": {
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
     }
   },
-  "required": ["tree"],
+  "required": ["allowsMultiplePrimaryParents", "tree"],
   "additionalProperties": false,
   "$defs": {
     "node": {
@@ -21,10 +22,18 @@
         "children": {
           "type": "array",
           "items": { "$ref": "#/$defs/node" }
-        }
+        },
+        "primaryParents": { "$ref": "#/$defs/parentRefs" },
+        "secondaryParents": { "$ref": "#/$defs/parentRefs" }
       },
       "required": ["id", "name", "children"],
       "additionalProperties": false
+    },
+    "parentRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
     }
   }
 }

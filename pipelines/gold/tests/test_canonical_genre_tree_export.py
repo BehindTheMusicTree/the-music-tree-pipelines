@@ -20,6 +20,12 @@ def _hierarchy() -> pl.DataFrame:
     return pl.DataFrame(TREE_ROWS)
 
 
+def _write_secondary_parents(wikidata_silver_dir: Path, rows: list[dict[str, str]]) -> None:
+    pl.DataFrame(rows, schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(
+        wikidata_silver_dir / "5_secondary_parents.parquet"
+    )
+
+
 def _write_pop_side_csv(path: Path, rows: list[dict[str, str]]) -> None:
     columns = ["root_genre_name", "pop_child_genre_name", "reason"]
     data = {column: [row[column] for row in rows] for column in columns}
@@ -30,6 +36,7 @@ def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "gold"
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
@@ -45,6 +52,7 @@ def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "does" / "not" / "exist"
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
@@ -62,11 +70,12 @@ def test_export_canonical_genre_tree_raises_on_schema_violation(
     monkeypatch.setattr(
         module,
         "build_genre_tree",
-        lambda hierarchy, pop_sides: {"tree": [{"name": "rock"}, {"name": "Mainstream Pop"}]},
+        lambda hierarchy, pop_sides, secondary_parents: {"tree": [{"name": "rock"}, {"name": "Mainstream Pop"}]},
     )
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
@@ -78,6 +87,7 @@ def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "gold"
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"}])
@@ -95,6 +105,7 @@ def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(tmp_path
     wikidata_silver_dir.mkdir()
     rows = [row for row in TREE_ROWS if row["item_label"] != "Mainstream Pop"]
     pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
@@ -106,6 +117,7 @@ def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path) -> N
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(
         pop_side_path, [{"root_genre_name": "punk rock", "pop_child_genre_name": "hardcore punk", "reason": "x"}]
@@ -119,6 +131,7 @@ def test_export_canonical_genre_tree_raises_on_non_direct_child(tmp_path: Path) 
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(
         pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "hardcore punk", "reason": "x"}]
@@ -132,6 +145,7 @@ def test_export_canonical_genre_tree_raises_on_duplicate_row(tmp_path: Path) -> 
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(
         pop_side_path,
@@ -149,6 +163,7 @@ def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(
         pop_side_path,
@@ -167,6 +182,7 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path) ->
     wikidata_silver_dir.mkdir()
     rows = [*TREE_ROWS, {"item_id": "Q6", "item_label": "soft rock", "parent_id": "Q1"}]
     pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "gold"
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(
@@ -183,3 +199,29 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path) ->
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     sides = {child["name"]: child.get("side") for child in rock["children"]}
     assert sides == {"punk rock": None, "pop rock": "pop", "soft rock": "pop"}
+
+
+def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_path: Path) -> None:
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_secondary_parents(
+        wikidata_silver_dir,
+        [
+            {"item_id": "Q4", "parent_id": "Q7"},
+            {"item_id": "Q4", "parent_id": "Q7"},
+            {"item_id": "Q3", "parent_id": "Q99"},
+            {"item_id": "Q98", "parent_id": "Q1"},
+        ],
+    )
+    pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
+    _write_pop_side_csv(pop_side_path, [])
+
+    tree = json.loads(export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path).read_text())
+
+    assert tree["allowsMultiplePrimaryParents"] is False
+    rock = next(node for node in tree["tree"] if node["name"] == "rock")
+    pop_rock = next(child for child in rock["children"] if child["name"] == "pop rock")
+    assert pop_rock["secondaryParents"] == ["Q7"]
+    assert "primaryParents" not in pop_rock
+    assert "secondaryParents" not in rock["children"][0]["children"][0]  # hardcore punk -> unknown Q99
