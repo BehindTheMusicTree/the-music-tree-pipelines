@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [1.4.0](#140---2026-09-25)
 - [1.3.0](#130---2026-09-22)
 - [1.2.1](#121---2026-09-16)
 - [1.2.0](#120---2026-09-15)
@@ -28,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [1.4.0] - 2026-09-25
+
+### Added
+
+- `gold`: canonical/regional genre tree exports now include each node's Wikidata QID as a stable `id`, alongside `name`, so downstream consumers can match a genre across label changes.
+
+### Changed
+
+- Docs: branching conventions now list only strict Gitflow prefixes (`feature/`, `release/`, `hotfix/`); `fix/` and `chore/` are no longer valid.
 
 ## [1.3.0] - 2026-09-22
 

@@ -9,13 +9,14 @@ from gold.playground_fixture_export import export_playground_fixture
 TREE = {
     "tree": [
         {
+            "id": "Q1",
             "name": "Electronic",
             "children": [
-                {"name": "Techno", "children": []},
-                {"name": "Electropop", "side": "pop", "children": []},
+                {"id": "Q2", "name": "Techno", "children": []},
+                {"id": "Q3", "name": "Electropop", "side": "pop", "children": []},
             ],
         },
-        {"name": "Mainstream Pop", "children": []},
+        {"id": "Q4", "name": "Mainstream Pop", "children": []},
     ]
 }
 
@@ -138,7 +139,7 @@ def test_export_playground_fixture_raises_on_schema_violation(tmp_path: Path) ->
 def test_export_playground_fixture_raises_on_slug_collision(tmp_path: Path) -> None:
     tree_path = _write_tree(
         tmp_path,
-        tree={"tree": [{"name": "R&B", "children": []}, {"name": "R B", "children": []}]},
+        tree={"tree": [{"id": "Q1", "name": "R&B", "children": []}, {"id": "Q2", "name": "R B", "children": []}]},
     )
     genre_match_path = _write_genre_match(tmp_path, rows=[])
 

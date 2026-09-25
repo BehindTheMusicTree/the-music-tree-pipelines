@@ -42,9 +42,9 @@ We follow Git Flow:
 |---|---|
 | `main` | Production-ready, stable |
 | `develop` | Integration branch — all features merge here |
-| `feature/<name>` | New features, branch from `develop` |
-| `fix/<name>` | Bug fixes, branch from `develop` |
-| `chore/<name>` | Maintenance, CI, dependencies |
+| `feature/<name>` | All `develop`-targeted work (features, bug fixes, maintenance), branch from `develop` |
+| `release/<name>` | Cuts a release from `develop` into `main` |
+| `hotfix/<name>` | Urgent production fixes, branch from `main`, merged into both `main` and `develop` |
 
 No direct commits to `main` or `develop`.
 

@@ -67,7 +67,7 @@ Neither pipeline (nor Gold) is deployed _from_ this repo — there is no CD work
 
 Full detail in `CONTRIBUTING.md` — summary:
 
-- **Branching:** Git Flow (`main`/`develop`, `feature/*`/`fix/*`/`chore/*`), no direct commits to `main`/`develop`, PRs target `develop`.
+- **Branching:** Git Flow (`main`/`develop`, `feature/*`/`release/*`/`hotfix/*` only — no `fix/`/`chore/`), no direct commits to `main`/`develop`, PRs target `develop`.
 - **Commits/PR titles:** Conventional Commits, `type(scope): summary`, imperative, <70 chars, lowercase.
 - **Before opening a PR:** update `CHANGELOG.md` under `[Unreleased]`.
 - **Code style:** Ruff (lint+format, line-length 120); Polars, never pandas; fail-fast (no silent fallbacks/defaults masking missing config); no comments unless the _why_ is non-obvious; no dead code; exact-pin (`==`) runtime/dev deps (`[build-system]` backend excepted).

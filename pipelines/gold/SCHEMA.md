@@ -17,7 +17,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 ## 2. Outputs
 
-**`1_canonical_genre_tree.json`** — `{"tree": [<node>, ...]}`, one entry per root of `7_canonical_hierarchy`. A node is `{"name": str, "children": [<node>, ...], "side": "pop" (optional, direct children of a root only)}`, recursive, matching `the-music-tree-genre-kit`'s `CriteriaTreeImportSerializer`/`TreeField` import shape exactly (validated against `src/gold/schemas/genre_tree.schema.json`). `side` is only ever present with value `"pop"`, per `manual_canonical_genre_pop_side.csv` below — see [DESIGN.md](DESIGN.md).
+**`1_canonical_genre_tree.json`** — `{"tree": [<node>, ...]}`, one entry per root of `7_canonical_hierarchy`. A node is `{"id": str, "name": str, "children": [<node>, ...], "side": "pop" (optional, direct children of a root only)}`, recursive (validated against `src/gold/schemas/genre_tree.schema.json`), building on `the-music-tree-genre-kit`'s `CriteriaTreeImportSerializer`/`TreeField` import shape. `id` is the node's Wikidata QID (`item_id`), a stable identifier across label changes — consumed on the `grow-the-music-tree-api` side as the upsert key for `import_criteria_tree` (matches existing rows by `wikidata_id`, falling back to name only for id-less nodes). `side` is only ever present with value `"pop"`, per `manual_canonical_genre_pop_side.csv` below — see [DESIGN.md](DESIGN.md).
 
 **`1_regional_genre_tree.json`** — same shape as `1_canonical_genre_tree.json` above (validated against the same `src/gold/schemas/genre_tree.schema.json`), but built from `8_regional_hierarchy` instead — one entry per regional/geographic root (e.g. "music of Cape Verde") with that region's genres nested underneath.
 
