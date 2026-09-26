@@ -121,3 +121,26 @@ def test_build_genre_tree_raises_on_parent_id_cycle() -> None:
     ]
     with pytest.raises(ValueError, match="genre tree build"):
         build_genre_tree(pl.DataFrame(rows))
+
+
+def test_build_genre_tree_emits_extra_parents() -> None:
+    tree = build_genre_tree(
+        _hierarchy(), primary_parents={"Q3": ["Q4", "Q100"]}, secondary_parents={"Q5": ["Q1"]}, external_ids={"Q100"}
+    )
+
+    rock = next(node for node in tree["tree"] if node["name"] == "rock")
+    hardcore_punk = rock["children"][0]["children"][0]
+    assert hardcore_punk["primaryParents"] == ["Q4", "Q100"]
+    jazz = next(node for node in tree["tree"] if node["name"] == "jazz")
+    assert jazz["secondaryParents"] == ["Q1"]
+    assert "primaryParents" not in rock
+
+
+def test_build_genre_tree_raises_on_unknown_parent_ref() -> None:
+    with pytest.raises(ValueError, match=r"secondaryParents.*Q100"):
+        build_genre_tree(_hierarchy(), secondary_parents={"Q3": ["Q100"]})
+
+
+def test_build_genre_tree_raises_on_unknown_extra_parent_item() -> None:
+    with pytest.raises(ValueError, match=r"primaryParents.*Q100"):
+        build_genre_tree(_hierarchy(), primary_parents={"Q100": ["Q1"]})
