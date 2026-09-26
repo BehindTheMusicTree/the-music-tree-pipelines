@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [2.0.0](#200---2026-09-26)
 - [1.4.0](#140---2026-09-25)
 - [1.3.0](#130---2026-09-22)
 - [1.2.1](#121---2026-09-16)
@@ -30,16 +31,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.0] - 2026-09-25
+## [2.0.0] - 2026-09-26
 
 ### Added
 
-- `gold`: canonical/regional genre tree exports now include each node's Wikidata QID as a stable `id`, alongside `name`, so downstream consumers can match a genre across label changes.
 - `gold`: genre tree exports carry the extra Wikidata parent edges kept in `5_secondary_parents.parquet` for `the-music-tree-genre-kit` 0.29.0's multiple parents. Canonical: `secondaryParents` restricted to other canonical items. Regional: `primaryParents` (refs to regional or canonical items) by default, demoted to `secondaryParents` per the new `manual_regional_secondary_parents.csv`. Edges to items outside the resolvable set are dropped (logged); `build_genre_tree` raises on any ref to an unknown id. Tested.
 
 ### Changed
 
 - **Breaking** `gold`: genre tree exports are now `{"allowsMultiplePrimaryParents": bool, "tree": [...]}` (`false` canonical, `true` regional), the payload `grow-the-music-tree-api`'s tree import requires; the regional export also reads `7_canonical_hierarchy.parquet`.
+
+## [1.4.0] - 2026-09-25
+
+### Added
+
+- `gold`: canonical/regional genre tree exports now include each node's Wikidata QID as a stable `id`, alongside `name`, so downstream consumers can match a genre across label changes.
+
+### Changed
+
 - Docs: branching conventions now list only strict Gitflow prefixes (`feature/`, `release/`, `hotfix/`); `fix/` and `chore/` are no longer valid.
 
 ## [1.3.0] - 2026-09-22
