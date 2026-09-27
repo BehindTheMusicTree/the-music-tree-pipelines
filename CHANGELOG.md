@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `gold`: genre-name slugify logic moved from `playground_fixture_export` to `gold.genre_slug.slugify_genre_name`, the helper `pipelines/wikidata/DESIGN.md` §2.3.5 already references.
+
 ## [2.0.0] - 2026-09-26
 
 ### Added
