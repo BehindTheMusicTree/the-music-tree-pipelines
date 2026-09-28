@@ -31,3 +31,4 @@ coverage.xml
 
 # Jupyter
 .ipynb_checkpoints/
+.pytest_cache/
