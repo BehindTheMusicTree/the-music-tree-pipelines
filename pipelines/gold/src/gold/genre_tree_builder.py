@@ -51,6 +51,7 @@ def build_genre_tree(
     primary_parents: dict[str, list[str]] | None = None,
     secondary_parents: dict[str, list[str]] | None = None,
     external_ids: set[str] | None = None,
+    unaccepted_root_ids: set[str] | None = None,
 ) -> dict:
     check_non_empty(hierarchy, "hierarchy")
     check_null_rate(hierarchy, "item_id", "hierarchy")
@@ -115,6 +116,8 @@ def build_genre_tree(
         for child_id, child in zip(children_by_parent.get(item_id, []), node["children"]):
             if labels_by_id[child_id] in pop_children:
                 child["side"] = "pop"
+        if item_id in (unaccepted_root_ids or set()):
+            node["isUnacceptedRoot"] = True
         return node
 
     tree = [build_root(row["item_id"]) for row in roots.iter_rows(named=True)]

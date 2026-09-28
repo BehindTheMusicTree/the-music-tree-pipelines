@@ -33,7 +33,7 @@ Wikidata's music genre taxonomy (`P279` "subclass of" and `P361` "part of", root
   6. `6_canonical_parents` — flags whether each item's chosen main parent is itself an actual musical style.
   7. `7_canonical_hierarchy` — prunes to one row per non-regional genre, producing `7_canonical_hierarchy.parquet`.
   8. `8_regional_hierarchy` — prunes to one row per regional genre, producing `8_regional_hierarchy.parquet`.
-  9. `9_canonical_roots` — extracts `7_canonical_hierarchy`'s root items (no parent) into their own file, for manual exploration.
+  9. `9_canonical_roots` — extracts `7_canonical_hierarchy`'s root items (no parent) into their own file, flagging (`is_accepted`, WARNING) roots not in `manual_accepted_canonical_roots.csv` — Gold marks those `isUnacceptedRoot` for review.
 
 See [Pipeline](#pipeline) for exact column names and [SCHEMA.md](SCHEMA.md#3-silver) for full detail.
 
@@ -69,7 +69,7 @@ See [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploratio
 | Silver | `6_canonical_parents`                    | Adds `parent_is_canonical`, identifying edges whose main parent isn't itself an actual musical style                                                                                                                                                 |
 | Silver | `7_canonical_hierarchy`                        | Prunes to a clean, one-parent-per-item canonical edge list (`7_canonical_hierarchy.parquet`) |
 | Silver | `8_regional_hierarchy`                        | Prunes to a clean, one-parent-per-item regional edge list (`8_regional_hierarchy.parquet`) |
-| Silver | `9_canonical_roots`                  | Filters `7_canonical_hierarchy.parquet` to root items (no parent), for manual exploration of the "too many roots" open question — see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)                                                                                  |
+| Silver | `9_canonical_roots`                  | Filters `7_canonical_hierarchy.parquet` to root items (no parent), flagging `is_accepted` against `manual_accepted_canonical_roots.csv` (Gold emits `isUnacceptedRoot` for unaccepted ones), for manual exploration of the "too many roots" open question — see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)                                                                                  |
 
 ## Schema
 

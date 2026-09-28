@@ -31,9 +31,9 @@ at the first that succeeds:
 
 ## Why `unmatched` is a soft warning, not a raise
 
-`wikidata`'s `canonical_roots.py` raises on an untriaged new root, blocking that pipeline's run until a
-data expert reviews it — appropriate there because a new root is rare and reviewable in isolation.
-Genre-name reconciliation is different: musicbrainz's tag vocabulary is large, uncurated folksonomy, and
+Same stance as `wikidata`'s `canonical_roots.py`, which flags (not raises on) an untriaged new root —
+it's carried into the canonical tree export as `isUnacceptedRoot: true` for review in
+grow-the-music-tree-api. Genre-name reconciliation is noisier still: musicbrainz's tag vocabulary is large, uncurated folksonomy, and
 new unmatched names will appear routinely as the sample data or the tag vocabulary shifts. Blocking the
 daily Gold run on every new unmatched name would make the pipeline fragile for no benefit — a missing
 tag alias doesn't corrupt the tree or the songs export, it just means fewer songs get a resolved genre

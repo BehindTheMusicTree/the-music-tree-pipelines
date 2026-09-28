@@ -604,17 +604,23 @@ promoted to a synthetic root itself.
 
 `9_canonical_roots.parquet` extracts `7_canonical_hierarchy`'s root items (`parent_id` null, or
 pointing at an item with no row of its own) for manual triage — see
-`.claude/skills/wikidata-canonical-roots/SKILL.md`.
+`.claude/skills/wikidata-canonical-roots/SKILL.md` — and flags each with `is_accepted`. Gold reads it
+to mark unaccepted roots `isUnacceptedRoot: true` in `1_canonical_genre_tree.json`.
 
 #### 2.8.1 `manual_accepted_canonical_roots.csv` guard-rail
 
 A root that isn't already in the git-tracked `manual_accepted_canonical_roots.csv` is new since the
-last triage pass and raises, rather than silently reappearing in the output — a curator must give
-it a real parent (`manual_main_parent.csv`), flag it as theme/technique/out-of-scope (§2.1), or add
-it to `manual_accepted_canonical_roots.csv` once confirmed genuinely standalone.
+last triage pass. It's flagged (`is_accepted = false`) and logged as a WARNING
+(`N unaccepted canonical root(s), flagged for review: [...]`) rather than raising, so it doesn't
+silently reappear as a reviewed root yet doesn't fail the nightly ETL + API sync either. Gold carries
+the flag into the canonical tree export as `isUnacceptedRoot: true`, and grow-the-music-tree-api
+surfaces it in its admin "Root review" queue. A curator either accepts it there (grow locks the row),
+or resolves it here: give it a real parent (`manual_main_parent.csv`), flag it as
+theme/technique/out-of-scope (§2.1), or add it to `manual_accepted_canonical_roots.csv` once confirmed
+genuinely standalone — the pipeline CSVs remain the canonical path, and the next import clears the flag.
 
 This is deliberately diff-based rather than a blanket check: dropping a broad umbrella item (e.g.
 "popular music") as theme/technique/out-of-scope legitimately orphans many real subgenres into
 roots (rock, jazz, pop, ska, …) — that's the intended effect of the drop, not a bug. A check that
-raised on any orphaned child, rather than only on ones absent from the previously-accepted set,
+flagged any orphaned child, rather than only on ones absent from the previously-accepted set,
 would fire on that entire pre-existing backlog every run.

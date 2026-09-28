@@ -40,6 +40,23 @@ Each generation of this file is a manual audit pass over the root list,
 triaging each root into one of: regional, canonical parent, technique, out
 of scope, or genuinely a standalone root genre (left alone).
 
+## Review queue: unaccepted roots no longer fail the run
+
+Triage is an async review queue. A root not in
+`pipelines/wikidata/src/wikidata/silver/manual_accepted_canonical_roots.csv` no longer fails the
+nightly run: `canonical_roots.py` writes it with `is_accepted = false` and logs a Silver WARNING
+(`N unaccepted canonical root(s), flagged for review: ['Q… (label)', …]`), and Gold emits it with
+`"isUnacceptedRoot": true` so it shows up in grow-the-music-tree-api's admin "Root review".
+
+- Accepting a root in grow locks that row there, but resolving it in the pipeline CSVs (per the
+  procedure below) is still the canonical path — giving it a parent clears the flag on the next import.
+- For a root confirmed genuinely standalone (including one already accepted in grow), still add it to
+  `manual_accepted_canonical_roots.csv` (columns `item_id,item_label`) to stop the warning and the flag.
+- Find the current queue with:
+  ```sh
+  duckdb -c ".mode csv" -c "SELECT item_id, item_label FROM '<SILVER_OUTPUT_DIR>/9_canonical_roots.parquet' WHERE NOT is_accepted ORDER BY item_label"
+  ```
+
 ## Where things live
 
 - Root list to review: `<SILVER_OUTPUT_DIR>/9_canonical_roots.parquet` (git-ignored — regenerate with `uv run --package wikidata python -m wikidata.silver` if stale or missing; see `pipelines/wikidata/README.md` for `SILVER_OUTPUT_DIR`). `canonical_roots.py` treats an item as a root if its `parent_id` is null **or** if `parent_id` points at a label that never has its own row in `7_canonical_hierarchy.parquet` — a "phantom" parent (e.g. "art music") that Wikidata never itself resolved down to a genre item. Most of this case is now caught upstream instead: `hierarchy_utils.py`'s `promote_orphans_to_roots`, shared by `canonical_hierarchy.py` and `regional_hierarchy.py`, already recovers any item whose *only* parent edge is non-genre as its own root (`parent_id = null`) at step 7, rather than leaving a dangling pointer to a phantom for step 9 to catch — e.g. "electronic music" no longer points at unresolvable "music", it's just a root outright. See the triage note in step 3 below before trying to link a phantom-parent root to a real parent.
@@ -79,7 +96,7 @@ of scope, or genuinely a standalone root genre (left alone).
    ```sh
    uv run --package wikidata python -m wikidata.silver
    ```
-   A clean run + a drop in `9_canonical_roots.parquet`'s row count confirms the additions were accepted.
+   A clean run + a drop in `9_canonical_roots.parquet`'s row count (and no unaccepted-root WARNING for the items you resolved) confirms the additions were accepted.
 7. **Check for duplicate `item_id`s** across each file (not just what you added — someone else may have added the same root since):
    ```sh
    python3 -c "
