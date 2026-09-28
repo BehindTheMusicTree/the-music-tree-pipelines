@@ -6,6 +6,10 @@ The consumer-facing export layer: reads `wikidata`'s and `musicbrainz`'s Silver 
 two artifacts `grow-the-music-tree-api` imports at seed time — a canonical genre tree and a small set of
 songs reconciled against it. This is the repo's first cross-pipeline join.
 
+Two consumers also pin a snapshot of these exports, so a schema change to them needs a refresh there too:
+`genre-tree-view`'s playground fixture (refreshed nightly by the `infrastructure` repo) and
+`grow-the-music-tree-api`'s latency SLO suite (`perf/fixtures/`, refreshed by hand, see its README "Performance").
+
 ## Table of Contents
 
 - [gold](#gold)
