@@ -87,9 +87,16 @@ def export_canonical_genre_tree(
     # an edge to a regional (or unexported) item is dropped here rather than failing the import.
     item_ids = set(hierarchy.get_column("item_id"))
     secondary_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
+    roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
+    unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))
     tree = {
         "allowsMultiplePrimaryParents": False,
-        **build_genre_tree(hierarchy, pop_sides, secondary_parents=edges_to_parent_map(secondary_edges)),
+        **build_genre_tree(
+            hierarchy,
+            pop_sides,
+            secondary_parents=edges_to_parent_map(secondary_edges),
+            unaccepted_root_ids=unaccepted_root_ids,
+        ),
     }
 
     if not any(node["name"] == CANONICAL_MAINSTREAM_POP_ROOT_NAME for node in tree["tree"]):

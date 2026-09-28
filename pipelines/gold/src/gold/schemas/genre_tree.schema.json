@@ -19,6 +19,7 @@
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "side": { "type": "string", "enum": ["pop"] },
+        "isUnacceptedRoot": { "type": "boolean", "const": true },
         "children": {
           "type": "array",
           "items": { "$ref": "#/$defs/node" }

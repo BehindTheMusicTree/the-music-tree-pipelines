@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import polars as pl
@@ -76,16 +77,19 @@ def test_extract_canonical_roots_keeps_only_parentless_items(tmp_path: Path) -> 
             "item_id": "Q8341",
             "item_label": "jazz",
             "item_url": "https://www.wikidata.org/wiki/Q8341",
+            "is_accepted": True,
         },
         {
             "item_id": "Q9778",
             "item_label": "popular music",
             "item_url": "https://www.wikidata.org/wiki/Q9778",
+            "is_accepted": True,
         },
         {
             "item_id": "Q11399",
             "item_label": "rock music",
             "item_url": "https://www.wikidata.org/wiki/Q11399",
+            "is_accepted": True,
         },
     ]
 
@@ -100,10 +104,14 @@ def test_extract_canonical_roots_creates_output_dir(tmp_path: Path) -> None:
     assert output_dir.is_dir()
 
 
-def test_extract_canonical_roots_raises_on_unaccepted_new_root(tmp_path: Path) -> None:
+def test_extract_canonical_roots_flags_unaccepted_new_root(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     hierarchy_path = _write_hierarchy(tmp_path)
     accepted_roots_path = _write_accepted_roots(tmp_path, ["Q9778", "Q11399"])
     output_dir = tmp_path / "silver"
 
-    with pytest.raises(ValueError, match="Q8341"):
-        sr.extract_canonical_roots(hierarchy_path, accepted_roots_path, output_dir)
+    with caplog.at_level(logging.WARNING):
+        result = sr.extract_canonical_roots(hierarchy_path, accepted_roots_path, output_dir)
+
+    flags = dict(pl.read_parquet(result).select("item_id", "is_accepted").iter_rows())
+    assert flags == {"Q8341": False, "Q9778": True, "Q11399": True}
+    assert "1 unaccepted canonical root(s), flagged for review: ['Q8341 (jazz)']" in caplog.text

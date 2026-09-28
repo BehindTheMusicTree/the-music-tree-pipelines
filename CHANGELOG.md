@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [2.1.0](#210---2026-09-28)
 - [2.0.1](#201---2026-09-27)
 - [2.0.0](#200---2026-09-26)
 - [1.4.0](#140---2026-09-25)
@@ -31,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [2.1.0] - 2026-09-28
+
+### Changed
+
+- `wikidata`: a canonical root missing from `manual_accepted_canonical_roots.csv` no longer fails the Silver run — `9_canonical_roots.parquet` gains an `is_accepted` column and unaccepted roots are logged as a WARNING (`N unaccepted canonical root(s), flagged for review: [...]`).
+- `gold`: `1_canonical_genre_tree.json` marks unaccepted canonical roots with `"isUnacceptedRoot": true` (emitted only when true; schema updated) so grow-the-music-tree-api queues them for admin review.
 
 ## [2.0.1] - 2026-09-27
 
