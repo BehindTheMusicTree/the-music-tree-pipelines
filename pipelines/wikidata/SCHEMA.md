@@ -176,7 +176,7 @@ shape — see below.
 | [`6_canonical_parents`](#37-6_canonical_parents)                            | `5_main_parent_selection.parquet`            | `6_canonical_parents.parquet`                                                | `parent_is_canonical`               | flags whether each item's chosen main parent is itself an actual musical style |
 | [`7_canonical_hierarchy`](#38-7_canonical_hierarchy)                        | `6_canonical_parents.parquet`                | `7_canonical_hierarchy.parquet`                                              | prunes to one row per `item_id` (canonical only) | clean, one-parent-per-item canonical edge list |
 | [`8_regional_hierarchy`](#39-8_regional_hierarchy)                          | `6_canonical_parents.parquet`                | `8_regional_hierarchy.parquet`                                               | prunes to one row per `item_id` (regional only) | clean, one-parent-per-item regional edge list |
-| [`9_canonical_roots`](#310-9_canonical_roots)                               | `7_canonical_hierarchy.parquet`              | `9_canonical_roots.parquet`                                                  | filters to root items               | for manual exploration of the "too many roots" open question (see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) |
+| [`9_canonical_roots`](#310-9_canonical_roots)                               | `7_canonical_hierarchy.parquet`, `manual_accepted_canonical_roots.csv` | `9_canonical_roots.parquet`                                                  | filters to root items, `is_accepted` | for manual exploration of the "too many roots" open question (see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) |
 
 Each step's own section below has the full column definitions and profiling detail behind these
 numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
@@ -358,9 +358,11 @@ run earlier, in `2_non_genre_pruning` — see
 | ------------- | ---- | ---------------------------------------------------------------------------------- |
 | item_id       | str  | Wikidata QID of the genre (e.g. `Q11399`) — **unique in this table**             |
 | item_label    | str  | Same English/`mul`-fallback label as in `1_item_links` (see above), for `item_id`                                                      |
+| item_display_label | str | Same as in `1_item_links`, for `item_id` — emitted by Gold as the node `name` |
 | item_url      | str  | `https://www.wikidata.org/wiki/` + `item_id`                                     |
 | parent_id     | str? | QID of the single chosen parent, or null for a root                              |
 | parent_label  | str? | Same fallback as `item_label`, for `parent_id`, or null                                           |
+| parent_display_label | str? | Same as in `1_item_links`, for `parent_id`, or null |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
 | relation_type | str? | `"P279"`, `"P361"`, or `"manual_main_parent"` — which property/source produced this edge, or null for a root row |
 
@@ -402,18 +404,20 @@ will drift as Wikidata's live genre tree changes.
 
 `9_canonical_roots.parquet`: `7_canonical_hierarchy.parquet` filtered to root items (`parent_id`
 null, or pointing at a QID with no row of its own in that file — a dead-end parent) and reduced to
-the three item-identifying columns, sorted by `item_label`. Exists purely to make manual
+the three item-identifying columns plus `is_accepted`, sorted by `item_label`. Exists purely to make manual
 exploration of the "too many roots" open question
 ([DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) easier — a ready-to-open list of exactly the
 items in question, instead of re-deriving the filter each time (as
-`notebooks/explore_genre_tree.ipynb` currently does inline). Not consumed by any later step and not
-itself part of the pruning chain — it's a read view of `7_canonical_hierarchy`, not new information.
+`notebooks/explore_genre_tree.ipynb` currently does inline). Not part of the pruning chain; consumed by
+Gold's `canonical_genre_tree_export.py`, which marks roots with `is_accepted = false` as
+`isUnacceptedRoot: true` for review in grow-the-music-tree-api.
 
 | Column     | Type | Meaning                                       |
 | ---------- | ---- | ---------------------------------------------- |
 | item_id    | str  | Wikidata QID of the root genre (e.g. `Q11399`) |
 | item_label | str  | English label for `item_id`                    |
 | item_url   | str  | `https://www.wikidata.org/wiki/` + `item_id`   |
+| is_accepted | bool | `item_id` is in `manual_accepted_canonical_roots.csv`; false = new since last triage, logged as a WARNING and flagged for review |
 
 See [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count) for
 context on why this count is expected to shrink as the lowest-QID main-parent heuristic and
