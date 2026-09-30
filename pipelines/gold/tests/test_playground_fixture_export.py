@@ -7,7 +7,7 @@ import pytest
 from gold.playground_fixture_export import export_playground_fixture
 
 TREE = {
-    "allowsMultiplePrimaryParents": False,
+    "treeName": "canonical",
     "tree": [
         {
             "id": "Q1",
@@ -141,7 +141,7 @@ def test_export_playground_fixture_raises_on_slug_collision(tmp_path: Path) -> N
     tree_path = _write_tree(
         tmp_path,
         tree={
-            "allowsMultiplePrimaryParents": False,
+            "treeName": "canonical",
             "tree": [{"id": "Q1", "name": "R&B", "children": []}, {"id": "Q2", "name": "R B", "children": []}],
         },
     )

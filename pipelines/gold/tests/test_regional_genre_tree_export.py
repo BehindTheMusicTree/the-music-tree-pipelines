@@ -81,7 +81,7 @@ def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(tm
 
     tree = json.loads(export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path).read_text())
 
-    assert tree["allowsMultiplePrimaryParents"] is True
+    assert tree["treeName"] == "regional"
     samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
     assert samba["primaryParents"] == ["Q1", "Q12"]
     assert "secondaryParents" not in samba

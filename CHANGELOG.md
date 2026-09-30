@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking** `gold`: genre tree exports now identify their tree by name, `{"treeName": "canonical" | "regional", "tree": [...]}`, replacing the `allowsMultiplePrimaryParents` flag — matching `grow-the-music-tree-api`'s new tree import contract.
+
 ## [2.1.0] - 2026-09-28
 
 ### Changed
