@@ -4,13 +4,13 @@
   "title": "Genre tree export",
   "type": "object",
   "properties": {
-    "allowsMultiplePrimaryParents": { "type": "boolean" },
+    "treeName": { "enum": ["canonical", "regional"] },
     "tree": {
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
     }
   },
-  "required": ["allowsMultiplePrimaryParents", "tree"],
+  "required": ["treeName", "tree"],
   "additionalProperties": false,
   "$defs": {
     "node": {

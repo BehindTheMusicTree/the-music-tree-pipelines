@@ -26,7 +26,7 @@ Two consumers also pin a snapshot of these exports, so a schema change to them n
 ## Overview
 
 - **Inputs:** `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`, and `musicbrainz`'s `3_songs.parquet` (all Silver outputs, produced independently by those pipelines — see their own READMEs).
-- **Outputs:** `1_canonical_genre_tree.json` and `1_regional_genre_tree.json` (each the full genre tree for that scope, nested `{"allowsMultiplePrimaryParents": bool, "tree": [...]}` shape) and `2_songs.json` (a flat list of songs, each tagged with a canonical `genre_name`), all validated against a JSON Schema before being written, and all regenerated automatically every run — there are no manual/on-demand export scripts here.
+- **Outputs:** `1_canonical_genre_tree.json` and `1_regional_genre_tree.json` (each the full genre tree for that scope, nested `{"treeName": "canonical" | "regional", "tree": [...]}` shape) and `2_songs.json` (a flat list of songs, each tagged with a canonical `genre_name`), all validated against a JSON Schema before being written, and all regenerated automatically every run — there are no manual/on-demand export scripts here.
 
 ## Pipeline
 

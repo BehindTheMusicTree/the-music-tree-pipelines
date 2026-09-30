@@ -237,7 +237,7 @@ def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_
 
     tree = json.loads(export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path).read_text())
 
-    assert tree["allowsMultiplePrimaryParents"] is False
+    assert tree["treeName"] == "canonical"
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     pop_rock = next(child for child in rock["children"] if child["name"] == "pop rock")
     assert pop_rock["secondaryParents"] == ["Q7"]
