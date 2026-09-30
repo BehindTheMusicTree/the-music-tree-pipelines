@@ -58,7 +58,7 @@ def export_regional_genre_tree(
     )
     demoted = _load_demoted_edges(manual_regional_secondary_parents_path, extra_edges)
     tree = {
-        "allowsMultiplePrimaryParents": True,
+        "treeName": "regional",
         **build_genre_tree(
             hierarchy,
             primary_parents=edges_to_parent_map(extra_edges.join(demoted, on=["item_id", "parent_id"], how="anti")),

@@ -90,7 +90,7 @@ def export_canonical_genre_tree(
     roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))
     tree = {
-        "allowsMultiplePrimaryParents": False,
+        "treeName": "canonical",
         **build_genre_tree(
             hierarchy,
             pop_sides,
