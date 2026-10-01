@@ -2,6 +2,10 @@
 
 Rationale for `gold`'s match cascade. See [SCHEMA.md](SCHEMA.md) for column/shape detail.
 
+All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-api` (edited through its
+`curation/<list>/entries/` endpoints or the grow admin UI), pulled at the start of each run into
+`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`).
+
 ## Why reconciliation lives here, not in either source pipeline
 
 Matching musicbrainz's raw tag names against wikidata's canonical genre labels needs both pipelines'

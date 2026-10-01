@@ -3,6 +3,10 @@
 Design rationale, classification rules, and manual-CSV curation mechanics for `wikidata`'s Silver
 pipeline. See [SCHEMA.md](SCHEMA.md) for column definitions and data profiles.
 
+All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-api` (edited through its
+`curation/<list>/entries/` endpoints or the grow admin UI), pulled at the start of each run into
+`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`).
+
 ## Table of Contents
 
 - [Design](#design)
@@ -131,7 +135,7 @@ gold's `genre_tree_builder` actually emits as a tree node's `"name"`, derived wi
    "Mainstream Pop").
 2. Sentence-case the raw label (default, when no override exists): first, replace any whole word
    (hyphen- or space-delimited) that matches an entry in `manual_capitalized_words.csv` — a
-   git-tracked, pre-seeded list of country demonyms, continent/region adjectives, and common
+   pre-seeded list of country demonyms, continent/region adjectives, and common
    compound-adjective prefixes (afro-, anglo-, etc.) — with its capitalized form, wherever it
    appears in the label (not just at the start); then capitalize the label's first character if
    it isn't already. This is deliberately not "lowercase everything then capitalize the first
@@ -145,7 +149,7 @@ empty.
 
 ### 2.1 2_non_genre_pruning
 
-Five git-tracked, hand-curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
+Five curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
 items that no automated signal distinguishes from a real genre, so a data expert reviewing the
 root lists adds them by hand. Every `item_id` across all five is dropped from the genre tree
 entirely (unknown `item_id`s raise), right after `1_item_links` and before any other classification
@@ -234,8 +238,7 @@ instance-of a different class) and not as any item's `parent_label` either (so o
 above can't reach them). Such an item is invisible to this step and cannot legally be used as a
 `manual_regional_overrides.csv` `overview_item_id` target.
 
-`manual_regional_overview_additions.csv` (`src/wikidata/silver/manual_regional_overview_additions.csv`,
-git-tracked, hand-curated — columns `item_id,item_label,reason`) is the backstop: a data expert who
+`manual_regional_overview_additions.csv` (curated — columns `item_id,item_label,reason`) is the backstop: a data expert who
 has looked up the item's real Wikidata QID adds a row here, and this step synthesizes it as a root
 row (same shape as an auto-promoted orphan) before the `classification_reason` rule runs, so it
 gets `is_regional_overview = True` "for free" and becomes a legal `overview_item_id` target.
@@ -263,7 +266,7 @@ music, ...), functionally identical to a "music of Europe" overview item, but na
 prefix.
 
 `manual_overview_reclassifications.csv`
-(`src/wikidata/silver/manual_overview_reclassifications.csv`, git-tracked, hand-curated — columns
+(curated — columns
 `item_id,item_label,reason`) is the backstop for this case: a data expert lists the item's QID and
 current label, and this step flags it `is_regional_overview = True` /
 `classification_reason = "manual_overview_reclassification"` directly, without touching its label.
@@ -295,7 +298,7 @@ manual CSV backstops rather than an automated rule here.
 `4_regional_classification` also reads Bronze `wikidata_genre_indigenous_to.parquet` (see
 [SCHEMA.md#2-bronze](SCHEMA.md#2-bronze)) to catch nationally/ethnically-specific genres that have
 no `P279`/`P361` parent for the cascade below to propagate through in the first place, plus a
-git-tracked, hand-curated CSV (`src/wikidata/silver/manual_regional_overrides.csv`, not Bronze —
+curated CSV (`manual_regional_overrides.csv`, not Wikidata Bronze —
 it's authored by a data expert, not fetched from Wikidata) for the rare item the automated sources
 still miss.
 
@@ -307,8 +310,8 @@ status onto their real subgenres).
 `P2341` has the same false-positive pathology on rare occasions (e.g. "classical music" carries
 `indigenous_to = Europe`, a continent, not a specific people/culture), but unlike `P495` it can't be
 blanket-excluded — it's also the *only* regional signal for real regional genres with no other
-parent-based or property-based signal at all (e.g. "Han Chinese music"). A git-tracked,
-hand-curated `src/wikidata/silver/manual_indigenous_to_exclusions.csv` (columns
+parent-based or property-based signal at all (e.g. "Han Chinese music"). A curated
+`manual_indigenous_to_exclusions.csv` (columns
 `item_id,item_label,reason`) lets a data expert drop specific false-positive `item_id`s from the
 `indigenous_to` seed source only, one at a time, before the seed set is built. Each `item_id` must
 already carry a `P2341` value in Bronze `wikidata_genre_indigenous_to.parquet` — the pipeline
@@ -406,8 +409,8 @@ reaches regional status via an already-flagged parent that isn't itself a seed.
 
 #### 2.3.4 `manual_main_parent.csv` main-parent override
 
-Before the regional cascade ([2.3.3](#233-cascade)) runs, this step also reads a git-tracked,
-hand-curated `manual_main_parent.csv` (columns: `item_id`, `item_label`, `reason`,
+Before the regional cascade ([2.3.3](#233-cascade)) runs, this step also reads a curated
+`manual_main_parent.csv` (columns: `item_id`, `item_label`, `reason`,
 `parent_item_id`) and applies each row as a synthetic parent edge, replacing the item's null-parent
 root row if it had one. Running this before the cascade lets `is_regional` flow naturally through
 the injected edge, the same as any other parent edge.
@@ -438,7 +441,7 @@ needs to leave the regional graph entirely, not just get a better main parent.
 `manual_main_parent.csv`'s `parent_item_id` is usually a real Wikidata item already in the tree, but
 can also be a synthetic grouping node with no Wikidata counterpart (e.g. "Reggae/Dub (grouping)",
 grouping "reggae" and "dub music" — no single Wikidata item represents that pairing). Such nodes are
-added via a third git-tracked, hand-curated CSV, `manual_canonical_parent_additions.csv` (columns:
+added via a third curated CSV, `manual_canonical_parent_additions.csv` (columns:
 `item_id`, `item_label`, `reason`), applied just before `manual_main_parent.csv` so the new node is a
 legal `parent_item_id` target. `item_id` must start with `LOCAL:` (never a fabricated QID-shaped id)
 and must not already exist in the tree — the mirror image of the synthetic-id fallback in
@@ -521,7 +524,7 @@ Tanzania") and a parent that was never in Bronze's `P31` "music genre" extension
 `is_regional`/`is_regional_overview`/`parent_is_canonical` flags built up by the prior
 classification steps: it reduces `6_canonical_parents.parquet` to one row per non-regional genre
 item, producing a clean, directly-consumable canonical genre hierarchy edge list — excluding every
-`is_regional = true` item, which now includes the `regional_overview` seed items themselves (see
+`is_regional = true` item, which includes the `regional_overview` seed items themselves (see
 [2.7 8_regional_hierarchy](#27-8_regional_hierarchy) for those).
 
 #### 2.6.1 Rule: prune to same-graph edges
@@ -579,8 +582,7 @@ vanishing happens.
 ### 2.7 8_regional_hierarchy
 
 `8_regional_hierarchy.parquet` mirrors `7_canonical_hierarchy`'s pruning, restricted to
-`is_regional = true` items — which now includes the `regional_overview` seed items themselves,
-rather than being dropped: it reduces `6_canonical_parents.parquet` to one row per regional genre
+`is_regional = true` items — which includes the `regional_overview` seed items themselves: it reduces `6_canonical_parents.parquet` to one row per regional genre
 item, producing a clean, directly-consumable regional genre hierarchy edge list.
 
 #### 2.7.1 Rule: prune to same-graph edges
@@ -595,8 +597,8 @@ to a single candidate parent upstream.
 
 #### 2.7.2 Known consequence — regional seeds become real nodes
 
-A `regional_overview` seed like "music of Cape Verde" is now a real node with its own real parent
-chain (or a genuine root, if it has no `P279`/`P361` parent at all) rather than being dropped — so
+A `regional_overview` seed like "music of Cape Verde" is a real node with its own real parent
+chain (or a genuine root, if it has no `P279`/`P361` parent at all) — so
 an item like "morna," whose only parent is that seed, keeps its real parent edge instead of being
 promoted to a synthetic root itself.
 
@@ -609,7 +611,7 @@ to mark unaccepted roots `isUnacceptedRoot: true` in `1_canonical_genre_tree.jso
 
 #### 2.8.1 `manual_accepted_canonical_roots.csv` guard-rail
 
-A root that isn't already in the git-tracked `manual_accepted_canonical_roots.csv` is new since the
+A root that isn't already in the curated `manual_accepted_canonical_roots.csv` is new since the
 last triage pass. It's flagged (`is_accepted = false`) and logged as a WARNING
 (`N unaccepted canonical root(s), flagged for review: [...]`) rather than raising, so it doesn't
 silently reappear as a reviewed root yet doesn't fail the nightly ETL + API sync either. Gold carries

@@ -9,11 +9,10 @@ from gold.genre_tree_builder import build_genre_tree, edges_to_parent_map, load_
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
 
-# Committed alongside the code (not a gitignored gold output): a regional item's extra Wikidata
+# manual_regional_secondary_parents.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a regional item's extra Wikidata
 # parent edges are exported as primaryParents (tracks flow into that parent's playlist) by default;
 # a data expert lists an (item_id, parent_id) edge here to demote it to a secondaryParents
 # classification-only link instead.
-MANUAL_REGIONAL_SECONDARY_PARENTS_PATH = Path(__file__).parent / "manual_regional_secondary_parents.csv"
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ def _load_demoted_edges(manual_regional_secondary_parents_path: Path, extra_edge
 def export_regional_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
-    manual_regional_secondary_parents_path: Path = MANUAL_REGIONAL_SECONDARY_PARENTS_PATH,
+    manual_regional_secondary_parents_path: Path,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "8_regional_hierarchy.parquet"
     logger.info("building regional genre tree from %s", hierarchy_path)

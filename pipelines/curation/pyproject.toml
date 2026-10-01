@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.30.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "curation"
+version = "0.1.0"
+description = "Curation rules (genre-tree manual overrides), ingested from grow-the-music-tree-api's curation export."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "polars==1.42.1",
+    "httpx==0.28.1",
+    "common",
+]
+
+[project.urls]
+Repository = "https://github.com/BehindTheMusicTree/the-music-tree-pipelines"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/curation"]
+
+[tool.uv.sources]
+common = { workspace = true }

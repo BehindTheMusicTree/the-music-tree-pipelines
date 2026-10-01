@@ -7,13 +7,11 @@ from common.quality_checks import check_non_empty, check_null_rate, check_row_co
 
 logger = logging.getLogger(__name__)
 
-# Committed alongside the code (not a gitignored gold output): a data expert's triage decisions for
+# manual_genre_alias.csv / manual_accepted_non_genre_tags.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's triage decisions for
 # musicbrainz tag names that don't auto-match a canonical wikidata genre label — either a real genre
 # just named differently (this CSV) or permanent non-genre folksonomy noise
 # (manual_accepted_non_genre_tags.csv). See 1_genre_match_unresolved.csv for the names still awaiting
 # triage.
-MANUAL_GENRE_ALIAS_PATH = Path(__file__).parent / "manual_genre_alias.csv"
-MANUAL_ACCEPTED_NON_GENRE_TAGS_PATH = Path(__file__).parent / "manual_accepted_non_genre_tags.csv"
 
 _MUSIC_SUFFIX_PATTERN = r" music$"
 

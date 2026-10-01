@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 
-# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
-# not fetched from Wikidata: genres that slip through the automated seed/indigenous_to/
+# manual_regional_overrides.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# genres that slip through the automated seed/indigenous_to/
 # country_of_origin classification below (e.g. roots with no P279/P361 parent and no P2341/P495
 # value) get added here by a data expert reviewing 8_canonical_roots list, with a `reason` for
 # each entry. `overview_item_id` is the `item_id` of the `regional_overview` item (e.g. "music of
@@ -18,10 +18,9 @@ WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 # the override item nests under in 7_regional_hierarchy — required, since these override items
 # typically have no P279/P361 parent and would otherwise surface as their own orphan root in the
 # regional tree instead of sitting under their region. See DESIGN.md#23-4_regional_classification.
-MANUAL_OVERRIDES_PATH = Path(__file__).parent / "manual_regional_overrides.csv"
 
-# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
-# not fetched from Wikidata: a data expert's pick for an item's *main* parent (see
+# manual_main_parent.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# a data expert's pick for an item's *main* parent (see
 # main_parent_selection.py), overriding whatever the automated lowest-QID heuristic would otherwise
 # pick among that item's candidate parent edges — or, for a genuinely parentless root, giving it a
 # parent it never had. Applied here, before the regional cascade below runs, so the injected edge is
@@ -39,13 +38,12 @@ MANUAL_OVERRIDES_PATH = Path(__file__).parent / "manual_regional_overrides.csv"
 # P279) that would otherwise keep it `is_regional=True` via the cascade below regardless of the
 # manual override, since is_regional is computed from *any* of an item's parent edges, not just its
 # eventual main parent.
-MANUAL_MAIN_PARENT_PATH = Path(__file__).parent / "manual_main_parent.csv"
 
 # Tags a synthetic edge injected from manual_main_parent.csv so main_parent_selection.py can prefer
 # it over the item's other candidate parent edges when picking a main parent.
 MANUAL_MAIN_PARENT_RELATION_TYPE = "manual_main_parent"
 
-# Committed alongside the code for the same reason as the paths above: a canonical (non-regional,
+# manual_canonical_parent_additions.csv, curated the same way: a canonical (non-regional,
 # non-overview) grouping node that has no real Wikidata QID of its own — e.g. "Reggae/Dub", a
 # grouping Gold-layer wants but that no single Wikidata item represents — so a data expert can still
 # give real genre items (like "reggae" and "dub music") a real parent to nest under in
@@ -53,11 +51,10 @@ MANUAL_MAIN_PARENT_RELATION_TYPE = "manual_main_parent"
 # QID-shaped id) and must not already be present in the genre tree. Applied before
 # _apply_manual_main_parent so the new node is a legal parent_item_id target. See
 # DESIGN.md#23-4_regional_classification.
-MANUAL_CANONICAL_PARENT_ADDITIONS_PATH = Path(__file__).parent / "manual_canonical_parent_additions.csv"
 MANUAL_CANONICAL_PARENT_ADDITION_REASON = "manual_canonical_parent_addition"
 LOCAL_ID_PREFIX = "LOCAL:"
 
-# Committed alongside the code for the same reason as the paths above: P2341 ("indigenous to") is
+# manual_indigenous_to_exclusions.csv, curated the same way: P2341 ("indigenous to") is
 # treated as an automatic regional-seed signal below, but — like P495 ("country of origin", see the
 # comment in classify_regional_genres for why that property is excluded entirely) — it's sometimes
 # set on a broad canonical umbrella genre pointing at a whole continent rather than a specific
@@ -69,7 +66,6 @@ LOCAL_ID_PREFIX = "LOCAL:"
 # item_id,item_label,reason. `item_id` must already carry a P2341 value in Bronze
 # wikidata_genre_indigenous_to.parquet — the pipeline raises otherwise, since an exclusion with
 # nothing to exclude is almost certainly a stale/typo'd entry.
-MANUAL_INDIGENOUS_TO_EXCLUSIONS_PATH = Path(__file__).parent / "manual_indigenous_to_exclusions.csv"
 
 
 def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.DataFrame) -> pl.DataFrame:

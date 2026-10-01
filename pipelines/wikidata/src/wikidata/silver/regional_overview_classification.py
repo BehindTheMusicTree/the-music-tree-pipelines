@@ -28,17 +28,15 @@ WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 # handled by this classification step.
 REGIONAL_OVERVIEW_PREFIX = "music of "
 
-# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated,
-# not fetched from Wikidata: a "music of <place>" overview item that never appears in Bronze at
+# manual_regional_overview_additions.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# a "music of <place>" overview item that never appears in Bronze at
 # all (not even as a `parent_label` for orphan-promotion above to pick up, e.g. because no genre in
 # the dataset happens to declare it as a P279/P361 parent) can be added here by a data expert who
 # looked up its real Wikidata QID (or, as a last resort when no matching Wikidata item exists,
 # a synthetic `LOCAL:`-prefixed id), so it becomes a legal `manual_regional_overrides.csv`
 # `overview_item_id` target. See DESIGN.md#22-3_regional_overview_classification.
-MANUAL_OVERVIEW_ADDITIONS_PATH = Path(__file__).parent / "manual_regional_overview_additions.csv"
 
-# Committed alongside the code for the same reason as MANUAL_OVERVIEW_ADDITIONS_PATH, but for the
-# opposite case: an item that already has its own row in Bronze/`1_item_links` (usually a real
+# manual_overview_reclassifications.csv, curated the same way, covers the opposite case: an item that already has its own row in Bronze/`1_item_links` (usually a real
 # genre with a `P279`/`P361` parent edge) that a data expert has decided belongs in the regional
 # graph as a non-genre overview node instead — e.g. "European folk music" (Q98528192), a
 # continent-wide folk-music umbrella rather than a specific style. Unlike
@@ -46,7 +44,6 @@ MANUAL_OVERVIEW_ADDITIONS_PATH = Path(__file__).parent / "manual_regional_overvi
 # (that's the whole point — these are exactly the items the prefix rule can't catch), but `item_id`
 # MUST already be present in the genre tree, with a matching `item_label`, and not already flagged
 # `is_regional_overview` by the prefix rule. See DESIGN.md#22-3_regional_overview_classification.
-MANUAL_OVERVIEW_RECLASSIFICATIONS_PATH = Path(__file__).parent / "manual_overview_reclassifications.csv"
 MANUAL_OVERVIEW_RECLASSIFICATION_REASON = "manual_overview_reclassification"
 
 

@@ -34,12 +34,12 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 ## 3. Manual CSVs
 
-Committed alongside the code, colocated with `src/gold/genre_match.py` — see [DESIGN.md](DESIGN.md) for how they're used and validated.
+Read from `CURATION_BRONZE_DIR` (curation pipeline's Bronze output) — see [DESIGN.md](DESIGN.md) for how they're used and validated.
 
 **`manual_genre_alias.csv`**: `musicbrainz_genre_name, wikidata_genre_name, reason` — a real genre named differently by musicbrainz than by wikidata.
 
 **`manual_accepted_non_genre_tags.csv`**: `musicbrainz_genre_name, reason` — permanent non-genre folksonomy noise (e.g. `asmr`, `birdsong`) that should never resolve to a genre.
 
-**`manual_canonical_genre_pop_side.csv`** (colocated with `src/gold/canonical_genre_tree_export.py`): `root_genre_name, pop_child_genre_name, reason` — for a canonical root, which direct child(ren) are `the-music-tree-genre-kit`'s "pop" side; a root may have zero, one, or several pop children (one row each), but at least one direct child must remain "core".
+**`manual_canonical_genre_pop_side.csv`**: `root_genre_name, pop_child_genre_name, reason` — for a canonical root, which direct child(ren) are `the-music-tree-genre-kit`'s "pop" side; a root may have zero, one, or several pop children (one row each), but at least one direct child must remain "core".
 
-**`manual_regional_secondary_parents.csv`** (colocated with `src/gold/regional_genre_tree_export.py`): `item_id, item_label, parent_id, parent_label, reason` — an extra parent edge of a regional item to export as `secondaryParents` (classification only, no track flow) instead of the default `primaryParents`. Each `(item_id, parent_id)` must be an exported extra edge, else the export raises.
+**`manual_regional_secondary_parents.csv`**: `item_id, item_label, parent_id, parent_label, reason` — an extra parent edge of a regional item to export as `secondaryParents` (classification only, no track flow) instead of the default `primaryParents`. Each `(item_id, parent_id)` must be an exported extra edge, else the export raises.
