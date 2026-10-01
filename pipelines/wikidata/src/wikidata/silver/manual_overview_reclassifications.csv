@@ -1,4 +1,0 @@
-item_id,item_label,reason
-Q98528192,European folk music,"continent-wide folk-music umbrella (parent of dozens of national folk genres, e.g. Hungarian folk music, Nordic folk music), functionally a regional overview like ""music of Europe"" rather than a specific style, but its label doesn't carry the ""music of "" prefix so the automated rule misses it"
-Q1065742,religious music,"manually promoted to a regional-overview grouping node by data-expert decision, overriding its prior manual_theme_genres.csv exclusion, so religion-based roots (Christian music, Islamic music) can nest under it via manual_regional_overrides.csv instead of remaining ungrouped canonical roots"
-Q205049,world music,"user-requested top-level regional-overview node instead of a dropped umbrella; all existing root-level regional overviews nest under it via manual_regional_overrides.csv, replacing the earlier synthetic LOCAL:world placeholder"

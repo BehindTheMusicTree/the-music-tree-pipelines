@@ -11,6 +11,8 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 **No Bronze/Silver of its own** — `gold` only reads the two upstream pipelines' Silver output and exports. Four steps, run in sequence by `src/gold/__main__.py`: `export_canonical_genre_tree` (`canonical_genre_tree_export.py`, independent of the rest) and `export_regional_genre_tree` (`regional_genre_tree_export.py`, independent of the rest) both share the recursive tree-builder in `genre_tree_builder.py`; `genre_match` (`genre_match.py`); `export_songs` (`song_export.py`, consumes `genre_match`'s output). See `SCHEMA.md` for column/shape detail and `DESIGN.md` for the match-cascade rationale.
 
+**Curation input:** every `manual_*.csv` this pipeline reads comes from `CURATION_BRONZE_DIR` — the `curation` pipeline's Bronze output, pulled from `grow-the-music-tree-api` (the source of truth, edited via its `curation/<list>/entries/` endpoints or the grow admin UI). Run `uv run --package curation python -m curation.ingest` first.
+
 **No manual/on-demand scripts run as part of the scheduled pipeline** — the four steps above run automatically as part of `__main__.py`, same cadence as every other pipeline's daily run. `playground_fixture_export.py` is the one exception: an on-demand module (mirroring `musicbrainz/scripts/export_songs_json.py`'s precedent) that flattens `export_canonical_genre_tree`'s nested `{"tree": [...]}` output into the flat `GenreTreeNode[]` shape (`id`/`parentId`/`name`/`itemCount`/`side?`) the separate `genre-tree-view` repo's playground fixture consumes — `id` is a slug of each (tree-wide unique, per `genre_tree_builder`'s duplicate-name check) `name`; `itemCount` is each node's resolved `1_genre_match.parquet` matches rolled up through its descendants (a node's count includes its children's, recursively). It is invoked directly by the `infrastructure` repo's daily pipeline run after both `export_canonical_genre_tree` and `genre_match` have produced their output, not wired into `__main__.py`.
 
 **JSON Schema validation**: both JSON exports are validated (`jsonschema.validate`) against a schema in `src/gold/schemas/` before being written, raising `ValueError` on mismatch — a malformed export should fail the run loudly rather than ship a broken file to `grow-the-music-tree-api`.
@@ -20,4 +22,4 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 ## Docs
 
 - `SCHEMA.md` — pure data dictionary (columns, types, meaning).
-- `DESIGN.md` — match-cascade rationale, manual-CSV curation mechanics.
+- `DESIGN.md` — match-cascade rationale, curation-list mechanics.

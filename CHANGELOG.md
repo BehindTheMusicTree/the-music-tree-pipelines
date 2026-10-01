@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `curation` pipeline (Bronze only): `python -m curation.ingest` pulls every curation list from `grow-the-music-tree-api`'s `curation/export/` endpoint (`GROW_API_BASE_URL`, `GROW_API_KEY`) and writes one `manual_<list>.csv` per list to `BRONZE_OUTPUT_DIR`, same filenames and headers as before.
+
+### Changed
+
+- **Breaking** `wikidata` Silver and `gold` now read their `manual_*.csv` curation rules from the required `CURATION_BRONZE_DIR` (the `curation` pipeline's Bronze output); `curation.ingest` must run before them.
+
+### Removed
+
+- The 18 git-tracked `manual_*.csv` files under `pipelines/wikidata/src/wikidata/silver/` and `pipelines/gold/src/gold/` — curation now lives in `grow-the-music-tree-api`'s admin and API.
+
 ## [3.0.0] - 2026-09-30
 
 ### Changed

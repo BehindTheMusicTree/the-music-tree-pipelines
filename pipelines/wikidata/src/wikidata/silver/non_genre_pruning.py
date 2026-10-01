@@ -5,15 +5,10 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
-# Committed alongside the code (not a gitignored bronze/silver output) because they're hand-curated,
-# not fetched from Wikidata: each lists items that no automated signal distinguishes from a real
+# The manual theme/technique/out-of-scope/umbrella-canonical/duplicate genre CSVs (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# each lists items that no automated signal distinguishes from a real
 # genre, so a data expert reviewing the root lists adds them by hand, with a `reason` column
 # explaining why. See DESIGN.md#21-2_non_genre_pruning.
-MANUAL_THEME_GENRES_PATH = Path(__file__).parent / "manual_theme_genres.csv"
-MANUAL_TECHNIQUE_GENRES_PATH = Path(__file__).parent / "manual_technique_genres.csv"
-MANUAL_OUT_OF_SCOPE_GENRES_PATH = Path(__file__).parent / "manual_out_of_scope_genres.csv"
-MANUAL_UMBRELLA_CANONICAL_GENRES_PATH = Path(__file__).parent / "manual_umbrella_canonical_genres.csv"
-MANUAL_DUPLICATE_GENRES_PATH = Path(__file__).parent / "manual_duplicate_genres.csv"
 
 
 def _load_dropped_ids(df: pl.DataFrame, manual_csv: pl.DataFrame, csv_name: str) -> set[str]:

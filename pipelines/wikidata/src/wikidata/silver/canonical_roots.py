@@ -5,13 +5,12 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
-# Committed alongside the code (not a gitignored silver output): the set of roots a data expert has
+# manual_accepted_canonical_roots.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): the set of roots a data expert has
 # already triaged and accepted as genuinely standalone canonical genres (see
 # .claude/skills/wikidata-canonical-roots/SKILL.md). A root that isn't in this list is new since the
 # last triage pass: it's flagged (`is_accepted` false, carried into Gold as `isUnacceptedRoot`) for
 # review rather than failing the run — either given a real parent (manual_main_parent.csv), flagged as
 # theme/technique/out-of-scope, or added here once confirmed standalone.
-MANUAL_ACCEPTED_ROOTS_PATH = Path(__file__).parent / "manual_accepted_canonical_roots.csv"
 
 
 def extract_canonical_roots(hierarchy_path: Path, manual_accepted_roots_path: Path, output_dir: Path) -> Path:
