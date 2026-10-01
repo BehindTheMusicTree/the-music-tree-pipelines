@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [4.0.0](#400---2026-10-01)
 - [3.0.0](#300---2026-09-30)
 - [2.1.0](#210---2026-09-28)
 - [2.0.1](#201---2026-09-27)
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [4.0.0] - 2026-10-01
 
 ### Added
 
