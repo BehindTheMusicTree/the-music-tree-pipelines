@@ -42,7 +42,9 @@ def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "gold"
 
-    result = export_regional_genre_tree(wikidata_silver_dir, output_dir)
+    result = export_regional_genre_tree(
+        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", [])
+    )
 
     assert result == output_dir / "1_regional_genre_tree.json"
     tree = json.loads(result.read_text())
@@ -53,7 +55,7 @@ def test_export_regional_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    export_regional_genre_tree(wikidata_silver_dir, output_dir)
+    export_regional_genre_tree(wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []))
 
     assert output_dir.is_dir()
 
@@ -65,7 +67,9 @@ def test_export_regional_genre_tree_raises_on_schema_violation(tmp_path: Path, m
     wikidata_silver_dir = _write_silver(tmp_path)
 
     with pytest.raises(ValueError, match="schema validation"):
-        module.export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold")
+        module.export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", _write_demotion_csv(tmp_path / "demotions.csv", [])
+        )
 
 
 EXTRA_EDGES = [

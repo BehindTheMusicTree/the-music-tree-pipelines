@@ -14,11 +14,10 @@ GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.
 # than failing the downstream import.
 CANONICAL_MAINSTREAM_POP_ROOT_NAME = "Mainstream Pop"
 
-# Committed alongside the code (not a gitignored gold output): a data expert's curated pick of which
+# manual_canonical_genre_pop_side.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's curated pick of which
 # direct child of each canonical root is the-music-tree-genre-kit's "pop" side (crossover/mainstream
 # branch, e.g. Electropop under Electronic) — everything else defaults to "core". Wikidata has no
 # notion of this distinction, so it can't be derived automatically.
-MANUAL_CANONICAL_GENRE_POP_SIDE_PATH = Path(__file__).parent / "manual_canonical_genre_pop_side.csv"
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ def _load_pop_sides(manual_canonical_genre_pop_side_path: Path, hierarchy: pl.Da
 def export_canonical_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
-    manual_canonical_genre_pop_side_path: Path = MANUAL_CANONICAL_GENRE_POP_SIDE_PATH,
+    manual_canonical_genre_pop_side_path: Path,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "7_canonical_hierarchy.parquet"
     logger.info("building canonical genre tree from %s", hierarchy_path)

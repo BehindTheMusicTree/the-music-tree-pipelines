@@ -8,20 +8,18 @@ logger = logging.getLogger(__name__)
 
 WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 
-# Committed alongside the code (not a gitignored bronze/silver output) because it's hand-curated, not
-# fetched from Wikidata: a data expert's pick of an alternate display name for a node in the exported
+# manual_label_overrides.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# a data expert's pick of an alternate display name for a node in the exported
 # genre tree (e.g. "pop music" -> "Mainstream Pop"), with a `reason` column explaining why. This only
 # ever affects `item_display_label`/`parent_display_label` (what gold's genre_tree_builder emits as a
 # node's "name") — `item_label`/`parent_label` (the real Wikidata label, used for genre-tag matching in
 # gold's genre_match.py and for all internal classification logic) are never touched by it.
-MANUAL_LABEL_OVERRIDES_PATH = Path(__file__).parent / "manual_label_overrides.csv"
 
-# Committed alongside the code: a seeded, git-tracked list of nationality/ethnic/region adjectives
+# manual_capitalized_words.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a list of nationality/ethnic/region adjectives
 # (e.g. "cuban" -> "Cuban") that Wikidata is inconsistent about capitalizing inside a genre label (e.g.
 # "afro-cuban jazz"). Applied word-by-word, wherever the word appears in the label — not just at the
 # start — as part of deriving the default `item_display_label` below. Gaps found later (a proper noun
 # that isn't a demonym) get added here the same way other manual CSVs in this pipeline grow over time.
-MANUAL_CAPITALIZED_WORDS_PATH = Path(__file__).parent / "manual_capitalized_words.csv"
 
 _WORD_PATTERN = re.compile(r"[A-Za-z]+")
 
