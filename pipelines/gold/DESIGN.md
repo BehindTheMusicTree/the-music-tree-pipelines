@@ -4,8 +4,7 @@ Rationale for `gold`'s match cascade. See [SCHEMA.md](SCHEMA.md) for column/shap
 
 All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-api` (edited through its
 `curation/<list>/entries/` endpoints or the grow admin UI), pulled at the start of each run into
-`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`). They are no longer
-committed to this repo.
+`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`).
 
 ## Why reconciliation lives here, not in either source pipeline
 

@@ -5,8 +5,7 @@ pipeline. See [SCHEMA.md](SCHEMA.md) for column definitions and data profiles.
 
 All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-api` (edited through its
 `curation/<list>/entries/` endpoints or the grow admin UI), pulled at the start of each run into
-`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`). They are no longer
-committed to this repo.
+`CURATION_BRONZE_DIR` by the `curation` pipeline (`python -m curation.ingest`).
 
 ## Table of Contents
 
@@ -525,7 +524,7 @@ Tanzania") and a parent that was never in Bronze's `P31` "music genre" extension
 `is_regional`/`is_regional_overview`/`parent_is_canonical` flags built up by the prior
 classification steps: it reduces `6_canonical_parents.parquet` to one row per non-regional genre
 item, producing a clean, directly-consumable canonical genre hierarchy edge list — excluding every
-`is_regional = true` item, which now includes the `regional_overview` seed items themselves (see
+`is_regional = true` item, which includes the `regional_overview` seed items themselves (see
 [2.7 8_regional_hierarchy](#27-8_regional_hierarchy) for those).
 
 #### 2.6.1 Rule: prune to same-graph edges
@@ -583,8 +582,7 @@ vanishing happens.
 ### 2.7 8_regional_hierarchy
 
 `8_regional_hierarchy.parquet` mirrors `7_canonical_hierarchy`'s pruning, restricted to
-`is_regional = true` items — which now includes the `regional_overview` seed items themselves,
-rather than being dropped: it reduces `6_canonical_parents.parquet` to one row per regional genre
+`is_regional = true` items — which includes the `regional_overview` seed items themselves: it reduces `6_canonical_parents.parquet` to one row per regional genre
 item, producing a clean, directly-consumable regional genre hierarchy edge list.
 
 #### 2.7.1 Rule: prune to same-graph edges
@@ -599,8 +597,8 @@ to a single candidate parent upstream.
 
 #### 2.7.2 Known consequence — regional seeds become real nodes
 
-A `regional_overview` seed like "music of Cape Verde" is now a real node with its own real parent
-chain (or a genuine root, if it has no `P279`/`P361` parent at all) rather than being dropped — so
+A `regional_overview` seed like "music of Cape Verde" is a real node with its own real parent
+chain (or a genuine root, if it has no `P279`/`P361` parent at all) — so
 an item like "morna," whose only parent is that seed, keeps its real parent edge instead of being
 promoted to a synthetic root itself.
 
