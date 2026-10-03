@@ -9,9 +9,12 @@
       "title": { "type": "string", "minLength": 1 },
       "artist": { "type": "string", "minLength": 1 },
       "youtube_video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
+      "youtube_unplayable_reason": {
+        "enum": [null, "not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
+      },
       "genre_name": { "type": "string", "minLength": 1 }
     },
-    "required": ["title", "artist", "youtube_video_id", "genre_name"],
+    "required": ["title", "artist", "youtube_video_id", "youtube_unplayable_reason", "genre_name"],
     "additionalProperties": false
   }
 }

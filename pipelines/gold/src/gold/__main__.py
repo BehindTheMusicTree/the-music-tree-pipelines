@@ -18,7 +18,7 @@ gold_output_dir = resolve_pipeline_path(gold.__file__, require_env("GOLD_OUTPUT_
 export_canonical_genre_tree(wikidata_silver_dir, gold_output_dir, curation_dir / "manual_canonical_genre_pop_side.csv")
 export_regional_genre_tree(wikidata_silver_dir, gold_output_dir, curation_dir / "manual_regional_secondary_parents.csv")
 genre_match_path = genre_match(
-    musicbrainz_silver_dir / "3_songs.parquet",
+    musicbrainz_silver_dir / "5_songs.parquet",
     wikidata_silver_dir / "7_canonical_hierarchy.parquet",
     curation_dir / "manual_genre_alias.csv",
     curation_dir / "manual_accepted_non_genre_tags.csv",

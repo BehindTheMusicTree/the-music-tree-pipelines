@@ -1,8 +1,8 @@
-"""On-demand export of the Silver `3_songs` dataset to JSON.
+"""On-demand export of the Silver `5_songs` dataset to JSON.
 
 Not a scheduled/systemd job — run manually whenever a fresh copy is needed for the downstream
 API repo, then copy the resulting file into place (see `pipelines/musicbrainz/SCHEMA.md#2-silver`).
-Requires `musicbrainz.silver` to have already been run (reads `SILVER_OUTPUT_DIR/3_songs.parquet`).
+Requires `musicbrainz.silver` to have already been run (reads `SILVER_OUTPUT_DIR/5_songs.parquet`).
 
 Usage:
     uv run --package musicbrainz python scripts/export_songs_json.py [output.json]
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def export_songs_json(silver_dir: Path, output_path: Path) -> Path:
-    songs = pl.read_parquet(silver_dir / "3_songs.parquet")
+    songs = pl.read_parquet(silver_dir / "5_songs.parquet")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(songs.to_dicts(), indent=2, ensure_ascii=False))
     logger.info("wrote %d songs to %s", songs.height, output_path)

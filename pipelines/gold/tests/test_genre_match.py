@@ -13,8 +13,9 @@ HIERARCHY_ROWS = [
 
 
 def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
-    path = tmp_path / "3_songs.parquet"
-    pl.DataFrame(rows).write_parquet(path)
+    path = tmp_path / "5_songs.parquet"
+    rows = [{"youtube_unplayable_reason": None, **row} for row in rows]
+    pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
 
 
@@ -64,6 +65,12 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
     row = df.to_dicts()[0]
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
+
+
+def test_genre_match_passes_youtube_unplayable_reason_through(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("Rock"), "youtube_unplayable_reason": "not_embeddable"}])
+
+    assert pl.read_parquet(result).to_dicts()[0]["youtube_unplayable_reason"] == "not_embeddable"
 
 
 def test_genre_match_music_suffix_normalization(tmp_path: Path) -> None:
@@ -240,6 +247,7 @@ def test_genre_match_drops_malformed_youtube_video_id(tmp_path: Path) -> None:
             "title": "Good Song",
             "artist": "Artist",
             "youtube_video_id": "abc123abc12",
+            "youtube_unplayable_reason": None,
             "genre_name": "Rock",
             "wikidata_genre_name": "rock",
             "match_method": "exact",
