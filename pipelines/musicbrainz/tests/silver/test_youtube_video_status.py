@@ -21,7 +21,7 @@ def _item(video_id: str, **status: object) -> dict:
         (None, "not_found"),
         (_item("a", embeddable=False), "not_embeddable"),
         (_item("a", privacyStatus="private"), "private"),
-        (_item("a", privacyStatus="unlisted"), "private"),
+        (_item("a", privacyStatus="unlisted"), None),
         (_item("a", uploadStatus="uploaded"), "not_processed"),
         ({**_item("a"), "contentDetails": {"regionRestriction": {"allowed": ["FR"]}}}, "region_whitelisted"),
         ({**_item("a"), "contentDetails": {"regionRestriction": {"blocked": ["DE"]}}}, None),
@@ -108,3 +108,31 @@ def test_retries_server_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
         path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
 
     assert pl.read_parquet(path)["youtube_unplayable_reason"].to_list() == [None]
+
+
+def test_keeps_completed_batches_when_a_later_batch_fails(tmp_path: Path) -> None:
+    _write_candidates(tmp_path, [f"v{i:03d}" for i in range(yvs.BATCH_SIZE + 1)])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        ids = request.url.params["id"].split(",")
+        if len(ids) < yvs.BATCH_SIZE:
+            return httpx.Response(403, json={"error": {"errors": [{"reason": "quotaExceeded"}]}})
+        return httpx.Response(200, json={"items": [_item(i) for i in ids]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client, pytest.raises(yvs.YoutubeQuotaExceededError):
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+
+    assert pl.read_parquet(tmp_path / yvs.OUTPUT_FILENAME).height == yvs.BATCH_SIZE
+
+
+def test_non_json_403_surfaces_the_http_error(tmp_path: Path) -> None:
+    _write_candidates(tmp_path, ["a"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text="<html>Forbidden</html>")
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(httpx.HTTPStatusError, match="403"),
+    ):
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)

@@ -32,7 +32,7 @@ def unplayable_reason(item: dict[str, Any] | None) -> str | None:
     status = item["status"]
     if not status["embeddable"]:
         return "not_embeddable"
-    if status["privacyStatus"] != "public":
+    if status["privacyStatus"] == "private":
         return "private"
     if status["uploadStatus"] != "processed":
         return "not_processed"
@@ -62,7 +62,10 @@ def _fetch_batch(client: httpx.Client, api_key: str, video_ids: Sequence[str]) -
         timeout=30.0,
     )
     if response.status_code == 403:
-        errors = response.json().get("error", {}).get("errors", [])
+        try:
+            errors = response.json().get("error", {}).get("errors", [])
+        except ValueError:
+            errors = []
         if any(error.get("reason") == "quotaExceeded" for error in errors):
             raise YoutubeQuotaExceededError(
                 "YouTube Data API daily quota exceeded — rerun after the quota resets (midnight Pacific)"
@@ -85,14 +88,18 @@ def youtube_video_status(silver_dir: Path, output_dir: Path, client: httpx.Clien
 
     to_fetch = sorted(set(video_ids) - set(cached["youtube_video_id"]))
     fetched_rows = []
-    for start in range(0, len(to_fetch), BATCH_SIZE):
-        for video_id, reason in _fetch_batch(client, api_key, to_fetch[start : start + BATCH_SIZE]).items():
-            fetched_rows.append({"youtube_video_id": video_id, "youtube_unplayable_reason": reason, "checked_at": now})
-    fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
-
-    result = pl.concat([cached, fetched]).sort("youtube_video_id")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    result.write_parquet(output_path)
+    # Written in a finally so batches that already spent quota survive a mid-run quota/5xx failure.
+    try:
+        for start in range(0, len(to_fetch), BATCH_SIZE):
+            for video_id, reason in _fetch_batch(client, api_key, to_fetch[start : start + BATCH_SIZE]).items():
+                fetched_rows.append(
+                    {"youtube_video_id": video_id, "youtube_unplayable_reason": reason, "checked_at": now}
+                )
+    finally:
+        fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
+        result = pl.concat([cached, fetched]).sort("youtube_video_id")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        result.write_parquet(output_path)
     logger.info(
         "wrote %d rows to %s (%d fetched, %d from cache, %d unplayable)",
         result.height,
