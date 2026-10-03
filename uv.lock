@@ -1432,17 +1432,21 @@ version = "1.1.0"
 source = { editable = "pipelines/musicbrainz" }
 dependencies = [
     { name = "common" },
+    { name = "httpx" },
     { name = "polars" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyarrow" },
+    { name = "tenacity" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "common", editable = "pipelines/common" },
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "polars", specifier = "==1.42.1" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.4" },
     { name = "pyarrow", specifier = "==25.0.1" },
+    { name = "tenacity", specifier = "==9.1.2" },
 ]
 
 [[package]]

@@ -153,7 +153,15 @@ def genre_match(
             .then(pl.lit("accepted_non_genre"))
             .otherwise(pl.lit("unmatched")),
         )
-        .select("title", "artist", "youtube_video_id", "genre_name", "wikidata_genre_name", "match_method")
+        .select(
+            "title",
+            "artist",
+            "youtube_video_id",
+            "youtube_unplayable_reason",
+            "genre_name",
+            "wikidata_genre_name",
+            "match_method",
+        )
     )
 
     # genre_match is a per-row lookup, not a join — height must stay exactly equal to `songs`; any
