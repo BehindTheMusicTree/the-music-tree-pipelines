@@ -4,15 +4,27 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from gold.song_export import export_songs
+from jsonschema import validate
+
+from gold.song_export import SONGS_SCHEMA_PATH, export_songs
 
 MATCH_ROWS = [
     {
         "title": "Resolved Song",
         "artist": "Artist A",
         "youtube_video_id": "abc123abc12",
+        "youtube_unplayable_reason": None,
         "genre_name": "Rock",
         "wikidata_genre_name": "rock",
+        "match_method": "exact",
+    },
+    {
+        "title": "Flagged Song",
+        "artist": "Artist D",
+        "youtube_video_id": "jkl012jkl01",
+        "youtube_unplayable_reason": "not_embeddable",
+        "genre_name": "Jazz",
+        "wikidata_genre_name": "jazz",
         "match_method": "exact",
     },
     {
@@ -36,7 +48,8 @@ MATCH_ROWS = [
 
 def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     path = tmp_path / "1_genre_match.parquet"
-    pl.DataFrame(rows if rows is not None else MATCH_ROWS).write_parquet(path)
+    rows = [{"youtube_unplayable_reason": None, **row} for row in (rows if rows is not None else MATCH_ROWS)]
+    pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
 
 
@@ -46,8 +59,7 @@ def test_export_songs_filters_out_unmatched_and_accepted_non_genre_rows(tmp_path
     result = export_songs(genre_match_path, tmp_path / "gold")
 
     songs = json.loads(result.read_text())
-    assert len(songs) == 1
-    assert songs[0]["title"] == "Resolved Song"
+    assert [song["title"] for song in songs] == ["Resolved Song", "Flagged Song"]
 
 
 def test_export_songs_renames_wikidata_genre_name_to_genre_name(tmp_path: Path) -> None:
@@ -60,8 +72,32 @@ def test_export_songs_renames_wikidata_genre_name_to_genre_name(tmp_path: Path) 
         "title": "Resolved Song",
         "artist": "Artist A",
         "youtube_video_id": "abc123abc12",
+        "youtube_unplayable_reason": None,
         "genre_name": "rock",
     }
+
+
+def test_export_songs_keeps_flagged_songs_with_their_reason(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path)
+
+    result = export_songs(genre_match_path, tmp_path / "gold")
+
+    songs = json.loads(result.read_text())
+    assert songs[1] == {
+        "title": "Flagged Song",
+        "artist": "Artist D",
+        "youtube_video_id": "jkl012jkl01",
+        "youtube_unplayable_reason": "not_embeddable",
+        "genre_name": "jazz",
+    }
+    validate(songs, json.loads(SONGS_SCHEMA_PATH.read_text()))
+
+
+def test_export_songs_raises_on_unknown_youtube_unplayable_reason(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "youtube_unplayable_reason": "deleted"}])
+
+    with pytest.raises(ValueError, match="schema validation"):
+        export_songs(genre_match_path, tmp_path / "gold")
 
 
 def test_export_songs_creates_output_dir(tmp_path: Path) -> None:

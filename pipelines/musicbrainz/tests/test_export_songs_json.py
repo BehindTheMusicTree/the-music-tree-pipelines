@@ -19,7 +19,7 @@ SONG_ROWS = [
 def test_export_songs_json_writes_flat_song_list(tmp_path: Path) -> None:
     silver_dir = tmp_path / "silver"
     silver_dir.mkdir()
-    pl.DataFrame(SONG_ROWS).write_parquet(silver_dir / "3_songs.parquet")
+    pl.DataFrame(SONG_ROWS).write_parquet(silver_dir / "5_songs.parquet")
     output_path = tmp_path / "songs.json"
 
     result = export_songs_json_module.export_songs_json(silver_dir, output_path)
@@ -31,7 +31,7 @@ def test_export_songs_json_writes_flat_song_list(tmp_path: Path) -> None:
 def test_export_songs_json_creates_output_dir(tmp_path: Path) -> None:
     silver_dir = tmp_path / "silver"
     silver_dir.mkdir()
-    pl.DataFrame(SONG_ROWS).write_parquet(silver_dir / "3_songs.parquet")
+    pl.DataFrame(SONG_ROWS).write_parquet(silver_dir / "5_songs.parquet")
     output_path = tmp_path / "does" / "not" / "exist" / "songs.json"
 
     export_songs_json_module.export_songs_json(silver_dir, output_path)

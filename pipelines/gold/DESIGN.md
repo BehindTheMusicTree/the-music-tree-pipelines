@@ -53,7 +53,7 @@ noise), same closing-the-loop shape as `wikidata`'s manual-CSV backstops, just n
 
 `genre_match` also drops any row whose `youtube_video_id` isn't exactly 11 characters (a real YouTube
 video id's fixed length) before genre matching, logging a warning rather than raising — same rationale
-as `unmatched` above: `musicbrainz`'s `3_songs` step already filters these at extraction time (see
+as `unmatched` above: `musicbrainz`'s `5_songs` step already filters these at extraction time (see
 `pipelines/musicbrainz/SCHEMA.md`), so this is a defensive second check against a regression there, and
 a handful of malformed ids shouldn't block the whole daily run over rows that were always going to be
 dropped. Filtering happens here rather than in `song_export`'s schema validation deliberately — that
@@ -115,7 +115,7 @@ corrupted export reach `grow-the-music-tree-api`:
   built tree's total node count — catching a `parent_id` cycle, which leaves both items out of
   `roots` (each has a known parent) and unreachable from any real root, silently vanishing from the
   tree instead of raising.
-- `genre_match` checks `3_songs.parquet`'s `genre_name` (the musicbrainz-side join key) and
+- `genre_match` checks `5_songs.parquet`'s `genre_name` (the musicbrainz-side join key) and
   `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) are non-null, and that
   the matched output's row count exactly equals the input song count (a per-row lookup can never
   legitimately change height).
