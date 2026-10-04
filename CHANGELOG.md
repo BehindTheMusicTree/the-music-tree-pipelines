@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [5.0.0](#500---2026-10-04)
 - [4.0.0](#400---2026-10-01)
 - [3.0.0](#300---2026-09-30)
 - [2.1.0](#210---2026-09-28)
@@ -35,18 +36,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.0.0] - 2026-10-01
+## [5.0.0] - 2026-10-04
 
 ### Added
 
-- `curation` pipeline (Bronze only): `python -m curation.ingest` pulls every curation list from `grow-the-music-tree-api`'s `curation/export/` endpoint (`GROW_API_BASE_URL`, `GROW_API_KEY`) and writes one `manual_<list>.csv` per list to `BRONZE_OUTPUT_DIR`, same filenames and headers as before.
 - `musicbrainz` Silver checks every YouTube candidate video against the YouTube Data API (`videos.list`, cached 7 days in `4_youtube_video_status.parquet`) and picks the first playable one per recording; songs with no playable candidate keep their rank-1 video and are flagged with `youtube_unplayable_reason` (`not_found`, `not_embeddable`, `private`, `not_processed`), which `gold` passes through to `songs.json`.
   - Known gap: age-restricted videos are not flagged (needs a new enum value across `grow-the-music-tree-api` / app-kit); region restrictions (`allowed`/`blocked` lists) are left to the runtime playback fallback, since they depend on the viewer's country.
 
 ### Changed
 
-- **Breaking** `wikidata` Silver and `gold` now read their `manual_*.csv` curation rules from the required `CURATION_BRONZE_DIR` (the `curation` pipeline's Bronze output); `curation.ingest` must run before them.
 - **Breaking** `musicbrainz` Silver requires `YOUTUBE_API_KEY`; its songs output is now `5_songs.parquet` (was `3_songs.parquet`).
+
+## [4.0.0] - 2026-10-01
+
+### Added
+
+- `curation` pipeline (Bronze only): `python -m curation.ingest` pulls every curation list from `grow-the-music-tree-api`'s `curation/export/` endpoint (`GROW_API_BASE_URL`, `GROW_API_KEY`) and writes one `manual_<list>.csv` per list to `BRONZE_OUTPUT_DIR`, same filenames and headers as before.
+
+### Changed
+
+- **Breaking** `wikidata` Silver and `gold` now read their `manual_*.csv` curation rules from the required `CURATION_BRONZE_DIR` (the `curation` pipeline's Bronze output); `curation.ingest` must run before them.
 
 ### Removed
 
