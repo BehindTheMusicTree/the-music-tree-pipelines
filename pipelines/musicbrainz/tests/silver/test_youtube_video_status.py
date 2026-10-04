@@ -23,7 +23,7 @@ def _item(video_id: str, **status: object) -> dict:
         (_item("a", privacyStatus="private"), "private"),
         (_item("a", privacyStatus="unlisted"), None),
         (_item("a", uploadStatus="uploaded"), "not_processed"),
-        ({**_item("a"), "contentDetails": {"regionRestriction": {"allowed": ["FR"]}}}, "region_whitelisted"),
+        ({**_item("a"), "contentDetails": {"regionRestriction": {"allowed": ["FR"]}}}, None),
         ({**_item("a"), "contentDetails": {"regionRestriction": {"blocked": ["DE"]}}}, None),
         (_item("a"), None),
     ],

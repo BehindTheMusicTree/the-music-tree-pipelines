@@ -36,8 +36,8 @@ def unplayable_reason(item: dict[str, Any] | None) -> str | None:
         return "private"
     if status["uploadStatus"] != "processed":
         return "not_processed"
-    if "allowed" in item.get("contentDetails", {}).get("regionRestriction", {}):
-        return "region_whitelisted"
+    # Region restrictions are left to the runtime playback fallback: allow-lists are typically 100+ countries,
+    # and whether one blocks playback depends on the viewer's country, which isn't known here.
     return None
 
 
