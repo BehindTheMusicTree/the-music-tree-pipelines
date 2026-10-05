@@ -1,9 +1,13 @@
+import json
 import logging
 from pathlib import Path
 
 import polars as pl
+from jsonschema import ValidationError, validate
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
+
+GENRE_MATCH_REPORT_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_match_report.schema.json"
 
 logger = logging.getLogger(__name__)
 
@@ -171,8 +175,8 @@ def genre_match(
     unresolved = matched.filter(pl.col("match_method") == "unmatched").select(
         "genre_name", "title", "artist", "youtube_video_id"
     )
-    if not unresolved.is_empty():
-        distinct_names = sorted(set(unresolved.select("genre_name").to_series()))
+    distinct_names = sorted(set(unresolved.select("genre_name").to_series()))
+    if distinct_names:
         logger.warning(
             "%d unmatched genre name(s), see 1_genre_match_unresolved.csv: %s", len(distinct_names), distinct_names
         )
@@ -180,6 +184,14 @@ def genre_match(
     output_dir.mkdir(parents=True, exist_ok=True)
     unresolved_path = output_dir / "1_genre_match_unresolved.csv"
     unresolved.write_csv(unresolved_path)
+
+    report = {"unresolvedGenreTagCount": len(distinct_names)}
+    schema = json.loads(GENRE_MATCH_REPORT_SCHEMA_PATH.read_text())
+    try:
+        validate(report, schema)
+    except ValidationError as e:
+        raise ValueError(f"genre match report failed schema validation ({GENRE_MATCH_REPORT_SCHEMA_PATH}): {e.message}")
+    (output_dir / "1_genre_match_report.json").write_text(json.dumps(report, indent=2))
 
     output_path = output_dir / "1_genre_match.parquet"
     matched.write_parquet(output_path)

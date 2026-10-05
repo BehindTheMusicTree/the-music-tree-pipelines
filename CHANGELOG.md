@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold` writes `1_genre_match_report.json` (`{"unresolvedGenreTagCount": N}`, the number of distinct genre tag names still unresolved after matching) every run, validated against `genre_match_report.schema.json`, so the count can leave the VPS for grow-api's pipeline-health page.
+
 ## [5.0.0] - 2026-10-04
 
 ### Added
