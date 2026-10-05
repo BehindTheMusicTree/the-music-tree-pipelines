@@ -4,7 +4,7 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 ## Commands
 
-- **Run:** `uv run --package gold python -m gold` (reads `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR`, writes `GOLD_OUTPUT_DIR/1_canonical_genre_tree.json`, `1_regional_genre_tree.json`, `1_genre_match.parquet`, `1_genre_match_unresolved.csv`, `2_songs.json`)
+- **Run:** `uv run --package gold python -m gold` (reads `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR`, writes `GOLD_OUTPUT_DIR/1_canonical_genre_tree.json`, `1_regional_genre_tree.json`, `1_genre_match.parquet`, `1_genre_match_unresolved.csv`, `2_songs.json`, `3_genre_match_report.json`)
 - **Flatten the canonical tree for genre-tree-view's playground (on-demand):** `uv run --package gold python -m gold.playground_fixture_export <canonical_tree.json> <genre_match.parquet> <output.json>`
 
 ## Architecture
