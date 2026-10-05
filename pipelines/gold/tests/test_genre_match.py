@@ -136,7 +136,7 @@ def test_genre_match_writes_empty_unresolved_report_when_all_matched(tmp_path: P
 
     unresolved = pl.read_csv(output_dir / "1_genre_match_unresolved.csv")
     assert unresolved.is_empty()
-    assert json.loads((output_dir / "3_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 0}
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 0}
 
 
 def test_genre_match_report_counts_distinct_unresolved_genre_names(tmp_path: Path) -> None:
@@ -149,7 +149,7 @@ def test_genre_match_report_counts_distinct_unresolved_genre_names(tmp_path: Pat
     ]
     _run_genre_match(tmp_path, songs, output_dir=output_dir)
 
-    assert json.loads((output_dir / "3_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 2}
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 2}
 
 
 def test_genre_match_creates_output_dir(tmp_path: Path) -> None:

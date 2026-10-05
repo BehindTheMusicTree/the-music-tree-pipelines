@@ -191,7 +191,7 @@ def genre_match(
         validate(report, schema)
     except ValidationError as e:
         raise ValueError(f"genre match report failed schema validation ({GENRE_MATCH_REPORT_SCHEMA_PATH}): {e.message}")
-    (output_dir / "3_genre_match_report.json").write_text(json.dumps(report, indent=2))
+    (output_dir / "1_genre_match_report.json").write_text(json.dumps(report, indent=2))
 
     output_path = output_dir / "1_genre_match.parquet"
     matched.write_parquet(output_path)

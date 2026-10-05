@@ -26,13 +26,13 @@ Two consumers also pin a snapshot of these exports, so a schema change to them n
 ## Overview
 
 - **Inputs:** `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`, and `musicbrainz`'s `5_songs.parquet` (all Silver outputs, produced independently by those pipelines — see their own READMEs).
-- **Outputs:** `1_canonical_genre_tree.json` and `1_regional_genre_tree.json` (each the full genre tree for that scope, nested `{"treeName": "canonical" | "regional", "tree": [...]}` shape) `2_songs.json` (a flat list of songs, each tagged with a canonical `genre_name`), and `3_genre_match_report.json` (`{"unresolvedGenreTagCount": N}`), all validated against a JSON Schema before being written, and all regenerated automatically every run — there are no manual/on-demand export scripts here.
+- **Outputs:** `1_canonical_genre_tree.json` and `1_regional_genre_tree.json` (each the full genre tree for that scope, nested `{"treeName": "canonical" | "regional", "tree": [...]}` shape) `2_songs.json` (a flat list of songs, each tagged with a canonical `genre_name`), and `1_genre_match_report.json` (`{"unresolvedGenreTagCount": N}`), all validated against a JSON Schema before being written, and all regenerated automatically every run — there are no manual/on-demand export scripts here.
 
 ## Pipeline
 
 1. `export_canonical_genre_tree` — builds the canonical genre tree from `7_canonical_hierarchy.parquet` and writes `1_canonical_genre_tree.json`. Independent of the other steps.
 2. `export_regional_genre_tree` — builds the regional genre tree from `8_regional_hierarchy.parquet` and writes `1_regional_genre_tree.json`. Independent of the other steps; shares its tree-building logic with `export_canonical_genre_tree` via `genre_tree_builder.py`.
-3. `genre_match` — reconciles musicbrainz's raw `genre_name` tags against wikidata's canonical `item_label`s via a match cascade (exact → `" music"`-suffix-stripped → manual alias CSV → accepted-non-genre CSV → unmatched), writing `1_genre_match.parquet` a triage sidecar `1_genre_match_unresolved.csv`, and `3_genre_match_report.json` (count of distinct unresolved names, written even when 0). Unmatched names are a soft warning, not a pipeline failure — see [DESIGN.md](DESIGN.md).
+3. `genre_match` — reconciles musicbrainz's raw `genre_name` tags against wikidata's canonical `item_label`s via a match cascade (exact → `" music"`-suffix-stripped → manual alias CSV → accepted-non-genre CSV → unmatched), writing `1_genre_match.parquet` a triage sidecar `1_genre_match_unresolved.csv`, and `1_genre_match_report.json` (count of distinct unresolved names, written even when 0). Unmatched names are a soft warning, not a pipeline failure — see [DESIGN.md](DESIGN.md).
 4. `export_songs` — filters `1_genre_match.parquet` down to rows with a resolved genre and writes `2_songs.json`.
 
 See [SCHEMA.md](SCHEMA.md) for full column/shape detail and [DESIGN.md](DESIGN.md) for the match-cascade rationale.
