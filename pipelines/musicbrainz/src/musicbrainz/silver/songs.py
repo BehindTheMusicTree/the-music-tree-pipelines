@@ -50,6 +50,9 @@ def _precedence_closure(manual_genre_precedence_path: Path, genre: pl.DataFrame)
         schema={"musicbrainz_genre_name": pl.Utf8, "over_musicbrainz_genre_name": pl.Utf8, "reason": pl.Utf8},
     ).select(winner="musicbrainz_genre_name", loser="over_musicbrainz_genre_name")
 
+    if rules.null_count().sum_horizontal().item():
+        raise ValueError(f"{manual_genre_precedence_path.name} has row(s) with a blank genre name")
+
     # grow-api accepts names with stray whitespace or typos, so an exact match against Bronze is the guard.
     unknown = sorted((set(rules["winner"]) | set(rules["loser"])) - set(genre["name"]))
     if unknown:

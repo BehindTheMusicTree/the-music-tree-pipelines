@@ -27,7 +27,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 - **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.ingest` / `uv run --package wikidata python -m wikidata.ingest`
 - **Run curation (Bronze, before wikidata/musicbrainz Silver and gold):** `uv run --package curation python -m curation.ingest` (needs `GROW_API_BASE_URL`, `GROW_API_KEY`, `BRONZE_OUTPUT_DIR`)
 - **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` — see `pipelines/wikidata/CLAUDE.md` for the full step-by-step breakdown
-- **Run musicbrainz Silver:** `uv run --package musicbrainz python -m musicbrainz.silver` (reads `BRONZE_OUTPUT_DIR/l_recording_url.parquet`, `url.parquet`, `link.parquet`, and `link_type.parquet`, writes `SILVER_OUTPUT_DIR/1_recording_link.parquet`; also reads `recording_tag.parquet`, `tag.parquet`, `genre.parquet`, writes `SILVER_OUTPUT_DIR/2_recording_genre.parquet`)
+- **Run musicbrainz Silver:** `uv run --package musicbrainz python -m musicbrainz.silver` (reads `BRONZE_OUTPUT_DIR/l_recording_url.parquet`, `url.parquet`, `link.parquet`, and `link_type.parquet`, writes `SILVER_OUTPUT_DIR/1_recording_link.parquet`; also reads `recording_tag.parquet`, `tag.parquet`, `genre.parquet`, writes `SILVER_OUTPUT_DIR/2_recording_genre.parquet`; `5_songs` also reads `CURATION_BRONZE_DIR/manual_genre_precedence.csv`, so run curation first)
 - **Run gold:** `uv run --package gold python -m gold` — see `pipelines/gold/CLAUDE.md`
 - **Lint (matches CI):** `ruff check .` / format: `ruff format .` (line-length 120)
 - **Unit tests only:** `pytest -m "not integration"`
@@ -77,5 +77,4 @@ Full detail in `CONTRIBUTING.md` — summary:
   meaning, and data profiles, nothing else. Rationale, classification rules, and manual-CSV
   curation mechanics belong in a sibling `DESIGN.md` instead (see `pipelines/wikidata/SCHEMA.md` +
   `pipelines/wikidata/DESIGN.md` for the pattern). Add a pipeline's `DESIGN.md` once it has design
-  rationale worth writing down — `pipelines/musicbrainz` doesn't need one yet, its `SCHEMA.md` is
-  still columns-only.
+  rationale worth writing down — `pipelines/musicbrainz/DESIGN.md` holds its genre-precedence rationale.

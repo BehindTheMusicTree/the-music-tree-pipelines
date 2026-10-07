@@ -75,7 +75,7 @@ ALL_PLAYABLE = {
 }
 
 
-def _write_precedence(tmp_path: Path, rules: tuple[tuple[str, str], ...] = ()) -> Path:
+def _write_precedence(tmp_path: Path, rules: tuple[tuple[str | None, str], ...] = ()) -> Path:
     path = tmp_path / "manual_genre_precedence.csv"
     pl.DataFrame(
         [{"musicbrainz_genre_name": w, "over_musicbrainz_genre_name": o, "reason": "r"} for w, o in rules],
@@ -189,7 +189,9 @@ PRECEDENCE_GENRES = [
 ]
 
 
-def _primary_genres(tmp_path: Path, genre_rows: list[dict], rules: tuple[tuple[str, str], ...]) -> dict[str, str]:
+def _primary_genres(
+    tmp_path: Path, genre_rows: list[dict], rules: tuple[tuple[str | None, str], ...]
+) -> dict[str, str]:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     pl.DataFrame(genre_rows).write_parquet(bronze_dir / "genre.parquet")
     pl.DataFrame(PRECEDENCE_RECORDING_GENRE_ROWS).write_parquet(silver_dir / "2_recording_genre.parquet")
@@ -231,11 +233,12 @@ def test_songs_genre_precedence_picks_precise_genre(tmp_path: Path) -> None:
         ((("ska", "ska"),), "self-pair or cycle"),
         ((("ska", "reggae"), ("reggae", "ska")), "self-pair or cycle"),
         ((("ska", "reggae"), ("reggae", "dub"), ("dub", "ska")), "self-pair or cycle"),
+        (((None, "reggae"),), "blank genre name"),
         ((("ska ", "reggae"),), r"absent from genre.parquet: \['ska '\]"),
     ],
 )
 def test_songs_genre_precedence_raises_on_invalid_rules(
-    tmp_path: Path, rules: tuple[tuple[str, str], ...], match: str
+    tmp_path: Path, rules: tuple[tuple[str | None, str], ...], match: str
 ) -> None:
     with pytest.raises(ValueError, match=match):
         _primary_genres(tmp_path, PRECEDENCE_GENRES, rules)
