@@ -13,9 +13,15 @@ HIERARCHY_ROWS = [
 ]
 
 
+def _mbid(index: int) -> str:
+    return f"00000000-0000-0000-0000-{index:012d}"
+
+
 def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
     path = tmp_path / "5_songs.parquet"
-    rows = [{"youtube_unplayable_reason": None, **row} for row in rows]
+    rows = [
+        {"musicbrainz_recording_id": _mbid(i), "youtube_unplayable_reason": None, **row} for i, row in enumerate(rows)
+    ]
     pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
 
@@ -64,6 +70,7 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
 
     df = pl.read_parquet(result)
     row = df.to_dicts()[0]
+    assert row["musicbrainz_recording_id"] == _mbid(0)
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
 
@@ -259,6 +266,7 @@ def test_genre_match_drops_malformed_youtube_video_id(tmp_path: Path) -> None:
     df = pl.read_parquet(result)
     assert df.to_dicts() == [
         {
+            "musicbrainz_recording_id": _mbid(0),
             "title": "Good Song",
             "artist": "Artist",
             "youtube_video_id": "abc123abc12",

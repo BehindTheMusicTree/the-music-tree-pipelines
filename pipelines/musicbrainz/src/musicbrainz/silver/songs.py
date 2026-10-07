@@ -143,14 +143,24 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
     )
 
     recording_title_artist = recording.select(
-        pl.col("id").alias("recording_id"), pl.col("name").alias("title"), pl.col("artist_credit")
+        pl.col("id").alias("recording_id"),
+        pl.col("gid").alias("musicbrainz_recording_id"),
+        pl.col("name").alias("title"),
+        pl.col("artist_credit"),
     ).join(primary_artist_name, on="artist_credit", how="inner")
 
     result = (
         youtube_video.join(primary_genre, on="recording_id", how="inner")
         .join(recording_title_artist, on="recording_id", how="inner")
         .sort("weight", descending=True)
-        .select("title", "artist_name", "youtube_video_id", "youtube_unplayable_reason", "genre_name")
+        .select(
+            "musicbrainz_recording_id",
+            "title",
+            "artist_name",
+            "youtube_video_id",
+            "youtube_unplayable_reason",
+            "genre_name",
+        )
         .rename({"artist_name": "artist"})
     )
 

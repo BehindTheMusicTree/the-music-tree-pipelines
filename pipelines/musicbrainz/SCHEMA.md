@@ -87,7 +87,7 @@ WHERE rt.count > 0
 
 `4_youtube_video_status` (`youtube_video_status.py`) — `(youtube_video_id, youtube_unplayable_reason, checked_at)`: one row per candidate video id, checked via the YouTube Data API `videos.list` (`part=status,contentDetails`, 50 ids per call, 1 quota unit each; key from `YOUTUBE_API_KEY`, sent as a header). `youtube_unplayable_reason` is null when playable, else the first matching rule: absent from the response → `not_found`; `status.embeddable` false → `not_embeddable`; `privacyStatus` is `private` → `private` (unlisted plays fine); `uploadStatus` not `processed` → `not_processed`. Region restrictions (`allowed` or `blocked`) are not flagged — they depend on the viewer's country, so they're left to the runtime playback fallback (`region_whitelisted` stays in the schema enum but isn't emitted). Rows from the previous run's parquet younger than 7 days are reused; only new/stale ids are fetched. 5xx/transport errors retry with backoff; a `quotaExceeded` 403 fails the run with a clear message.
 
-`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — a `(title, artist, youtube_video_id, youtube_unplayable_reason, genre_name)` dataset of MusicBrainz-derived songs, built for a downstream consumer (`the-music-tree-api`'s genre-tree endpoint). Joins `3_youtube_candidates` + `4_youtube_video_status`, `2_recording_genre`, and Bronze `genre`/`recording`/`artist_credit_name`/`artist`:
+`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — a `(musicbrainz_recording_id, title, artist, youtube_video_id, youtube_unplayable_reason, genre_name)` dataset of MusicBrainz-derived songs, built for a downstream consumer (`the-music-tree-api`'s genre-tree endpoint). Joins `3_youtube_candidates` + `4_youtube_video_status`, `2_recording_genre`, and Bronze `genre`/`recording`/`artist_credit_name`/`artist`:
 
 ```sql
 WITH youtube_video AS (
@@ -109,7 +109,7 @@ primary_artist AS (
   JOIN artist a ON a.id = acn.artist
   WHERE acn.position = 0
 )
-SELECT r.name AS title, pa.artist_name AS artist, yv.youtube_video_id, g.name AS genre_name, pg.weight
+SELECT r.gid AS musicbrainz_recording_id, r.name AS title, pa.artist_name AS artist, yv.youtube_video_id, g.name AS genre_name, pg.weight
 FROM youtube_video yv
 JOIN primary_genre pg ON pg.recording_id = yv.recording_id
 JOIN genre g ON g.id = pg.genre_id
@@ -125,6 +125,6 @@ QUALIFY row_number() OVER (PARTITION BY g.name ORDER BY pg.weight DESC) <= 5
 - **Display artist = `artist_credit_name` position 0** — an `artist_credit` can have several `artist_credit_name` rows (collaborations, features); rather than concatenating every credited artist with its `join_phrase`, only the position-0 (primary) artist's name is used as the display string. Simpler; a full display-credit string (e.g. "Artist X feat. Artist Y") is left as a future enhancement if a consumer needs it.
 - Sorted by `weight` descending, no cap — every recording with a matched YouTube link and genre is included.
 - Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/3_youtube_candidates.parquet`, `4_youtube_video_status.parquet`, and `5_songs.parquet`.
-- **On-demand JSON export**: `scripts/export_songs_json.py` reads `5_songs.parquet` and writes a flat JSON array (`[{"title": ..., "artist": ..., "youtube_video_id": ..., "youtube_unplayable_reason": ..., "genre_name": ...}, ...]`) for a developer to manually copy/commit into the downstream API repo. Run with `uv run --package musicbrainz python scripts/export_songs_json.py <output.json>` whenever a fresh copy is needed — not a scheduled job, no `infrastructure` involvement.
+- **On-demand JSON export**: `scripts/export_songs_json.py` reads `5_songs.parquet` and writes a flat JSON array (`[{"musicbrainz_recording_id": ..., "title": ..., "artist": ..., "youtube_video_id": ..., "youtube_unplayable_reason": ..., "genre_name": ...}, ...]`) for a developer to manually copy/commit into the downstream API repo. Run with `uv run --package musicbrainz python scripts/export_songs_json.py <output.json>` whenever a fresh copy is needed — not a scheduled job, no `infrastructure` involvement.
 
 `recording_genre_path` is not built yet (see [README.md#pipeline](README.md#pipeline)).
