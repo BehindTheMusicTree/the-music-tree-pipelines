@@ -44,7 +44,60 @@ def youtube_candidates(silver_dir: Path, output_dir: Path) -> Path:
     return output_path
 
 
-def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path) -> Path:
+def _precedence_closure(manual_genre_precedence_path: Path, genre: pl.DataFrame) -> pl.DataFrame:
+    rules = pl.read_csv(
+        manual_genre_precedence_path,
+        schema={"musicbrainz_genre_name": pl.Utf8, "over_musicbrainz_genre_name": pl.Utf8, "reason": pl.Utf8},
+    ).select(winner="musicbrainz_genre_name", loser="over_musicbrainz_genre_name")
+
+    # grow-api accepts names with stray whitespace or typos, so an exact match against Bronze is the guard.
+    unknown = sorted((set(rules["winner"]) | set(rules["loser"])) - set(genre["name"]))
+    if unknown:
+        raise ValueError(f"{manual_genre_precedence_path.name} names genre(s) absent from genre.parquet: {unknown}")
+
+    # Transitive, so a winner also beats whatever the genres it beats beat (ska > reggae > dub => ska > dub).
+    closure = rules.unique()
+    while True:
+        extended = pl.concat(
+            [closure, closure.join(closure, left_on="loser", right_on="winner").select("winner", loser="loser_right")]
+        ).unique()
+        if extended.height == closure.height:
+            break
+        closure = extended
+
+    # grow-api doesn't reject reversed or longer cycles, so the pipeline is the guard.
+    cyclic = sorted(closure.filter(pl.col("winner") == pl.col("loser"))["winner"])
+    if cyclic:
+        raise ValueError(f"{manual_genre_precedence_path.name} has a self-pair or cycle involving: {cyclic}")
+
+    name_to_id = genre.select(pl.col("name"), pl.col("id"))
+    return (
+        closure.join(name_to_id, left_on="winner", right_on="name")
+        .join(name_to_id, left_on="loser", right_on="name", suffix="_loser")
+        .select(winner_id="id", loser_id="id_loser")
+    )
+
+
+def _apply_genre_precedence(recording_genre: pl.DataFrame, closure: pl.DataFrame) -> pl.DataFrame:
+    beaten = recording_genre.join(closure, left_on="genre_id", right_on="loser_id").join(
+        recording_genre.select("recording_id", winner_id="genre_id"),
+        on=["recording_id", "winner_id"],
+        how="semi",
+    )
+    inherited = beaten.group_by("recording_id", "winner_id").agg(pl.col("weight").max().alias("beaten_weight"))
+    return (
+        recording_genre.join(
+            beaten.select("recording_id", "genre_id").unique(), on=["recording_id", "genre_id"], how="anti"
+        )
+        .join(inherited, left_on=["recording_id", "genre_id"], right_on=["recording_id", "winner_id"], how="left")
+        .with_columns(
+            pl.max_horizontal("weight", "beaten_weight").cast(recording_genre["weight"].dtype).alias("weight")
+        )
+        .drop("beaten_weight")
+    )
+
+
+def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_precedence_path: Path) -> Path:
     candidates = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet")
     video_status = pl.read_parquet(silver_dir / "4_youtube_video_status.parquet")
     recording_genre = pl.read_parquet(silver_dir / "2_recording_genre.parquet")
@@ -66,8 +119,12 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path) -> Path:
         .select("recording_id", "youtube_video_id", "youtube_unplayable_reason")
     )
 
+    # manual_genre_precedence.csv (curated in grow-the-music-tree-api): broad tags (pop, rock) carry
+    # more votes than precise ones (pop rock, ska), so a recording tagged with both drops the broad
+    # one and its weight passes to the precise winner before the highest-weight pick.
     primary_genre = (
-        recording_genre.sort(["weight", "genre_id"], descending=[True, False])
+        _apply_genre_precedence(recording_genre, _precedence_closure(manual_genre_precedence_path, genre))
+        .sort(["weight", "genre_id"], descending=[True, False])
         .unique(subset="recording_id", keep="first", maintain_order=True)
         .join(genre.select(pl.col("id").alias("genre_id"), pl.col("name").alias("genre_name")), on="genre_id")
         .select("recording_id", "genre_name", "weight")

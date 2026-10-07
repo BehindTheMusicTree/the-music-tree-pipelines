@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `curation` pulls the new `genre_precedence` list into `manual_genre_precedence.csv`, and `musicbrainz` Silver's `5_songs` applies it when picking each recording's primary genre: a curated precise genre (e.g. ska) beats a broader one (e.g. reggae) carried by the same recording, inheriting its weight; rule cycles, self-pairs and unknown genre names fail the run. `musicbrainz` Silver now requires `CURATION_BRONZE_DIR` and must run after `curation`.
+
 - `gold` writes `1_genre_match_report.json` (`{"unresolvedGenreTagCount": N}`, the number of distinct genre tag names still unresolved after matching) every run, validated against `genre_match_report.schema.json`, so the count can leave the VPS for grow-api's pipeline-health page.
 
 ## [5.0.0] - 2026-10-04
