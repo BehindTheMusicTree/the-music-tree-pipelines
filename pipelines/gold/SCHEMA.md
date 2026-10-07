@@ -13,7 +13,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 ## 1. Inputs
 
 - `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`: `item_id, item_label, item_url, parent_id, parent_label, parent_url, relation_type` — see `pipelines/wikidata/SCHEMA.md`.
-- `musicbrainz`'s `5_songs.parquet`: `title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
+- `musicbrainz`'s `5_songs.parquet`: `musicbrainz_recording_id, title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
 
 ## 2. Outputs
 
@@ -21,7 +21,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_regional_genre_tree.json`** — same shape as `1_canonical_genre_tree.json` above (validated against the same `src/gold/schemas/genre_tree.schema.json`), but with `"treeName": "regional"` and built from `8_regional_hierarchy` instead — one entry per regional/geographic root (e.g. "music of Cape Verde") with that region's genres nested underneath. The item's extra `5_secondary_parents` parents that are regional or canonical items are emitted as `primaryParents`, except edges listed in `manual_regional_secondary_parents.csv`, emitted as `secondaryParents`. On a root, the first `primaryParents` ref becomes its main parent on import.
 
-**`1_genre_match.parquet`** — `title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` (carried through from `5_songs.parquet`), plus:
+**`1_genre_match.parquet`** — `musicbrainz_recording_id, title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` (carried through from `5_songs.parquet`), plus:
 
 | Column               | Type | Meaning |
 | -------------------- | ---- | ------- |
@@ -32,7 +32,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_genre_match_report.json`** — `{"unresolvedGenreTagCount": int}`, the number of distinct `genre_name`s in `1_genre_match_unresolved.csv` — written every run, even when `0`, validated against `src/gold/schemas/genre_match_report.schema.json`.
 
-**`2_songs.json`** — flat list, one entry per row of `1_genre_match.parquet` with a resolved genre (`match_method` not `unmatched`/`accepted_non_genre`): `{"title": str, "artist": str, "youtube_video_id": str, "youtube_unplayable_reason": str | null, "genre_name": str}` (the resolved `wikidata_genre_name`, renamed to match `SongExampleImportSerializer`'s expected field), validated against `src/gold/schemas/songs.schema.json`. `youtube_video_id` must match `^[A-Za-z0-9_-]{11}$` (a real YouTube video id's fixed length); this is enforced twice — `genre_match` drops any malformed row before matching (logged as a warning, see [DESIGN.md](DESIGN.md)), and the schema pattern here is a last-resort net that should never actually trigger. Both mirror the same constraint musicbrainz's `5_songs` step already enforces at extraction time.
+**`2_songs.json`** — flat list, one entry per row of `1_genre_match.parquet` with a resolved genre (`match_method` not `unmatched`/`accepted_non_genre`): `{"musicbrainz_recording_id": str, "title": str, "artist": str, "youtube_video_id": str, "youtube_unplayable_reason": str | null, "genre_name": str}` (the resolved `wikidata_genre_name`, renamed to match `SongExampleImportSerializer`'s expected field), validated against `src/gold/schemas/songs.schema.json`. `youtube_video_id` must match `^[A-Za-z0-9_-]{11}$` (a real YouTube video id's fixed length); this is enforced twice — `genre_match` drops any malformed row before matching (logged as a warning, see [DESIGN.md](DESIGN.md)), and the schema pattern here is a last-resort net that should never actually trigger. Both mirror the same constraint musicbrainz's `5_songs` step already enforces at extraction time. `musicbrainz_recording_id` is the MusicBrainz recording MBID (`recording.gid`): the schema requires a lowercase UUID, and the export raises if it is not unique.
 
 ## 3. Manual CSVs
 

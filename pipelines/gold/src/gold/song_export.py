@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
-from common.quality_checks import check_non_empty
+from common.quality_checks import check_non_empty, check_unique_key
 from jsonschema import ValidationError, validate
 
 SONGS_SCHEMA_PATH = Path(__file__).parent / "schemas" / "songs.schema.json"
@@ -16,10 +16,18 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
     matched = pl.read_parquet(genre_match_path)
     songs = (
         matched.filter(~pl.col("match_method").is_in(["unmatched", "accepted_non_genre"]))
-        .select("title", "artist", "youtube_video_id", "youtube_unplayable_reason", "wikidata_genre_name")
+        .select(
+            "musicbrainz_recording_id",
+            "title",
+            "artist",
+            "youtube_video_id",
+            "youtube_unplayable_reason",
+            "wikidata_genre_name",
+        )
         .rename({"wikidata_genre_name": "genre_name"})
     )
     check_non_empty(songs, "2_songs")
+    check_unique_key(songs, "musicbrainz_recording_id", "2_songs")
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
     songs_list = songs.to_dicts()

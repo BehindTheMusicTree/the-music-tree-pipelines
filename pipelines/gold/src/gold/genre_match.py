@@ -158,6 +158,7 @@ def genre_match(
             .otherwise(pl.lit("unmatched")),
         )
         .select(
+            "musicbrainz_recording_id",
             "title",
             "artist",
             "youtube_video_id",

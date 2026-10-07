@@ -6,6 +6,10 @@
   "items": {
     "type": "object",
     "properties": {
+      "musicbrainz_recording_id": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
       "title": { "type": "string", "minLength": 1 },
       "artist": { "type": "string", "minLength": 1 },
       "youtube_video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
@@ -14,7 +18,7 @@
       },
       "genre_name": { "type": "string", "minLength": 1 }
     },
-    "required": ["title", "artist", "youtube_video_id", "youtube_unplayable_reason", "genre_name"],
+    "required": ["musicbrainz_recording_id", "title", "artist", "youtube_video_id", "youtube_unplayable_reason", "genre_name"],
     "additionalProperties": false
   }
 }

@@ -46,9 +46,16 @@ MATCH_ROWS = [
 ]
 
 
+def _mbid(index: int) -> str:
+    return f"00000000-0000-0000-0000-{index:012d}"
+
+
 def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     path = tmp_path / "1_genre_match.parquet"
-    rows = [{"youtube_unplayable_reason": None, **row} for row in (rows if rows is not None else MATCH_ROWS)]
+    rows = [
+        {"musicbrainz_recording_id": _mbid(i), "youtube_unplayable_reason": None, **row}
+        for i, row in enumerate(rows if rows is not None else MATCH_ROWS)
+    ]
     pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
 
@@ -69,6 +76,7 @@ def test_export_songs_renames_wikidata_genre_name_to_genre_name(tmp_path: Path) 
 
     songs = json.loads(result.read_text())
     assert songs[0] == {
+        "musicbrainz_recording_id": _mbid(0),
         "title": "Resolved Song",
         "artist": "Artist A",
         "youtube_video_id": "abc123abc12",
@@ -84,6 +92,7 @@ def test_export_songs_keeps_flagged_songs_with_their_reason(tmp_path: Path) -> N
 
     songs = json.loads(result.read_text())
     assert songs[1] == {
+        "musicbrainz_recording_id": _mbid(1),
         "title": "Flagged Song",
         "artist": "Artist D",
         "youtube_video_id": "jkl012jkl01",
@@ -154,6 +163,23 @@ def test_export_songs_raises_on_malformed_youtube_video_id(tmp_path: Path) -> No
             }
         ],
     )
+
+    with pytest.raises(ValueError, match="schema validation"):
+        export_songs(genre_match_path, tmp_path / "gold")
+
+
+def test_export_songs_raises_on_duplicate_musicbrainz_recording_id(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(
+        tmp_path,
+        rows=[{**row, "musicbrainz_recording_id": _mbid(0)} for row in MATCH_ROWS[:2]],
+    )
+
+    with pytest.raises(ValueError, match="'musicbrainz_recording_id' is not unique"):
+        export_songs(genre_match_path, tmp_path / "gold")
+
+
+def test_export_songs_raises_on_malformed_musicbrainz_recording_id(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "musicbrainz_recording_id": "not-a-uuid"}])
 
     with pytest.raises(ValueError, match="schema validation"):
         export_songs(genre_match_path, tmp_path / "gold")

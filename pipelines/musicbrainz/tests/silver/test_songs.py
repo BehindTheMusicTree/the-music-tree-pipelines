@@ -38,10 +38,10 @@ GENRE_ROWS = [
 ]
 
 RECORDING_ROWS = [
-    {"id": 1000, "name": "Song A", "artist_credit": 10},
-    {"id": 1001, "name": "Song B", "artist_credit": 11},
-    {"id": 1002, "name": "Song C", "artist_credit": 10},
-    {"id": 1004, "name": "Song D", "artist_credit": 11},
+    {"id": 1000, "gid": "00000000-0000-0000-0000-000000001000", "name": "Song A", "artist_credit": 10},
+    {"id": 1001, "gid": "00000000-0000-0000-0000-000000001001", "name": "Song B", "artist_credit": 11},
+    {"id": 1002, "gid": "00000000-0000-0000-0000-000000001002", "name": "Song C", "artist_credit": 10},
+    {"id": 1004, "gid": "00000000-0000-0000-0000-000000001004", "name": "Song D", "artist_credit": 11},
 ]
 
 ARTIST_CREDIT_NAME_ROWS = [
@@ -121,12 +121,41 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
     result = sl.songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
 
     assert result == output_dir / "5_songs.parquet"
-    rows = pl.read_parquet(result).sort("title").select("title", "artist", "youtube_video_id", "genre_name").to_dicts()
+    rows = (
+        pl.read_parquet(result)
+        .sort("title")
+        .select("musicbrainz_recording_id", "title", "artist", "youtube_video_id", "genre_name")
+        .to_dicts()
+    )
     assert rows == [
-        {"title": "Song A", "artist": "Artist X", "youtube_video_id": "aaaaaaaaaaa", "genre_name": "jazz"},
-        {"title": "Song B", "artist": "Artist Y", "youtube_video_id": "bbbbbbbbbbb", "genre_name": "rock"},
-        {"title": "Song C", "artist": "Artist X", "youtube_video_id": "ccccccccccc", "genre_name": "rock"},
-        {"title": "Song D", "artist": "Artist Y", "youtube_video_id": "ddddddddddd", "genre_name": "rock"},
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001000",
+            "title": "Song A",
+            "artist": "Artist X",
+            "youtube_video_id": "aaaaaaaaaaa",
+            "genre_name": "jazz",
+        },
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001001",
+            "title": "Song B",
+            "artist": "Artist Y",
+            "youtube_video_id": "bbbbbbbbbbb",
+            "genre_name": "rock",
+        },
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001002",
+            "title": "Song C",
+            "artist": "Artist X",
+            "youtube_video_id": "ccccccccccc",
+            "genre_name": "rock",
+        },
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001004",
+            "title": "Song D",
+            "artist": "Artist Y",
+            "youtube_video_id": "ddddddddddd",
+            "genre_name": "rock",
+        },
     ]
 
 
