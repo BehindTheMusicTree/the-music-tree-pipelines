@@ -25,7 +25,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 
 ## Overview
 
-- **Source:** MusicBrainz Postgres tables (`recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `link`, `link_type`) — see [Data source](#data-source) for how dev/local access is wired
+- **Source:** MusicBrainz Postgres tables (`recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`) — see [Data source](#data-source) for how dev/local access is wired
 - **Output:** a tidy recording ↔ link correspondence (typed via `link_type`, e.g. free streaming/streaming/license) and a tidy recording ↔ genre correspondence — see [Consumers](#consumers). Both stay one-row-per-fact; collapsing to one row per recording is deferred to a future Gold layer, not built here.
 
 ## Pipeline
@@ -33,7 +33,7 @@ Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosyste
 | Layer  | Contents                                                                                                                                                               |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Bronze | Raw MusicBrainz tables ingested as-is from Postgres to Parquet via Polars                                                                                              |
-| Silver | `recording_link` (recording ↔ link correspondence, typed via `link_type`, e.g. free streaming/streaming/license, built); `recording_genre` (cleaned recording ↔ genre associations, built); `recording_genre_path` (recording → genre-hierarchy-path join, cross-pipeline with `wikidata`'s Silver output) — not yet built |
+| Silver | `recording_link` (recording ↔ link correspondence, typed via `link_type`, e.g. free streaming/streaming/license, built); `recording_genre` (cleaned recording ↔ genre associations, built); `youtube_candidates`/`youtube_video_status` (YouTube video ids and their playability, checked within a per-run API budget, built); `songs` (every song, recordings deduplicated by work or normalized title per primary artist, with nullable video and genre, built); `recording_genre_path` (recording → genre-hierarchy-path join, cross-pipeline with `wikidata`'s Silver output) — not yet built |
 
 ## Schema
 

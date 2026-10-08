@@ -20,7 +20,7 @@ RECORDING_LINK_ROWS = [
     {"recording_id": 1004, "url": "https://youtu.be/ddddddddddd", "link_type": "streaming"},
     # Same video under two URL shapes collapses to one candidate.
     {"recording_id": 1004, "url": "https://www.youtube.com/watch?v=ddddddddddd", "link_type": "free streaming"},
-    # A recording with no genre is never status-checked.
+    # A recording with no genre is still a song candidate.
     {"recording_id": 1005, "url": "https://youtu.be/eeeeeeeeeee", "link_type": "streaming"},
 ]
 
@@ -42,7 +42,11 @@ RECORDING_ROWS = [
     {"id": 1001, "gid": "00000000-0000-0000-0000-000000001001", "name": "Song B", "artist_credit": 11},
     {"id": 1002, "gid": "00000000-0000-0000-0000-000000001002", "name": "Song C", "artist_credit": 10},
     {"id": 1004, "gid": "00000000-0000-0000-0000-000000001004", "name": "Song D", "artist_credit": 11},
+    {"id": 1003, "gid": "00000000-0000-0000-0000-000000001003", "name": "Song E", "artist_credit": 10},
+    {"id": 1005, "gid": "00000000-0000-0000-0000-000000001005", "name": "Song F", "artist_credit": 11},
 ]
+
+L_RECORDING_WORK_SCHEMA = {"id": pl.Int64, "link": pl.Int64, "entity0": pl.Int64, "entity1": pl.Int64}
 
 ARTIST_CREDIT_NAME_ROWS = [
     {"artist_credit": 10, "position": 0, "artist": 500, "name": "Artist X", "join_phrase": ""},
@@ -71,7 +75,8 @@ def _write_status(silver_dir: Path, reasons: dict[str, str | None]) -> None:
 
 
 ALL_PLAYABLE = {
-    video_id: None for video_id in ["aaaaaaaaaaa", "zzzzzzzzzzz", "bbbbbbbbbbb", "ccccccccccc", "ddddddddddd"]
+    video_id: None
+    for video_id in ["aaaaaaaaaaa", "zzzzzzzzzzz", "bbbbbbbbbbb", "ccccccccccc", "ddddddddddd", "eeeeeeeeeee"]
 }
 
 
@@ -95,12 +100,13 @@ def _write_inputs(tmp_path: Path, reasons: dict[str, str | None] = ALL_PLAYABLE)
     pl.DataFrame(RECORDING_ROWS).write_parquet(bronze_dir / "recording.parquet")
     pl.DataFrame(ARTIST_CREDIT_NAME_ROWS).write_parquet(bronze_dir / "artist_credit_name.parquet")
     pl.DataFrame(ARTIST_ROWS).write_parquet(bronze_dir / "artist.parquet")
+    pl.DataFrame(schema=L_RECORDING_WORK_SCHEMA).write_parquet(bronze_dir / "l_recording_work.parquet")
     sl.youtube_candidates(silver_dir, silver_dir)
     _write_status(silver_dir, reasons)
     return bronze_dir, silver_dir
 
 
-def test_youtube_candidates_ranks_every_candidate_of_recordings_with_a_genre(tmp_path: Path) -> None:
+def test_youtube_candidates_ranks_every_candidate(tmp_path: Path) -> None:
     _, silver_dir = _write_inputs(tmp_path)
 
     rows = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet").sort("recording_id", "rank").to_dicts()
@@ -111,6 +117,7 @@ def test_youtube_candidates_ranks_every_candidate_of_recordings_with_a_genre(tmp
         {"recording_id": 1001, "youtube_video_id": "bbbbbbbbbbb", "rank": 1},
         {"recording_id": 1002, "youtube_video_id": "ccccccccccc", "rank": 1},
         {"recording_id": 1004, "youtube_video_id": "ddddddddddd", "rank": 1},
+        {"recording_id": 1005, "youtube_video_id": "eeeeeeeeeee", "rank": 1},
     ]
 
 
@@ -156,6 +163,20 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "youtube_video_id": "ddddddddddd",
             "genre_name": "rock",
         },
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001003",
+            "title": "Song E",
+            "artist": "Artist X",
+            "youtube_video_id": None,
+            "genre_name": None,
+        },
+        {
+            "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001005",
+            "title": "Song F",
+            "artist": "Artist Y",
+            "youtube_video_id": "eeeeeeeeeee",
+            "genre_name": None,
+        },
     ]
 
 
@@ -183,21 +204,74 @@ def test_songs_keeps_rank_one_with_its_reason_when_no_candidate_is_playable(tmp_
     }
 
 
-def test_songs_raises_on_candidate_missing_from_status(tmp_path: Path) -> None:
-    bronze_dir, silver_dir = _write_inputs(tmp_path, {"aaaaaaaaaaa": None})
+def test_songs_skips_unchecked_candidates(tmp_path: Path) -> None:
+    bronze_dir, silver_dir = _write_inputs(tmp_path, {"zzzzzzzzzzz": "private"})
 
-    with pytest.raises(ValueError, match="missing from 4_youtube_video_status"):
-        sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path))
+    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+
+    assert result.filter(pl.col("title") == "Song A").select(
+        "youtube_video_id", "youtube_unplayable_reason"
+    ).to_dicts() == [{"youtube_video_id": "zzzzzzzzzzz", "youtube_unplayable_reason": "private"}]
+    assert result.filter(pl.col("title") == "Song B")["youtube_video_id"].to_list() == [None]
 
 
-def test_songs_drops_recording_without_youtube_link(tmp_path: Path) -> None:
+def _dedup_songs(tmp_path: Path, recordings: list[dict], works: list[tuple[int, int]], genres: list[dict]) -> list:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
-    output_dir = tmp_path / "output"
+    pl.DataFrame(recordings).write_parquet(bronze_dir / "recording.parquet")
+    pl.DataFrame(
+        [{"id": i, "link": 1, "entity0": r, "entity1": w} for i, (r, w) in enumerate(works)],
+        schema=L_RECORDING_WORK_SCHEMA,
+    ).write_parquet(bronze_dir / "l_recording_work.parquet")
+    pl.DataFrame(genres, schema={"recording_id": pl.Int64, "genre_id": pl.Int64, "weight": pl.Int64}).write_parquet(
+        silver_dir / "2_recording_genre.parquet"
+    )
+    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+    return (
+        result.sort("musicbrainz_recording_id")
+        .select("musicbrainz_recording_id", "youtube_video_id", "genre_name")
+        .rows()
+    )
 
-    result = sl.songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
 
-    titles = pl.read_parquet(result)["title"].to_list()
-    assert "Song for 1003" not in titles
+def _recording(recording_id: int, name: str, artist_credit: int = 10) -> dict:
+    return {"id": recording_id, "gid": f"gid-{recording_id}", "name": name, "artist_credit": artist_credit}
+
+
+def test_songs_groups_recordings_of_one_work_by_primary_artist(tmp_path: Path) -> None:
+    recordings = [
+        _recording(1002, "Song (live)"),
+        _recording(1000, "Song"),
+        _recording(1001, "Song", artist_credit=11),  # same work, other artist: its own song
+        _recording(1004, "Medley"),  # two works: grouped by title, not by either work
+    ]
+    works = [(1000, 7), (1002, 7), (1001, 7), (1004, 7), (1004, 8)]
+    genres = [
+        {"recording_id": 1000, "genre_id": 100, "weight": 3},
+        {"recording_id": 1002, "genre_id": 101, "weight": 2},
+        {"recording_id": 1002, "genre_id": 101, "weight": 2},
+    ]
+
+    assert _dedup_songs(tmp_path, recordings, works, genres) == [
+        # Lowest id keys the group; 1000's video wins on rank; jazz's 2+2 across the group beats rock's 3.
+        ("gid-1000", "aaaaaaaaaaa", "jazz"),
+        ("gid-1001", "bbbbbbbbbbb", None),
+        ("gid-1004", "ddddddddddd", None),
+    ]
+
+
+def test_songs_groups_workless_recordings_by_normalized_title(tmp_path: Path) -> None:
+    recordings = [
+        _recording(1002, "  song   a "),
+        _recording(1004, "SONG A"),
+        _recording(1000, "Song A"),  # has a work: not merged with the title group
+        _recording(1001, "Song A", artist_credit=11),
+    ]
+
+    assert _dedup_songs(tmp_path, recordings, [(1000, 7)], []) == [
+        ("gid-1000", "aaaaaaaaaaa", None),
+        ("gid-1001", "bbbbbbbbbbb", None),
+        ("gid-1002", "ccccccccccc", None),
+    ]
 
 
 def test_songs_creates_output_dir(tmp_path: Path) -> None:
@@ -220,7 +294,7 @@ PRECEDENCE_GENRES = [
 
 def _primary_genres(
     tmp_path: Path, genre_rows: list[dict], rules: tuple[tuple[str | None, str], ...]
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     pl.DataFrame(genre_rows).write_parquet(bronze_dir / "genre.parquet")
     pl.DataFrame(PRECEDENCE_RECORDING_GENRE_ROWS).write_parquet(silver_dir / "2_recording_genre.parquet")
@@ -253,6 +327,8 @@ def test_songs_genre_precedence_picks_precise_genre(tmp_path: Path) -> None:
         "Song B": "ska",
         "Song C": "rock",
         "Song D": "ska",
+        "Song E": None,
+        "Song F": None,
     }
 
 

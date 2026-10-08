@@ -1,12 +1,12 @@
+import gzip
 import json
 from pathlib import Path
 
 import polars as pl
 import pytest
 
-from jsonschema import validate
-
-from gold.song_export import SONGS_SCHEMA_PATH, export_songs
+from gold import song_export
+from gold.song_export import export_songs
 
 MATCH_ROWS = [
     {
@@ -43,6 +43,14 @@ MATCH_ROWS = [
         "wikidata_genre_name": None,
         "match_method": "unmatched",
     },
+    {
+        "title": "Bare Song",
+        "artist": "Artist E",
+        "youtube_video_id": None,
+        "genre_name": None,
+        "wikidata_genre_name": None,
+        "match_method": "no_genre",
+    },
 ]
 
 
@@ -60,37 +68,30 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     return path
 
 
-def test_export_songs_filters_out_unmatched_and_accepted_non_genre_rows(tmp_path: Path) -> None:
-    genre_match_path = _write_genre_match(tmp_path)
-
-    result = export_songs(genre_match_path, tmp_path / "gold")
-
-    songs = json.loads(result.read_text())
-    assert [song["title"] for song in songs] == ["Resolved Song", "Flagged Song"]
-
-
-def test_export_songs_renames_wikidata_genre_name_to_genre_name(tmp_path: Path) -> None:
-    genre_match_path = _write_genre_match(tmp_path)
-
-    result = export_songs(genre_match_path, tmp_path / "gold")
-
-    songs = json.loads(result.read_text())
-    assert songs[0] == {
-        "musicbrainz_recording_id": _mbid(0),
-        "title": "Resolved Song",
-        "artist": "Artist A",
-        "youtube_video_id": "abc123abc12",
-        "youtube_unplayable_reason": None,
-        "genre_name": "rock",
-    }
+def _read_parts(parts_dir: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for part in sorted(parts_dir.iterdir())
+        for line in gzip.decompress(part.read_bytes()).decode().splitlines()
+    ]
 
 
-def test_export_songs_keeps_flagged_songs_with_their_reason(tmp_path: Path) -> None:
-    genre_match_path = _write_genre_match(tmp_path)
+def test_export_songs_keeps_every_song_with_a_genre_only_when_resolved(tmp_path: Path) -> None:
+    result = export_songs(_write_genre_match(tmp_path), tmp_path / "gold")
 
-    result = export_songs(genre_match_path, tmp_path / "gold")
+    assert result == tmp_path / "gold" / "2_songs"
+    assert [(song["title"], song["genre_name"]) for song in _read_parts(result)] == [
+        ("Resolved Song", "rock"),
+        ("Flagged Song", "jazz"),
+        ("Non Genre Song", None),
+        ("Unmatched Song", None),
+        ("Bare Song", None),
+    ]
 
-    songs = json.loads(result.read_text())
+
+def test_export_songs_writes_snake_case_ndjson(tmp_path: Path) -> None:
+    songs = _read_parts(export_songs(_write_genre_match(tmp_path), tmp_path / "gold"))
+
     assert songs[1] == {
         "musicbrainz_recording_id": _mbid(1),
         "title": "Flagged Song",
@@ -99,72 +100,52 @@ def test_export_songs_keeps_flagged_songs_with_their_reason(tmp_path: Path) -> N
         "youtube_unplayable_reason": "not_embeddable",
         "genre_name": "jazz",
     }
-    validate(songs, json.loads(SONGS_SCHEMA_PATH.read_text()))
+    assert songs[4]["youtube_video_id"] is None
+
+
+def test_export_songs_splits_parts_and_clears_stale_ones(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(song_export, "ROWS_PER_PART", 2)
+    parts_dir = tmp_path / "gold" / "2_songs"
+    parts_dir.mkdir(parents=True)
+    (parts_dir / "part-00009.ndjson.gz").write_bytes(b"")
+
+    export_songs(_write_genre_match(tmp_path), tmp_path / "gold")
+
+    assert sorted(p.name for p in parts_dir.iterdir()) == [
+        "part-00000.ndjson.gz",
+        "part-00001.ndjson.gz",
+        "part-00002.ndjson.gz",
+    ]
+    assert len(_read_parts(parts_dir)) == len(MATCH_ROWS)
 
 
 def test_export_songs_raises_on_unknown_youtube_unplayable_reason(tmp_path: Path) -> None:
     genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "youtube_unplayable_reason": "deleted"}])
 
-    with pytest.raises(ValueError, match="schema validation"):
+    with pytest.raises(ValueError, match="unknown youtube_unplayable_reason"):
         export_songs(genre_match_path, tmp_path / "gold")
 
 
-def test_export_songs_creates_output_dir(tmp_path: Path) -> None:
-    genre_match_path = _write_genre_match(tmp_path)
-    output_dir = tmp_path / "does" / "not" / "exist"
-
-    export_songs(genre_match_path, output_dir)
-
-    assert output_dir.is_dir()
-
-
 def test_export_songs_raises_on_empty_result(tmp_path: Path) -> None:
-    genre_match_path = _write_genre_match(tmp_path, rows=[row for row in MATCH_ROWS if row["match_method"] != "exact"])
+    genre_match_path = _write_genre_match(tmp_path)
+    pl.read_parquet(genre_match_path).clear().write_parquet(genre_match_path)
 
     with pytest.raises(ValueError, match="is empty"):
         export_songs(genre_match_path, tmp_path / "gold")
 
 
-def test_export_songs_raises_on_schema_violation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import gold.song_export as module
+def test_export_songs_raises_on_null_artist(tmp_path: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "artist": None}])
 
-    genre_match_path = _write_genre_match(
-        tmp_path,
-        rows=[
-            {
-                "title": "Missing Artist",
-                "artist": "",
-                "youtube_video_id": "abc123",
-                "genre_name": "Rock",
-                "wikidata_genre_name": "rock",
-                "match_method": "exact",
-            }
-        ],
-    )
-
-    with pytest.raises(ValueError, match="schema validation"):
-        module.export_songs(genre_match_path, tmp_path / "gold")
+    with pytest.raises(ValueError, match="'artist' null rate"):
+        export_songs(genre_match_path, tmp_path / "gold")
 
 
 def test_export_songs_raises_on_malformed_youtube_video_id(tmp_path: Path) -> None:
-    # Regression: real MusicBrainz data has produced ids that aren't exactly 11 characters
-    # (a stray trailing character, or a truncated id) — this must be caught here, not shipped
-    # downstream to blow up grow-the-music-tree-api's `varchar(11)` column.
-    genre_match_path = _write_genre_match(
-        tmp_path,
-        rows=[
-            {
-                "title": "Malformed Id Song",
-                "artist": "Artist",
-                "youtube_video_id": "abc123abc123",
-                "genre_name": "Rock",
-                "wikidata_genre_name": "rock",
-                "match_method": "exact",
-            }
-        ],
-    )
+    # grow-the-music-tree-api stores the id in a `varchar(11)` column.
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "youtube_video_id": "abc123abc123"}])
 
-    with pytest.raises(ValueError, match="schema validation"):
+    with pytest.raises(ValueError, match="malformed youtube_video_id"):
         export_songs(genre_match_path, tmp_path / "gold")
 
 
@@ -181,5 +162,5 @@ def test_export_songs_raises_on_duplicate_musicbrainz_recording_id(tmp_path: Pat
 def test_export_songs_raises_on_malformed_musicbrainz_recording_id(tmp_path: Path) -> None:
     genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "musicbrainz_recording_id": "not-a-uuid"}])
 
-    with pytest.raises(ValueError, match="schema validation"):
+    with pytest.raises(ValueError, match="malformed musicbrainz_recording_id"):
         export_songs(genre_match_path, tmp_path / "gold")

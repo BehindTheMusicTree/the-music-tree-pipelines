@@ -75,18 +75,26 @@ def _fetch_batch(client: httpx.Client, api_key: str, video_ids: Sequence[str]) -
     return {video_id: unplayable_reason(items.get(video_id)) for video_id in video_ids}
 
 
-def youtube_video_status(silver_dir: Path, output_dir: Path, client: httpx.Client, api_key: str, now: datetime) -> Path:
+def youtube_video_status(
+    silver_dir: Path, output_dir: Path, client: httpx.Client, api_key: str, now: datetime, max_batches: int
+) -> Path:
     video_ids = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet")["youtube_video_id"].unique()
     output_path = output_dir / OUTPUT_FILENAME
 
     cached = pl.DataFrame(schema=_SCHEMA)
     if output_path.exists():
-        cached = pl.read_parquet(output_path).filter(
-            pl.col("youtube_video_id").is_in(video_ids.implode())
-            & (pl.col("checked_at") >= now - timedelta(days=YOUTUBE_STATUS_TTL_DAYS))
-        )
+        cached = pl.read_parquet(output_path).filter(pl.col("youtube_video_id").is_in(video_ids.implode()))
 
-    to_fetch = sorted(set(video_ids) - set(cached["youtube_video_id"]))
+    # Stale rows stay usable until refreshed: the per-run budget can't cover every candidate of the full catalog,
+    # so never-checked ids go first, then the stalest ones, and whatever's left waits for the next run.
+    to_fetch = (
+        pl.DataFrame({"youtube_video_id": video_ids})
+        .join(cached, on="youtube_video_id", how="left")
+        .filter(pl.col("checked_at").is_null() | (pl.col("checked_at") < now - timedelta(days=YOUTUBE_STATUS_TTL_DAYS)))
+        .sort("checked_at", "youtube_video_id", nulls_last=False)
+        .head(max_batches * BATCH_SIZE)["youtube_video_id"]
+        .to_list()
+    )
     fetched_rows = []
     # Written in a finally so batches that already spent quota survive a mid-run quota/5xx failure.
     try:
@@ -97,15 +105,17 @@ def youtube_video_status(silver_dir: Path, output_dir: Path, client: httpx.Clien
                 )
     finally:
         fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
+        cached = cached.join(fetched, on="youtube_video_id", how="anti")
         result = pl.concat([cached, fetched]).sort("youtube_video_id")
         output_dir.mkdir(parents=True, exist_ok=True)
         result.write_parquet(output_path)
     logger.info(
-        "wrote %d rows to %s (%d fetched, %d from cache, %d unplayable)",
+        "wrote %d rows to %s (%d fetched, %d from cache, %d candidates never checked yet, %d unplayable)",
         result.height,
         output_path,
         fetched.height,
         cached.height,
+        video_ids.len() - result.height,
         result["youtube_unplayable_reason"].is_not_null().sum(),
     )
     return output_path

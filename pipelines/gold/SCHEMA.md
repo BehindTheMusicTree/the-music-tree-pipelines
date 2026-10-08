@@ -25,14 +25,14 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 | Column               | Type | Meaning |
 | -------------------- | ---- | ------- |
-| `wikidata_genre_name` | str, nullable | The matched canonical `item_label`, or `null` if `match_method` is `accepted_non_genre`/`unmatched`. |
-| `match_method`        | str  | One of `exact`, `music_suffix`, `manual_alias`, `accepted_non_genre`, `unmatched` — see [DESIGN.md](DESIGN.md) for the cascade. |
+| `wikidata_genre_name` | str, nullable | The matched canonical `item_label`, or `null` if `match_method` is `no_genre`/`accepted_non_genre`/`unmatched`. |
+| `match_method`        | str  | One of `no_genre` (song has no `genre_name`), `exact`, `music_suffix`, `manual_alias`, `accepted_non_genre`, `unmatched` — see [DESIGN.md](DESIGN.md) for the cascade. |
 
 **`1_genre_match_unresolved.csv`** — `genre_name, title, artist, youtube_video_id`, one row per unmatched `(genre_name, title, artist, youtube_video_id)` combination (not deduplicated by genre name) — written every run, even when empty. A data expert reviews this to promote each name into `manual_genre_alias.csv` or `manual_accepted_non_genre_tags.csv`.
 
 **`1_genre_match_report.json`** — `{"unresolvedGenreTagCount": int}`, the number of distinct `genre_name`s in `1_genre_match_unresolved.csv` — written every run, even when `0`, validated against `src/gold/schemas/genre_match_report.schema.json`.
 
-**`2_songs.json`** — flat list, one entry per row of `1_genre_match.parquet` with a resolved genre (`match_method` not `unmatched`/`accepted_non_genre`): `{"musicbrainz_recording_id": str, "title": str, "artist": str, "youtube_video_id": str, "youtube_unplayable_reason": str | null, "genre_name": str}` (the resolved `wikidata_genre_name`, renamed to match `SongExampleImportSerializer`'s expected field), validated against `src/gold/schemas/songs.schema.json`. `youtube_video_id` must match `^[A-Za-z0-9_-]{11}$` (a real YouTube video id's fixed length); this is enforced twice — `genre_match` drops any malformed row before matching (logged as a warning, see [DESIGN.md](DESIGN.md)), and the schema pattern here is a last-resort net that should never actually trigger. Both mirror the same constraint musicbrainz's `5_songs` step already enforces at extraction time. `musicbrainz_recording_id` is the MusicBrainz recording MBID (`recording.gid`): the schema requires a lowercase UUID, and the export raises if it is not unique.
+**`2_songs/part-NNNNN.ndjson.gz`** — gzip-compressed newline-delimited JSON, split into parts of 250,000 rows (`part-00000.ndjson.gz`, `part-00001.ndjson.gz`, ...; the directory is cleared each run). One line per row of `1_genre_match.parquet` (every song, none filtered): `{"musicbrainz_recording_id": str, "title": str, "artist": str, "youtube_video_id": str | null, "youtube_unplayable_reason": str | null, "genre_name": str | null}`. `genre_name` is the resolved `wikidata_genre_name` when `match_method` is `exact`/`music_suffix`/`manual_alias`, else null. Checked in Polars before writing (raises `ValueError`): non-empty; `musicbrainz_recording_id` (`recording.gid`, a lowercase UUID), `title`, `artist` non-null; `musicbrainz_recording_id` unique; non-null `youtube_video_id` matches `^[A-Za-z0-9_-]{11}$`; non-null `youtube_unplayable_reason` is one of `not_found`, `not_embeddable`, `private`, `not_processed`, `region_whitelisted`.
 
 ## 3. Manual CSVs
 
