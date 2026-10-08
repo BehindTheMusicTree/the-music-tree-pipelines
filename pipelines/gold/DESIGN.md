@@ -24,6 +24,8 @@ The remaining ~17% splits between real naming-convention mismatches (fixable via
 `genre_match` tags each row with a `match_method`, trying each of the following in order and stopping
 at the first that succeeds:
 
+0. `no_genre` — the song has no `genre_name` (none of its recordings carries a genre tag). Kept with
+   a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
 2. `music_suffix` — same, after stripping a trailing `" music"` from the musicbrainz name (covers the
    bulk of the naming-convention gap between the two sources).
@@ -41,7 +43,7 @@ grow-the-music-tree-api. Genre-name reconciliation is noisier still: musicbrainz
 new unmatched names will appear routinely as the sample data or the tag vocabulary shifts. Blocking the
 daily Gold run on every new unmatched name would make the pipeline fragile for no benefit — a missing
 tag alias doesn't corrupt the tree or the songs export, it just means fewer songs get a resolved genre
-this run.
+this run (they're still exported, with a null genre).
 
 Instead, `genre_match` logs a warning and writes every unmatched `(genre_name, title, artist,
 youtube_video_id)` combination to `1_genre_match_unresolved.csv` every run (even when empty) — a durable,
@@ -49,19 +51,15 @@ human-scannable triage surface. A data expert reviews it and promotes each name 
 `manual_genre_alias.csv` (real genre, different name) or `manual_accepted_non_genre_tags.csv` (permanent
 noise), same closing-the-loop shape as `wikidata`'s manual-CSV backstops, just non-blocking.
 
-## Malformed `youtube_video_id` is dropped, not raised
+## Malformed `youtube_video_id` is cleared, not raised
 
-`genre_match` also drops any row whose `youtube_video_id` isn't exactly 11 characters (a real YouTube
-video id's fixed length) before genre matching, logging a warning rather than raising — same rationale
-as `unmatched` above: `musicbrainz`'s `5_songs` step already filters these at extraction time (see
-`pipelines/musicbrainz/SCHEMA.md`), so this is a defensive second check against a regression there, and
-a handful of malformed ids shouldn't block the whole daily run over rows that were always going to be
-dropped. Filtering happens here rather than in `song_export`'s schema validation deliberately — that
-validation raises hard, and raising over a single bad row would abort the entire `2_songs.json` export
-(and, transitively, block the systemd job from syncing the already-good `1_canonical_genre_tree.json`
-too) — the same all-or-nothing failure mode that motivated this check in the first place (see
-`CHANGELOG.md`). The schema's `youtube_video_id` pattern still enforces the same 11-character constraint
-as a last-resort net, but by construction should never actually trigger.
+`genre_match` nulls any `youtube_video_id` (and its `youtube_unplayable_reason`) that isn't exactly 11
+characters, logging a warning rather than raising. `musicbrainz`'s `5_songs` step already extracts only
+11-character ids (see `pipelines/musicbrainz/SCHEMA.md`), so this is a defensive second check against a
+regression there. The song itself is kept, the same as a song with no video. Raising in `song_export`'s
+checks over a single bad id would abort the whole songs export (and block the systemd job from syncing
+the already-good trees), so `song_export`'s pattern check is a last-resort net that should never
+trigger.
 
 ## Manual CSV validation
 
@@ -115,8 +113,8 @@ corrupted export reach `grow-the-music-tree-api`:
   built tree's total node count — catching a `parent_id` cycle, which leaves both items out of
   `roots` (each has a known parent) and unreachable from any real root, silently vanishing from the
   tree instead of raising.
-- `genre_match` checks `5_songs.parquet`'s `genre_name` (the musicbrainz-side join key) and
-  `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) are non-null, and that
+- `genre_match` checks `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) is
+  non-null (`5_songs.parquet`'s `genre_name` may be null, matched as `no_genre`), and that
   the matched output's row count exactly equals the input song count (a per-row lookup can never
   legitimately change height).
 

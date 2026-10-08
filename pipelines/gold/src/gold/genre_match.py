@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 _MUSIC_SUFFIX_PATTERN = r" music$"
 
 # A real YouTube video id is always exactly 11 characters. Malformed ids (seen in real MusicBrainz
-# data — a truncated match or a stray trailing character) must be dropped here, before matching,
-# rather than reaching `song_export`'s schema validation: that validation raises hard, which would
-# abort the *entire* export over a single bad row — the same all-or-nothing failure this repo is
-# trying to avoid (see CHANGELOG). Dropping (with a warning, not a raise) mirrors the unmatched-genre
-# handling below.
+# data — a truncated match or a stray trailing character) are cleared here, before matching, rather
+# than reaching `song_export`'s checks: those raise hard, which would abort the *entire* export over
+# a single bad row. The song itself is kept, videoless, like any other song without a video.
 _YOUTUBE_VIDEO_ID_PATTERN = r"^[A-Za-z0-9_-]{11}$"
 
 
@@ -100,19 +98,21 @@ def genre_match(
     hierarchy = pl.read_parquet(canonical_hierarchy_path)
 
     check_non_empty(songs, songs_path.name)
-    check_null_rate(songs, "genre_name", songs_path.name)
     check_non_empty(hierarchy, canonical_hierarchy_path.name)
     check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
 
-    malformed_video_id = songs.filter(~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN))
+    is_malformed = ~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN)
+    malformed_video_id = songs.filter(is_malformed)
     if not malformed_video_id.is_empty():
         logger.warning(
-            "%d song(s) with a malformed youtube_video_id, dropped before genre matching: %s",
+            "%d song(s) with a malformed youtube_video_id, video cleared before genre matching: %s",
             malformed_video_id.height,
             sorted(set(malformed_video_id.select("youtube_video_id").to_series())),
         )
-        songs = songs.filter(pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN))
-        check_non_empty(songs, f"{songs_path.name} (after dropping malformed youtube_video_id)")
+        songs = songs.with_columns(
+            pl.when(is_malformed).then(None).otherwise(pl.col(column)).alias(column)
+            for column in ("youtube_video_id", "youtube_unplayable_reason")
+        )
 
     canonical_labels = set(hierarchy.select("item_label").unique().to_series())
     canonical_lookup = {label.lower(): label for label in canonical_labels}
@@ -147,7 +147,9 @@ def genre_match(
         )
         .with_columns(
             wikidata_genre_name=pl.coalesce("exact_match", "suffix_match", "alias_match"),
-            match_method=pl.when(pl.col("exact_match").is_not_null())
+            match_method=pl.when(pl.col("genre_name").is_null())
+            .then(pl.lit("no_genre"))
+            .when(pl.col("exact_match").is_not_null())
             .then(pl.lit("exact"))
             .when(pl.col("suffix_match").is_not_null())
             .then(pl.lit("music_suffix"))

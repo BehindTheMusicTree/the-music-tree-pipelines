@@ -22,13 +22,9 @@ _VIDEO_ID_PATTERN = r"(?:[?&]v=|youtu\.be/|/embed/|/v/)([A-Za-z0-9_-]{11})"
 
 def youtube_candidates(silver_dir: Path, output_dir: Path) -> Path:
     recording_link = pl.read_parquet(silver_dir / "1_recording_link.parquet")
-    recording_genre = pl.read_parquet(silver_dir / "2_recording_genre.parquet")
 
-    # Only recordings that can become a song (one with a genre) are kept, so the YouTube status
-    # check downstream doesn't spend API quota on videos that would never be exported.
     candidates = (
         recording_link.filter(pl.col("url").str.contains(_YOUTUBE_URL_PATTERN))
-        .join(recording_genre.select("recording_id").unique(), on="recording_id", how="semi")
         .with_columns(pl.col("url").str.extract(_VIDEO_ID_PATTERN, 1).alias("youtube_video_id"))
         .drop_nulls("youtube_video_id")
         .sort("recording_id", "url")
@@ -81,91 +77,129 @@ def _precedence_closure(manual_genre_precedence_path: Path, genre: pl.DataFrame)
     )
 
 
-def _apply_genre_precedence(recording_genre: pl.DataFrame, closure: pl.DataFrame) -> pl.DataFrame:
-    beaten = recording_genre.join(closure, left_on="genre_id", right_on="loser_id").join(
-        recording_genre.select("recording_id", winner_id="genre_id"),
-        on=["recording_id", "winner_id"],
+def _apply_genre_precedence(song_genre: pl.LazyFrame, closure: pl.LazyFrame) -> pl.LazyFrame:
+    beaten = song_genre.join(closure, left_on="genre_id", right_on="loser_id").join(
+        song_genre.select("song_id", winner_id="genre_id"),
+        on=["song_id", "winner_id"],
         how="semi",
     )
-    inherited = beaten.group_by("recording_id", "winner_id").agg(pl.col("weight").max().alias("beaten_weight"))
+    inherited = beaten.group_by("song_id", "winner_id").agg(pl.col("weight").max().alias("beaten_weight"))
     return (
-        recording_genre.join(
-            beaten.select("recording_id", "genre_id").unique(), on=["recording_id", "genre_id"], how="anti"
-        )
-        .join(inherited, left_on=["recording_id", "genre_id"], right_on=["recording_id", "winner_id"], how="left")
-        .with_columns(
-            pl.max_horizontal("weight", "beaten_weight").cast(recording_genre["weight"].dtype).alias("weight")
-        )
+        song_genre.join(beaten.select("song_id", "genre_id").unique(), on=["song_id", "genre_id"], how="anti")
+        .join(inherited, left_on=["song_id", "genre_id"], right_on=["song_id", "winner_id"], how="left")
+        .with_columns(pl.max_horizontal("weight", "beaten_weight").alias("weight"))
         .drop("beaten_weight")
     )
 
 
+def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
+    """One row per recording with a primary artist: `(recording_id, song_id, musicbrainz_recording_id, title,
+    artist)`, `song_id` being the lowest `recording.id` of its song group."""
+    # `position == 0` is MusicBrainz's own primary-artist slot (collaborations/features carry more rows).
+    primary_artist = (
+        pl.scan_parquet(bronze_dir / "artist_credit_name.parquet")
+        .filter(pl.col("position") == 0)
+        .join(pl.scan_parquet(bronze_dir / "artist.parquet").select(artist="id", artist_name="name"), on="artist")
+        .select("artist_credit", artist_id="artist", artist_name="artist_name")
+    )
+    single_work = (
+        pl.scan_parquet(bronze_dir / "l_recording_work.parquet")
+        .group_by(recording_id="entity0")
+        .agg(pl.col("entity1").unique())
+        .filter(pl.col("entity1").list.len() == 1)
+        .select("recording_id", work_id=pl.col("entity1").list.first())
+    )
+    recordings = (
+        pl.scan_parquet(bronze_dir / "recording.parquet")
+        .select(recording_id="id", musicbrainz_recording_id="gid", title="name", artist_credit="artist_credit")
+        .join(primary_artist, on="artist_credit")
+        .join(single_work, on="recording_id", how="left")
+        # A recording linked to exactly one work is that work's performance by its primary artist; any other
+        # (no work, or a medley of several) falls back to its normalized title. The null half of each key keeps
+        # the two kinds of group apart.
+        .with_columns(
+            normalized_title=pl.when(pl.col("work_id").is_null()).then(
+                pl.col("title").str.to_lowercase().str.strip_chars().str.replace_all(r"\s+", " ")
+            )
+        )
+    )
+    return recordings.select(
+        "recording_id",
+        song_id=pl.col("recording_id").min().over("artist_id", "work_id", "normalized_title"),
+        musicbrainz_recording_id="musicbrainz_recording_id",
+        title="title",
+        artist="artist_name",
+    )
+
+
 def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_precedence_path: Path) -> Path:
-    candidates = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet")
-    video_status = pl.read_parquet(silver_dir / "4_youtube_video_status.parquet")
-    recording_genre = pl.read_parquet(silver_dir / "2_recording_genre.parquet")
     genre = pl.read_parquet(bronze_dir / "genre.parquet")
-    recording = pl.read_parquet(bronze_dir / "recording.parquet")
-    artist_credit_name = pl.read_parquet(bronze_dir / "artist_credit_name.parquet")
-    artist = pl.read_parquet(bronze_dir / "artist.parquet")
+    closure = _precedence_closure(manual_genre_precedence_path, genre).lazy()
 
-    candidate_status = candidates.join(video_status, on="youtube_video_id", how="left")
-    unchecked = candidate_status.filter(pl.col("checked_at").is_null())
-    if not unchecked.is_empty():
-        raise ValueError(f"{unchecked.height} YouTube candidate(s) missing from 4_youtube_video_status.parquet")
+    song_recordings = _song_recordings(bronze_dir).cache()
+    recording_song = song_recordings.select("recording_id", "song_id")
 
-    # First playable candidate by rank; a recording with no playable candidate keeps its rank-1
-    # video and that video's reason, so it is flagged downstream rather than dropped.
+    # Unchecked candidates (beyond this run's YouTube quota budget) aren't eligible yet: the song goes out without
+    # a video until a later run checks them. First playable candidate across the group by rank, else the best-ranked
+    # checked one with its reason, so it's flagged downstream rather than dropped.
     youtube_video = (
-        candidate_status.sort(pl.col("recording_id"), pl.col("youtube_unplayable_reason").is_not_null(), pl.col("rank"))
-        .unique(subset="recording_id", keep="first", maintain_order=True)
-        .select("recording_id", "youtube_video_id", "youtube_unplayable_reason")
+        pl.scan_parquet(silver_dir / "3_youtube_candidates.parquet")
+        .join(pl.scan_parquet(silver_dir / "4_youtube_video_status.parquet"), on="youtube_video_id")
+        .join(recording_song, on="recording_id")
+        .sort("song_id", pl.col("youtube_unplayable_reason").is_not_null(), "rank", "recording_id")
+        .unique(subset="song_id", keep="first", maintain_order=True)
+        .select("song_id", "youtube_video_id", "youtube_unplayable_reason")
     )
 
-    # manual_genre_precedence.csv (curated in grow-the-music-tree-api): broad tags (pop, rock) carry
-    # more votes than precise ones (pop rock, ska), so a recording tagged with both drops the broad
-    # one and its weight passes to the precise winner before the highest-weight pick.
+    # manual_genre_precedence.csv (curated in grow-the-music-tree-api): broad tags (pop, rock) carry more votes than
+    # precise ones (pop rock, ska), so a song tagged with both drops the broad one and its weight passes to the
+    # precise winner before the highest-weight pick. Weights are summed across the song's recordings first.
+    song_genre = (
+        pl.scan_parquet(silver_dir / "2_recording_genre.parquet")
+        .join(recording_song, on="recording_id")
+        .group_by("song_id", "genre_id")
+        .agg(pl.col("weight").sum())
+    )
     primary_genre = (
-        _apply_genre_precedence(recording_genre, _precedence_closure(manual_genre_precedence_path, genre))
+        _apply_genre_precedence(song_genre, closure)
         .sort(["weight", "genre_id"], descending=[True, False])
-        .unique(subset="recording_id", keep="first", maintain_order=True)
-        .join(genre.select(pl.col("id").alias("genre_id"), pl.col("name").alias("genre_name")), on="genre_id")
-        .select("recording_id", "genre_name", "weight")
+        .unique(subset="song_id", keep="first", maintain_order=True)
+        .join(genre.lazy().select(genre_id="id", genre_name="name"), on="genre_id")
+        .select("song_id", "genre_name")
     )
-
-    # An `artist_credit` can carry several `artist_credit_name` rows (collaborations, features).
-    # `position == 0` is MusicBrainz's own primary-artist slot, so it's used as the single
-    # display artist here rather than concatenating every credited artist and its `join_phrase`.
-    primary_artist_name = (
-        artist_credit_name.filter(pl.col("position") == 0)
-        .join(artist.select(pl.col("id").alias("artist"), pl.col("name").alias("artist_name")), on="artist")
-        .select(pl.col("artist_credit"), "artist_name")
-    )
-
-    recording_title_artist = recording.select(
-        pl.col("id").alias("recording_id"),
-        pl.col("gid").alias("musicbrainz_recording_id"),
-        pl.col("name").alias("title"),
-        pl.col("artist_credit"),
-    ).join(primary_artist_name, on="artist_credit", how="inner")
 
     result = (
-        youtube_video.join(primary_genre, on="recording_id", how="inner")
-        .join(recording_title_artist, on="recording_id", how="inner")
-        .sort("weight", descending=True)
+        song_recordings.filter(pl.col("recording_id") == pl.col("song_id"))
+        .join(youtube_video, on="song_id", how="left")
+        .join(primary_genre, on="song_id", how="left")
         .select(
             "musicbrainz_recording_id",
             "title",
-            "artist_name",
+            "artist",
             "youtube_video_id",
             "youtube_unplayable_reason",
             "genre_name",
         )
-        .rename({"artist_name": "artist"})
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "5_songs.parquet"
-    result.write_parquet(output_path)
-    logger.info("wrote %d rows to %s", result.height, output_path)
+    result.sink_parquet(output_path, engine="streaming")
+    counts = (
+        pl.scan_parquet(output_path)
+        .select(
+            songs=pl.len(),
+            without_video=pl.col("youtube_video_id").null_count(),
+            without_genre=pl.col("genre_name").null_count(),
+        )
+        .collect()
+        .row(0, named=True)
+    )
+    logger.info(
+        "wrote %d songs to %s, %d without a video, %d without a genre",
+        counts["songs"],
+        output_path,
+        counts["without_video"],
+        counts["without_genre"],
+    )
     return output_path

@@ -39,6 +39,9 @@ def _write_candidates(silver_dir: Path, video_ids: list[str]) -> None:
     ).write_parquet(silver_dir / "3_youtube_candidates.parquet")
 
 
+MAX_BATCHES = 10
+
+
 def test_fetches_uncached_and_stale_ids_and_reuses_fresh_cache(tmp_path: Path) -> None:
     _write_candidates(tmp_path, ["fresh", "stale", "new", "gone"])
     pl.DataFrame(
@@ -62,7 +65,7 @@ def test_fetches_uncached_and_stale_ids_and_reuses_fresh_cache(tmp_path: Path) -
         return httpx.Response(200, json={"items": [_item("new"), _item("stale", embeddable=False)]})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "secret", NOW)
+        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "secret", NOW, MAX_BATCHES)
 
     assert sorted(requested) == ["gone", "new", "stale"]
     rows = pl.read_parquet(path).select("youtube_video_id", "youtube_unplayable_reason").to_dicts()
@@ -84,7 +87,7 @@ def test_batches_requests(tmp_path: Path) -> None:
         return httpx.Response(200, json={"items": [_item(i) for i in ids]})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
 
     assert batch_sizes == [yvs.BATCH_SIZE, 1]
 
@@ -96,7 +99,7 @@ def test_raises_clear_error_on_quota_exceeded(tmp_path: Path) -> None:
         return httpx.Response(403, json={"error": {"errors": [{"reason": "quotaExceeded"}]}})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client, pytest.raises(yvs.YoutubeQuotaExceededError):
-        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
 
 
 def test_retries_server_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,7 +108,7 @@ def test_retries_server_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     responses = [httpx.Response(503), httpx.Response(200, json={"items": [_item("a")]})]
 
     with httpx.Client(transport=httpx.MockTransport(lambda _r: responses.pop(0))) as client:
-        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
 
     assert pl.read_parquet(path)["youtube_unplayable_reason"].to_list() == [None]
 
@@ -120,7 +123,7 @@ def test_keeps_completed_batches_when_a_later_batch_fails(tmp_path: Path) -> Non
         return httpx.Response(200, json={"items": [_item(i) for i in ids]})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client, pytest.raises(yvs.YoutubeQuotaExceededError):
-        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
 
     assert pl.read_parquet(tmp_path / yvs.OUTPUT_FILENAME).height == yvs.BATCH_SIZE
 
@@ -135,4 +138,34 @@ def test_non_json_403_surfaces_the_http_error(tmp_path: Path) -> None:
         httpx.Client(transport=httpx.MockTransport(handler)) as client,
         pytest.raises(httpx.HTTPStatusError, match="403"),
     ):
-        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW)
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
+
+
+def test_spends_budget_on_never_checked_then_stalest_and_keeps_the_rest(tmp_path: Path) -> None:
+    ids = [f"v{i:03d}" for i in range(yvs.BATCH_SIZE + 1)]
+    _write_candidates(tmp_path, ids)
+    pl.DataFrame(
+        [
+            {
+                "youtube_video_id": video_id,
+                "youtube_unplayable_reason": "private",
+                "checked_at": NOW - timedelta(days=8 + i),
+            }
+            for i, video_id in enumerate(ids[2:])
+        ],
+        schema=yvs._SCHEMA,
+    ).write_parquet(tmp_path / yvs.OUTPUT_FILENAME)
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.extend(request.url.params["id"].split(","))
+        return httpx.Response(200, json={"items": [_item(i) for i in request.url.params["id"].split(",")]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, 1)
+
+    # Never-checked v000/v001 first, then the stalest; the least stale (v002) keeps its old status.
+    assert sorted(requested) == sorted(ids[:2] + ids[3:])
+    result = pl.read_parquet(path)
+    assert result.height == len(ids)
+    assert result.filter(pl.col("youtube_unplayable_reason").is_not_null())["youtube_video_id"].to_list() == ["v002"]

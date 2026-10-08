@@ -15,6 +15,7 @@ BRONZE_TABLES = (
     "genre",
     "url",
     "l_recording_url",
+    "l_recording_work",
     "link",
     "link_type",
     "artist_credit",
