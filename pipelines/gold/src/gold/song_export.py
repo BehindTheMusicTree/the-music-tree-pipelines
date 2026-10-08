@@ -1,4 +1,3 @@
-import gzip
 import logging
 import shutil
 from pathlib import Path
@@ -53,8 +52,7 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
     shutil.rmtree(parts_dir, ignore_errors=True)
     parts_dir.mkdir(parents=True)
     for index, part in enumerate(songs.iter_slices(ROWS_PER_PART)):
-        with gzip.open(parts_dir / f"part-{index:05d}.ndjson.gz", "wb") as f:
-            part.write_ndjson(f)
+        part.write_ndjson(parts_dir / f"part-{index:05d}.ndjson.gz", compression="gzip")
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,
