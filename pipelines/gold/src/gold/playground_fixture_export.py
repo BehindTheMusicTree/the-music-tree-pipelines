@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def _direct_item_counts(genre_match_path: Path) -> dict[str, int]:
     matched = pl.read_parquet(genre_match_path)
-    resolved = matched.filter(~pl.col("match_method").is_in(["unmatched", "accepted_non_genre"]))
+    resolved = matched.filter(pl.col("wikidata_genre_name").is_not_null())
     counts = resolved.group_by("wikidata_genre_name").len()
     return dict(counts.iter_rows())
 

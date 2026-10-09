@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import polars as pl
@@ -12,9 +13,15 @@ HIERARCHY_ROWS = [
 ]
 
 
+def _mbid(index: int) -> str:
+    return f"00000000-0000-0000-0000-{index:012d}"
+
+
 def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
     path = tmp_path / "5_songs.parquet"
-    rows = [{"youtube_unplayable_reason": None, **row} for row in rows]
+    rows = [
+        {"musicbrainz_recording_id": _mbid(i), "youtube_unplayable_reason": None, **row} for i, row in enumerate(rows)
+    ]
     pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
 
@@ -63,6 +70,7 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
 
     df = pl.read_parquet(result)
     row = df.to_dicts()[0]
+    assert row["musicbrainz_recording_id"] == _mbid(0)
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
 
@@ -135,6 +143,20 @@ def test_genre_match_writes_empty_unresolved_report_when_all_matched(tmp_path: P
 
     unresolved = pl.read_csv(output_dir / "1_genre_match_unresolved.csv")
     assert unresolved.is_empty()
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 0}
+
+
+def test_genre_match_report_counts_distinct_unresolved_genre_names(tmp_path: Path) -> None:
+    output_dir = tmp_path / "gold"
+    songs = [
+        _song("some random tag", title="A"),
+        _song("some random tag", title="B"),
+        _song("other tag"),
+        _song("Rock"),
+    ]
+    _run_genre_match(tmp_path, songs, output_dir=output_dir)
+
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 2}
 
 
 def test_genre_match_creates_output_dir(tmp_path: Path) -> None:
@@ -219,12 +241,17 @@ def test_genre_match_raises_on_empty_songs(tmp_path: Path) -> None:
         _run_genre_match(tmp_path, [])
 
 
-def test_genre_match_raises_on_null_genre_name(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="null rate"):
-        _run_genre_match(
-            tmp_path,
-            [{"title": "Song", "artist": "Artist", "youtube_video_id": "abc123abc12", "genre_name": None}],
-        )
+def test_genre_match_keeps_null_genre_name_as_no_genre(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [_song("Rock"), {"title": "Song", "artist": "Artist", "youtube_video_id": None, "genre_name": None}],
+    )
+
+    assert pl.read_parquet(result).select("youtube_video_id", "wikidata_genre_name", "match_method").to_dicts() == [
+        {"youtube_video_id": "abc123abc12", "wikidata_genre_name": "rock", "match_method": "exact"},
+        {"youtube_video_id": None, "wikidata_genre_name": None, "match_method": "no_genre"},
+    ]
+    assert json.loads((tmp_path / "gold" / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 0}
 
 
 def test_genre_match_raises_on_empty_hierarchy(tmp_path: Path) -> None:
@@ -232,35 +259,31 @@ def test_genre_match_raises_on_empty_hierarchy(tmp_path: Path) -> None:
         _run_genre_match(tmp_path, [_song("Rock")], hierarchy_rows=[])
 
 
-def test_genre_match_drops_malformed_youtube_video_id(tmp_path: Path) -> None:
+def test_genre_match_clears_malformed_youtube_video_id(tmp_path: Path) -> None:
     result = _run_genre_match(
         tmp_path,
         [
             _song("Rock", title="Good Song"),
-            {"title": "Bad Song", "artist": "Artist", "youtube_video_id": "tooshort", "genre_name": "Rock"},
+            {
+                "title": "Bad Song",
+                "artist": "Artist",
+                "youtube_video_id": "tooshort",
+                "youtube_unplayable_reason": "not_found",
+                "genre_name": "Rock",
+            },
         ],
     )
 
     df = pl.read_parquet(result)
-    assert df.to_dicts() == [
+    assert df.select("title", "youtube_video_id", "youtube_unplayable_reason", "match_method").to_dicts() == [
         {
             "title": "Good Song",
-            "artist": "Artist",
             "youtube_video_id": "abc123abc12",
             "youtube_unplayable_reason": None,
-            "genre_name": "Rock",
-            "wikidata_genre_name": "rock",
             "match_method": "exact",
-        }
+        },
+        {"title": "Bad Song", "youtube_video_id": None, "youtube_unplayable_reason": None, "match_method": "exact"},
     ]
-
-
-def test_genre_match_raises_when_all_youtube_video_ids_malformed(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="is empty"):
-        _run_genre_match(
-            tmp_path,
-            [{"title": "Bad Song", "artist": "Artist", "youtube_video_id": "tooshort", "genre_name": "Rock"}],
-        )
 
 
 def test_genre_match_raises_on_non_genre_conflicting_with_alias_csv(tmp_path: Path) -> None:

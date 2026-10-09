@@ -4,7 +4,7 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 ## Commands
 
-- **Run:** `uv run --package gold python -m gold` (reads `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR`, writes `GOLD_OUTPUT_DIR/1_canonical_genre_tree.json`, `1_regional_genre_tree.json`, `1_genre_match.parquet`, `1_genre_match_unresolved.csv`, `2_songs.json`)
+- **Run:** `uv run --package gold python -m gold` (reads `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR`, writes `GOLD_OUTPUT_DIR/1_canonical_genre_tree.json`, `1_regional_genre_tree.json`, `1_genre_match.parquet`, `1_genre_match_unresolved.csv`, `2_songs/part-NNNNN.ndjson.gz`, `1_genre_match_report.json`)
 - **Flatten the canonical tree for genre-tree-view's playground (on-demand):** `uv run --package gold python -m gold.playground_fixture_export <canonical_tree.json> <genre_match.parquet> <output.json>`
 
 ## Architecture
@@ -15,9 +15,9 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 **No manual/on-demand scripts run as part of the scheduled pipeline** — the four steps above run automatically as part of `__main__.py`, same cadence as every other pipeline's daily run. `playground_fixture_export.py` is the one exception: an on-demand module (mirroring `musicbrainz/scripts/export_songs_json.py`'s precedent) that flattens `export_canonical_genre_tree`'s nested `{"tree": [...]}` output into the flat `GenreTreeNode[]` shape (`id`/`parentId`/`name`/`itemCount`/`side?`) the separate `genre-tree-view` repo's playground fixture consumes — `id` is a slug of each (tree-wide unique, per `genre_tree_builder`'s duplicate-name check) `name`; `itemCount` is each node's resolved `1_genre_match.parquet` matches rolled up through its descendants (a node's count includes its children's, recursively). It is invoked directly by the `infrastructure` repo's daily pipeline run after both `export_canonical_genre_tree` and `genre_match` have produced their output, not wired into `__main__.py`.
 
-**JSON Schema validation**: both JSON exports are validated (`jsonschema.validate`) against a schema in `src/gold/schemas/` before being written, raising `ValueError` on mismatch — a malformed export should fail the run loudly rather than ship a broken file to `grow-the-music-tree-api`.
+**JSON Schema validation**: the genre tree and genre-match report JSON exports are validated (`jsonschema.validate`) against a schema in `src/gold/schemas/` before being written, raising `ValueError` on mismatch — a malformed export should fail the run loudly rather than ship a broken file to `grow-the-music-tree-api`.
 
-**Quality checks**: `genre_match` and `genre_tree_builder` validate join-key null rates/uniqueness and row-count deltas (`common.quality_checks`, shared with `musicbrainz`/`wikidata` Bronze ingestion) before writing output; `song_export` checks the final `2_songs.json` output is non-empty. All raise `ValueError` on failure — same fail-loud rationale as the JSON Schema validation above.
+**Quality checks**: `genre_match` and `genre_tree_builder` validate join-key null rates/uniqueness and row-count deltas (`common.quality_checks`, shared with `musicbrainz`/`wikidata` Bronze ingestion) before writing output; `song_export` checks the songs in Polars before writing the NDJSON parts (non-empty, non-null and unique `musicbrainz_recording_id`, non-null `title`/`artist`, id patterns, reason enum). All raise `ValueError` on failure — same fail-loud rationale as the JSON Schema validation above.
 
 ## Docs
 

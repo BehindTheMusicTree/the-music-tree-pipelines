@@ -27,6 +27,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "accepted_non_genre_tags": ("musicbrainz_genre_name", "reason"),
     "canonical_genre_pop_side": ("root_genre_name", "pop_child_genre_name", "reason"),
     "genre_alias": ("musicbrainz_genre_name", "wikidata_genre_name", "reason"),
+    "genre_precedence": ("musicbrainz_genre_name", "over_musicbrainz_genre_name", "reason"),
     "regional_secondary_parents": ("item_id", "item_label", "parent_id", "parent_label", "reason"),
 }
 

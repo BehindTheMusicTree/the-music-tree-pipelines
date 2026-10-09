@@ -36,6 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-09
+
+### Added
+
+- Every song now carries its MusicBrainz recording MBID as `musicbrainz_recording_id`: `musicbrainz` Silver's `5_songs` keeps `recording.gid`, and `gold` carries it through `1_genre_match.parquet` into the songs export, where it is required, UUID-shaped and unique (a duplicate fails the run). `grow-the-music-tree-api`'s song import must accept the field (genre-kit `SongSeedEntrySerializer` rejects unknown fields) before this reaches a daily run.
+
+- `curation` pulls the new `genre_precedence` list into `manual_genre_precedence.csv`, and `musicbrainz` Silver's `5_songs` applies it when picking each recording's primary genre: a curated precise genre (e.g. ska) beats a broader one (e.g. reggae) carried by the same recording, inheriting its weight; rule cycles, self-pairs and unknown genre names fail the run. `musicbrainz` Silver now requires `CURATION_BRONZE_DIR` and must run after `curation`.
+
+- `gold` writes `1_genre_match_report.json` (`{"unresolvedGenreTagCount": N}`, the number of distinct genre tag names still unresolved after matching) every run, validated against `genre_match_report.schema.json`, so the count can leave the VPS for grow-api's pipeline-health page.
+
+- `musicbrainz` Bronze ingests `l_recording_work` (recording ↔ work links).
+
+### Changed
+
+- **Breaking:** every MusicBrainz song now goes through the pipelines. `musicbrainz` Silver's `5_songs` keeps every recording with a primary artist, deduplicated into songs (recordings of one work grouped per primary artist, others by normalized title per primary artist; key `musicbrainz_recording_id` = the group's lowest recording id's MBID), with a nullable `youtube_video_id` and `genre_name`, and no longer raises on unchecked YouTube candidates. Built lazily and streamed to Parquet.
+- **Breaking:** `musicbrainz` Silver requires `YOUTUBE_STATUS_MAX_BATCHES_PER_RUN`: `4_youtube_video_status` fetches at most that many 50-id batches per run, never-checked ids first, then ids past the 7-day TTL, stalest first. `3_youtube_candidates` no longer requires a genre.
+- **Breaking:** `gold` exports every song as gzip NDJSON parts `2_songs/part-NNNNN.ndjson.gz` (250,000 rows each, fields `musicbrainz_recording_id`, `title`, `artist`, `youtube_video_id`, `youtube_unplayable_reason`, `genre_name`), replacing `2_songs.json` and `songs.schema.json`; checks run in Polars. `genre_match` tags songs without a genre `no_genre` instead of raising, and clears a malformed video id instead of dropping the song. Consumers (`infrastructure`'s grow sync, grow-the-music-tree-api's import) must read the new parts.
+
 ## [5.0.0] - 2026-10-04
 
 ### Added
