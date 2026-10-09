@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-09
+
 ### Added
 
 - Every song now carries its MusicBrainz recording MBID as `musicbrainz_recording_id`: `musicbrainz` Silver's `5_songs` keeps `recording.gid`, and `gold` carries it through `1_genre_match.parquet` into the songs export, where it is required, UUID-shaped and unique (a duplicate fails the run). `grow-the-music-tree-api`'s song import must accept the field (genre-kit `SongSeedEntrySerializer` rejects unknown fields) before this reaches a daily run.
