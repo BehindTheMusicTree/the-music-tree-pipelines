@@ -33,6 +33,7 @@ All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-
       - [2.3.2 Rule: four seed sources](#232-rule-four-seed-sources)
       - [2.3.3 Cascade](#233-cascade)
       - [2.3.4 `manual_main_parent.csv` main-parent override](#234-manual_main_parentcsv-main-parent-override)
+      - [2.3.6 Accepted canonical roots are pinned](#236-accepted-canonical-roots-are-pinned)
     - [2.4 5_main_parent_selection](#24-5_main_parent_selection)
       - [2.4.1 Rule: manual override, else lowest-QID heuristic](#241-rule-manual-override-else-lowest-qid-heuristic)
       - [2.4.2 Secondary parents are kept, not dropped](#242-secondary-parents-are-kept-not-dropped)
@@ -465,6 +466,17 @@ e.g. `"Blues/Rock (grouping)"`, `"Disco/Funk (grouping)"`, `"Reggae/Dub (groupin
 the slug stays distinct from any real Wikidata item's slug regardless of word overlap, rather than
 relying on no real genre ever sharing the same words as a grouping label. Apply this suffix to every
 new `LOCAL:` grouping node going forward.
+
+#### 2.3.6 Accepted canonical roots are pinned
+
+Every parent edge of an item listed in `manual_accepted_canonical_roots.csv` (§2.8.1) is dropped
+before the cascade, leaving one null-parent row. An accepted root is a curated decision, and Gold's
+per-root curation (`manual_canonical_genre_pop_side.csv`) depends on it staying a root — so a
+Wikidata edit can no longer re-parent it. On 2026-10-09 hip-hop (Q11401) was moved under "urban
+contemporary", which descends from the regional "music of the African diaspora"; hip-hop turned
+regional, vanished from `7_canonical_hierarchy`, and Gold failed. An accepted root that also has a
+`manual_main_parent.csv` row is contradictory and raises. Accepted ids absent from the tree are
+ignored, as in §2.8.
 
 ### 2.4 5_main_parent_selection
 
