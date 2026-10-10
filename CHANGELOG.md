@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-10-10
+
 ### Fixed
 
 - `wikidata` Silver now keeps every genre in `manual_accepted_canonical_roots.csv` as a canonical root, dropping its Wikidata parent edges before regional classification. A Wikidata edit on 2026-10-09 moved hip-hop under a regional genre, which removed it from the canonical tree and failed `gold`. An accepted root that also has a `manual_main_parent.csv` row fails the run.
