@@ -52,6 +52,9 @@ nightly run: `canonical_roots.py` writes it with `is_accepted = false` and logs 
   procedure below) is the canonical path — giving it a parent clears the flag on the next import.
 - For a root confirmed genuinely standalone (including one already accepted in grow), still add it to
   the `accepted_canonical_roots` curation list (columns `item_id,item_label`) to stop the warning and the flag.
+- An accepted root must stay in the tree and canonical. Pruning it (theme/technique/out-of-scope), adding a
+  regional override for it, or letting its QID be deleted/merged fails the nightly Silver run, so remove or
+  update its accepted row first.
 - Find the current queue with:
   ```sh
   duckdb -c ".mode csv" -c "SELECT item_id, item_label FROM '<SILVER_OUTPUT_DIR>/9_canonical_roots.parquet' WHERE NOT is_accepted ORDER BY item_label"
