@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.2] - 2026-10-10
+
 ### Fixed
 
 - `wikidata` Silver now ignores a Wikidata "indigenous to" (P2341) value on an accepted canonical root, so it can't turn the root regional. The run fails instead when an accepted root is missing from the tree (a deleted or merged QID), or when curation also makes it regional (a `manual_regional_overrides.csv` row or a regional-overview reclassification).
