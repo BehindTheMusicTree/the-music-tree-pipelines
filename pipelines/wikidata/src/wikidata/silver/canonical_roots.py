@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # last triage pass: it's flagged (`is_accepted` false, carried into Gold as `isUnacceptedRoot`) for
 # review rather than failing the run — either given a real parent (manual_main_parent.csv), flagged as
 # theme/technique/out-of-scope, or added here once confirmed standalone.
+# regional_classification.py also pins every listed item as a root, so Wikidata can't re-parent it.
 
 
 def extract_canonical_roots(hierarchy_path: Path, manual_accepted_roots_path: Path, output_dir: Path) -> Path:
