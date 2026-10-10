@@ -831,7 +831,7 @@ def test_classify_regional_genres_pins_accepted_roots(tmp_path: Path) -> None:
         _write_indigenous_to(tmp_path),
         _write_manual_overrides(tmp_path),
         output_dir,
-        manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q185676", "Q999999999"]),
+        manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q185676"]),
     )
 
     fado_rows = pl.read_parquet(result).filter(pl.col("item_id") == "Q185676")
@@ -856,6 +856,34 @@ def test_classify_regional_genres_accepted_root_with_manual_main_parent_raises(t
             tmp_path / "silver",
             manual_main_parent_path,
             manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q185676"]),
+        )
+
+
+def test_classify_regional_genres_ignores_indigenous_to_on_accepted_root(tmp_path: Path) -> None:
+    result = _classify_regional_genres(
+        _write_genre_classification(tmp_path),
+        _write_indigenous_to(tmp_path),
+        _write_manual_overrides(tmp_path),
+        tmp_path / "silver",
+        manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q10376827"]),
+    )
+
+    row = pl.read_parquet(result).filter(pl.col("item_id") == "Q10376827").row(0, named=True)
+    assert not row["is_regional"]
+    assert row["regional_reason"] is None
+
+
+@pytest.mark.parametrize("item_id", ["Q4118941", "Q2579987", "Q999999999"])
+def test_classify_regional_genres_accepted_root_regional_or_absent_raises(tmp_path: Path, item_id: str) -> None:
+    # mezwed has a manual_regional_overrides.csv row, music of Portugal is a regional overview, and
+    # Q999999999 is absent from the tree (e.g. a deleted or merged QID).
+    with pytest.raises(ValueError, match=item_id):
+        _classify_regional_genres(
+            _write_genre_classification(tmp_path),
+            _write_indigenous_to(tmp_path),
+            _write_manual_overrides(tmp_path),
+            tmp_path / "silver",
+            manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, [item_id]),
         )
 
 
