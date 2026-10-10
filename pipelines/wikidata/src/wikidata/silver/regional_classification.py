@@ -59,7 +59,9 @@ LOCAL_ID_PREFIX = "LOCAL:"
 # here, before the cascade, so a Wikidata re-parenting (e.g. hip-hop moved under the regional "urban
 # contemporary" on 2026-10-09) can't silently pull an accepted root into another subtree or the
 # regional graph — Gold's per-root curation (manual_canonical_genre_pop_side.csv) depends on them
-# staying roots.
+# staying roots. A Wikidata P2341 value on one is ignored the same way; a curated contradiction (a regional
+# override or overview reclassification) or an accepted id missing from the tree (deleted/merged QID) raises,
+# freezing the run until a curator or a Wikidata revert resolves it.
 
 # manual_indigenous_to_exclusions.csv, curated the same way: P2341 ("indigenous to") is
 # treated as an automatic regional-seed signal below, but — like P495 ("country of origin", see the
@@ -255,6 +257,9 @@ def _apply_manual_main_parent(df: pl.DataFrame, manual_parents: pl.DataFrame) ->
 
 def _pin_accepted_roots(df: pl.DataFrame, accepted_roots: pl.DataFrame, manual_parents: pl.DataFrame) -> pl.DataFrame:
     accepted_ids = set(accepted_roots.select("item_id").to_series())
+    absent = sorted(accepted_ids - set(df.select("item_id").to_series()))
+    if absent:
+        raise ValueError(f"manual_accepted_canonical_roots.csv item_id(s) not found in the genre tree: {absent}")
     conflicting = sorted(accepted_ids & set(manual_parents.select("item_id").to_series()))
     if conflicting:
         raise ValueError(
@@ -404,6 +409,11 @@ def classify_regional_genres(
 
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).select("item_id").unique().to_series())
     indigenous_ids = _apply_indigenous_to_exclusions(indigenous_ids, pl.read_csv(manual_indigenous_to_exclusions_path))
+    accepted_roots = pl.read_csv(manual_accepted_roots_path)
+    accepted_ids = set(accepted_roots.select("item_id").to_series())
+    if indigenous_ids & accepted_ids:
+        logger.warning("ignoring P2341 on accepted canonical root(s): %s", sorted(indigenous_ids & accepted_ids))
+        indigenous_ids -= accepted_ids
     manual_overrides = pl.read_csv(manual_overrides_path)
     manual_override_ids = set(manual_overrides.select("item_id").unique().to_series())
     df = _apply_overview_overrides(df, manual_overrides)
@@ -413,7 +423,7 @@ def classify_regional_genres(
     )
     manual_main_parent = pl.read_csv(manual_main_parent_path)
     df = _apply_manual_main_parent(df, manual_main_parent)
-    df = _pin_accepted_roots(df, pl.read_csv(manual_accepted_roots_path), manual_main_parent)
+    df = _pin_accepted_roots(df, accepted_roots, manual_main_parent)
 
     # Seeds: the "music of <place>" items themselves (plus items reclassified into that same
     # non-genre-overview role via manual_overview_reclassifications.csv, e.g. "European folk music"
@@ -485,6 +495,18 @@ def classify_regional_genres(
         .then(pl.lit("inherited"))
         .otherwise(None),
     )
+
+    regional_roots = (
+        df.filter(
+            pl.col("item_id").is_in(list(accepted_ids)) & (pl.col("is_regional") | pl.col("is_regional_overview"))
+        )
+        .select("item_id", "regional_reason")
+        .unique()
+        .sort("item_id")
+        .rows()
+    )
+    if regional_roots:
+        raise ValueError(f"manual_accepted_canonical_roots.csv item_id(s) classified regional: {regional_roots}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "4_regional_classification.parquet"
