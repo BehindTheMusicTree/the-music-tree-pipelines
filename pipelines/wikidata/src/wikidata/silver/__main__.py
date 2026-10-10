@@ -45,6 +45,7 @@ regional_classification_path = classify_regional_genres(
     curation_dir / "manual_regional_overrides.csv",
     curation_dir / "manual_canonical_parent_additions.csv",
     curation_dir / "manual_main_parent.csv",
+    curation_dir / "manual_accepted_canonical_roots.csv",
     curation_dir / "manual_indigenous_to_exclusions.csv",
     silver_dir,
 )

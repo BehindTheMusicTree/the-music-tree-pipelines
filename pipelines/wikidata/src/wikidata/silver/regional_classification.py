@@ -54,6 +54,13 @@ MANUAL_MAIN_PARENT_RELATION_TYPE = "manual_main_parent"
 MANUAL_CANONICAL_PARENT_ADDITION_REASON = "manual_canonical_parent_addition"
 LOCAL_ID_PREFIX = "LOCAL:"
 
+# manual_accepted_canonical_roots.csv, curated the same way (also read by canonical_roots.py): roots a
+# data expert has accepted as standalone canonical genres. Every parent edge of those items is dropped
+# here, before the cascade, so a Wikidata re-parenting (e.g. hip-hop moved under the regional "urban
+# contemporary" on 2026-10-09) can't silently pull an accepted root into another subtree or the
+# regional graph — Gold's per-root curation (manual_canonical_genre_pop_side.csv) depends on them
+# staying roots.
+
 # manual_indigenous_to_exclusions.csv, curated the same way: P2341 ("indigenous to") is
 # treated as an automatic regional-seed signal below, but — like P495 ("country of origin", see the
 # comment in classify_regional_genres for why that property is excluded entirely) — it's sometimes
@@ -246,6 +253,29 @@ def _apply_manual_main_parent(df: pl.DataFrame, manual_parents: pl.DataFrame) ->
     return pl.concat([df, synthetic_edges])
 
 
+def _pin_accepted_roots(df: pl.DataFrame, accepted_roots: pl.DataFrame, manual_parents: pl.DataFrame) -> pl.DataFrame:
+    accepted_ids = set(accepted_roots.select("item_id").to_series())
+    conflicting = sorted(accepted_ids & set(manual_parents.select("item_id").to_series()))
+    if conflicting:
+        raise ValueError(
+            f"manual_accepted_canonical_roots.csv item_id(s) also have a manual_main_parent.csv parent: {conflicting}"
+        )
+    pinned = (
+        df.filter(pl.col("item_id").is_in(list(accepted_ids)))
+        .unique(subset="item_id", keep="first")
+        .with_columns(
+            parent_id=pl.lit(None, dtype=pl.Utf8),
+            parent_label=pl.lit(None, dtype=pl.Utf8),
+            parent_display_label=pl.lit(None, dtype=pl.Utf8),
+            parent_url=pl.lit(None, dtype=pl.Utf8),
+            relation_type=pl.lit(None, dtype=pl.Utf8),
+            has_parent_label=pl.lit(None, dtype=pl.Boolean),
+        )
+        .select(df.columns)
+    )
+    return pl.concat([df.filter(~pl.col("item_id").is_in(list(accepted_ids))), pinned])
+
+
 def _apply_overview_overrides(df: pl.DataFrame, manual_overrides: pl.DataFrame) -> pl.DataFrame:
     if "overview_item_id" not in manual_overrides.columns:
         raise ValueError("manual_regional_overrides.csv is missing the required 'overview_item_id' column")
@@ -365,6 +395,7 @@ def classify_regional_genres(
     manual_overrides_path: Path,
     manual_canonical_parent_additions_path: Path,
     manual_main_parent_path: Path,
+    manual_accepted_roots_path: Path,
     manual_indigenous_to_exclusions_path: Path,
     output_dir: Path,
 ) -> Path:
@@ -382,6 +413,7 @@ def classify_regional_genres(
     )
     manual_main_parent = pl.read_csv(manual_main_parent_path)
     df = _apply_manual_main_parent(df, manual_main_parent)
+    df = _pin_accepted_roots(df, pl.read_csv(manual_accepted_roots_path), manual_main_parent)
 
     # Seeds: the "music of <place>" items themselves (plus items reclassified into that same
     # non-genre-overview role via manual_overview_reclassifications.csv, e.g. "European folk music"

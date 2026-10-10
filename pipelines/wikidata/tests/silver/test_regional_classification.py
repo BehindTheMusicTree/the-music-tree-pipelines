@@ -207,6 +207,16 @@ def _write_manual_indigenous_to_exclusions(tmp_path: Path) -> Path:
     return manual_indigenous_to_exclusions_path
 
 
+def _write_manual_accepted_roots(tmp_path: Path, item_ids: list[str] | None = None) -> Path:
+    manual_accepted_roots_path = tmp_path / "manual_accepted_canonical_roots.csv"
+    item_ids = item_ids or []
+    pl.DataFrame(
+        {"item_id": item_ids, "item_label": item_ids, "reason": ["test"] * len(item_ids)},
+        schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8},
+    ).write_csv(manual_accepted_roots_path)
+    return manual_accepted_roots_path
+
+
 def _classify_regional_genres(
     regional_overview_classification_path: Path,
     indigenous_to_path: Path,
@@ -215,6 +225,7 @@ def _classify_regional_genres(
     manual_main_parent_path: Path | None = None,
     manual_canonical_parent_additions_path: Path | None = None,
     manual_indigenous_to_exclusions_path: Path | None = None,
+    manual_accepted_roots_path: Path | None = None,
     *,
     tmp_path: Path | None = None,
 ) -> Path:
@@ -225,6 +236,7 @@ def _classify_regional_genres(
         manual_overrides_path,
         manual_canonical_parent_additions_path or _write_manual_canonical_parent_additions(tmp_path),
         manual_main_parent_path or _write_manual_main_parent(tmp_path),
+        manual_accepted_roots_path or _write_manual_accepted_roots(tmp_path),
         manual_indigenous_to_exclusions_path or _write_manual_indigenous_to_exclusions(tmp_path),
         output_dir,
     )
@@ -806,6 +818,45 @@ def test_classify_regional_genres_exclude_other_parents_drops_conflicting_region
     assert override_row["relation_type"] == "manual_main_parent"
     assert not override_row["is_regional"]
     assert override_row["regional_reason"] is None
+
+
+def test_classify_regional_genres_pins_accepted_roots(tmp_path: Path) -> None:
+    # fado's only parent chain is regional (via Portuguese folk music). Accepting it as a canonical root
+    # must drop that edge before the cascade, the way a Wikidata re-parenting of hip-hop under a
+    # regional genre must not pull the curated hip-hop root into the regional graph.
+    output_dir = tmp_path / "silver"
+
+    result = _classify_regional_genres(
+        _write_genre_classification(tmp_path),
+        _write_indigenous_to(tmp_path),
+        _write_manual_overrides(tmp_path),
+        output_dir,
+        manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q185676", "Q999999999"]),
+    )
+
+    fado_rows = pl.read_parquet(result).filter(pl.col("item_id") == "Q185676")
+    assert fado_rows.height == 1
+    row = fado_rows.row(0, named=True)
+    assert row["parent_id"] is None
+    assert not row["is_regional"]
+    assert row["regional_reason"] is None
+
+
+def test_classify_regional_genres_accepted_root_with_manual_main_parent_raises(tmp_path: Path) -> None:
+    manual_main_parent_path = tmp_path / "manual_main_parent.csv"
+    pl.DataFrame(
+        {"item_id": ["Q185676"], "item_label": ["fado"], "reason": ["test"], "parent_item_id": ["Q8341"]}
+    ).write_csv(manual_main_parent_path)
+
+    with pytest.raises(ValueError, match="Q185676"):
+        _classify_regional_genres(
+            _write_genre_classification(tmp_path),
+            _write_indigenous_to(tmp_path),
+            _write_manual_overrides(tmp_path),
+            tmp_path / "silver",
+            manual_main_parent_path,
+            manual_accepted_roots_path=_write_manual_accepted_roots(tmp_path, ["Q185676"]),
+        )
 
 
 def test_classify_regional_genres_exclude_other_parents_false_keeps_other_edges(tmp_path: Path) -> None:
