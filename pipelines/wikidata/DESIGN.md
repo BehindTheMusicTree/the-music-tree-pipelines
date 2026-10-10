@@ -477,7 +477,8 @@ contemporary", which descends from the regional "music of the African diaspora";
 regional, vanished from `7_canonical_hierarchy`, and Gold failed. An accepted root that also has a
 `manual_main_parent.csv` row is contradictory and raises. The rule: a change coming from Wikidata is
 overridden, a curated contradiction or a missing root stops the run. So an accepted root's
-`indigenous_to` (P2341) value is dropped with a warning, while an accepted root that still ends up
+`indigenous_to` (P2341) value is dropped with a warning (so its subtree no longer inherits regional
+status from it either), while an accepted root that still ends up
 regional (a `manual_regional_overrides.csv` row, or a regional-overview reclassification) raises, and
 so does an accepted id absent from the tree (a deleted or merged QID, or one pruned in step 2).
 Raising skips Gold, so grow keeps the previous day's data until a curator fixes the row or the
