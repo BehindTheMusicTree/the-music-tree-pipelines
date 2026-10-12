@@ -35,6 +35,8 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
     logger.info("ingesting table %s", table)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{table}.parquet"
+    # Written beside the target then renamed, so a run killed mid-write keeps the previous complete file.
+    tmp_path = output_dir / f"{table}.parquet.tmp"
 
     total_rows = 0
     writer: pq.ParquetWriter | None = None
@@ -49,7 +51,7 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
         for batch in batches:
             arrow_batch = batch.to_arrow()
             if writer is None:
-                writer = pq.ParquetWriter(output_path, arrow_batch.schema)
+                writer = pq.ParquetWriter(tmp_path, arrow_batch.schema)
             writer.write_table(arrow_batch)
             total_rows += batch.height
     if writer is not None:
@@ -57,6 +59,7 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
 
     if total_rows == 0:
         raise ValueError(f"{table} is empty")
+    tmp_path.replace(output_path)
 
     logger.info("wrote %d rows to %s", total_rows, output_path)
     return output_path
