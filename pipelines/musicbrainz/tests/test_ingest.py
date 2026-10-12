@@ -45,6 +45,21 @@ def test_ingest_table_creates_output_dir(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert output_dir.is_dir()
 
 
+def test_ingest_table_keeps_previous_file_when_interrupted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def batches():
+        yield pl.DataFrame({"id": [1]})
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(bm.pl, "read_database", MagicMock(return_value=batches()))
+    previous = tmp_path / "recording.parquet"
+    pl.DataFrame({"id": [42]}).write_parquet(previous)
+
+    with pytest.raises(KeyboardInterrupt):
+        bm.ingest_table(MagicMock(), "recording", tmp_path)
+
+    assert pl.read_parquet(previous).equals(pl.DataFrame({"id": [42]}))
+
+
 def test_ingest_table_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bm.pl, "read_database", MagicMock(return_value=iter([])))
 

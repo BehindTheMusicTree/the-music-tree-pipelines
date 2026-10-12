@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-10-12
+
+### Fixed
+
+- `gold.playground_fixture_export` writes each node's `wikidataId` (its canonical tree `id`), so genre-tree-view's playground colors roots by their fixed `ROOT_GENRE_COLORS` entry instead of the grey fallback.
+- `musicbrainz` Bronze writes each table to `<table>.parquet.tmp` and renames it when complete, so a run killed mid-ingest keeps the previous file instead of leaving a truncated one. A cancelled staging run had truncated `recording.parquet`, failing every later curation run with `The file must end with PAR1`.
+
 ## [6.1.0] - 2026-10-12
 
 ### Added
