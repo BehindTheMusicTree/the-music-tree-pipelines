@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-10-12
+
+### Added
+
+- `python -m musicbrainz.silver.songs_only` recomputes only `5_songs.parquet` from the existing Bronze and Silver (no recording link/genre, YouTube candidates or status, no `YOUTUBE_*` env), failing fast if an input is missing, for curation runs. Tested in `tests/silver/test_songs_only.py`.
+
 ## [6.0.2] - 2026-10-10
 
 ### Fixed
