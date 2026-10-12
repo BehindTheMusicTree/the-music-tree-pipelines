@@ -73,8 +73,10 @@ def export_playground_fixture(canonical_tree_path: Path, genre_match_path: Path,
     except ValidationError as e:
         raise ValueError(f"canonical genre tree failed schema validation ({GENRE_TREE_SCHEMA_PATH}): {e.message}")
 
+    # The tree view only shows manually accepted canonical roots.
+    accepted_roots = [root for root in tree["tree"] if not root.get("isUnacceptedRoot")]
     direct_counts = _direct_item_counts(genre_match_path)
-    fixture, _ = _flatten(tree["tree"], parent_id=None, seen_ids={}, direct_counts=direct_counts)
+    fixture, _ = _flatten(accepted_roots, parent_id=None, seen_ids={}, direct_counts=direct_counts)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(fixture, indent=2, ensure_ascii=False))

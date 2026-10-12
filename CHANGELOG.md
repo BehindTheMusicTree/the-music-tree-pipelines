@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.2] - 2026-10-12
+
+### Fixed
+
+- `gold`: `playground_fixture_export` drops canonical roots flagged `isUnacceptedRoot` (and their subtrees) — the tree view only shows manually accepted roots, and tiny unaccepted roots (e.g. Wandelweiser, Math music) blew up the radial wheel's ring radius.
+
 ## [6.1.1] - 2026-10-12
 
 ### Fixed
