@@ -48,7 +48,13 @@ def _flatten(
         child_flat, child_total = _flatten(node["children"], node_id, seen_ids, direct_counts)
         item_count = direct_counts.get(node["name"], 0) + child_total
 
-        flat_node = {"id": node_id, "parentId": parent_id, "name": node["name"], "itemCount": item_count}
+        flat_node = {
+            "id": node_id,
+            "parentId": parent_id,
+            "name": node["name"],
+            "itemCount": item_count,
+            "wikidataId": node["id"],
+        }
         if "side" in node:
             flat_node["side"] = node["side"]
         flat.append(flat_node)

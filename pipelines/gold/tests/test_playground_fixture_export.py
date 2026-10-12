@@ -96,16 +96,17 @@ def test_export_playground_fixture_flattens_nested_tree(tmp_path: Path) -> None:
 
     fixture = json.loads(result.read_text())
     assert fixture == [
-        {"id": "electronic", "parentId": None, "name": "Electronic", "itemCount": 0},
-        {"id": "techno", "parentId": "electronic", "name": "Techno", "itemCount": 0},
+        {"id": "electronic", "parentId": None, "name": "Electronic", "itemCount": 0, "wikidataId": "Q1"},
+        {"id": "techno", "parentId": "electronic", "name": "Techno", "itemCount": 0, "wikidataId": "Q2"},
         {
             "id": "electropop",
             "parentId": "electronic",
             "name": "Electropop",
             "itemCount": 0,
+            "wikidataId": "Q3",
             "side": "pop",
         },
-        {"id": "mainstream-pop", "parentId": None, "name": "Mainstream Pop", "itemCount": 0},
+        {"id": "mainstream-pop", "parentId": None, "name": "Mainstream Pop", "itemCount": 0, "wikidataId": "Q4"},
     ]
 
 
