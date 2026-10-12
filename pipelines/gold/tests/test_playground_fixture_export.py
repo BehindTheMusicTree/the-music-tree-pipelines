@@ -120,6 +120,28 @@ def test_export_playground_fixture_rolls_up_item_counts_to_ancestors(tmp_path: P
     assert fixture == {"electronic": 3, "techno": 2, "electropop": 1, "mainstream-pop": 0}
 
 
+def test_export_playground_fixture_drops_unaccepted_roots(tmp_path: Path) -> None:
+    tree = {
+        **TREE,
+        "tree": [
+            *TREE["tree"],
+            {
+                "id": "Q5",
+                "name": "Wandelweiser",
+                "isUnacceptedRoot": True,
+                "children": [{"id": "Q6", "name": "Wandel child", "children": []}],
+            },
+        ],
+    }
+    tree_path = _write_tree(tmp_path, tree)
+    genre_match_path = _write_genre_match(tmp_path, rows=[])
+
+    result = export_playground_fixture(tree_path, genre_match_path, tmp_path / "genre-tree.json")
+
+    ids = {node["id"] for node in json.loads(result.read_text())}
+    assert ids == {"electronic", "techno", "electropop", "mainstream-pop"}
+
+
 def test_export_playground_fixture_creates_output_dir(tmp_path: Path) -> None:
     tree_path = _write_tree(tmp_path)
     genre_match_path = _write_genre_match(tmp_path, rows=[])
