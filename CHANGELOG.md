@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-10-12
+
 ### Fixed
 
 - `gold.playground_fixture_export` writes each node's `wikidataId` (its canonical tree `id`), so genre-tree-view's playground colors roots by their fixed `ROOT_GENRE_COLORS` entry instead of the grey fallback.
