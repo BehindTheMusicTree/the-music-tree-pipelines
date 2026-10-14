@@ -16,6 +16,8 @@ _PATTERNS = {
     "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
 }
+# grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data.
+_YEAR_RANGE = (1000, 2100)
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
 
@@ -28,6 +30,9 @@ def _check_songs(songs: pl.DataFrame) -> None:
         malformed = songs.filter(~pl.col(column).str.contains(pattern)).height
         if malformed:
             raise ValueError(f"{OUTPUT_DIRNAME}: {malformed} row(s) with a malformed {column}")
+    out_of_range = songs.filter(~pl.col("first_release_year").is_between(*_YEAR_RANGE)).height
+    if out_of_range:
+        raise ValueError(f"{OUTPUT_DIRNAME}: {out_of_range} row(s) with a first_release_year outside {_YEAR_RANGE}")
     bad_reason = songs.filter(~pl.col("youtube_unplayable_reason").is_in(_UNPLAYABLE_REASONS)).height
     if bad_reason:
         raise ValueError(f"{OUTPUT_DIRNAME}: {bad_reason} row(s) with an unknown youtube_unplayable_reason")
@@ -42,6 +47,7 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
         "artist_musicbrainz_id",
         "youtube_video_id",
         "youtube_unplayable_reason",
+        "first_release_year",
         genre_name=pl.when(pl.col("match_method").is_in(["exact", "music_suffix", "manual_alias"])).then(
             pl.col("wikidata_genre_name")
         ),

@@ -167,6 +167,7 @@ def genre_match(
             "youtube_video_id",
             "youtube_unplayable_reason",
             "genre_name",
+            "first_release_year",
             "wikidata_genre_name",
             "match_method",
         )

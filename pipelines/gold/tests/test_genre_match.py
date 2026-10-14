@@ -24,11 +24,14 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
             "musicbrainz_recording_id": _mbid(i),
             "artist_musicbrainz_id": _mbid(100 + i),
             "youtube_unplayable_reason": None,
+            "first_release_year": None,
             **row,
         }
         for i, row in enumerate(rows)
     ]
-    pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
+    pl.DataFrame(
+        rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16}
+    ).write_parquet(path)
     return path
 
 

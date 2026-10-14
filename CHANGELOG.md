@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Every song carries `first_release_year` (earliest year across its grouped recordings, nullable), from `musicbrainz` Bronze's new `recording_first_release_date` table through `5_songs` to `gold`'s `2_songs` export, where it is checked to be within 1000-2100. `grow-the-music-tree-api` (v12.8.0+) orders an artist's tracks on it. Bronze must be re-ingested before the next Silver run.
 - `musicbrainz` Bronze ingests 12 more tables (artist type/area/country, artist relationships and link attributes, artist URLs, release groups with their types and first-release year).
 - `musicbrainz` Silver adds `6_artists`, `7_artist_members` (band members with instrument/vocal roles and an `ended` flag), `8_artist_links` (active links only, curated kinds: official, wikipedia, wikidata, spotify, youtube, bandcamp, soundcloud, discogs, social) and `9_artist_release_groups`. Bronze must be re-ingested before the next Silver run.
 - `gold` writes `3_artists/part-NNNNN.ndjson.gz` (song artists, the groups they're members of, and the members of all of those, minus MusicBrainz's special-purpose artists (Various Artists, `[unknown]`, ...), with nested members, links and release groups), checked in Polars with a sample validated against `artist.schema.json`. `country` is an ISO 3166-1 code only, never a region code like `XE` (`XK`, Kosovo, is kept).

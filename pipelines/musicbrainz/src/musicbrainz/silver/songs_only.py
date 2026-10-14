@@ -8,7 +8,14 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 import musicbrainz
 from musicbrainz.silver.songs import songs
 
-_BRONZE_INPUTS = ("genre", "recording", "artist_credit_name", "artist", "l_recording_work")
+_BRONZE_INPUTS = (
+    "genre",
+    "recording",
+    "artist_credit_name",
+    "artist",
+    "l_recording_work",
+    "recording_first_release_date",
+)
 _SILVER_INPUTS = ("2_recording_genre", "3_youtube_candidates", "4_youtube_video_status")
 
 

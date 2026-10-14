@@ -174,10 +174,20 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
         .select("song_id", "genre_name")
     )
 
+    # Earliest year across the group's recordings; a recording with no known year (null) is ignored by min().
+    first_release_year = (
+        pl.scan_parquet(bronze_dir / "recording_first_release_date.parquet")
+        .select(recording_id="recording", first_release_year="year")
+        .join(recording_song, on="recording_id")
+        .group_by("song_id")
+        .agg(pl.col("first_release_year").min())
+    )
+
     result = (
         song_recordings.filter(pl.col("recording_id") == pl.col("song_id"))
         .join(youtube_video, on="song_id", how="left")
         .join(primary_genre, on="song_id", how="left")
+        .join(first_release_year, on="song_id", how="left")
         .select(
             "musicbrainz_recording_id",
             "title",
@@ -186,6 +196,7 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
             "youtube_video_id",
             "youtube_unplayable_reason",
             "genre_name",
+            "first_release_year",
         )
     )
 
