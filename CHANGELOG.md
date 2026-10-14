@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [6.2.2](#622---2026-10-15)
 - [6.2.1](#621---2026-10-14)
 - [6.2.0](#620---2026-10-14)
 - [5.0.0](#500---2026-10-04)
@@ -37,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [6.2.2] - 2026-10-15
+
+### Fixed
+
+- `musicbrainz` Silver `5_songs` takes `first_release_year` as the earliest year within 1000-2100 across a song's recordings, so one corrupt early year (e.g. 20) no longer wipes a valid one downstream. The range now lives in `common.quality_checks.FIRST_RELEASE_YEAR_RANGE`, shared with `gold`.
 
 ## [6.2.1] - 2026-10-14
 

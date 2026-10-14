@@ -61,6 +61,14 @@ checks over a single bad id would abort the whole songs export (and block the sy
 the already-good trees), so `song_export`'s pattern check is a last-resort net that should never
 trigger.
 
+## Out-of-range `first_release_year` is filtered in Silver, nulled in Gold
+
+The MusicBrainz mirror holds years from 20 to 3036. `common.quality_checks.FIRST_RELEASE_YEAR_RANGE`
+(1000-2100) is the single definition of a valid year. `musicbrainz`'s `5_songs` drops out-of-range years
+before taking the per-song `min()`, so one corrupt early year can't erase a song's valid one. `song_export`
+still nulls any out-of-range value with a warning rather than raising, as a regression guard: the song is
+kept, and a raise would abort the whole songs export.
+
 ## Manual CSV validation
 
 Both manual CSVs are validated the same way `wikidata`'s manual CSVs are (see

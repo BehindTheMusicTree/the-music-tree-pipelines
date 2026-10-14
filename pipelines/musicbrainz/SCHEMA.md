@@ -115,7 +115,7 @@ WHERE rt.count > 0
 | `youtube_video_id` | str, nullable | 11-char video id: the first playable checked candidate across the group by `rank` (then `recording_id`), else the best-ranked checked one; null when no candidate is checked yet or the group has none. |
 | `youtube_unplayable_reason` | str, nullable | The chosen video's reason; null when playable or when there's no video. |
 | `genre_name` | str, nullable | MusicBrainz `genre.name` with the highest weight summed across the group after curated precedence (ties: lowest `genre_id`); null when no recording of the group has a genre. |
-| `first_release_year` | int, nullable | Earliest `recording_first_release_date.year` across the group's recordings; null when none has a year. |
+| `first_release_year` | int, nullable | Earliest `recording_first_release_date.year` within 1000-2100 across the group's recordings; null when none has one. |
 
 - **Song group**: a recording linked to exactly one work (`l_recording_work`) is grouped by `(work, primary artist)`; any other recording (no work, or several) by `(normalized title, primary artist)`, the title lowercased, trimmed, and whitespace-collapsed. See [DESIGN.md](DESIGN.md#song-groups).
 - **YouTube-only**: `link_type.name` (from `1_recording_link`) doesn't distinguish platform, so a YouTube candidate is a link whose `url` matches `youtube.com`/`youtu.be`.
