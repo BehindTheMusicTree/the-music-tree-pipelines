@@ -33,6 +33,7 @@ BRONZE_TABLES = (
     "release_group_secondary_type",
     "release_group_secondary_type_join",
     "release_group_meta",
+    "recording_first_release_date",
 )
 
 # Rows pulled per batch via a server-side cursor, rather than loading a whole table into

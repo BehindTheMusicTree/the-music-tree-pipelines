@@ -60,6 +60,12 @@ ARTIST_ROWS = [
     {"id": 502, "gid": "00000000-0000-0000-0000-000000000502", "name": "Artist Z"},
 ]
 
+RECORDING_FIRST_RELEASE_DATE_ROWS = [
+    {"recording": 1000, "year": 1999, "month": 5, "day": None},
+    {"recording": 1001, "year": None, "month": None, "day": None},
+    {"recording": 1002, "year": 2001, "month": None, "day": None},
+]
+
 
 CHECKED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -100,6 +106,9 @@ def _write_inputs(tmp_path: Path, reasons: dict[str, str | None] = ALL_PLAYABLE)
     pl.DataFrame(RECORDING_ROWS).write_parquet(bronze_dir / "recording.parquet")
     pl.DataFrame(ARTIST_CREDIT_NAME_ROWS).write_parquet(bronze_dir / "artist_credit_name.parquet")
     pl.DataFrame(ARTIST_ROWS).write_parquet(bronze_dir / "artist.parquet")
+    pl.DataFrame(RECORDING_FIRST_RELEASE_DATE_ROWS, schema_overrides={"year": pl.Int16}).write_parquet(
+        bronze_dir / "recording_first_release_date.parquet"
+    )
     pl.DataFrame(schema=L_RECORDING_WORK_SCHEMA).write_parquet(bronze_dir / "l_recording_work.parquet")
     sl.youtube_candidates(silver_dir, silver_dir)
     _write_status(silver_dir, reasons)
@@ -186,6 +195,41 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "genre_name": None,
         },
     ]
+
+
+def test_songs_first_release_year_is_the_earliest_across_the_group(tmp_path: Path) -> None:
+    bronze_dir, silver_dir = _write_inputs(tmp_path)
+    # Recording 1006 re-records "Song A" by Artist X (same normalized title), so it joins song 1000's group.
+    recordings = pl.read_parquet(bronze_dir / "recording.parquet")
+    pl.concat(
+        [
+            recordings,
+            pl.DataFrame(
+                [{"id": 1006, "gid": "00000000-0000-0000-0000-000000001006", "name": " song  a", "artist_credit": 10}],
+                schema=recordings.schema,
+            ),
+        ]
+    ).write_parquet(bronze_dir / "recording.parquet")
+    dates = pl.read_parquet(bronze_dir / "recording_first_release_date.parquet")
+    pl.concat(
+        [dates, pl.DataFrame([{"recording": 1006, "year": 1985, "month": None, "day": None}], schema=dates.schema)]
+    ).write_parquet(bronze_dir / "recording_first_release_date.parquet")
+
+    years = {
+        row["title"]: row["first_release_year"]
+        for row in pl.read_parquet(
+            sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path))
+        ).to_dicts()
+    }
+
+    assert years == {
+        "Song A": 1985,
+        "Song B": None,
+        "Song C": 2001,
+        "Song D": None,
+        "Song E": None,
+        "Song F": None,
+    }
 
 
 def _song_a(tmp_path: Path, reasons: dict[str, str | None]) -> dict:

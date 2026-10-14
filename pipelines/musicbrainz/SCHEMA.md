@@ -11,7 +11,7 @@ Data dictionary and lineage notes for `musicbrainz`. See [README.md#pipeline](RE
 
 ## 1. Bronze
 
-Twenty-four MusicBrainz Postgres tables (`musicbrainz` schema), ingested as-is (`SELECT *`, no column filtering) to Parquet: `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`.
+Twenty-five MusicBrainz Postgres tables (`musicbrainz` schema), ingested as-is (`SELECT *`, no column filtering) to Parquet: `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`, `recording_first_release_date`.
 
 `release_group` (and its type/meta tables) is ingested for artist discographies: it carries its own `artist_credit` FK and a first-release year in `release_group_meta`, so no release-level join is needed. `release`, `medium` and `track` are still not ingested: `release` has no FK to `recording` (MusicBrainz links them via `medium`/`track`) and no FK to `genre`, and no consumer needs release-level data (e.g. `release.status`).
 
@@ -58,6 +58,7 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 | release_group_secondary_type | Secondary type names (Compilation, Live, Soundtrack, ...) | not yet run locally |
 | release_group_secondary_type_join | Many-to-many `release_group` ↔ secondary type | not yet run locally |
 | release_group_meta | Derived per-release-group data, incl. first release date | not yet run locally |
+| recording_first_release_date | One row per recording with its earliest release `year`/`month`/`day` (each nullable) | not yet run locally |
 
 ## 2. Silver
 
@@ -103,7 +104,7 @@ WHERE rt.count > 0
 
 `4_youtube_video_status` (`youtube_video_status.py`) — `(youtube_video_id, youtube_unplayable_reason, checked_at)`: one row per checked candidate video id, checked via the YouTube Data API `videos.list` (`part=status,contentDetails`, 50 ids per call, 1 quota unit each; key from `YOUTUBE_API_KEY`, sent as a header). `youtube_unplayable_reason` is null when playable, else the first matching rule: absent from the response → `not_found`; `status.embeddable` false → `not_embeddable`; `privacyStatus` is `private` → `private` (unlisted plays fine); `uploadStatus` not `processed` → `not_processed`. Region restrictions (`allowed` or `blocked`) are not flagged — they depend on the viewer's country, so they're left to the runtime playback fallback (`region_whitelisted` stays in the enum but isn't emitted). Rows from the previous run's parquet are kept; each run fetches at most `YOUTUBE_STATUS_MAX_BATCHES_PER_RUN` batches, never-checked ids first, then ids older than 7 days (stalest first). Candidates beyond the budget have no row yet. 5xx/transport errors retry with backoff; a `quotaExceeded` 403 fails the run with a clear message, keeping completed batches.
 
-`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — `(musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, genre_name)`, one row per song: every recording with a primary artist, deduplicated into song groups. Built from `3_youtube_candidates` + `4_youtube_video_status`, `2_recording_genre`, and Bronze `genre`/`recording`/`l_recording_work`/`artist_credit_name`/`artist`.
+`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — `(musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, genre_name, first_release_year)`, one row per song: every recording with a primary artist, deduplicated into song groups. Built from `3_youtube_candidates` + `4_youtube_video_status`, `2_recording_genre`, and Bronze `genre`/`recording`/`l_recording_work`/`artist_credit_name`/`artist`/`recording_first_release_date`.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
@@ -114,13 +115,14 @@ WHERE rt.count > 0
 | `youtube_video_id` | str, nullable | 11-char video id: the first playable checked candidate across the group by `rank` (then `recording_id`), else the best-ranked checked one; null when no candidate is checked yet or the group has none. |
 | `youtube_unplayable_reason` | str, nullable | The chosen video's reason; null when playable or when there's no video. |
 | `genre_name` | str, nullable | MusicBrainz `genre.name` with the highest weight summed across the group after curated precedence (ties: lowest `genre_id`); null when no recording of the group has a genre. |
+| `first_release_year` | int, nullable | Earliest `recording_first_release_date.year` across the group's recordings; null when none has a year. |
 
 - **Song group**: a recording linked to exactly one work (`l_recording_work`) is grouped by `(work, primary artist)`; any other recording (no work, or several) by `(normalized title, primary artist)`, the title lowercased, trimmed, and whitespace-collapsed. See [DESIGN.md](DESIGN.md#song-groups).
 - **YouTube-only**: `link_type.name` (from `1_recording_link`) doesn't distinguish platform, so a YouTube candidate is a link whose `url` matches `youtube.com`/`youtu.be`.
 - **Video id extraction** handles `youtu.be/<id>`, `youtube.com/watch?v=<id>`, `youtube.com/embed/<id>`, and `youtube.com/v/<id>`, capturing exactly 11 characters. Shorter ids and bare playlist/channel URLs are dropped; a stray trailing character isn't captured.
 - **Genre precedence**: see [DESIGN.md](DESIGN.md#genre-precedence). The genre name is emitted as-is; reconciling it against wikidata's canonical names happens in `pipelines/gold`.
 - Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/3_youtube_candidates.parquet`, `4_youtube_video_status.parquet`, and `5_songs.parquet`.
-- **On-demand JSON export**: `scripts/export_songs_json.py` reads `5_songs.parquet` and writes a flat JSON array (`[{"musicbrainz_recording_id": ..., "title": ..., "artist": ..., "artist_musicbrainz_id": ..., "youtube_video_id": ..., "youtube_unplayable_reason": ..., "genre_name": ...}, ...]`) for a developer to manually copy/commit into the downstream API repo. Run with `uv run --package musicbrainz python scripts/export_songs_json.py <output.json>` whenever a fresh copy is needed — not a scheduled job, no `infrastructure` involvement.
+- **On-demand JSON export**: `scripts/export_songs_json.py` reads `5_songs.parquet` and writes a flat JSON array (`[{"musicbrainz_recording_id": ..., "title": ..., "artist": ..., "artist_musicbrainz_id": ..., "youtube_video_id": ..., "youtube_unplayable_reason": ..., "genre_name": ..., "first_release_year": ...}, ...]`) for a developer to manually copy/commit into the downstream API repo. Run with `uv run --package musicbrainz python scripts/export_songs_json.py <output.json>` whenever a fresh copy is needed — not a scheduled job, no `infrastructure` involvement.
 
 `6_artists` (`artists.py`) — one row per Bronze `artist`:
 

@@ -23,6 +23,7 @@ MATCH_ROWS = [
         "artist": "Artist D",
         "youtube_video_id": "jkl012jkl01",
         "youtube_unplayable_reason": "not_embeddable",
+        "first_release_year": 1977,
         "genre_name": "Jazz",
         "wikidata_genre_name": "jazz",
         "match_method": "exact",
@@ -65,11 +66,14 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "musicbrainz_recording_id": _mbid(i),
             "artist_musicbrainz_id": _mbid(100 + i),
             "youtube_unplayable_reason": None,
+            "first_release_year": None,
             **row,
         }
         for i, row in enumerate(rows if rows is not None else MATCH_ROWS)
     ]
-    pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
+    pl.DataFrame(
+        rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16}
+    ).write_parquet(path)
     return path
 
 
@@ -104,6 +108,7 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path) -> None:
         "artist_musicbrainz_id": _mbid(101),
         "youtube_video_id": "jkl012jkl01",
         "youtube_unplayable_reason": "not_embeddable",
+        "first_release_year": 1977,
         "genre_name": "jazz",
     }
     assert songs[4]["youtube_video_id"] is None
@@ -129,6 +134,14 @@ def test_export_songs_raises_on_unknown_youtube_unplayable_reason(tmp_path: Path
     genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "youtube_unplayable_reason": "deleted"}])
 
     with pytest.raises(ValueError, match="unknown youtube_unplayable_reason"):
+        export_songs(genre_match_path, tmp_path / "gold")
+
+
+@pytest.mark.parametrize("year", [999, 2101])
+def test_export_songs_raises_on_out_of_range_first_release_year(tmp_path: Path, year: int) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "first_release_year": year}])
+
+    with pytest.raises(ValueError, match="first_release_year outside"):
         export_songs(genre_match_path, tmp_path / "gold")
 
 
