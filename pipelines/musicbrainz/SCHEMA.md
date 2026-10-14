@@ -129,7 +129,7 @@ WHERE rt.count > 0
 | `musicbrainz_artist_id` | str | `artist.gid`. |
 | `name` | str | `artist.name`. |
 | `type` | str, nullable | `artist_type.name`, lowercased (`person`, `group`, `orchestra`, `choir`, `character`, `other`). |
-| `country` | str, nullable | `iso_3166_1.code` of `artist.area` (lowest code when an area has several); null when the area isn't a country. ISO user-assigned codes (`AA`, `QM`–`QZ`, `XA`–`XZ`, `ZZ`, which MusicBrainz uses for regions such as `XE` Europe and `XW` Worldwide) are ignored. |
+| `country` | str, nullable | `iso_3166_1.code` of `artist.area` (lowest code when an area has several); null when the area isn't a country. ISO user-assigned codes (`AA`, `QM`–`QZ`, `XA`–`XZ`, `ZZ`, which MusicBrainz uses for regions such as `XE` Europe and `XW` Worldwide) are ignored, except `XK` (Kosovo). |
 | `begin_year`, `end_year` | int, nullable | `artist.begin_date_year`, `artist.end_date_year`. |
 | `ended` | bool | `artist.ended`. |
 

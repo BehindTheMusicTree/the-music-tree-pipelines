@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 # ISO 3166-1 user-assigned codes: never an officially assigned country.
 _USER_ASSIGNED_CODE_PATTERN = r"^(AA|Q[M-Z]|X[A-Z]|ZZ)$"
+# Kosovo: user-assigned, but a country in practice (EU, ISO itself and MusicBrainz all use it).
+_ALLOWED_USER_ASSIGNED_CODES = ["XK"]
 
 
 def artists(bronze_dir: Path, output_dir: Path) -> Path:
@@ -17,7 +19,10 @@ def artists(bronze_dir: Path, output_dir: Path) -> Path:
     # codes regions (XE Europe, XW Worldwide) and historical states in ISO's user-assigned ranges, which aren't countries.
     country = (
         pl.scan_parquet(bronze_dir / "iso_3166_1.parquet")
-        .filter(~pl.col("code").str.contains(_USER_ASSIGNED_CODE_PATTERN))
+        .filter(
+            ~pl.col("code").str.contains(_USER_ASSIGNED_CODE_PATTERN)
+            | pl.col("code").is_in(_ALLOWED_USER_ASSIGNED_CODES)
+        )
         .group_by("area")
         .agg(country=pl.col("code").min())
     )

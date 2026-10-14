@@ -40,13 +40,24 @@ def test_artists_resolves_type_and_country(tmp_path: Path) -> None:
                 "end_date_year": None,
                 "ended": False,
             },
+            # Kosovo's user-assigned code is allowlisted.
+            {
+                "id": 4,
+                "gid": "gid-4",
+                "name": "Kosovar",
+                "type": 1,
+                "area": 13,
+                "begin_date_year": None,
+                "end_date_year": None,
+                "ended": False,
+            },
         ],
         schema_overrides={"type": pl.Int64, "begin_date_year": pl.Int64, "end_date_year": pl.Int64},
     ).write_parquet(tmp_path / "artist.parquet")
     pl.DataFrame([{"id": 1, "name": "Person"}, {"id": 2, "name": "Group"}]).write_parquet(
         tmp_path / "artist_type.parquet"
     )
-    pl.DataFrame([{"area": 10, "code": "GB"}, {"area": 12, "code": "XE"}]).write_parquet(
+    pl.DataFrame([{"area": 10, "code": "GB"}, {"area": 12, "code": "XE"}, {"area": 13, "code": "XK"}]).write_parquet(
         tmp_path / "iso_3166_1.parquet"
     )
 
@@ -77,6 +88,15 @@ def test_artists_resolves_type_and_country(tmp_path: Path) -> None:
             "name": "Euro",
             "type": "person",
             "country": None,
+            "begin_year": None,
+            "end_year": None,
+            "ended": False,
+        },
+        {
+            "musicbrainz_artist_id": "gid-4",
+            "name": "Kosovar",
+            "type": "person",
+            "country": "XK",
             "begin_year": None,
             "end_year": None,
             "ended": False,
