@@ -7,11 +7,19 @@ from musicbrainz.silver.artist_links import artist_links
 
 def test_artist_links_maps_curated_kinds_and_drops_the_rest(tmp_path: Path) -> None:
     pl.DataFrame([{"id": 1, "gid": "artist"}]).write_parquet(tmp_path / "artist.parquet")
-    link_types = ["official homepage", "social network", "myspace", "free streaming", "free streaming", "allmusic"]
+    link_types = [
+        "official homepage",
+        "social network",
+        "myspace",
+        "free streaming",
+        "free streaming",
+        "allmusic",
+        "official homepage",
+    ]
     pl.DataFrame([{"id": i, "name": name} for i, name in enumerate(link_types)]).write_parquet(
         tmp_path / "link_type.parquet"
     )
-    pl.DataFrame([{"id": 100 + i, "link_type": i} for i in range(len(link_types))]).write_parquet(
+    pl.DataFrame([{"id": 100 + i, "link_type": i, "ended": i == 6} for i in range(len(link_types))]).write_parquet(
         tmp_path / "link.parquet"
     )
     urls = [
@@ -21,6 +29,7 @@ def test_artist_links_maps_curated_kinds_and_drops_the_rest(tmp_path: Path) -> N
         "https://open.spotify.com/artist/abc",
         "https://deezer.com/artist/1",  # streaming, but not a curated platform
         "https://allmusic.com/artist/x",
+        "https://lapsed.example",  # ended
     ]
     pl.DataFrame([{"id": 200 + i, "url": url} for i, url in enumerate(urls)]).write_parquet(tmp_path / "url.parquet")
     pl.DataFrame(

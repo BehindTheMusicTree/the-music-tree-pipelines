@@ -25,6 +25,8 @@ _SPOTIFY_URL_PATTERN = r"^https?://open\.spotify\.com/"
 def artist_links(bronze_dir: Path, output_dir: Path) -> Path:
     link = (
         pl.scan_parquet(bronze_dir / "link.parquet")
+        # An ended link (a lapsed domain, a closed account) no longer points at the artist.
+        .filter(~pl.col("ended"))
         .select(link="id", link_type="link_type")
         .join(
             pl.scan_parquet(bronze_dir / "link_type.parquet").select(link_type="id", link_type_name="name"),

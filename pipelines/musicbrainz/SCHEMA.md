@@ -129,13 +129,13 @@ WHERE rt.count > 0
 | `musicbrainz_artist_id` | str | `artist.gid`. |
 | `name` | str | `artist.name`. |
 | `type` | str, nullable | `artist_type.name`, lowercased (`person`, `group`, `orchestra`, `choir`, `character`, `other`). |
-| `country` | str, nullable | `iso_3166_1.code` of `artist.area` (lowest code when an area has several); null when the area isn't a country. |
+| `country` | str, nullable | `iso_3166_1.code` of `artist.area` (lowest code when an area has several); null when the area isn't a country. ISO user-assigned codes (`AA`, `QM`–`QZ`, `XA`–`XZ`, `ZZ`, which MusicBrainz uses for regions such as `XE` Europe and `XW` Worldwide) are ignored. |
 | `begin_year`, `end_year` | int, nullable | `artist.begin_date_year`, `artist.end_date_year`. |
 | `ended` | bool | `artist.ended`. |
 
-`7_artist_members` (`artist_members.py`) — `(group_musicbrainz_artist_id, member_musicbrainz_artist_id, begin_year, end_year, roles)`, one row per `l_artist_artist` "member of band" link (artist → artist). `begin_year`/`end_year` come from the `link`. `roles` is the sorted list of the link's `link_attribute_type` names whose root is `instrument` or `vocal`; other attributes (original, additional, ...) are dropped; empty when none.
+`7_artist_members` (`artist_members.py`) — `(group_musicbrainz_artist_id, member_musicbrainz_artist_id, begin_year, end_year, ended, roles)`, one row per `l_artist_artist` "member of band" link (artist → artist). `begin_year`, `end_year` and `ended` come from the `link`; `ended` is true for a past membership even when its end year is unknown. `roles` is the sorted list of the link's `link_attribute_type` names whose root is `instrument` or `vocal`; other attributes (original, additional, ...) are dropped; empty when none.
 
-`8_artist_links` (`artist_links.py`) — `(musicbrainz_artist_id, kind, url)`, one row per `l_artist_url` link of a curated kind. `kind` is `spotify` for any `open.spotify.com` URL, else mapped from `link_type.name` by `LINK_KINDS` (`official homepage` → `official`, `social network`/`myspace` → `social`, plus `wikipedia`, `wikidata`, `youtube`, `bandcamp`, `soundcloud`, `discogs`); unmapped types are dropped. See [DESIGN.md](DESIGN.md#artist-links).
+`8_artist_links` (`artist_links.py`) — `(musicbrainz_artist_id, kind, url)`, one row per `l_artist_url` link of a curated kind that hasn't ended (`link.ended` false). `kind` is `spotify` for any `open.spotify.com` URL, else mapped from `link_type.name` by `LINK_KINDS` (`official homepage` → `official`, `social network`/`myspace` → `social`, plus `wikipedia`, `wikidata`, `youtube`, `bandcamp`, `soundcloud`, `discogs`); unmapped types are dropped. See [DESIGN.md](DESIGN.md#artist-links).
 
 `9_artist_release_groups` (`artist_release_groups.py`) — `(musicbrainz_artist_id, musicbrainz_release_group_id, title, primary_type, secondary_types, first_release_year)`, one row per (release group, credited artist): every `artist_credit_name` of the release group's credit, not only position 0. `primary_type` and `secondary_types` (sorted list, empty when none) are lowercased type names; `first_release_year` is `release_group_meta.first_release_date_year`.
 

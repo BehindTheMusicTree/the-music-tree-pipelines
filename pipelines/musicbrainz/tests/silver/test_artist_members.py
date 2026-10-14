@@ -17,9 +17,10 @@ def test_artist_members_keeps_member_of_band_links_with_role_attributes(tmp_path
     ).write_parquet(tmp_path / "link_type.parquet")
     pl.DataFrame(
         [
-            {"id": 100, "link_type": 7, "begin_date_year": 1990, "end_date_year": None},
-            {"id": 101, "link_type": 7, "begin_date_year": 1991, "end_date_year": 1995},
-            {"id": 102, "link_type": 8, "begin_date_year": None, "end_date_year": None},
+            {"id": 100, "link_type": 7, "begin_date_year": 1990, "end_date_year": None, "ended": False},
+            # Left the band in an unknown year.
+            {"id": 101, "link_type": 7, "begin_date_year": 1991, "end_date_year": None, "ended": True},
+            {"id": 102, "link_type": 8, "begin_date_year": None, "end_date_year": None, "ended": False},
         ],
         schema_overrides={"begin_date_year": pl.Int64, "end_date_year": pl.Int64},
     ).write_parquet(tmp_path / "link.parquet")
@@ -56,7 +57,8 @@ def test_artist_members_keeps_member_of_band_links_with_role_attributes(tmp_path
             "group_musicbrainz_artist_id": "band",
             "member_musicbrainz_artist_id": "drummer",
             "begin_year": 1991,
-            "end_year": 1995,
+            "end_year": None,
+            "ended": True,
             "roles": [],
         },
         {
@@ -64,6 +66,7 @@ def test_artist_members_keeps_member_of_band_links_with_role_attributes(tmp_path
             "member_musicbrainz_artist_id": "singer",
             "begin_year": 1990,
             "end_year": None,
+            "ended": False,
             "roles": ["guitar", "lead vocals"],
         },
     ]

@@ -33,11 +33,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["musicbrainz_artist_id", "begin_year", "end_year", "roles"],
+        "required": ["musicbrainz_artist_id", "begin_year", "end_year", "ended", "roles"],
         "properties": {
           "musicbrainz_artist_id": { "$ref": "#/$defs/mbid" },
           "begin_year": { "$ref": "#/$defs/year" },
           "end_year": { "$ref": "#/$defs/year" },
+          "ended": { "type": "boolean" },
           "roles": { "type": "array", "items": { "type": "string", "minLength": 1 } }
         }
       }

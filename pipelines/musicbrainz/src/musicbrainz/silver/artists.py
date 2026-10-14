@@ -5,13 +5,22 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
+# ISO 3166-1 user-assigned codes: never an officially assigned country.
+_USER_ASSIGNED_CODE_PATTERN = r"^(AA|Q[M-Z]|X[A-Z]|ZZ)$"
+
 
 def artists(bronze_dir: Path, output_dir: Path) -> Path:
     artist_type = pl.scan_parquet(bronze_dir / "artist_type.parquet").select(
         type="id", type_name=pl.col("name").str.to_lowercase()
     )
-    # Only an artist whose area is itself a country has a code; a city/subdivision area stays null.
-    country = pl.scan_parquet(bronze_dir / "iso_3166_1.parquet").group_by("area").agg(country=pl.col("code").min())
+    # Only an artist whose area is itself a country has a code; a city/subdivision area stays null. MusicBrainz also
+    # codes regions (XE Europe, XW Worldwide) and historical states in ISO's user-assigned ranges, which aren't countries.
+    country = (
+        pl.scan_parquet(bronze_dir / "iso_3166_1.parquet")
+        .filter(~pl.col("code").str.contains(_USER_ASSIGNED_CODE_PATTERN))
+        .group_by("area")
+        .agg(country=pl.col("code").min())
+    )
     result = (
         pl.scan_parquet(bronze_dir / "artist.parquet")
         .join(artist_type, on="type", how="left")

@@ -43,6 +43,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": SINGER,
         "begin_year": 1990,
         "end_year": None,
+        "ended": False,
         "roles": ["lead vocals"],
     },
     {
@@ -50,6 +51,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": DRUMMER,
         "begin_year": 1991,
         "end_year": 1995,
+        "ended": True,
         "roles": [],
     },
     {
@@ -57,6 +59,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": SIDE_MEMBER,
         "begin_year": None,
         "end_year": None,
+        "ended": False,
         "roles": [],
     },
     # The drummer's own group isn't a song artist's group: reachable only two hops away, so out of scope.
@@ -65,6 +68,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": DRUMMER,
         "begin_year": None,
         "end_year": None,
+        "ended": False,
         "roles": [],
     },
     # A nested group pulled in as the band's member brings no out-of-scope member reference along.
@@ -73,6 +77,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": NESTED,
         "begin_year": None,
         "end_year": None,
+        "ended": False,
         "roles": [],
     },
     {
@@ -80,6 +85,7 @@ MEMBER_ROWS = [
         "member_musicbrainz_artist_id": STRANGER,
         "begin_year": None,
         "end_year": None,
+        "ended": False,
         "roles": [],
     },
 ]
@@ -99,9 +105,15 @@ RELEASE_GROUP_ROWS = [
 ]
 
 
-def _write_inputs(tmp_path: Path, artist_rows: list[dict] = ARTIST_ROWS) -> tuple[Path, Path]:
+def _write_inputs(
+    tmp_path: Path,
+    artist_rows: list[dict] = ARTIST_ROWS,
+    song_artist_ids: list[str] = [SINGER, SINGER],
+    link_rows: list[dict] = LINK_ROWS,
+    release_group_rows: list[dict] = RELEASE_GROUP_ROWS,
+) -> tuple[Path, Path]:
     genre_match_path = tmp_path / "1_genre_match.parquet"
-    pl.DataFrame({"artist_musicbrainz_id": [SINGER, SINGER]}).write_parquet(genre_match_path)
+    pl.DataFrame({"artist_musicbrainz_id": song_artist_ids}).write_parquet(genre_match_path)
     silver_dir = tmp_path / "silver"
     silver_dir.mkdir()
     pl.DataFrame(artist_rows, schema_overrides={"begin_year": pl.Int64, "end_year": pl.Int64}).write_parquet(
@@ -111,8 +123,8 @@ def _write_inputs(tmp_path: Path, artist_rows: list[dict] = ARTIST_ROWS) -> tupl
         MEMBER_ROWS,
         schema_overrides={"begin_year": pl.Int64, "end_year": pl.Int64, "roles": pl.List(pl.Utf8)},
     ).write_parquet(silver_dir / "7_artist_members.parquet")
-    pl.DataFrame(LINK_ROWS).write_parquet(silver_dir / "8_artist_links.parquet")
-    pl.DataFrame(RELEASE_GROUP_ROWS).write_parquet(silver_dir / "9_artist_release_groups.parquet")
+    pl.DataFrame(link_rows).write_parquet(silver_dir / "8_artist_links.parquet")
+    pl.DataFrame(release_group_rows).write_parquet(silver_dir / "9_artist_release_groups.parquet")
     return genre_match_path, silver_dir
 
 
@@ -139,9 +151,15 @@ def test_export_artists_scopes_song_artists_their_groups_and_members(tmp_path: P
         "end_year": 2001,
         "ended": True,
         "members": [
-            {"musicbrainz_artist_id": SINGER, "begin_year": 1990, "end_year": None, "roles": ["lead vocals"]},
-            {"musicbrainz_artist_id": DRUMMER, "begin_year": 1991, "end_year": 1995, "roles": []},
-            {"musicbrainz_artist_id": NESTED, "begin_year": None, "end_year": None, "roles": []},
+            {
+                "musicbrainz_artist_id": SINGER,
+                "begin_year": 1990,
+                "end_year": None,
+                "ended": False,
+                "roles": ["lead vocals"],
+            },
+            {"musicbrainz_artist_id": DRUMMER, "begin_year": 1991, "end_year": 1995, "ended": True, "roles": []},
+            {"musicbrainz_artist_id": NESTED, "begin_year": None, "end_year": None, "ended": False, "roles": []},
         ],
         "links": [{"kind": "official", "url": "https://band.example"}],
         "release_groups": [
@@ -176,9 +194,37 @@ def test_export_artists_splits_parts_and_clears_stale_ones(tmp_path: Path, monke
         ([*ARTIST_ROWS, ARTIST_ROWS[0]], "'musicbrainz_artist_id' is not unique"),
         ([{**ARTIST_ROWS[0], "name": " "}, *ARTIST_ROWS[1:]], "blank name"),
         ([{**ARTIST_ROWS[0], "name": None}, *ARTIST_ROWS[1:]], "'name' null rate"),
-        ([{**ARTIST_ROWS[0], "type": "band"}, *ARTIST_ROWS[1:]], "failed schema validation"),
+        ([{**ARTIST_ROWS[0], "type": "band"}, *ARTIST_ROWS[1:]], "malformed type"),
+        ([{**ARTIST_ROWS[0], "country": "gb"}, *ARTIST_ROWS[1:]], "malformed country"),
     ],
 )
 def test_export_artists_raises_on_bad_artist(tmp_path: Path, artist_rows: list[dict], match: str) -> None:
     with pytest.raises(ValueError, match=match):
         export_artists(*_write_inputs(tmp_path, artist_rows), tmp_path / "gold")
+
+
+def test_export_artists_excludes_special_purpose_artists(tmp_path: Path) -> None:
+    various = artist_export.SPECIAL_PURPOSE_ARTIST_IDS[0]
+    inputs = _write_inputs(tmp_path, [*ARTIST_ROWS, _artist(various, "Various Artists", "other")], [SINGER, various])
+
+    artists = _read_parts(export_artists(*inputs, tmp_path / "gold"))
+
+    assert various not in {artist["musicbrainz_artist_id"] for artist in artists}
+
+
+def test_export_artists_raises_on_malformed_release_group_id(tmp_path: Path) -> None:
+    rows = [{**RELEASE_GROUP_ROWS[0], "musicbrainz_release_group_id": "bad"}]
+    with pytest.raises(ValueError, match="malformed musicbrainz_release_group_id"):
+        export_artists(*_write_inputs(tmp_path, release_group_rows=rows), tmp_path / "gold")
+
+
+def test_export_artists_validates_a_sample_against_the_schema(tmp_path: Path) -> None:
+    rows = [{**LINK_ROWS[0], "url": ""}]
+    with pytest.raises(ValueError, match="failed schema validation"):
+        export_artists(*_write_inputs(tmp_path, link_rows=rows), tmp_path / "gold")
+
+
+def test_export_artists_raises_on_malformed_artist_id(tmp_path: Path) -> None:
+    inputs = _write_inputs(tmp_path, [*ARTIST_ROWS, _artist("not-an-mbid", "Bad")], ["not-an-mbid"])
+    with pytest.raises(ValueError, match="malformed musicbrainz_artist_id"):
+        export_artists(*inputs, tmp_path / "gold")

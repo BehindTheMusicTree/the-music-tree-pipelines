@@ -39,8 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `musicbrainz` Bronze ingests 12 more tables (artist type/area/country, artist relationships and link attributes, artist URLs, release groups with their types and first-release year).
-- `musicbrainz` Silver adds `6_artists`, `7_artist_members` (band members with instrument/vocal roles), `8_artist_links` (curated kinds: official, wikipedia, wikidata, spotify, youtube, bandcamp, soundcloud, discogs, social) and `9_artist_release_groups`. Bronze must be re-ingested before the next Silver run.
-- `gold` writes `3_artists/part-NNNNN.ndjson.gz` (song artists, their groups and those groups' members, with nested members, links and release groups), each row validated against `artist.schema.json`.
+- `musicbrainz` Silver adds `6_artists`, `7_artist_members` (band members with instrument/vocal roles and an `ended` flag), `8_artist_links` (active links only, curated kinds: official, wikipedia, wikidata, spotify, youtube, bandcamp, soundcloud, discogs, social) and `9_artist_release_groups`. Bronze must be re-ingested before the next Silver run.
+- `gold` writes `3_artists/part-NNNNN.ndjson.gz` (song artists, the groups they're members of, and the members of all of those, minus MusicBrainz's special-purpose artists (Various Artists, `[unknown]`, ...), with nested members, links and release groups), checked in Polars with a sample validated against `artist.schema.json`. `country` is an ISO 3166-1 code only, never a region code like `XE`.
 - Every song carries its primary artist's MBID as `artist_musicbrainz_id`, from `musicbrainz` Silver's `5_songs` through `gold`'s songs export, where it is required and UUID-shaped. `grow-the-music-tree-api`'s song import must accept the field before this reaches a daily run.
 
 ## [6.1.2] - 2026-10-12

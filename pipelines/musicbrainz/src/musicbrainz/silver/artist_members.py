@@ -36,7 +36,7 @@ def artist_members(bronze_dir: Path, output_dir: Path) -> Path:
             right_on="id",
             how="semi",
         )
-        .select(link="id", begin_year="begin_date_year", end_year="end_date_year")
+        .select(link="id", begin_year="begin_date_year", end_year="end_date_year", ended="ended")
     )
     result = (
         pl.scan_parquet(bronze_dir / "l_artist_artist.parquet")
@@ -49,6 +49,7 @@ def artist_members(bronze_dir: Path, output_dir: Path) -> Path:
             "member_musicbrainz_artist_id",
             "begin_year",
             "end_year",
+            "ended",
             roles=pl.col("role").fill_null([]),
         )
         .unique()

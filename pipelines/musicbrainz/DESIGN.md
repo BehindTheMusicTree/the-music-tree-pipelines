@@ -60,4 +60,9 @@ types shared by every platform), so it's matched by URL.
 
 Silver steps 6–9 cover every MusicBrainz artist, so they don't depend on the song set. `gold`'s
 artist export scopes them to what an artist page links to: song artists, the groups they're members
-of, and those groups' members.
+of, and the members of all of those. Special-purpose artists (Various Artists, `[unknown]`, ...) are
+left out: they're placeholders credited on huge numbers of releases, not artists with a page.
+
+An ended link (`link.ended`) is dropped from `8_artist_links`: a lapsed domain or closed account no
+longer points at the artist. An ended membership is kept with `ended` set, since a past member
+belongs on the band's page.
