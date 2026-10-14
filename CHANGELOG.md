@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gold` writes `3_artists/part-NNNNN.ndjson.gz` (song artists, the groups they're members of, and the members of all of those, minus MusicBrainz's special-purpose artists (Various Artists, `[unknown]`, ...), with nested members, links and release groups), checked in Polars with a sample validated against `artist.schema.json`. `country` is an ISO 3166-1 code only, never a region code like `XE` (`XK`, Kosovo, is kept).
 - Every song carries its primary artist's MBID as `artist_musicbrainz_id`, from `musicbrainz` Silver's `5_songs` through `gold`'s songs export, where it is required and UUID-shaped. `grow-the-music-tree-api`'s song import must accept the field before this reaches a daily run.
 
+### Fixed
+
+- `gold` nulls (and logs) an out-of-range `first_release_year` in the `2_songs` export instead of failing the whole export on one bad MusicBrainz date.
+
 ## [6.1.2] - 2026-10-12
 
 ### Fixed
