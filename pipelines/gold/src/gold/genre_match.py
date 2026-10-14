@@ -163,6 +163,7 @@ def genre_match(
             "musicbrainz_recording_id",
             "title",
             "artist",
+            "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
             "genre_name",

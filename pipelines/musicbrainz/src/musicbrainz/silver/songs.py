@@ -94,13 +94,18 @@ def _apply_genre_precedence(song_genre: pl.LazyFrame, closure: pl.LazyFrame) -> 
 
 def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
     """One row per recording with a primary artist: `(recording_id, song_id, musicbrainz_recording_id, title,
-    artist)`, `song_id` being the lowest `recording.id` of its song group."""
+    artist, artist_musicbrainz_id)`, `song_id` being the lowest `recording.id` of its song group."""
     # `position == 0` is MusicBrainz's own primary-artist slot (collaborations/features carry more rows).
     primary_artist = (
         pl.scan_parquet(bronze_dir / "artist_credit_name.parquet")
         .filter(pl.col("position") == 0)
-        .join(pl.scan_parquet(bronze_dir / "artist.parquet").select(artist="id", artist_name="name"), on="artist")
-        .select("artist_credit", artist_id="artist", artist_name="artist_name")
+        .join(
+            pl.scan_parquet(bronze_dir / "artist.parquet").select(
+                artist="id", artist_name="name", artist_musicbrainz_id="gid"
+            ),
+            on="artist",
+        )
+        .select("artist_credit", "artist_name", "artist_musicbrainz_id", artist_id="artist")
     )
     single_work = (
         pl.scan_parquet(bronze_dir / "l_recording_work.parquet")
@@ -129,6 +134,7 @@ def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
         musicbrainz_recording_id="musicbrainz_recording_id",
         title="title",
         artist="artist_name",
+        artist_musicbrainz_id="artist_musicbrainz_id",
     )
 
 
@@ -176,6 +182,7 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
             "musicbrainz_recording_id",
             "title",
             "artist",
+            "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
             "genre_name",

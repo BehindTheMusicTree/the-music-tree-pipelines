@@ -55,9 +55,9 @@ ARTIST_CREDIT_NAME_ROWS = [
 ]
 
 ARTIST_ROWS = [
-    {"id": 500, "name": "Artist X"},
-    {"id": 501, "name": "Artist Y"},
-    {"id": 502, "name": "Artist Z"},
+    {"id": 500, "gid": "00000000-0000-0000-0000-000000000500", "name": "Artist X"},
+    {"id": 501, "gid": "00000000-0000-0000-0000-000000000501", "name": "Artist Y"},
+    {"id": 502, "gid": "00000000-0000-0000-0000-000000000502", "name": "Artist Z"},
 ]
 
 
@@ -131,7 +131,9 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
     rows = (
         pl.read_parquet(result)
         .sort("title")
-        .select("musicbrainz_recording_id", "title", "artist", "youtube_video_id", "genre_name")
+        .select(
+            "musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id", "youtube_video_id", "genre_name"
+        )
         .to_dicts()
     )
     assert rows == [
@@ -139,6 +141,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001000",
             "title": "Song A",
             "artist": "Artist X",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000500",
             "youtube_video_id": "aaaaaaaaaaa",
             "genre_name": "jazz",
         },
@@ -146,6 +149,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001001",
             "title": "Song B",
             "artist": "Artist Y",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000501",
             "youtube_video_id": "bbbbbbbbbbb",
             "genre_name": "rock",
         },
@@ -153,6 +157,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001002",
             "title": "Song C",
             "artist": "Artist X",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000500",
             "youtube_video_id": "ccccccccccc",
             "genre_name": "rock",
         },
@@ -160,6 +165,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001004",
             "title": "Song D",
             "artist": "Artist Y",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000501",
             "youtube_video_id": "ddddddddddd",
             "genre_name": "rock",
         },
@@ -167,6 +173,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001003",
             "title": "Song E",
             "artist": "Artist X",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000500",
             "youtube_video_id": None,
             "genre_name": None,
         },
@@ -174,6 +181,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
             "musicbrainz_recording_id": "00000000-0000-0000-0000-000000001005",
             "title": "Song F",
             "artist": "Artist Y",
+            "artist_musicbrainz_id": "00000000-0000-0000-0000-000000000501",
             "youtube_video_id": "eeeeeeeeeee",
             "genre_name": None,
         },

@@ -3,6 +3,7 @@ import logging
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import gold
+from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
 from gold.genre_match import genre_match
 from gold.regional_genre_tree_export import export_regional_genre_tree
@@ -25,3 +26,4 @@ genre_match_path = genre_match(
     gold_output_dir,
 )
 export_songs(genre_match_path, gold_output_dir)
+export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
