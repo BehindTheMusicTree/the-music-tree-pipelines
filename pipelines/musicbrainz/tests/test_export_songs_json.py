@@ -11,8 +11,20 @@ export_songs_json_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(export_songs_json_module)
 
 SONG_ROWS = [
-    {"title": "Song A", "artist": "Artist X", "youtube_video_id": "aaaaaaaaaaa", "genre_name": "rock"},
-    {"title": "Song B", "artist": "Artist Y", "youtube_video_id": "bbbbbbbbbbb", "genre_name": "jazz"},
+    {
+        "title": "Song A",
+        "artist": "Artist X",
+        "artist_musicbrainz_id": "mbid-x",
+        "youtube_video_id": "aaaaaaaaaaa",
+        "genre_name": "rock",
+    },
+    {
+        "title": "Song B",
+        "artist": "Artist Y",
+        "artist_musicbrainz_id": "mbid-y",
+        "youtube_video_id": "bbbbbbbbbbb",
+        "genre_name": "jazz",
+    },
 ]
 
 

@@ -20,7 +20,13 @@ def _mbid(index: int) -> str:
 def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
     path = tmp_path / "5_songs.parquet"
     rows = [
-        {"musicbrainz_recording_id": _mbid(i), "youtube_unplayable_reason": None, **row} for i, row in enumerate(rows)
+        {
+            "musicbrainz_recording_id": _mbid(i),
+            "artist_musicbrainz_id": _mbid(100 + i),
+            "youtube_unplayable_reason": None,
+            **row,
+        }
+        for i, row in enumerate(rows)
     ]
     pl.DataFrame(rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8}).write_parquet(path)
     return path
@@ -71,6 +77,7 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
     df = pl.read_parquet(result)
     row = df.to_dicts()[0]
     assert row["musicbrainz_recording_id"] == _mbid(0)
+    assert row["artist_musicbrainz_id"] == _mbid(100)
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
 

@@ -13,7 +13,8 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 ## 1. Inputs
 
 - `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`: `item_id, item_label, item_url, parent_id, parent_label, parent_url, relation_type` — see `pipelines/wikidata/SCHEMA.md`.
-- `musicbrainz`'s `5_songs.parquet`: `musicbrainz_recording_id, title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
+- `musicbrainz`'s `6_artists.parquet`, `7_artist_members.parquet`, `8_artist_links.parquet`, `9_artist_release_groups.parquet` — see `pipelines/musicbrainz/SCHEMA.md`.
+- `musicbrainz`'s `5_songs.parquet`: `musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, genre_name` — see `pipelines/musicbrainz/SCHEMA.md`.
 
 ## 2. Outputs
 
@@ -21,7 +22,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_regional_genre_tree.json`** — same shape as `1_canonical_genre_tree.json` above (validated against the same `src/gold/schemas/genre_tree.schema.json`), but with `"treeName": "regional"` and built from `8_regional_hierarchy` instead — one entry per regional/geographic root (e.g. "music of Cape Verde") with that region's genres nested underneath. The item's extra `5_secondary_parents` parents that are regional or canonical items are emitted as `primaryParents`, except edges listed in `manual_regional_secondary_parents.csv`, emitted as `secondaryParents`. On a root, the first `primaryParents` ref becomes its main parent on import.
 
-**`1_genre_match.parquet`** — `musicbrainz_recording_id, title, artist, youtube_video_id, youtube_unplayable_reason, genre_name` (carried through from `5_songs.parquet`), plus:
+**`1_genre_match.parquet`** — `musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, genre_name` (carried through from `5_songs.parquet`), plus:
 
 | Column               | Type | Meaning |
 | -------------------- | ---- | ------- |
@@ -32,7 +33,9 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 **`1_genre_match_report.json`** — `{"unresolvedGenreTagCount": int}`, the number of distinct `genre_name`s in `1_genre_match_unresolved.csv` — written every run, even when `0`, validated against `src/gold/schemas/genre_match_report.schema.json`.
 
-**`2_songs/part-NNNNN.ndjson.gz`** — gzip-compressed newline-delimited JSON, split into parts of 250,000 rows (`part-00000.ndjson.gz`, `part-00001.ndjson.gz`, ...; the directory is cleared each run). One line per row of `1_genre_match.parquet` (every song, none filtered): `{"musicbrainz_recording_id": str, "title": str, "artist": str, "youtube_video_id": str | null, "youtube_unplayable_reason": str | null, "genre_name": str | null}`. `genre_name` is the resolved `wikidata_genre_name` when `match_method` is `exact`/`music_suffix`/`manual_alias`, else null. Checked in Polars before writing (raises `ValueError`): non-empty; `musicbrainz_recording_id` (`recording.gid`, a lowercase UUID), `title`, `artist` non-null; `musicbrainz_recording_id` unique; non-null `youtube_video_id` matches `^[A-Za-z0-9_-]{11}$`; non-null `youtube_unplayable_reason` is one of `not_found`, `not_embeddable`, `private`, `not_processed`, `region_whitelisted`.
+**`2_songs/part-NNNNN.ndjson.gz`** — gzip-compressed newline-delimited JSON, split into parts of 250,000 rows (`part-00000.ndjson.gz`, `part-00001.ndjson.gz`, ...; the directory is cleared each run). One line per row of `1_genre_match.parquet` (every song, none filtered): `{"musicbrainz_recording_id": str, "title": str, "artist": str, "artist_musicbrainz_id": str, "youtube_video_id": str | null, "youtube_unplayable_reason": str | null, "genre_name": str | null}`. `genre_name` is the resolved `wikidata_genre_name` when `match_method` is `exact`/`music_suffix`/`manual_alias`, else null. Checked in Polars before writing (raises `ValueError`): non-empty; `musicbrainz_recording_id` (`recording.gid`, a lowercase UUID), `title`, `artist`, `artist_musicbrainz_id` (`artist.gid`, a lowercase UUID) non-null; `musicbrainz_recording_id` unique; non-null `youtube_video_id` matches `^[A-Za-z0-9_-]{11}$`; non-null `youtube_unplayable_reason` is one of `not_found`, `not_embeddable`, `private`, `not_processed`, `region_whitelisted`.
+
+**`3_artists/part-NNNNN.ndjson.gz`** — same part layout as `2_songs` (250,000 rows each, directory cleared each run). One line per in-scope artist: every `artist_musicbrainz_id` of `1_genre_match.parquet`, the groups those artists are members of, and those groups' members. Fields: `musicbrainz_artist_id`, `name`, `type`, `country`, `begin_year`, `end_year`, `ended` (from `6_artists`); `members` (`[{musicbrainz_artist_id, begin_year, end_year, roles}]` from `7_artist_members`, members outside the scope dropped); `links` (`[{kind, url}]` from `8_artist_links`); `release_groups` (`[{musicbrainz_release_group_id, title, primary_type, secondary_types, first_release_year}]` from `9_artist_release_groups`). Checked in Polars (non-empty; `musicbrainz_artist_id` and `name` non-null and `musicbrainz_artist_id` unique; no blank `name`), then each row is validated against `src/gold/schemas/artist.schema.json`.
 
 ## 3. Manual CSVs
 

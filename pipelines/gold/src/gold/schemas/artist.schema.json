@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Artist",
+  "description": "One row of 3_artists/part-NNNNN.ndjson.gz",
+  "$defs": {
+    "mbid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "year": { "type": ["integer", "null"] }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "musicbrainz_artist_id",
+    "name",
+    "type",
+    "country",
+    "begin_year",
+    "end_year",
+    "ended",
+    "members",
+    "links",
+    "release_groups"
+  ],
+  "properties": {
+    "musicbrainz_artist_id": { "$ref": "#/$defs/mbid" },
+    "name": { "type": "string", "minLength": 1 },
+    "type": { "enum": ["person", "group", "orchestra", "choir", "character", "other", null] },
+    "country": { "type": ["string", "null"], "pattern": "^[A-Z]{2}$" },
+    "begin_year": { "$ref": "#/$defs/year" },
+    "end_year": { "$ref": "#/$defs/year" },
+    "ended": { "type": "boolean" },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["musicbrainz_artist_id", "begin_year", "end_year", "roles"],
+        "properties": {
+          "musicbrainz_artist_id": { "$ref": "#/$defs/mbid" },
+          "begin_year": { "$ref": "#/$defs/year" },
+          "end_year": { "$ref": "#/$defs/year" },
+          "roles": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "url"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "official",
+              "wikipedia",
+              "wikidata",
+              "spotify",
+              "youtube",
+              "bandcamp",
+              "soundcloud",
+              "discogs",
+              "social"
+            ]
+          },
+          "url": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "release_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "musicbrainz_release_group_id",
+          "title",
+          "primary_type",
+          "secondary_types",
+          "first_release_year"
+        ],
+        "properties": {
+          "musicbrainz_release_group_id": { "$ref": "#/$defs/mbid" },
+          "title": { "type": "string" },
+          "primary_type": { "type": ["string", "null"] },
+          "secondary_types": { "type": "array", "items": { "type": "string" } },
+          "first_release_year": { "$ref": "#/$defs/year" }
+        }
+      }
+    }
+  }
+}

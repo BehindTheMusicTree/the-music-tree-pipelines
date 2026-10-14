@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 ROWS_PER_PART = 250_000
 OUTPUT_DIRNAME = "2_songs"
 
+MBID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 _PATTERNS = {
-    "musicbrainz_recording_id": r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    "musicbrainz_recording_id": MBID_PATTERN,
+    "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
 }
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
@@ -19,7 +21,7 @@ _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed"
 
 def _check_songs(songs: pl.DataFrame) -> None:
     check_non_empty(songs, OUTPUT_DIRNAME)
-    for column in ("musicbrainz_recording_id", "title", "artist"):
+    for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id"):
         check_null_rate(songs, column, OUTPUT_DIRNAME)
     check_unique_key(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME)
     for column, pattern in _PATTERNS.items():
@@ -37,6 +39,7 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
         "musicbrainz_recording_id",
         "title",
         "artist",
+        "artist_musicbrainz_id",
         "youtube_video_id",
         "youtube_unplayable_reason",
         genre_name=pl.when(pl.col("match_method").is_in(["exact", "music_suffix", "manual_alias"])).then(
