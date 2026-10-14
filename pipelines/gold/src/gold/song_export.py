@@ -16,7 +16,7 @@ _PATTERNS = {
     "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
 }
-# grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data.
+# grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data (nulled, not fatal).
 _YEAR_RANGE = (1000, 2100)
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
@@ -30,9 +30,6 @@ def _check_songs(songs: pl.DataFrame) -> None:
         malformed = songs.filter(~pl.col(column).str.contains(pattern)).height
         if malformed:
             raise ValueError(f"{OUTPUT_DIRNAME}: {malformed} row(s) with a malformed {column}")
-    out_of_range = songs.filter(~pl.col("first_release_year").is_between(*_YEAR_RANGE)).height
-    if out_of_range:
-        raise ValueError(f"{OUTPUT_DIRNAME}: {out_of_range} row(s) with a first_release_year outside {_YEAR_RANGE}")
     bad_reason = songs.filter(~pl.col("youtube_unplayable_reason").is_in(_UNPLAYABLE_REASONS)).height
     if bad_reason:
         raise ValueError(f"{OUTPUT_DIRNAME}: {bad_reason} row(s) with an unknown youtube_unplayable_reason")
@@ -52,6 +49,12 @@ def export_songs(genre_match_path: Path, output_dir: Path) -> Path:
             pl.col("wikidata_genre_name")
         ),
     )
+    out_of_range = songs.filter(~pl.col("first_release_year").is_between(*_YEAR_RANGE)).height
+    if out_of_range:
+        logger.warning("nulling %d out-of-range first_release_year value(s) outside %s", out_of_range, _YEAR_RANGE)
+        songs = songs.with_columns(
+            pl.when(pl.col("first_release_year").is_between(*_YEAR_RANGE)).then(pl.col("first_release_year"))
+        )
     _check_songs(songs)
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])

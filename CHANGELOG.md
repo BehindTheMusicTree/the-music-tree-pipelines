@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [6.2.1](#621---2026-10-14)
 - [6.2.0](#620---2026-10-14)
 - [5.0.0](#500---2026-10-04)
 - [4.0.0](#400---2026-10-01)
@@ -36,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [6.2.1] - 2026-10-14
+
+### Fixed
+
+- `gold` nulls (and logs) an out-of-range `first_release_year` in the `2_songs` export instead of failing the whole export on one bad MusicBrainz date.
 
 ## [6.2.0] - 2026-10-14
 

@@ -137,12 +137,15 @@ def test_export_songs_raises_on_unknown_youtube_unplayable_reason(tmp_path: Path
         export_songs(genre_match_path, tmp_path / "gold")
 
 
-@pytest.mark.parametrize("year", [999, 2101])
-def test_export_songs_raises_on_out_of_range_first_release_year(tmp_path: Path, year: int) -> None:
+@pytest.mark.parametrize(("year", "expected"), [(999, None), (2101, None), (1000, 1000), (2100, 2100), (None, None)])
+def test_export_songs_nulls_out_of_range_first_release_year(
+    tmp_path: Path, year: int | None, expected: int | None
+) -> None:
     genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "first_release_year": year}])
 
-    with pytest.raises(ValueError, match="first_release_year outside"):
-        export_songs(genre_match_path, tmp_path / "gold")
+    export_songs(genre_match_path, tmp_path / "gold")
+
+    assert [r["first_release_year"] for r in _read_parts(tmp_path / "gold" / "2_songs")] == [expected]
 
 
 def test_export_songs_raises_on_empty_result(tmp_path: Path) -> None:
