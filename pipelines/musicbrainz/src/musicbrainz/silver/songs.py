@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.quality_checks import FIRST_RELEASE_YEAR_RANGE
 
 logger = logging.getLogger(__name__)
 
@@ -174,10 +175,12 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
         .select("song_id", "genre_name")
     )
 
-    # Earliest year across the group's recordings; a recording with no known year (null) is ignored by min().
+    # Earliest valid year across the group's recordings. Out-of-range years are dropped before min(), so one corrupt
+    # early date (e.g. 20) can't erase a valid one; nulls are dropped too.
     first_release_year = (
         pl.scan_parquet(bronze_dir / "recording_first_release_date.parquet")
         .select(recording_id="recording", first_release_year="year")
+        .filter(pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE))
         .join(recording_song, on="recording_id")
         .group_by("song_id")
         .agg(pl.col("first_release_year").min())

@@ -1,5 +1,8 @@
 import polars as pl
 
+# grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data (the mirror has 20..3036).
+FIRST_RELEASE_YEAR_RANGE = (1000, 2100)
+
 
 def check_non_empty(df: pl.DataFrame, name: str) -> None:
     if df.is_empty():
