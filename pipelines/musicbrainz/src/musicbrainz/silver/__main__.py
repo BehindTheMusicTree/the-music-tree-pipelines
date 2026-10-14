@@ -5,6 +5,10 @@ import httpx
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import musicbrainz
+from musicbrainz.silver.artist_links import artist_links
+from musicbrainz.silver.artist_members import artist_members
+from musicbrainz.silver.artist_release_groups import artist_release_groups
+from musicbrainz.silver.artists import artists
 from musicbrainz.silver.recording_genre import recording_genre
 from musicbrainz.silver.recording_link import recording_link
 from musicbrainz.silver.songs import songs, youtube_candidates
@@ -23,3 +27,7 @@ youtube_candidates(silver_dir, silver_dir)
 with httpx.Client() as client:
     youtube_video_status(silver_dir, silver_dir, client, youtube_api_key, datetime.now(UTC), youtube_status_max_batches)
 songs(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_genre_precedence.csv")
+artists(bronze_dir, silver_dir)
+artist_members(bronze_dir, silver_dir)
+artist_links(bronze_dir, silver_dir)
+artist_release_groups(bronze_dir, silver_dir)

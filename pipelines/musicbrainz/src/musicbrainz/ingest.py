@@ -21,6 +21,19 @@ BRONZE_TABLES = (
     "artist_credit",
     "artist_credit_name",
     "artist",
+    "artist_type",
+    "area",
+    "iso_3166_1",
+    "l_artist_artist",
+    "link_attribute",
+    "link_attribute_type",
+    "l_artist_url",
+    "release_group",
+    "release_group_primary_type",
+    "release_group_secondary_type",
+    "release_group_secondary_type_join",
+    "release_group_meta",
+    "recording_first_release_date",
 )
 
 # Rows pulled per batch via a server-side cursor, rather than loading a whole table into
