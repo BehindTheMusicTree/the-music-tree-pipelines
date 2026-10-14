@@ -197,7 +197,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
     ]
 
 
-def test_songs_first_release_year_is_the_earliest_across_the_group(tmp_path: Path) -> None:
+def _first_release_years(tmp_path: Path, years: dict[int, int | None]) -> dict[str, int | None]:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     # Recording 1006 re-records "Song A" by Artist X (same normalized title), so it joins song 1000's group.
     recordings = pl.read_parquet(bronze_dir / "recording.parquet")
@@ -212,15 +212,27 @@ def test_songs_first_release_year_is_the_earliest_across_the_group(tmp_path: Pat
     ).write_parquet(bronze_dir / "recording.parquet")
     dates = pl.read_parquet(bronze_dir / "recording_first_release_date.parquet")
     pl.concat(
-        [dates, pl.DataFrame([{"recording": 1006, "year": 1985, "month": None, "day": None}], schema=dates.schema)]
+        [
+            dates.filter(~pl.col("recording").is_in(list(years))),
+            pl.DataFrame(
+                [
+                    {"recording": recording, "year": year, "month": None, "day": None}
+                    for recording, year in years.items()
+                ],
+                schema=dates.schema,
+            ),
+        ]
     ).write_parquet(bronze_dir / "recording_first_release_date.parquet")
-
-    years = {
+    return {
         row["title"]: row["first_release_year"]
         for row in pl.read_parquet(
             sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path))
         ).to_dicts()
     }
+
+
+def test_songs_first_release_year_is_the_earliest_across_the_group(tmp_path: Path) -> None:
+    years = _first_release_years(tmp_path, {1006: 1985})
 
     assert years == {
         "Song A": 1985,
@@ -230,6 +242,14 @@ def test_songs_first_release_year_is_the_earliest_across_the_group(tmp_path: Pat
         "Song E": None,
         "Song F": None,
     }
+
+
+def test_songs_first_release_year_ignores_out_of_range_years(tmp_path: Path) -> None:
+    # Song A: a corrupt early year (20) must not erase the valid 1985. Song C: only out-of-range years -> null.
+    years = _first_release_years(tmp_path, {1000: 20, 1006: 1985, 1002: 3036})
+
+    assert years["Song A"] == 1985
+    assert years["Song C"] is None
 
 
 def _song_a(tmp_path: Path, reasons: dict[str, str | None]) -> dict:

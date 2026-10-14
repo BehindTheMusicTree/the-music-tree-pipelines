@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `musicbrainz` Silver `5_songs` takes `first_release_year` as the earliest year within 1000-2100 across a song's recordings, so one corrupt early year (e.g. 20) no longer wipes a valid one downstream. The range now lives in `common.quality_checks.FIRST_RELEASE_YEAR_RANGE`, shared with `gold`.
+
 ## [6.2.1] - 2026-10-14
 
 ### Fixed
