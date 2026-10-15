@@ -49,6 +49,17 @@ The run fails fast on a self-pair, on a cycle of any length, on a blank name, an
 from Bronze `genre.parquet`. grow-api accepts reversed and longer cycles and untrimmed names (such as
 `"ska "`), so the pipeline is the guard.
 
+## First release year
+
+The MusicBrainz mirror holds years from 20 to 3036. `common.quality_checks.FIRST_RELEASE_YEAR_RANGE`
+(1000-2100) is the single definition of a valid year, shared by every Silver step and by `gold`.
+
+- `5_songs` drops out-of-range recording years before taking the per-song `min()`: it picks among
+  the group's recordings, so one corrupt early year (e.g. 20) can't erase a song's valid one.
+- `9_artist_release_groups` nulls an out-of-range year in place and keeps the row: a release group
+  has a single year, and dropping the row would remove a real album from the discography. Nulls sort
+  last within the artist.
+
 ## Artist links
 
 `8_artist_links` keeps the link kinds an artist page shows (official site, encyclopedias, the main

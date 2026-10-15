@@ -139,7 +139,7 @@ WHERE rt.count > 0
 
 `8_artist_links` (`artist_links.py`) — `(musicbrainz_artist_id, kind, url)`, one row per `l_artist_url` link of a curated kind that hasn't ended (`link.ended` false). `kind` is `spotify` for any `open.spotify.com` URL, else mapped from `link_type.name` by `LINK_KINDS` (`official homepage` → `official`, `social network`/`myspace` → `social`, plus `wikipedia`, `wikidata`, `youtube`, `bandcamp`, `soundcloud`, `discogs`); unmapped types are dropped. See [DESIGN.md](DESIGN.md#artist-links).
 
-`9_artist_release_groups` (`artist_release_groups.py`) — `(musicbrainz_artist_id, musicbrainz_release_group_id, title, primary_type, secondary_types, first_release_year)`, one row per (release group, credited artist): every `artist_credit_name` of the release group's credit, not only position 0. `primary_type` and `secondary_types` (sorted list, empty when none) are lowercased type names; `first_release_year` is `release_group_meta.first_release_date_year`.
+`9_artist_release_groups` (`artist_release_groups.py`) — `(musicbrainz_artist_id, musicbrainz_release_group_id, title, primary_type, secondary_types, first_release_year)`, one row per (release group, credited artist): every `artist_credit_name` of the release group's credit, not only position 0. `primary_type` and `secondary_types` (sorted list, empty when none) are lowercased type names; `first_release_year` is `release_group_meta.first_release_date_year`, null when outside 1000-2100.
 
 Steps 6–9 run after `5_songs` in `python -m musicbrainz.silver`, unfiltered; scoping to song artists happens in `pipelines/gold`.
 
