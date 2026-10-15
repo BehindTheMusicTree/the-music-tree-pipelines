@@ -68,6 +68,14 @@ Silver already enforces the valid year range (see
 out-of-range value with a warning rather than raising, as a regression guard: the song is kept, and a
 raise would abort the whole songs export.
 
+## Text lengths mirror grow's limits
+
+`grow-the-music-tree-api` rejects an artist name, release group title or song title longer than its
+`ARTIST_NAME_LEN_MAX` / `ALBUM_NAME_LEN_MAX` / `TRACK_TITLE_LEN_MAX` with a 400, which aborts the import
+hours into a daily run. `common.quality_checks` mirrors those limits, and `artist_export` and
+`song_export` check every row (`check_max_length`) and raise with the offending count, so the contract
+break fails Gold before anything is posted. Keep the constants in step with grow's `settings.py`.
+
 ## Manual CSV validation
 
 Both manual CSVs are validated the same way `wikidata`'s manual CSVs are (see

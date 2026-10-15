@@ -4,7 +4,14 @@ import shutil
 from pathlib import Path
 
 import polars as pl
-from common.quality_checks import check_non_empty, check_null_rate, check_unique_key
+from common.quality_checks import (
+    ARTIST_NAME_LEN_MAX,
+    RELEASE_GROUP_TITLE_LEN_MAX,
+    check_max_length,
+    check_non_empty,
+    check_null_rate,
+    check_unique_key,
+)
 from jsonschema import Draft202012Validator
 
 from gold.song_export import MBID_PATTERN
@@ -59,6 +66,13 @@ def _check_artists(artists: pl.DataFrame) -> None:
     blank_name = artists.filter(pl.col("name").str.strip_chars() == "").height
     if blank_name:
         raise ValueError(f"{OUTPUT_DIRNAME}: {blank_name} row(s) with a blank name")
+    check_max_length(artists, "name", ARTIST_NAME_LEN_MAX, OUTPUT_DIRNAME)
+    release_group_titles = artists.select(
+        release_group_title=pl.col("release_groups")
+        .list.eval(pl.element().struct.field("title"))
+        .explode(empty_as_null=False)
+    )
+    check_max_length(release_group_titles, "release_group_title", RELEASE_GROUP_TITLE_LEN_MAX, OUTPUT_DIRNAME)
     release_group_ids = artists.select(
         pl.col("release_groups")
         .list.eval(pl.element().struct.field("musicbrainz_release_group_id"))
