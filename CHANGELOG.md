@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `gold` writes `3_artists` parts of 10,000 rows instead of 250,000 (~8 MB of NDJSON each instead of ~200 MB), so grow-the-music-tree-api's memory-capped workers no longer get OOM-killed importing a part.
+
 ## [6.2.4] - 2026-10-15
 
 ### Fixed

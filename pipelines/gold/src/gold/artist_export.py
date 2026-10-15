@@ -18,7 +18,9 @@ from gold.song_export import MBID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-ROWS_PER_PART = 250_000
+# Rows are ~800 bytes of NDJSON (nested members, links, release groups) and grow's API workers are memory-capped,
+# so 10k rows keeps each upload around 8 MB.
+ROWS_PER_PART = 10_000
 OUTPUT_DIRNAME = "3_artists"
 ARTIST_SCHEMA_PATH = Path(__file__).parent / "schemas" / "artist.schema.json"
 # Rows checked against ARTIST_SCHEMA_PATH: every row shares one Polars schema, so a sample catches shape drift;
