@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.quality_checks import FIRST_RELEASE_YEAR_RANGE
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,10 @@ def artist_release_groups(bronze_dir: Path, output_dir: Path) -> Path:
         .agg(secondary_types=pl.col("secondary_type_name").unique().sort())
     )
     first_release_year = pl.scan_parquet(bronze_dir / "release_group_meta.parquet").select(
-        release_group="id", first_release_year="first_release_date_year"
+        release_group="id",
+        first_release_year=pl.when(pl.col("first_release_date_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).then(
+            "first_release_date_year"
+        ),
     )
     # Every credited artist, not just position 0: a collaboration belongs to each of its artists' discographies.
     credited_artist = (

@@ -62,3 +62,42 @@ def test_artist_release_groups_credits_every_artist_with_types_and_year(tmp_path
             "first_release_year": None,
         },
     ]
+
+
+def test_artist_release_groups_nulls_out_of_range_years_and_keeps_rows(tmp_path: Path) -> None:
+    pl.DataFrame([{"id": 1, "gid": "a1"}]).write_parquet(tmp_path / "artist.parquet")
+    pl.DataFrame([{"artist_credit": 10, "position": 0, "artist": 1}]).write_parquet(
+        tmp_path / "artist_credit_name.parquet"
+    )
+    pl.DataFrame(
+        [
+            {"id": 100, "gid": "rg-a", "name": "Ancient", "artist_credit": 10, "type": None},
+            {"id": 101, "gid": "rg-b", "name": "Valid", "artist_credit": 10, "type": None},
+            {"id": 102, "gid": "rg-c", "name": "Future", "artist_credit": 10, "type": None},
+        ],
+        schema_overrides={"type": pl.Int64},
+    ).write_parquet(tmp_path / "release_group.parquet")
+    pl.DataFrame(schema={"id": pl.Int64, "name": pl.String}).write_parquet(
+        tmp_path / "release_group_primary_type.parquet"
+    )
+    pl.DataFrame(schema={"id": pl.Int64, "name": pl.String}).write_parquet(
+        tmp_path / "release_group_secondary_type.parquet"
+    )
+    pl.DataFrame(schema={"release_group": pl.Int64, "secondary_type": pl.Int64}).write_parquet(
+        tmp_path / "release_group_secondary_type_join.parquet"
+    )
+    pl.DataFrame(
+        [
+            {"id": 100, "first_release_date_year": 20},
+            {"id": 101, "first_release_date_year": 2001},
+            {"id": 102, "first_release_date_year": 3036},
+        ]
+    ).write_parquet(tmp_path / "release_group_meta.parquet")
+
+    result = pl.read_parquet(artist_release_groups(tmp_path, tmp_path / "silver"))
+
+    assert result.select("musicbrainz_release_group_id", "first_release_year").to_dicts() == [
+        {"musicbrainz_release_group_id": "rg-b", "first_release_year": 2001},
+        {"musicbrainz_release_group_id": "rg-a", "first_release_year": None},
+        {"musicbrainz_release_group_id": "rg-c", "first_release_year": None},
+    ]

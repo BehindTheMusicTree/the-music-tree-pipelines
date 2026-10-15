@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [6.2.3](#623---2026-10-15)
 - [6.2.2](#622---2026-10-15)
 - [6.2.1](#621---2026-10-14)
 - [6.2.0](#620---2026-10-14)
@@ -38,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [6.2.3] - 2026-10-15
+
+### Fixed
+
+- `musicbrainz` Silver `9_artist_release_groups` nulls a `first_release_year` outside 1000-2100 (the row is kept), so corrupt release group dates (e.g. 20, 3036) no longer reach Gold `3_artists`.
 
 ## [6.2.2] - 2026-10-15
 
