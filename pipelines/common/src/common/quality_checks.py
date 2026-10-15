@@ -2,6 +2,10 @@ import polars as pl
 
 # grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data (the mirror has 20..3036).
 FIRST_RELEASE_YEAR_RANGE = (1000, 2100)
+# grow-api rejects a longer value with a 400, failing the whole import after hours of posting.
+ARTIST_NAME_LEN_MAX = 2048
+RELEASE_GROUP_TITLE_LEN_MAX = 2048
+SONG_TITLE_LEN_MAX = 2048
 
 
 def check_non_empty(df: pl.DataFrame, name: str) -> None:
@@ -15,6 +19,12 @@ def check_null_rate(df: pl.DataFrame, column: str, name: str, max_null_ratio: fl
     null_ratio = df.select(pl.col(column).is_null().sum()).item() / df.height
     if null_ratio > max_null_ratio:
         raise ValueError(f"{name}: '{column}' null rate {null_ratio:.1%} exceeds {max_null_ratio:.1%} threshold")
+
+
+def check_max_length(df: pl.DataFrame, column: str, max_length: int, name: str) -> None:
+    too_long = df.filter(pl.col(column).str.len_chars() > max_length).height
+    if too_long:
+        raise ValueError(f"{name}: {too_long} row(s) with '{column}' longer than {max_length} characters")
 
 
 def check_unique_key(df: pl.DataFrame, column: str, name: str) -> None:

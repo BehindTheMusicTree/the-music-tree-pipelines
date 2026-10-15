@@ -1,7 +1,13 @@
 import polars as pl
 import pytest
 
-from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
+from common.quality_checks import (
+    check_max_length,
+    check_non_empty,
+    check_null_rate,
+    check_row_count_delta,
+    check_unique_key,
+)
 
 
 def test_check_non_empty_passes_on_non_empty_df() -> None:
@@ -24,6 +30,15 @@ def test_check_null_rate_raises_above_threshold() -> None:
 
 def test_check_null_rate_skips_empty_df() -> None:
     check_null_rate(pl.DataFrame({"a": []}, schema={"a": pl.Int64}), "a", "df")
+
+
+def test_check_max_length_passes_at_limit_and_on_null() -> None:
+    check_max_length(pl.DataFrame({"a": ["ab", None]}), "a", 2, "test")
+
+
+def test_check_max_length_raises_with_count() -> None:
+    with pytest.raises(ValueError, match="2 row\\(s\\) with 'a' longer than 2 characters"):
+        check_max_length(pl.DataFrame({"a": ["abc", "ab", "éèà!"]}), "a", 2, "test")
 
 
 def test_check_unique_key_passes_on_unique_values() -> None:

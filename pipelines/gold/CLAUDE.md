@@ -17,7 +17,7 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 **JSON Schema validation**: the genre tree and genre-match report JSON exports are validated (`jsonschema.validate`) against a schema in `src/gold/schemas/` before being written, raising `ValueError` on mismatch — a malformed export should fail the run loudly rather than ship a broken file to `grow-the-music-tree-api`.
 
-**Quality checks**: `genre_match` and `genre_tree_builder` validate join-key null rates/uniqueness and row-count deltas (`common.quality_checks`, shared with `musicbrainz`/`wikidata` Bronze ingestion) before writing output; `song_export` checks the songs in Polars before writing the NDJSON parts (non-empty, non-null and unique `musicbrainz_recording_id`, non-null `title`/`artist`, id patterns, reason enum). All raise `ValueError` on failure — same fail-loud rationale as the JSON Schema validation above.
+**Quality checks**: `genre_match` and `genre_tree_builder` validate join-key null rates/uniqueness and row-count deltas (`common.quality_checks`, shared with `musicbrainz`/`wikidata` Bronze ingestion) before writing output; `song_export` checks the songs in Polars before writing the NDJSON parts (non-empty, non-null and unique `musicbrainz_recording_id`, non-null `title`/`artist`, id patterns, reason enum, `title`/`artist` max lengths mirroring grow; `artist_export` likewise checks artist `name` and release group `title` lengths). All raise `ValueError` on failure — same fail-loud rationale as the JSON Schema validation above.
 
 ## Docs
 
