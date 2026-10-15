@@ -52,7 +52,7 @@ from Bronze `genre.parquet`. grow-api accepts reversed and longer cycles and unt
 ## First release year
 
 The MusicBrainz mirror holds years from 20 to 3036. `common.quality_checks.FIRST_RELEASE_YEAR_RANGE`
-(1000-2100) is the single definition of a valid year, shared by every Silver step and by `gold`.
+(1000-2100) is the single definition of a valid `first_release_year`, shared by `5_songs`, `9_artist_release_groups` and `gold`.
 
 - `5_songs` drops out-of-range recording years before taking the per-song `min()`: it picks among
   the group's recordings, so one corrupt early year (e.g. 20) can't erase a song's valid one.

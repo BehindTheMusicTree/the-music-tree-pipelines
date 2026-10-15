@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `musicbrainz` Silver `9_artist_release_groups` nulls a `first_release_year` outside 1000-2100 (the row is kept), so corrupt MusicBrainz dates (e.g. 20, 3036) no longer reach Gold `3_artists`.
+- `musicbrainz` Silver `9_artist_release_groups` nulls a `first_release_year` outside 1000-2100 (the row is kept), so corrupt release group dates (e.g. 20, 3036) no longer reach Gold `3_artists`.
 
 ## [6.2.2] - 2026-10-15
 
