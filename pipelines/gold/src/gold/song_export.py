@@ -3,7 +3,15 @@ import shutil
 from pathlib import Path
 
 import polars as pl
-from common.quality_checks import FIRST_RELEASE_YEAR_RANGE, check_non_empty, check_null_rate, check_unique_key
+from common.quality_checks import (
+    ARTIST_NAME_LEN_MAX,
+    FIRST_RELEASE_YEAR_RANGE,
+    SONG_TITLE_LEN_MAX,
+    check_max_length,
+    check_non_empty,
+    check_null_rate,
+    check_unique_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +32,8 @@ def _check_songs(songs: pl.DataFrame) -> None:
     for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id"):
         check_null_rate(songs, column, OUTPUT_DIRNAME)
     check_unique_key(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME)
+    check_max_length(songs, "title", SONG_TITLE_LEN_MAX, OUTPUT_DIRNAME)
+    check_max_length(songs, "artist", ARTIST_NAME_LEN_MAX, OUTPUT_DIRNAME)
     for column, pattern in _PATTERNS.items():
         malformed = songs.filter(~pl.col(column).str.contains(pattern)).height
         if malformed:

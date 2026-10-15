@@ -164,6 +164,14 @@ def test_export_songs_raises_on_null_artist(tmp_path: Path, column: str) -> None
         export_songs(genre_match_path, tmp_path / "gold")
 
 
+@pytest.mark.parametrize("column", ["title", "artist"])
+def test_export_songs_raises_on_too_long_text(tmp_path: Path, column: str) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], column: "x" * 2049}])
+
+    with pytest.raises(ValueError, match=f"1 row\\(s\\) with '{column}' longer than 2048"):
+        export_songs(genre_match_path, tmp_path / "gold")
+
+
 def test_export_songs_raises_on_malformed_youtube_video_id(tmp_path: Path) -> None:
     # grow-the-music-tree-api stores the id in a `varchar(11)` column.
     genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "youtube_video_id": "abc123abc123"}])

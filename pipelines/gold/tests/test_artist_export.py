@@ -196,6 +196,7 @@ def test_export_artists_splits_parts_and_clears_stale_ones(tmp_path: Path, monke
         ([{**ARTIST_ROWS[0], "name": None}, *ARTIST_ROWS[1:]], "'name' null rate"),
         ([{**ARTIST_ROWS[0], "type": "band"}, *ARTIST_ROWS[1:]], "malformed type"),
         ([{**ARTIST_ROWS[0], "country": "gb"}, *ARTIST_ROWS[1:]], "malformed country"),
+        ([{**ARTIST_ROWS[0], "name": "x" * 2049}, *ARTIST_ROWS[1:]], "1 row\\(s\\) with 'name' longer than 2048"),
     ],
 )
 def test_export_artists_raises_on_bad_artist(tmp_path: Path, artist_rows: list[dict], match: str) -> None:
@@ -215,6 +216,12 @@ def test_export_artists_excludes_special_purpose_artists(tmp_path: Path) -> None
 def test_export_artists_raises_on_malformed_release_group_id(tmp_path: Path) -> None:
     rows = [{**RELEASE_GROUP_ROWS[0], "musicbrainz_release_group_id": "bad"}]
     with pytest.raises(ValueError, match="malformed musicbrainz_release_group_id"):
+        export_artists(*_write_inputs(tmp_path, release_group_rows=rows), tmp_path / "gold")
+
+
+def test_export_artists_raises_on_too_long_release_group_title(tmp_path: Path) -> None:
+    rows = [{**RELEASE_GROUP_ROWS[0], "title": "x" * 2049}]
+    with pytest.raises(ValueError, match="1 row\\(s\\) with 'release_group_title' longer than 2048"):
         export_artists(*_write_inputs(tmp_path, release_group_rows=rows), tmp_path / "gold")
 
 
