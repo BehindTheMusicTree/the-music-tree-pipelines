@@ -6,6 +6,8 @@ import pytest
 
 from gold.regional_genre_tree_export import export_regional_genre_tree
 
+CURATION_EXPORTED_ON = "2026-10-16T08:00:00+00:00"
+
 TREE_ROWS = [
     {"item_id": "Q10", "item_label": "music of Brazil", "parent_id": None},
     {"item_id": "Q11", "item_label": "samba", "parent_id": "Q10"},
@@ -43,19 +45,22 @@ def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
     output_dir = tmp_path / "gold"
 
     result = export_regional_genre_tree(
-        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", [])
+        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []), CURATION_EXPORTED_ON
     )
 
     assert result == output_dir / "1_regional_genre_tree.json"
     tree = json.loads(result.read_text())
     assert {node["name"] for node in tree["tree"]} == {"music of Brazil", "music of Cape Verde"}
+    assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
 
 
 def test_export_regional_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    export_regional_genre_tree(wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []))
+    export_regional_genre_tree(
+        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []), CURATION_EXPORTED_ON
+    )
 
     assert output_dir.is_dir()
 
@@ -68,7 +73,10 @@ def test_export_regional_genre_tree_raises_on_schema_violation(tmp_path: Path, m
 
     with pytest.raises(ValueError, match="schema validation"):
         module.export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", _write_demotion_csv(tmp_path / "demotions.csv", [])
+            wikidata_silver_dir,
+            tmp_path / "gold",
+            _write_demotion_csv(tmp_path / "demotions.csv", []),
+            CURATION_EXPORTED_ON,
         )
 
 
@@ -83,7 +91,11 @@ def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(tm
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     demotion_path = _write_demotion_csv(tmp_path / "demotions.csv", [])
 
-    tree = json.loads(export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path).read_text())
+    tree = json.loads(
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON
+        ).read_text()
+    )
 
     assert tree["treeName"] == "regional"
     samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
@@ -99,7 +111,11 @@ def test_export_regional_genre_tree_demotes_listed_edge_to_secondary(tmp_path: P
         tmp_path / "demotions.csv", [{"item_id": "Q11", "parent_id": "Q1", "reason": "classification only"}]
     )
 
-    tree = json.loads(export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path).read_text())
+    tree = json.loads(
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON
+        ).read_text()
+    )
 
     samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
     assert samba["primaryParents"] == ["Q12"]
@@ -113,7 +129,7 @@ def test_export_regional_genre_tree_raises_on_stale_demotion(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="not extra parent edges"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path)
+        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON)
 
 
 def test_export_regional_genre_tree_raises_on_blank_demotion_reason(tmp_path: Path) -> None:
@@ -121,4 +137,4 @@ def test_export_regional_genre_tree_raises_on_blank_demotion_reason(tmp_path: Pa
     demotion_path = _write_demotion_csv(tmp_path / "demotions.csv", [{"item_id": "Q11", "parent_id": "Q1"}])
 
     with pytest.raises(ValueError, match="null/blank 'reason'"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path)
+        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON)

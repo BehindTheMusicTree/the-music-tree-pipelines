@@ -44,6 +44,7 @@ def export_regional_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
     manual_regional_secondary_parents_path: Path,
+    curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "8_regional_hierarchy.parquet"
     logger.info("building regional genre tree from %s", hierarchy_path)
@@ -58,6 +59,7 @@ def export_regional_genre_tree(
     demoted = _load_demoted_edges(manual_regional_secondary_parents_path, extra_edges)
     tree = {
         "treeName": "regional",
+        "curationExportedOn": curation_exported_on,
         **build_genre_tree(
             hierarchy,
             primary_parents=edges_to_parent_map(extra_edges.join(demoted, on=["item_id", "parent_id"], how="anti")),
