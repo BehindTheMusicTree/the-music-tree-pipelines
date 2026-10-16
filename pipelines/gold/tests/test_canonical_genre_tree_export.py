@@ -6,6 +6,8 @@ import pytest
 
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
 
+CURATION_EXPORTED_ON = "2026-10-16T08:00:00+00:00"
+
 TREE_ROWS = [
     {"item_id": "Q1", "item_label": "rock", "parent_id": None},
     {"item_id": "Q2", "item_label": "punk rock", "parent_id": "Q1"},
@@ -49,11 +51,12 @@ def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
-    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path)
+    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path, CURATION_EXPORTED_ON)
 
     assert result == output_dir / "1_canonical_genre_tree.json"
     tree = json.loads(result.read_text())
     assert {node["name"] for node in tree["tree"]} == {"rock", "jazz", "Mainstream Pop"}
+    assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
 
 
 def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path) -> None:
@@ -66,7 +69,7 @@ def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path) -> None:
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
-    export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path)
+    export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path, CURATION_EXPORTED_ON)
 
     assert output_dir.is_dir()
 
@@ -90,7 +93,7 @@ def test_export_canonical_genre_tree_raises_on_schema_violation(
     _write_pop_side_csv(pop_side_path, [])
 
     with pytest.raises(ValueError, match="schema validation"):
-        module.export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        module.export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path) -> None:
@@ -103,7 +106,7 @@ def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path) -> None:
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"}])
 
-    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path)
+    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path, CURATION_EXPORTED_ON)
 
     tree = json.loads(result.read_text())
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
@@ -122,7 +125,7 @@ def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(tmp_path
     _write_pop_side_csv(pop_side_path, [])
 
     with pytest.raises(ValueError, match="Mainstream Pop"):
-        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path) -> None:
@@ -137,7 +140,7 @@ def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path) -> N
     )
 
     with pytest.raises(ValueError, match="not found among canonical roots"):
-        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_raises_on_non_direct_child(tmp_path: Path) -> None:
@@ -152,7 +155,7 @@ def test_export_canonical_genre_tree_raises_on_non_direct_child(tmp_path: Path) 
     )
 
     with pytest.raises(ValueError, match="not a direct child of root"):
-        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_raises_on_duplicate_row(tmp_path: Path) -> None:
@@ -171,7 +174,7 @@ def test_export_canonical_genre_tree_raises_on_duplicate_row(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="duplicate"):
-        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path) -> None:
@@ -190,7 +193,7 @@ def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path
     )
 
     with pytest.raises(ValueError, match="no core .non-pop. child left"):
-        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path)
+        export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON)
 
 
 def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path) -> None:
@@ -210,7 +213,7 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path) ->
         ],
     )
 
-    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path)
+    result = export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path, CURATION_EXPORTED_ON)
 
     tree = json.loads(result.read_text())
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
@@ -235,7 +238,11 @@ def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
-    tree = json.loads(export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path).read_text())
+    tree = json.loads(
+        export_canonical_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON
+        ).read_text()
+    )
 
     assert tree["treeName"] == "canonical"
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
@@ -254,7 +261,11 @@ def test_export_canonical_genre_tree_flags_unaccepted_roots(tmp_path: Path) -> N
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
-    tree = json.loads(export_canonical_genre_tree(wikidata_silver_dir, tmp_path / "gold", pop_side_path).read_text())
+    tree = json.loads(
+        export_canonical_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, CURATION_EXPORTED_ON
+        ).read_text()
+    )
 
     flags = {node["name"]: node.get("isUnacceptedRoot") for node in tree["tree"]}
     assert flags == {"jazz": True, "rock": None, "Mainstream Pop": None}

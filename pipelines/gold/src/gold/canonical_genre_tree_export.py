@@ -77,6 +77,7 @@ def export_canonical_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
     manual_canonical_genre_pop_side_path: Path,
+    curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "7_canonical_hierarchy.parquet"
     logger.info("building canonical genre tree from %s", hierarchy_path)
@@ -90,6 +91,7 @@ def export_canonical_genre_tree(
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))
     tree = {
         "treeName": "canonical",
+        "curationExportedOn": curation_exported_on,
         **build_genre_tree(
             hierarchy,
             pop_sides,
