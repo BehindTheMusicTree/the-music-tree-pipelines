@@ -125,9 +125,46 @@ def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
     tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-    write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q99", "action": "remove", "reason": "x"}])
+    write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q1", "action": "remove", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not extra parent edges"):
+        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON)
+
+
+def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
+    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
+    write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q99", "action": "remove", "reason": "x"}])
+
+    tree = json.loads(
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+        ).read_text()
+    )
+
+    samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
+    assert samba["primaryParents"] == ["Q1", "Q12"]
+
+
+@pytest.mark.parametrize(
+    ("row", "match"),
+    [
+        ({"item_id": "Q11", "parent_id": "Q99", "action": "add", "reason": "x"}, "outside"),
+        ({"item_id": "Q11", "parent_id": "Q10", "action": "add", "reason": "x"}, "main parent"),
+    ],
+)
+def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
+    tmp_path: Path,
+    curation_dir: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+    row: dict[str, str],
+    match: str,
+) -> None:
+    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
+    write_curation("secondary_parents", [row])
+
+    with pytest.raises(ValueError, match=f"manual_secondary_parents.csv adds edge.*{match}"):
         export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON)
 
 

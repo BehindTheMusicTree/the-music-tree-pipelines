@@ -78,7 +78,12 @@ def _fetch_batch(client: httpx.Client, api_key: str, video_ids: Sequence[str]) -
 def youtube_video_status(
     silver_dir: Path, output_dir: Path, client: httpx.Client, api_key: str, now: datetime, max_batches: int
 ) -> Path:
-    video_ids = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet")["youtube_video_id"].unique()
+    videos = (
+        pl.read_parquet(silver_dir / "3_youtube_candidates.parquet")
+        .group_by("youtube_video_id")
+        .agg(pl.col("pinned").any())
+    )
+    video_ids = videos["youtube_video_id"]
     output_path = output_dir / OUTPUT_FILENAME
 
     cached = pl.DataFrame(schema=_SCHEMA)
@@ -86,12 +91,18 @@ def youtube_video_status(
         cached = pl.read_parquet(output_path).filter(pl.col("youtube_video_id").is_in(video_ids.implode()))
 
     # Stale rows stay usable until refreshed: the per-run budget can't cover every candidate of the full catalog,
-    # so never-checked ids go first, then the stalest ones, and whatever's left waits for the next run.
+    # so curated (pinned) ids go first, then never-checked ids, then the stalest ones, and whatever's left waits for
+    # the next run.
     to_fetch = (
-        pl.DataFrame({"youtube_video_id": video_ids})
-        .join(cached, on="youtube_video_id", how="left")
+        videos.join(cached, on="youtube_video_id", how="left")
         .filter(pl.col("checked_at").is_null() | (pl.col("checked_at") < now - timedelta(days=YOUTUBE_STATUS_TTL_DAYS)))
-        .sort("checked_at", "youtube_video_id", nulls_last=False)
+        .sort(
+            "pinned",
+            "checked_at",
+            "youtube_video_id",
+            descending=[True, False, False],
+            nulls_last=[False, False, False],
+        )
         .head(max_batches * BATCH_SIZE)["youtube_video_id"]
         .to_list()
     )

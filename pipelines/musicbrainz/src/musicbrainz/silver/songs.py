@@ -21,23 +21,66 @@ _YOUTUBE_URL_PATTERN = r"(?:youtube(?:-nocookie)?\.com|youtu\.be)"
 _VIDEO_ID_PATTERN = r"(?:[?&]v=|youtu\.be/|/embed/|/v/)([A-Za-z0-9_-]{11})"
 
 
-def youtube_candidates(silver_dir: Path, output_dir: Path) -> Path:
+_UNPLAYABLE_REASONS = ("not_found", "not_embeddable", "private", "not_processed", "region_whitelisted")
+
+
+def _manual_videos(manual_youtube_video_path: Path, bronze_dir: Path) -> pl.DataFrame:
+    """`manual_recording_youtube_video.csv` rules (curated in grow-the-music-tree-api) as `(recording_id,
+    youtube_video_id, unplayable_reason)`; a null `youtube_video_id` means the song has no video."""
+    name = manual_youtube_video_path.name
+    rules = pl.read_csv(manual_youtube_video_path, infer_schema=False).select(
+        "musicbrainz_recording_id", "youtube_video_id", "unplayable_reason"
+    )
+    if rules["musicbrainz_recording_id"].null_count():
+        raise ValueError(f"{name} has row(s) with a blank musicbrainz_recording_id")
+    if rules["musicbrainz_recording_id"].is_duplicated().any():
+        raise ValueError(f"{name} has duplicate musicbrainz_recording_id row(s)")
+    malformed = rules.filter(~pl.col("youtube_video_id").str.contains(r"^[A-Za-z0-9_-]{11}$"))["youtube_video_id"]
+    if not malformed.is_empty():
+        raise ValueError(f"{name} has malformed youtube_video_id(s): {malformed.to_list()[:3]}")
+    bad_reasons = rules.filter(~pl.col("unplayable_reason").is_in(_UNPLAYABLE_REASONS))["unplayable_reason"]
+    if not bad_reasons.is_empty():
+        raise ValueError(f"{name} has unknown unplayable_reason(s): {bad_reasons.to_list()[:3]}")
+
+    recording_ids = (
+        pl.scan_parquet(bronze_dir / "recording.parquet")
+        .filter(pl.col("gid").is_in(rules["musicbrainz_recording_id"].implode()))
+        .select(recording_id="id", musicbrainz_recording_id="gid")
+        .collect()
+    )
+    resolved = rules.join(recording_ids, on="musicbrainz_recording_id", how="left")
+    unknown = resolved.filter(pl.col("recording_id").is_null())["musicbrainz_recording_id"]
+    if not unknown.is_empty():
+        raise ValueError(f"{name} references unknown musicbrainz_recording_id(s): {unknown.to_list()[:3]}")
+    return resolved.select("recording_id", "youtube_video_id", "unplayable_reason")
+
+
+def youtube_candidates(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_youtube_video_path: Path) -> Path:
     recording_link = pl.read_parquet(silver_dir / "1_recording_link.parquet")
 
-    candidates = (
+    linked = (
         recording_link.filter(pl.col("url").str.contains(_YOUTUBE_URL_PATTERN))
         .with_columns(pl.col("url").str.extract(_VIDEO_ID_PATTERN, 1).alias("youtube_video_id"))
         .drop_nulls("youtube_video_id")
         .sort("recording_id", "url")
         .unique(subset=["recording_id", "youtube_video_id"], keep="first", maintain_order=True)
         .with_columns(pl.int_range(1, pl.len() + 1, dtype=pl.UInt32).over("recording_id").alias("rank"))
-        .select("recording_id", "youtube_video_id", "rank")
+        .select("recording_id", "youtube_video_id", "rank", pinned=pl.lit(False))
+    )
+    # Curated videos go in as rank-0 `pinned` candidates so `youtube_video_status` checks them first.
+    pinned = (
+        _manual_videos(manual_youtube_video_path, bronze_dir)
+        .drop_nulls("youtube_video_id")
+        .select("recording_id", "youtube_video_id", rank=pl.lit(0, dtype=pl.UInt32), pinned=pl.lit(True))
+    )
+    candidates = pl.concat([pinned, linked]).unique(
+        subset=["recording_id", "youtube_video_id"], keep="first", maintain_order=True
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "3_youtube_candidates.parquet"
     candidates.write_parquet(output_path)
-    logger.info("wrote %d rows to %s", candidates.height, output_path)
+    logger.info("wrote %d rows to %s (%d pinned)", candidates.height, output_path, pinned.height)
     return output_path
 
 
@@ -139,7 +182,13 @@ def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
     )
 
 
-def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_precedence_path: Path) -> Path:
+def songs(
+    bronze_dir: Path,
+    silver_dir: Path,
+    output_dir: Path,
+    manual_genre_precedence_path: Path,
+    manual_youtube_video_path: Path,
+) -> Path:
     genre = pl.read_parquet(bronze_dir / "genre.parquet")
     closure = _precedence_closure(manual_genre_precedence_path, genre).lazy()
 
@@ -149,14 +198,33 @@ def songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, manual_genre_pre
     # Unchecked candidates (beyond this run's YouTube quota budget) aren't eligible yet: the song goes out without
     # a video until a later run checks them. First playable candidate across the group by rank, else the best-ranked
     # checked one with its reason, so it's flagged downstream rather than dropped.
-    youtube_video = (
+    video_status = pl.scan_parquet(silver_dir / "4_youtube_video_status.parquet")
+    computed_video = (
         pl.scan_parquet(silver_dir / "3_youtube_candidates.parquet")
-        .join(pl.scan_parquet(silver_dir / "4_youtube_video_status.parquet"), on="youtube_video_id")
+        .join(video_status, on="youtube_video_id")
         .join(recording_song, on="recording_id")
         .sort("song_id", pl.col("youtube_unplayable_reason").is_not_null(), "rank", "recording_id")
         .unique(subset="song_id", keep="first", maintain_order=True)
         .select("song_id", "youtube_video_id", "youtube_unplayable_reason")
     )
+    # A curated video always wins, checked or not: its reason is the rule's when set, else the checked status
+    # (null, i.e. playable, while unchecked).
+    manual_video = (
+        _manual_videos(manual_youtube_video_path, bronze_dir)
+        .lazy()
+        .join(recording_song, on="recording_id")
+        .sort("song_id", "recording_id")
+        .unique(subset="song_id", keep="first", maintain_order=True)
+        .join(video_status, on="youtube_video_id", how="left")
+        .select(
+            "song_id",
+            "youtube_video_id",
+            youtube_unplayable_reason=pl.when(pl.col("youtube_video_id").is_not_null()).then(
+                pl.coalesce("unplayable_reason", "youtube_unplayable_reason")
+            ),
+        )
+    )
+    youtube_video = pl.concat([manual_video, computed_video.join(manual_video, on="song_id", how="anti")])
 
     # manual_genre_precedence.csv (curated in grow-the-music-tree-api): broad tags (pop, rock) carry more votes than
     # precise ones (pop rock, ska), so a song tagged with both drops the broad one and its weight passes to the

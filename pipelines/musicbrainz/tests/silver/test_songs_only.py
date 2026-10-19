@@ -23,12 +23,19 @@ def test_main_runs_only_songs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     for name in songs_only._SILVER_INPUTS:
         (silver_dir / f"{name}.parquet").touch()
     (curation_dir / "manual_genre_precedence.csv").touch()
+    (curation_dir / "manual_recording_youtube_video.csv").touch()
     songs = MagicMock()
     monkeypatch.setattr(songs_only, "songs", songs)
 
     songs_only.main()
 
-    songs.assert_called_once_with(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_genre_precedence.csv")
+    songs.assert_called_once_with(
+        bronze_dir,
+        silver_dir,
+        silver_dir,
+        curation_dir / "manual_genre_precedence.csv",
+        curation_dir / "manual_recording_youtube_video.csv",
+    )
     assert not any(name.startswith(("recording_", "youtube_")) for name in vars(songs_only))
 
 
