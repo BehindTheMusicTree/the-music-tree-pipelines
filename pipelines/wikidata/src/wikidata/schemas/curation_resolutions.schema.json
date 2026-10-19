@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BehindTheMusicTree/the-music-tree-pipelines/wikidata/curation_resolutions.schema.json",
+  "title": "Curation QID resolutions",
+  "type": "object",
+  "properties": {
+    "remaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "list": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1 },
+          "column": { "type": "string", "minLength": 1 },
+          "from": { "type": "string", "pattern": "^Q[0-9]+$" },
+          "to": { "type": "string", "pattern": "^Q[0-9]+$" }
+        },
+        "required": ["list", "key", "column", "from", "to"],
+        "additionalProperties": false
+      }
+    },
+    "review": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "list": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1 },
+          "column": { "type": "string", "minLength": 1 },
+          "itemId": { "type": "string", "pattern": "^Q[0-9]+$" },
+          "reason": { "enum": ["redirect_conflict", "missing", "not_in_tree"] },
+          "target": { "type": "string", "pattern": "^Q[0-9]+$" }
+        },
+        "required": ["list", "key", "column", "itemId", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["remaps", "review"],
+  "additionalProperties": false
+}

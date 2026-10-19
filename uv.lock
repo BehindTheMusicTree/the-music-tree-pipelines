@@ -2624,6 +2624,7 @@ source = { editable = "pipelines/wikidata" }
 dependencies = [
     { name = "common" },
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "polars" },
     { name = "tenacity" },
 ]
@@ -2632,6 +2633,7 @@ dependencies = [
 requires-dist = [
     { name = "common", editable = "pipelines/common" },
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "jsonschema", specifier = "==4.26.0" },
     { name = "polars", specifier = "==1.42.1" },
     { name = "tenacity", specifier = "==9.1.2" },
 ]

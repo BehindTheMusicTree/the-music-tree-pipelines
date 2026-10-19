@@ -6,6 +6,7 @@ import wikidata
 from wikidata.silver.canonical_hierarchy import prune_canonical_hierarchy
 from wikidata.silver.canonical_parents import flag_canonical_parents
 from wikidata.silver.canonical_roots import extract_canonical_roots
+from wikidata.silver.curation_resolution import resolve_curation_qids
 from wikidata.silver.item_links import add_item_links
 from wikidata.silver.main_parent_selection import select_main_parents
 from wikidata.silver.non_genre_pruning import prune_non_genre_items
@@ -18,6 +19,12 @@ load_pipeline_env(wikidata.__file__)
 bronze_dir = resolve_pipeline_path(wikidata.__file__, require_env("BRONZE_OUTPUT_DIR"))
 silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
 curation_dir = resolve_pipeline_path(wikidata.__file__, require_env("CURATION_BRONZE_DIR"))
+resolve_curation_qids(
+    bronze_dir / "wikidata_genre_tree.parquet",
+    bronze_dir / "wikidata_genre_indigenous_to.parquet",
+    curation_dir,
+    silver_dir,
+)
 item_links_path = add_item_links(
     bronze_dir / "wikidata_genre_tree.parquet",
     silver_dir,
