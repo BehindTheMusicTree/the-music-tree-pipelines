@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def recording_link(bronze_dir: Path, output_dir: Path) -> Path:
-    url = pl.read_parquet(bronze_dir / "url.parquet")
+    url = pl.read_parquet(bronze_dir / "url.parquet", columns=["id", "url"])
     l_recording_url = pl.read_parquet(bronze_dir / "l_recording_url.parquet")
     link = pl.read_parquet(bronze_dir / "link.parquet")
     link_type = pl.read_parquet(bronze_dir / "link_type.parquet")

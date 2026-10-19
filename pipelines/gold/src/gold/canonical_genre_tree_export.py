@@ -96,7 +96,9 @@ def export_canonical_genre_tree(
     extra_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
     regional_ids = set(pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet").get_column("item_id"))
     curation = load_tree_curation(curation_dir, item_ids, item_ids | regional_ids)
-    untouched_edges, added_edges = apply_secondary_parent_rules(extra_edges, curation.secondary_parent_rules)
+    untouched_edges, added_edges = apply_secondary_parent_rules(
+        extra_edges, curation.secondary_parent_rules, hierarchy, item_ids
+    )
     roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))
     tree = {

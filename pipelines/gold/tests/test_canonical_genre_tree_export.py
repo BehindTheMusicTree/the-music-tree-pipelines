@@ -334,6 +334,16 @@ def test_export_canonical_genre_tree_applies_secondary_parent_rules(
     assert _rock_child(tree, "punk rock")["secondaryParents"] == ["Q5"]
 
 
+def test_export_canonical_genre_tree_ignores_removal_of_regional_parent(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
+    write_curation("secondary_parents", [{"item_id": "Q4", "parent_id": "Q10", "action": "remove", "reason": "x"}])
+
+    tree = _export_with_secondary_edges(tmp_path, curation_dir)
+
+    assert _rock_child(tree, "pop rock")["secondaryParents"] == ["Q7"]
+
+
 def test_export_canonical_genre_tree_emits_essential_tracks_by_position(
     tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
 ) -> None:
@@ -366,6 +376,9 @@ def test_export_canonical_genre_tree_emits_summary_override(
     [
         ("secondary_parents", {"item_id": "Q4", "parent_id": "Q7", "action": "move", "reason": "x"}, "malformed"),
         ("secondary_parents", {"item_id": "Q2", "parent_id": "Q7", "action": "remove", "reason": "x"}, "removes"),
+        ("secondary_parents", {"item_id": "Q2", "parent_id": "Q10", "action": "add", "reason": "x"}, "outside"),
+        ("secondary_parents", {"item_id": "Q2", "parent_id": "Q2", "action": "add", "reason": "x"}, "to itself"),
+        ("secondary_parents", {"item_id": "Q2", "parent_id": "Q1", "action": "add", "reason": "x"}, "main parent"),
         (
             "essential_tracks",
             {"item_id": "Q4", "musicbrainz_recording_id": "nope", "position": "1", "reason": "x"},

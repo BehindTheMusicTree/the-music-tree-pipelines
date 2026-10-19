@@ -2,16 +2,32 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+import polars as pl
 import pytest
 
 from gold import build
 
 EXPORTED_ON = "2026-10-16T08:00:00+00:00"
+MBID_A = "00000000-0000-0000-0000-00000000000a"
+MBID_B = "00000000-0000-0000-0000-00000000000b"
 
 
-def _write_curation(curation_dir: Path, payload: dict[str, str]) -> None:
+def _write_curation(curation_dir: Path, payload: dict[str, str], essential_track_ids: list[str] | None = None) -> None:
     curation_dir.mkdir()
     (curation_dir / "manual_export.json").write_text(json.dumps(payload))
+    pl.DataFrame(
+        {"musicbrainz_recording_id": essential_track_ids or []}, schema={"musicbrainz_recording_id": pl.Utf8}
+    ).write_csv(curation_dir / "manual_essential_tracks.csv")
+
+
+def _fake_genre_match(gold_dir: Path, calls: list[str]) -> Callable[..., Path]:
+    def genre_match(*_: object) -> Path:
+        calls.append("match")
+        path = gold_dir / "m.parquet"
+        pl.DataFrame({"musicbrainz_recording_id": [MBID_A]}).write_parquet(path)
+        return path
+
+    return genre_match
 
 
 def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -31,12 +47,13 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     monkeypatch.setattr(build, "export_canonical_genre_tree", fake_tree("canonical"))
     monkeypatch.setattr(build, "export_regional_genre_tree", fake_tree("regional"))
-    monkeypatch.setattr(build, "genre_match", lambda *_: calls.append("match") or gold_dir / "m.parquet")
+    monkeypatch.setattr(build, "genre_match", _fake_genre_match(gold_dir, calls))
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "export_artists", lambda *_: calls.append("artists"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 
     path = build.build_gold(tmp_path / "mb", tmp_path / "wd", curation_dir, gold_dir)
+    (gold_dir / "m.parquet").unlink()
 
     assert calls == ["canonical", "regional", "match", "songs", "artists"]
     manifest = json.loads(path.read_text())
@@ -45,6 +62,23 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert manifest["pipelinesCommit"] == "abc123"
     assert manifest["builtOn"]
     assert [p.name for p in gold_dir.iterdir()] == ["_manifest.json"]
+
+
+def test_build_gold_raises_on_unknown_essential_track(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    curation_dir, gold_dir = tmp_path / "curation", tmp_path / "gold"
+    _write_curation(curation_dir, {"exportedOn": EXPORTED_ON}, essential_track_ids=[MBID_A, MBID_B])
+    gold_dir.mkdir()
+    calls: list[str] = []
+    monkeypatch.setattr(build, "export_canonical_genre_tree", lambda *_: None)
+    monkeypatch.setattr(build, "export_regional_genre_tree", lambda *_: None)
+    monkeypatch.setattr(build, "genre_match", _fake_genre_match(gold_dir, calls))
+    monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
+    monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
+
+    with pytest.raises(ValueError, match=f"manual_essential_tracks.csv references unknown.*{MBID_B}"):
+        build.build_gold(tmp_path / "mb", tmp_path / "wd", curation_dir, gold_dir)
+
+    assert calls == ["match"]
 
 
 def test_build_gold_removes_stale_manifest_on_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

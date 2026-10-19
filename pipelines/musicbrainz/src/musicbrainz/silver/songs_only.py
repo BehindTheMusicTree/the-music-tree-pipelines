@@ -26,11 +26,17 @@ def main() -> None:
     curation_dir = resolve_pipeline_path(musicbrainz.__file__, require_env("CURATION_BRONZE_DIR"))
     inputs = [bronze_dir / f"{name}.parquet" for name in _BRONZE_INPUTS]
     inputs += [silver_dir / f"{name}.parquet" for name in _SILVER_INPUTS]
-    inputs.append(curation_dir / "manual_genre_precedence.csv")
+    curation_inputs = [
+        curation_dir / "manual_genre_precedence.csv",
+        curation_dir / "manual_recording_youtube_video.csv",
+    ]
+    inputs += curation_inputs
     missing = [str(path) for path in inputs if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"songs-only run needs a previous full run's output, missing: {missing}")
-    songs(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_genre_precedence.csv")
+    # ponytail: candidates/status aren't rebuilt here, so a newly curated video goes out unchecked (no reason, i.e.
+    # playable) until the next full Silver run checks it.
+    songs(bronze_dir, silver_dir, silver_dir, *curation_inputs)
 
 
 if __name__ == "__main__":

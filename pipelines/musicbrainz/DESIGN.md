@@ -25,6 +25,15 @@ The YouTube Data API's default quota is 10,000 units a day, one unit per 50-id `
 never-checked ids first, then on the stalest ids past the 7-day TTL. The full catalog is covered over
 several daily runs; songs whose candidates aren't checked yet export without a video until then.
 
+## Curated video override
+
+`manual_recording_youtube_video.csv` used to be applied in Gold, after Silver had picked and checked a
+video, so a curated video was never checked for playability. It is applied here instead: each curated
+video is a `pinned` rank-0 candidate, `youtube_video_status` spends budget on pinned ids first, and
+`songs` always keeps the curated video (or no video, when its id is empty), with the curated
+`unplayable_reason` winning over the checked one. `songs_only` reads the same CSV but checks nothing, so a
+newly curated video ships with a null reason until the next full Silver run.
+
 ## Genre precedence
 
 `5_songs` keeps one genre per song. Picking by `recording_genre.weight` alone lets broad tags

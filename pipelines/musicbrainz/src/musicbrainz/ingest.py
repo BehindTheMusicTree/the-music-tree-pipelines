@@ -40,6 +40,12 @@ BRONZE_TABLES = (
 # memory at once — the `recording` table alone is multiple million rows.
 BATCH_SIZE = 100_000
 
+# The two largest tables: Silver reads only these columns, and `SELECT *` would stream (and compress) the rest.
+PROJECTED_COLUMNS = {
+    "recording": ("id", "gid", "name", "artist_credit"),
+    "url": ("id", "url"),
+}
+
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
     if table not in BRONZE_TABLES:
@@ -55,7 +61,7 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
     writer: pq.ParquetWriter | None = None
     with conn.cursor(name=f"bronze_{table}") as cur:
         batches = pl.read_database(
-            f"SELECT * from musicbrainz.{table}",
+            f"SELECT {', '.join(PROJECTED_COLUMNS.get(table, ('*',)))} from musicbrainz.{table}",
             cur,
             iter_batches=True,
             batch_size=BATCH_SIZE,

@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 
 import polars as pl
@@ -14,6 +13,8 @@ from common.quality_checks import (
 )
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
+from gold.delta_export import write_delta
+from gold.ndjson_parts import write_ndjson_parts
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def _genre_names_by_item_id(wikidata_silver_dir: Path) -> dict[str, str]:
     return names
 
 
-def _check_known_recordings(overrides: pl.DataFrame, songs: pl.DataFrame, csv_name: str) -> None:
+def check_known_recordings(overrides: pl.DataFrame, songs: pl.DataFrame, csv_name: str) -> None:
     unknown = overrides.join(songs, on="musicbrainz_recording_id", how="anti").get_column("musicbrainz_recording_id")
     if not unknown.is_empty():
         raise ValueError(f"{csv_name} references unknown musicbrainz_recording_id(s): {unknown.to_list()[:3]}")
@@ -71,51 +72,25 @@ def _apply_recording_overrides(songs: pl.DataFrame, wikidata_silver_dir: Path, c
         key=("musicbrainz_recording_id",),
         patterns={"musicbrainz_recording_id": MBID_PATTERN, "genre_item_id": ITEM_ID_PATTERN},
     )
-    _check_known_recordings(genres, songs, genre_csv)
+    check_known_recordings(genres, songs, genre_csv)
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
     unknown_genres = sorted(set(genres.get_column("genre_item_id").drop_nulls()) - names_by_id.keys())
     if unknown_genres:
         raise ValueError(f"{genre_csv} references genre_item_id(s) not found in either genre tree: {unknown_genres}")
-
-    video_csv = "manual_recording_youtube_video.csv"
-    videos = read_curation_csv(
-        curation_dir / video_csv,
-        required=("musicbrainz_recording_id", "youtube_video_id", "reason"),
-        key=("musicbrainz_recording_id",),
-        patterns={
-            "musicbrainz_recording_id": MBID_PATTERN,
-            "youtube_video_id": _PATTERNS["youtube_video_id"],
-            "unplayable_reason": f"^({'|'.join(_UNPLAYABLE_REASONS)})$",
-        },
-    )
-    _check_known_recordings(videos, songs, video_csv)
 
     genre_overrides = genres.select(
         "musicbrainz_recording_id",
         has_genre_override=pl.lit(True),
         override_genre_name=pl.col("genre_item_id").replace_strict(names_by_id, default=None),
     )
-    video_overrides = videos.select(
-        "musicbrainz_recording_id",
-        has_video_override=pl.lit(True),
-        override_video_id="youtube_video_id",
-        override_reason="unplayable_reason",
-    )
     return (
         songs.join(genre_overrides, on="musicbrainz_recording_id", how="left")
-        .join(video_overrides, on="musicbrainz_recording_id", how="left")
         .with_columns(
             genre_name=pl.when(pl.col("has_genre_override"))
             .then(pl.col("override_genre_name"))
             .otherwise(pl.col("genre_name")),
-            youtube_video_id=pl.when(pl.col("has_video_override"))
-            .then(pl.col("override_video_id"))
-            .otherwise(pl.col("youtube_video_id")),
-            youtube_unplayable_reason=pl.when(pl.col("has_video_override"))
-            .then(pl.col("override_reason"))
-            .otherwise(pl.col("youtube_unplayable_reason")),
         )
-        .drop("has_genre_override", "override_genre_name", "has_video_override", "override_video_id", "override_reason")
+        .drop("has_genre_override", "override_genre_name")
     )
 
 
@@ -148,17 +123,14 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
 
-    # Wiped first so a smaller run never leaves a previous run's trailing parts behind.
     parts_dir = output_dir / OUTPUT_DIRNAME
-    shutil.rmtree(parts_dir, ignore_errors=True)
-    parts_dir.mkdir(parents=True)
-    for index, part in enumerate(songs.iter_slices(ROWS_PER_PART)):
-        part.write_ndjson(parts_dir / f"part-{index:05d}.ndjson.gz", compression="gzip")
+    part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
+    write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,
         parts_dir,
-        index + 1,
+        part_count,
         songs["youtube_video_id"].null_count(),
         songs["genre_name"].null_count(),
     )

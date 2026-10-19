@@ -9,7 +9,6 @@ CURATION_COLUMNS = {
     "essential_tracks": ("item_id", "musicbrainz_recording_id", "position", "reason"),
     "summary_overrides": ("item_id", "summary", "reason"),
     "recording_genre": ("musicbrainz_recording_id", "genre_item_id", "recording_label", "reason"),
-    "recording_youtube_video": ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason"),
 }
 
 

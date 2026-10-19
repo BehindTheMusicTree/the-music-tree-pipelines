@@ -87,10 +87,36 @@ def test_write_raises_on_missing_list(tmp_path: Path) -> None:
 
 def test_write_raises_on_column_mismatch(tmp_path: Path) -> None:
     export = _export()
-    export["genre_alias"] = [{"wikidata_genre_name": "rock", "musicbrainz_genre_name": "rock", "reason": "r"}]
+    export["genre_alias"] = [{"wikidata_genre_name": "rock", "musicbrainz_genre_name": "rock"}]
 
     with pytest.raises(ValueError, match="genre_alias"):
         ingest.write_curation_csvs(export, tmp_path)
+
+
+def test_write_accepts_api_column_order(tmp_path: Path) -> None:
+    export = _export()
+    export["secondary_parents"] = [
+        {
+            "item_id": "Q1",
+            "item_label": "rock",
+            "parent_id": "Q2",
+            "parent_label": "blues",
+            "action": "add",
+            "reason": "r",
+        }
+    ]
+    export["recording_genre"] = [
+        {"musicbrainz_recording_id": "rec-1", "recording_label": "Song", "genre_item_id": "Q1", "reason": ""}
+    ]
+
+    ingest.write_curation_csvs(export, tmp_path)
+
+    secondary = pl.read_csv(tmp_path / "manual_secondary_parents.csv")
+    assert secondary.columns == list(ingest.CURATION_LISTS["secondary_parents"])
+    assert secondary.row(0) == ("Q1", "Q2", "add", "rock", "blues", "r")
+    recording_genre = pl.read_csv(tmp_path / "manual_recording_genre.csv")
+    assert recording_genre.columns == list(ingest.CURATION_LISTS["recording_genre"])
+    assert recording_genre.row(0) == ("rec-1", "Q1", "Song", None)
 
 
 def test_write_raises_on_missing_exported_on(tmp_path: Path) -> None:
