@@ -44,6 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold` writes `2_songs_hashes.parquet`/`3_artists_hashes.parquet` and, against a synced baseline in `GOLD_OUTPUT_DIR/_synced/`, `2_songs_delta/`/`3_artists_delta/` (changed rows plus `deleted.ndjson.gz`) so grow can import only what changed.
+
+### Changed
+
+- `musicbrainz` Bronze ingests only the columns Silver reads for `recording` (`id`, `gid`, `name`, `artist_credit`) and `url` (`id`, `url`), the two largest tables, instead of `SELECT *`.
+- `gold` SCHEMA no longer claims the infra run script reads `_manifest.json`.
+- `gold` writes the `2_songs` and `3_artists` NDJSON parts in parallel threads.
+
 ## [6.4.0] - 2026-10-19
 
 ### Added

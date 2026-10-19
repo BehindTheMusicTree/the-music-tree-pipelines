@@ -25,7 +25,8 @@ def test_ingest_table_writes_parquet_for_each_bronze_table(
 
     read_database.assert_called_once()
     query = read_database.call_args.args[0]
-    assert query == f"SELECT * from musicbrainz.{table}"
+    columns = ", ".join(bm.PROJECTED_COLUMNS.get(table, ("*",)))
+    assert query == f"SELECT {columns} from musicbrainz.{table}"
     assert read_database.call_args.kwargs == {
         "iter_batches": True,
         "batch_size": bm.BATCH_SIZE,

@@ -136,3 +136,7 @@ corrupted export reach `grow-the-music-tree-api`:
 Deliberately plain Polars, not a dedicated data-quality tool (Great Expectations, dbt tests): this is
 a handful of checks at one boundary in one pipeline, and a new dependency plus its own DSL isn't
 worth it here.
+
+## Delta export, baseline owned by the sync
+
+The nightly import into grow is a full snapshot (grow deletes whatever a run omits), yet almost no song or artist changes day to day. Gold therefore also writes `<name>_delta/` — rows whose hash differs from the last *successfully synced* run, plus the keys that disappeared — so a delta import can send only those. Gold never moves the baseline: `infrastructure` promotes `<name>_hashes.parquet` into `_synced/` only after grow's merge task reports success, so a failed or skipped sync leaves the baseline behind and the next run re-sends everything it missed. Absent baseline means no delta, i.e. a full sync, which is also the fallback after any data loss.
