@@ -26,7 +26,14 @@
           "items": { "$ref": "#/$defs/node" }
         },
         "primaryParents": { "$ref": "#/$defs/parentRefs" },
-        "secondaryParents": { "$ref": "#/$defs/parentRefs" }
+        "secondaryParents": { "$ref": "#/$defs/parentRefs" },
+        "essentialTracks": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "summary": { "type": "string", "minLength": 1 }
       },
       "required": ["id", "name", "children"],
       "additionalProperties": false

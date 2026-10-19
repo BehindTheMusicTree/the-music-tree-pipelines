@@ -5,45 +5,23 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
-from gold.genre_tree_builder import build_genre_tree, edges_to_parent_map, load_extra_parent_edges
+from gold.genre_tree_builder import (
+    apply_secondary_parent_rules,
+    build_genre_tree,
+    edges_to_parent_map,
+    load_extra_parent_edges,
+    load_tree_curation,
+)
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
 
-# manual_regional_secondary_parents.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a regional item's extra Wikidata
-# parent edges are exported as primaryParents (tracks flow into that parent's playlist) by default;
-# a data expert lists an (item_id, parent_id) edge here to demote it to a secondaryParents
-# classification-only link instead.
-
 logger = logging.getLogger(__name__)
-
-
-def _load_demoted_edges(manual_regional_secondary_parents_path: Path, extra_edges: pl.DataFrame) -> pl.DataFrame:
-    df = pl.read_csv(
-        manual_regional_secondary_parents_path, schema_overrides={"item_id": pl.Utf8, "parent_id": pl.Utf8}
-    )
-    csv_name = manual_regional_secondary_parents_path.name
-
-    for column in ("item_id", "parent_id", "reason"):
-        if not df.filter(pl.col(column).is_null() | (pl.col(column).str.strip_chars() == "")).is_empty():
-            raise ValueError(f"{csv_name} has row(s) with a null/blank '{column}'")
-
-    demoted = df.select("item_id", "parent_id")
-    if demoted.is_duplicated().any():
-        raise ValueError(f"{csv_name} has duplicate (item_id, parent_id) row(s)")
-
-    stale = demoted.join(extra_edges, on=["item_id", "parent_id"], how="anti")
-    if not stale.is_empty():
-        raise ValueError(
-            f"{csv_name} references edge(s) that are not extra parent edges of the regional tree: {stale.rows()}"
-        )
-
-    return demoted
 
 
 def export_regional_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
-    manual_regional_secondary_parents_path: Path,
+    curation_dir: Path,
     curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "8_regional_hierarchy.parquet"
@@ -56,15 +34,20 @@ def export_regional_genre_tree(
     extra_edges = load_extra_parent_edges(
         wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids | canonical_ids
     )
-    demoted = _load_demoted_edges(manual_regional_secondary_parents_path, extra_edges)
+    curation = load_tree_curation(curation_dir, item_ids, item_ids | canonical_ids)
+    # An extra parent edge feeds tracks to its parent by default (primaryParents); a curated `add`
+    # makes it classification only (secondaryParents).
+    primary_edges, secondary_edges = apply_secondary_parent_rules(extra_edges, curation.secondary_parent_rules)
     tree = {
         "treeName": "regional",
         "curationExportedOn": curation_exported_on,
         **build_genre_tree(
             hierarchy,
-            primary_parents=edges_to_parent_map(extra_edges.join(demoted, on=["item_id", "parent_id"], how="anti")),
-            secondary_parents=edges_to_parent_map(extra_edges.join(demoted, on=["item_id", "parent_id"], how="semi")),
+            primary_parents=edges_to_parent_map(primary_edges),
+            secondary_parents=edges_to_parent_map(secondary_edges),
             external_ids=canonical_ids,
+            essential_tracks=curation.essential_tracks,
+            summaries=curation.summaries,
         ),
     }
 
