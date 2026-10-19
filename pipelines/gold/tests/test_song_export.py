@@ -234,35 +234,6 @@ def test_export_songs_applies_recording_genre_overrides(
     assert [song["genre_name"] for song in songs] == [None, "jazz", "Punk", "samba", None]
 
 
-def test_export_songs_applies_recording_youtube_video_overrides(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
-) -> None:
-    write_curation(
-        "recording_youtube_video",
-        [
-            {"musicbrainz_recording_id": _mbid(1), "youtube_video_id": "zzz999zzz99", "reason": "better video"},
-            {
-                "musicbrainz_recording_id": _mbid(4),
-                "youtube_video_id": "yyy888yyy88",
-                "unplayable_reason": "private",
-                "reason": "x",
-            },
-        ],
-    )
-
-    songs = _read_parts(
-        export_songs(_write_genre_match(tmp_path), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
-    )
-
-    assert [(song["youtube_video_id"], song["youtube_unplayable_reason"]) for song in songs] == [
-        ("abc123abc12", None),
-        ("zzz999zzz99", None),
-        ("def456def45", None),
-        ("ghi789ghi78", None),
-        ("yyy888yyy88", "private"),
-    ]
-
-
 @pytest.mark.parametrize(
     ("name", "row", "match"),
     [
@@ -273,21 +244,6 @@ def test_export_songs_applies_recording_youtube_video_overrides(
         ),
         ("recording_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
         ("recording_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
-        (
-            "recording_youtube_video",
-            {"musicbrainz_recording_id": _mbid(0), "reason": "x"},
-            "null/blank 'youtube_video_id'",
-        ),
-        (
-            "recording_youtube_video",
-            {
-                "musicbrainz_recording_id": _mbid(0),
-                "youtube_video_id": "abc123abc12",
-                "unplayable_reason": "gone",
-                "reason": "x",
-            },
-            "malformed 'unplayable_reason'",
-        ),
     ],
 )
 def test_export_songs_raises_on_bad_recording_override(

@@ -95,7 +95,26 @@ def _write_precedence(tmp_path: Path, rules: tuple[tuple[str | None, str], ...] 
     return path
 
 
-def _write_inputs(tmp_path: Path, reasons: dict[str, str | None] = ALL_PLAYABLE) -> tuple[Path, Path]:
+VIDEO_CSV = "manual_recording_youtube_video.csv"
+VIDEO_COLUMNS = ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason")
+
+
+def _write_videos(tmp_path: Path, rows: tuple[dict[str, str | None], ...] = ()) -> Path:
+    path = tmp_path / VIDEO_CSV
+    pl.DataFrame(
+        [{column: row.get(column) for column in VIDEO_COLUMNS} for row in rows],
+        schema=dict.fromkeys(VIDEO_COLUMNS, pl.Utf8),
+    ).write_csv(path)
+    return path
+
+
+def _songs(bronze_dir: Path, silver_dir: Path, output_dir: Path, precedence_path: Path) -> Path:
+    return sl.songs(bronze_dir, silver_dir, output_dir, precedence_path, bronze_dir.parent / VIDEO_CSV)
+
+
+def _write_inputs(
+    tmp_path: Path, reasons: dict[str, str | None] = ALL_PLAYABLE, videos: tuple[dict[str, str | None], ...] = ()
+) -> tuple[Path, Path]:
     bronze_dir = tmp_path / "bronze"
     silver_dir = tmp_path / "silver"
     bronze_dir.mkdir()
@@ -110,7 +129,7 @@ def _write_inputs(tmp_path: Path, reasons: dict[str, str | None] = ALL_PLAYABLE)
         bronze_dir / "recording_first_release_date.parquet"
     )
     pl.DataFrame(schema=L_RECORDING_WORK_SCHEMA).write_parquet(bronze_dir / "l_recording_work.parquet")
-    sl.youtube_candidates(silver_dir, silver_dir)
+    sl.youtube_candidates(bronze_dir, silver_dir, silver_dir, _write_videos(tmp_path, videos))
     _write_status(silver_dir, reasons)
     return bronze_dir, silver_dir
 
@@ -121,12 +140,12 @@ def test_youtube_candidates_ranks_every_candidate(tmp_path: Path) -> None:
     rows = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet").sort("recording_id", "rank").to_dicts()
 
     assert rows == [
-        {"recording_id": 1000, "youtube_video_id": "aaaaaaaaaaa", "rank": 1},
-        {"recording_id": 1000, "youtube_video_id": "zzzzzzzzzzz", "rank": 2},
-        {"recording_id": 1001, "youtube_video_id": "bbbbbbbbbbb", "rank": 1},
-        {"recording_id": 1002, "youtube_video_id": "ccccccccccc", "rank": 1},
-        {"recording_id": 1004, "youtube_video_id": "ddddddddddd", "rank": 1},
-        {"recording_id": 1005, "youtube_video_id": "eeeeeeeeeee", "rank": 1},
+        {"recording_id": 1000, "youtube_video_id": "aaaaaaaaaaa", "rank": 1, "pinned": False},
+        {"recording_id": 1000, "youtube_video_id": "zzzzzzzzzzz", "rank": 2, "pinned": False},
+        {"recording_id": 1001, "youtube_video_id": "bbbbbbbbbbb", "rank": 1, "pinned": False},
+        {"recording_id": 1002, "youtube_video_id": "ccccccccccc", "rank": 1, "pinned": False},
+        {"recording_id": 1004, "youtube_video_id": "ddddddddddd", "rank": 1, "pinned": False},
+        {"recording_id": 1005, "youtube_video_id": "eeeeeeeeeee", "rank": 1, "pinned": False},
     ]
 
 
@@ -134,7 +153,7 @@ def test_songs_joins_link_genre_and_artist_credit(tmp_path: Path) -> None:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     output_dir = tmp_path / "output"
 
-    result = sl.songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
+    result = _songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
 
     assert result == output_dir / "5_songs.parquet"
     rows = (
@@ -226,7 +245,7 @@ def _first_release_years(tmp_path: Path, years: dict[int, int | None]) -> dict[s
     return {
         row["title"]: row["first_release_year"]
         for row in pl.read_parquet(
-            sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path))
+            _songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path))
         ).to_dicts()
     }
 
@@ -254,7 +273,7 @@ def test_songs_first_release_year_ignores_out_of_range_years(tmp_path: Path) -> 
 
 def _song_a(tmp_path: Path, reasons: dict[str, str | None]) -> dict:
     bronze_dir, silver_dir = _write_inputs(tmp_path, {**ALL_PLAYABLE, **reasons})
-    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
     return (
         result.filter(pl.col("title") == "Song A")
         .select("youtube_video_id", "youtube_unplayable_reason")
@@ -279,7 +298,7 @@ def test_songs_keeps_rank_one_with_its_reason_when_no_candidate_is_playable(tmp_
 def test_songs_skips_unchecked_candidates(tmp_path: Path) -> None:
     bronze_dir, silver_dir = _write_inputs(tmp_path, {"zzzzzzzzzzz": "private"})
 
-    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
 
     assert result.filter(pl.col("title") == "Song A").select(
         "youtube_video_id", "youtube_unplayable_reason"
@@ -297,7 +316,7 @@ def _dedup_songs(tmp_path: Path, recordings: list[dict], works: list[tuple[int, 
     pl.DataFrame(genres, schema={"recording_id": pl.Int64, "genre_id": pl.Int64, "weight": pl.Int64}).write_parquet(
         silver_dir / "2_recording_genre.parquet"
     )
-    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
     return (
         result.sort("musicbrainz_recording_id")
         .select("musicbrainz_recording_id", "youtube_video_id", "genre_name")
@@ -350,7 +369,7 @@ def test_songs_creates_output_dir(tmp_path: Path) -> None:
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sl.songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
+    _songs(bronze_dir, silver_dir, output_dir, _write_precedence(tmp_path))
 
     assert output_dir.is_dir()
 
@@ -370,7 +389,7 @@ def _primary_genres(
     bronze_dir, silver_dir = _write_inputs(tmp_path)
     pl.DataFrame(genre_rows).write_parquet(bronze_dir / "genre.parquet")
     pl.DataFrame(PRECEDENCE_RECORDING_GENRE_ROWS).write_parquet(silver_dir / "2_recording_genre.parquet")
-    result = pl.read_parquet(sl.songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path, rules)))
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path, rules)))
     return dict(result.select("title", "genre_name").iter_rows())
 
 
@@ -431,3 +450,83 @@ def test_video_id_pattern_truncates_stray_trailing_character() -> None:
 def test_video_id_pattern_rejects_fewer_than_eleven_characters() -> None:
     match = re.search(sl._VIDEO_ID_PATTERN, "https://youtu.be/fffffffff")
     assert match is None
+
+
+def _mbid(recording_id: int) -> str:
+    return f"00000000-0000-0000-0000-{recording_id:012d}"
+
+
+def test_youtube_candidates_pins_curated_videos_at_rank_zero(tmp_path: Path) -> None:
+    videos = (
+        {"musicbrainz_recording_id": _mbid(1003), "youtube_video_id": "mmmmmmmmmmm", "reason": "x"},
+        # Already a linked candidate: kept once, as the pinned one.
+        {"musicbrainz_recording_id": _mbid(1000), "youtube_video_id": "zzzzzzzzzzz", "reason": "x"},
+        # No video: nothing to check.
+        {"musicbrainz_recording_id": _mbid(1001), "reason": "x"},
+    )
+    _, silver_dir = _write_inputs(tmp_path, videos=videos)
+
+    rows = pl.read_parquet(silver_dir / "3_youtube_candidates.parquet").sort("recording_id", "rank").to_dicts()
+
+    assert [row for row in rows if row["recording_id"] in (1000, 1003)] == [
+        {"recording_id": 1000, "youtube_video_id": "zzzzzzzzzzz", "rank": 0, "pinned": True},
+        {"recording_id": 1000, "youtube_video_id": "aaaaaaaaaaa", "rank": 1, "pinned": False},
+        {"recording_id": 1003, "youtube_video_id": "mmmmmmmmmmm", "rank": 0, "pinned": True},
+    ]
+
+
+def _videos(tmp_path: Path, videos: tuple[dict[str, str | None], ...], reasons: dict[str, str | None]) -> dict:
+    bronze_dir, silver_dir = _write_inputs(tmp_path, {**ALL_PLAYABLE, **reasons}, videos)
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output", _write_precedence(tmp_path)))
+    return {row[0]: row[1:] for row in result.select("title", "youtube_video_id", "youtube_unplayable_reason").rows()}
+
+
+def test_songs_curated_video_always_wins(tmp_path: Path) -> None:
+    videos = (
+        # Unplayable when checked: still wins over the playable linked candidate, with its checked reason.
+        {"musicbrainz_recording_id": _mbid(1000), "youtube_video_id": "zzzzzzzzzzz", "reason": "x"},
+        # The rule's reason beats the checked status.
+        {
+            "musicbrainz_recording_id": _mbid(1001),
+            "youtube_video_id": "eeeeeeeeeee",
+            "unplayable_reason": "private",
+            "reason": "x",
+        },
+        # Empty video id: the song goes out without a video.
+        {"musicbrainz_recording_id": _mbid(1002), "unplayable_reason": "not_found", "reason": "x"},
+        # Unchecked yet: no reason, i.e. playable.
+        {"musicbrainz_recording_id": _mbid(1003), "youtube_video_id": "mmmmmmmmmmm", "reason": "x"},
+    )
+
+    assert _videos(tmp_path, videos, {"zzzzzzzzzzz": "not_embeddable"}) == {
+        "Song A": ("zzzzzzzzzzz", "not_embeddable"),
+        "Song B": ("eeeeeeeeeee", "private"),
+        "Song C": (None, None),
+        "Song D": ("ddddddddddd", None),
+        "Song E": ("mmmmmmmmmmm", None),
+        "Song F": ("eeeeeeeeeee", None),
+    }
+
+
+@pytest.mark.parametrize(
+    ("row", "match"),
+    [
+        ({"youtube_video_id": "aaaaaaaaaaa", "reason": "x"}, "blank musicbrainz_recording_id"),
+        ({"musicbrainz_recording_id": _mbid(1000), "youtube_video_id": "short", "reason": "x"}, "malformed"),
+        (
+            {"musicbrainz_recording_id": _mbid(1000), "unplayable_reason": "gone", "reason": "x"},
+            "unknown unplayable_reason",
+        ),
+        ({"musicbrainz_recording_id": _mbid(9999), "reason": "x"}, "unknown musicbrainz_recording_id"),
+    ],
+)
+def test_youtube_candidates_raises_on_bad_curated_video(tmp_path: Path, row: dict[str, str | None], match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        _write_inputs(tmp_path, videos=(row,))
+
+
+def test_youtube_candidates_raises_on_duplicate_curated_recording(tmp_path: Path) -> None:
+    row = {"musicbrainz_recording_id": _mbid(1000), "reason": "x"}
+
+    with pytest.raises(ValueError, match="duplicate musicbrainz_recording_id"):
+        _write_inputs(tmp_path, videos=(row, row))

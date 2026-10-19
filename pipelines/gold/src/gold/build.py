@@ -5,11 +5,13 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+import polars as pl
+
 from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
 from gold.genre_match import genre_match
 from gold.regional_genre_tree_export import export_regional_genre_tree
-from gold.song_export import export_songs
+from gold.song_export import check_known_recordings, export_songs
 
 MANIFEST_NAME = "_manifest.json"
 
@@ -71,6 +73,12 @@ def build_gold(
         curation_dir / "manual_genre_alias.csv",
         curation_dir / "manual_accepted_non_genre_tags.csv",
         gold_output_dir,
+    )
+    essential_tracks_csv = "manual_essential_tracks.csv"
+    check_known_recordings(
+        pl.read_csv(curation_dir / essential_tracks_csv, columns=["musicbrainz_recording_id"], infer_schema=False),
+        pl.read_parquet(genre_match_path, columns=["musicbrainz_recording_id"]),
+        essential_tracks_csv,
     )
     export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)

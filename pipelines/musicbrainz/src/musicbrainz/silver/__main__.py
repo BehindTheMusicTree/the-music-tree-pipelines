@@ -23,10 +23,16 @@ youtube_api_key = require_env("YOUTUBE_API_KEY")
 youtube_status_max_batches = int(require_env("YOUTUBE_STATUS_MAX_BATCHES_PER_RUN"))
 recording_link(bronze_dir, silver_dir)
 recording_genre(bronze_dir, silver_dir)
-youtube_candidates(silver_dir, silver_dir)
+youtube_candidates(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_recording_youtube_video.csv")
 with httpx.Client() as client:
     youtube_video_status(silver_dir, silver_dir, client, youtube_api_key, datetime.now(UTC), youtube_status_max_batches)
-songs(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_genre_precedence.csv")
+songs(
+    bronze_dir,
+    silver_dir,
+    silver_dir,
+    curation_dir / "manual_genre_precedence.csv",
+    curation_dir / "manual_recording_youtube_video.csv",
+)
 artists(bronze_dir, silver_dir)
 artist_members(bronze_dir, silver_dir)
 artist_links(bronze_dir, silver_dir)

@@ -37,7 +37,9 @@ def export_regional_genre_tree(
     curation = load_tree_curation(curation_dir, item_ids, item_ids | canonical_ids)
     # An extra parent edge feeds tracks to its parent by default (primaryParents); a curated `add`
     # makes it classification only (secondaryParents).
-    primary_edges, secondary_edges = apply_secondary_parent_rules(extra_edges, curation.secondary_parent_rules)
+    primary_edges, secondary_edges = apply_secondary_parent_rules(
+        extra_edges, curation.secondary_parent_rules, hierarchy, item_ids | canonical_ids
+    )
     tree = {
         "treeName": "regional",
         "curationExportedOn": curation_exported_on,

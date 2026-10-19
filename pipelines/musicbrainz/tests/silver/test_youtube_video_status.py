@@ -32,10 +32,15 @@ def test_unplayable_reason(item: dict | None, expected: str | None) -> None:
     assert yvs.unplayable_reason(item) == expected
 
 
-def _write_candidates(silver_dir: Path, video_ids: list[str]) -> None:
+def _write_candidates(silver_dir: Path, video_ids: list[str], pinned: tuple[str, ...] = ()) -> None:
     silver_dir.mkdir(parents=True, exist_ok=True)
     pl.DataFrame(
-        {"recording_id": list(range(len(video_ids))), "youtube_video_id": video_ids, "rank": [1] * len(video_ids)}
+        {
+            "recording_id": list(range(len(video_ids))),
+            "youtube_video_id": video_ids,
+            "rank": [1] * len(video_ids),
+            "pinned": [video_id in pinned for video_id in video_ids],
+        }
     ).write_parquet(silver_dir / "3_youtube_candidates.parquet")
 
 
@@ -169,3 +174,24 @@ def test_spends_budget_on_never_checked_then_stalest_and_keeps_the_rest(tmp_path
     result = pl.read_parquet(path)
     assert result.height == len(ids)
     assert result.filter(pl.col("youtube_unplayable_reason").is_not_null())["youtube_video_id"].to_list() == ["v002"]
+
+
+def test_spends_budget_on_pinned_ids_first(tmp_path: Path) -> None:
+    ids = [f"v{i:03d}" for i in range(yvs.BATCH_SIZE + 1)]
+    _write_candidates(tmp_path, ids, pinned=("v050",))
+    pl.DataFrame(
+        [{"youtube_video_id": "v050", "youtube_unplayable_reason": None, "checked_at": NOW - timedelta(days=8)}],
+        schema=yvs._SCHEMA,
+    ).write_parquet(tmp_path / yvs.OUTPUT_FILENAME)
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.extend(request.url.params["id"].split(","))
+        return httpx.Response(200, json={"items": [_item(i) for i in request.url.params["id"].split(",")]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, 1)
+
+    # The stale pinned id goes before never-checked ones; the last never-checked id waits.
+    assert requested[0] == "v050"
+    assert "v049" not in requested

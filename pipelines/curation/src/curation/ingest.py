@@ -10,7 +10,8 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 logger = logging.getLogger(__name__)
 
 # Column order is each CSV's header, which the downstream Silver/Gold steps read by name. Listed
-# here (not derived from the response) so an empty list still gets its header-only CSV.
+# here (not derived from the response) so an empty list still gets its header-only CSV. The API's
+# key order may differ: rows are matched by column set and rebuilt in this order.
 CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "accepted_canonical_roots": ("item_id", "item_label"),
     "canonical_parent_additions": ("item_id", "item_label", "reason"),
@@ -56,13 +57,17 @@ def write_curation_csvs(export: dict[str, Any], output_dir: Path) -> list[Path]:
     paths = []
     for list_name, columns in CURATION_LISTS.items():
         rows = export[list_name]
-        bad_rows = [row for row in rows if tuple(row) != columns]
+        bad_rows = [row for row in rows if set(row) != set(columns)]
         if bad_rows:
             raise ValueError(f"curation list {list_name!r} has row(s) not matching columns {columns}: {bad_rows[:3]}")
 
         # Blank values become nulls so they're written as empty unquoted fields, matching the
         # hand-edited CSVs: polars quotes empty strings, which would read back as "" rather than null.
-        df = pl.DataFrame(rows, schema=dict.fromkeys(columns, pl.Utf8)).with_columns(pl.all().replace("", None))
+        df = pl.DataFrame(
+            [[row[column] for column in columns] for row in rows],
+            schema=dict.fromkeys(columns, pl.Utf8),
+            orient="row",
+        ).with_columns(pl.all().replace("", None))
         path = output_dir / f"manual_{list_name}.csv"
         df.write_csv(path)
         logger.info("wrote %d rows to %s", df.height, path)

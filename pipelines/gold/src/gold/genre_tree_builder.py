@@ -90,11 +90,35 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
     )
 
 
-def apply_secondary_parent_rules(edges: pl.DataFrame, rules: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+def apply_secondary_parent_rules(
+    edges: pl.DataFrame, rules: pl.DataFrame, hierarchy: pl.DataFrame, ref_ids: set[str]
+) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
-    dropping the `remove`d ones. A `remove` rule matching no edge raises as stale."""
+    dropping the `remove`d ones. `ref_ids` are the parents this tree's import can resolve. An `add` to an
+    unresolvable parent, to the item itself or duplicating its main parent (`hierarchy`) raises; a
+    `remove` of an unresolvable parent is ignored (`edges` never hold one); any other `remove` matching
+    no edge raises as stale."""
     added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
+    bad_adds = {
+        "to a parent outside this tree's resolvable set": added.filter(~pl.col("parent_id").is_in(list(ref_ids))),
+        "of an item to itself": added.filter(pl.col("item_id") == pl.col("parent_id")),
+        "duplicating the main parent": added.join(
+            hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi"
+        ),
+    }
+    for problem, bad in bad_adds.items():
+        if not bad.is_empty():
+            raise ValueError(f"manual_secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
+
     removed = rules.filter(pl.col("action") == "remove").select("item_id", "parent_id")
+    unresolvable = removed.filter(~pl.col("parent_id").is_in(list(ref_ids)))
+    if not unresolvable.is_empty():
+        logger.info(
+            "ignoring %d manual_secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
+            unresolvable.height,
+            unresolvable.rows(),
+        )
+        removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
     stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
     if not stale.is_empty():
         raise ValueError(

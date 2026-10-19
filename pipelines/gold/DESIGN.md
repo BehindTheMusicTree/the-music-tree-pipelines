@@ -91,6 +91,25 @@ contradictory triage data:
   `exact`/`music_suffix`, nor appear in `manual_genre_alias.csv` (can't be both a real alias and
   permanent noise).
 
+## Curation mechanics
+
+grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in [SCHEMA.md](SCHEMA.md#3-manual-csvs)):
+
+- `manual_secondary_parents.csv`: `add` exports `(item_id, parent_id)` as a `secondaryParents` ref. It
+  raises when `parent_id` can't resolve in the tree being built (the canonical tree for the canonical
+  export, canonical or regional for the regional one), equals `item_id`, or is already the item's main
+  parent: grow would reject such an edge, so the export fails instead of shipping it. `remove` drops a
+  Wikidata extra parent edge; a removal that no longer matches an exported edge is logged and ignored,
+  since Wikidata edits can legitimately retire it.
+- `manual_essential_tracks.csv`: a genre's `essentialTracks`, ordered by `position`. Every recording id is
+  checked against `1_genre_match.parquet` before anything is exported, so a track not in the songs fails
+  the build early.
+- `manual_summary_overrides.csv`: a genre's `summary`.
+- `manual_recording_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
+  pre-override so the match report reflects the computed cascade.
+- `manual_recording_youtube_video.csv` is not applied here: musicbrainz Silver pins it as a rank-0
+  candidate so its playability gets checked (see `pipelines/musicbrainz/DESIGN.md`).
+
 ## Pop/core genre sides
 
 `the-music-tree-genre-kit` distinguishes a "pop" (crossover/mainstream) side from an implicit "core"
