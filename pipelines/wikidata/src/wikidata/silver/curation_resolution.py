@@ -36,6 +36,8 @@ QID_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 # An item_id may sit in at most one of these (grow's EXCLUSIVE_LISTS).
 EXCLUSIVE_LISTS = frozenset({"theme_genres", "technique_genres", "out_of_scope_genres", "duplicate_genres"})
+# Items these lists prune never reach the steps that validate a main parent / overview target.
+PRUNING_LISTS = (*EXCLUSIVE_LISTS, "umbrella_canonical_genres")
 # Lists whose items the pipeline adds to the tree itself, so references to them are known.
 ADDITION_LISTS = ("regional_overview_additions", "canonical_parent_additions")
 
@@ -74,6 +76,7 @@ def resolve_curation_qids(
     current_ids = fetch_entity_info(unknown) if unknown else {}
 
     keys = {name: _ids(df, "item_id") for name, df in lists.items()}
+    pruned_ids = set().union(*(keys[name] for name in PRUNING_LISTS))
     remaps: list[dict[str, str]] = []
     review: list[dict[str, str]] = []
     for name, df in lists.items():
@@ -95,7 +98,9 @@ def resolve_curation_qids(
                 elif target not in reference(name):
                     redirect = {"target": target} if target != qid else {}
                     row_review.append({**entry, "itemId": qid, "reason": "not_in_tree", **redirect})
-                elif column == "item_id" and any(target in keys[other] for other in colliding_lists):
+                elif (column == "item_id" and any(target in keys[other] for other in colliding_lists)) or (
+                    column != "item_id" and (target in pruned_ids or target == (row["item_id"] or "").strip())
+                ):
                     row_review.append({**entry, "itemId": qid, "reason": "redirect_conflict", "target": target})
                 else:
                     row_remaps.append({**entry, "from": qid, "to": target})
