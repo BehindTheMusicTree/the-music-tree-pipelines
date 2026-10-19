@@ -8,6 +8,7 @@ from gold.playground_fixture_export import export_playground_fixture
 
 TREE = {
     "treeName": "canonical",
+    "curationExportedOn": "2026-10-16T08:00:00+00:00",
     "tree": [
         {
             "id": "Q1",
@@ -165,6 +166,7 @@ def test_export_playground_fixture_raises_on_slug_collision(tmp_path: Path) -> N
         tmp_path,
         tree={
             "treeName": "canonical",
+            "curationExportedOn": "2026-10-16T08:00:00+00:00",
             "tree": [{"id": "Q1", "name": "R&B", "children": []}, {"id": "Q2", "name": "R B", "children": []}],
         },
     )

@@ -1,5 +1,7 @@
+import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import httpx
 import polars as pl
@@ -32,16 +34,19 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
 }
 
 
-def fetch_curation_export(base_url: str, api_key: str) -> dict[str, list[dict[str, str]]]:
+def fetch_curation_export(base_url: str, api_key: str) -> dict[str, Any]:
     response = httpx.get(f"{base_url}curation/export/", headers={"X-API-Key": api_key}, timeout=60)
     response.raise_for_status()
     return response.json()
 
 
-def write_curation_csvs(export: dict[str, list[dict[str, str]]], output_dir: Path) -> list[Path]:
+def write_curation_csvs(export: dict[str, Any], output_dir: Path) -> list[Path]:
     missing = sorted(CURATION_LISTS.keys() - export.keys())
     if missing:
         raise ValueError(f"curation export is missing list(s): {missing}")
+    exported_on = export.get("exported_on")
+    if not isinstance(exported_on, str) or not exported_on:
+        raise ValueError(f"curation export has no 'exported_on' timestamp: {exported_on!r}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = []
@@ -58,6 +63,12 @@ def write_curation_csvs(export: dict[str, list[dict[str, str]]], output_dir: Pat
         df.write_csv(path)
         logger.info("wrote %d rows to %s", df.height, path)
         paths.append(path)
+
+    # Gold stamps this into its tree exports so grow can tell which curation a tree was built from.
+    path = output_dir / "manual_export.json"
+    path.write_text(json.dumps({"exportedOn": exported_on}))
+    logger.info("wrote curation export timestamp %s to %s", exported_on, path)
+    paths.append(path)
     return paths
 
 

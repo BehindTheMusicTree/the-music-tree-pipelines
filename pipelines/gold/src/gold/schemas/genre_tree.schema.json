@@ -5,12 +5,13 @@
   "type": "object",
   "properties": {
     "treeName": { "enum": ["canonical", "regional"] },
+    "curationExportedOn": { "type": "string", "format": "date-time", "minLength": 1 },
     "tree": {
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
     }
   },
-  "required": ["treeName", "tree"],
+  "required": ["treeName", "curationExportedOn", "tree"],
   "additionalProperties": false,
   "$defs": {
     "node": {
