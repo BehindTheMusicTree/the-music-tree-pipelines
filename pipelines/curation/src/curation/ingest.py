@@ -30,7 +30,11 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "canonical_genre_pop_side": ("root_genre_name", "pop_child_genre_name", "reason"),
     "genre_alias": ("musicbrainz_genre_name", "wikidata_genre_name", "reason"),
     "genre_precedence": ("musicbrainz_genre_name", "over_musicbrainz_genre_name", "reason"),
-    "regional_secondary_parents": ("item_id", "item_label", "parent_id", "parent_label", "reason"),
+    "recording_genre": ("musicbrainz_recording_id", "genre_item_id", "recording_label", "reason"),
+    "recording_youtube_video": ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason"),
+    "secondary_parents": ("item_id", "parent_id", "action", "item_label", "parent_label", "reason"),
+    "essential_tracks": ("item_id", "musicbrainz_recording_id", "position", "reason"),
+    "summary_overrides": ("item_id", "summary", "reason"),
 }
 
 

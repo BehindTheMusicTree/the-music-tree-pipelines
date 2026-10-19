@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import polars as pl
@@ -33,20 +34,11 @@ def _write_silver(tmp_path: Path, secondary_rows: list[dict[str, str]] | None = 
     return wikidata_silver_dir
 
 
-def _write_demotion_csv(path: Path, rows: list[dict[str, str]]) -> Path:
-    columns = ["item_id", "item_label", "parent_id", "parent_label", "reason"]
-    data = {column: [row.get(column, "") for row in rows] for column in columns}
-    pl.DataFrame(data, schema={column: pl.Utf8 for column in columns}).write_csv(path)
-    return path
-
-
-def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
+def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path, curation_dir: Path) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "gold"
 
-    result = export_regional_genre_tree(
-        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []), CURATION_EXPORTED_ON
-    )
+    result = export_regional_genre_tree(wikidata_silver_dir, output_dir, curation_dir, CURATION_EXPORTED_ON)
 
     assert result == output_dir / "1_regional_genre_tree.json"
     tree = json.loads(result.read_text())
@@ -54,18 +46,18 @@ def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path) -> None:
     assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
 
 
-def test_export_regional_genre_tree_creates_output_dir(tmp_path: Path) -> None:
+def test_export_regional_genre_tree_creates_output_dir(tmp_path: Path, curation_dir: Path) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    export_regional_genre_tree(
-        wikidata_silver_dir, output_dir, _write_demotion_csv(tmp_path / "demotions.csv", []), CURATION_EXPORTED_ON
-    )
+    export_regional_genre_tree(wikidata_silver_dir, output_dir, curation_dir, CURATION_EXPORTED_ON)
 
     assert output_dir.is_dir()
 
 
-def test_export_regional_genre_tree_raises_on_schema_violation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_export_regional_genre_tree_raises_on_schema_violation(
+    tmp_path: Path, curation_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import gold.regional_genre_tree_export as module
 
     monkeypatch.setattr(module, "build_genre_tree", lambda hierarchy, **kwargs: {"tree": [{"name": "samba"}]})
@@ -75,7 +67,7 @@ def test_export_regional_genre_tree_raises_on_schema_violation(tmp_path: Path, m
         module.export_regional_genre_tree(
             wikidata_silver_dir,
             tmp_path / "gold",
-            _write_demotion_csv(tmp_path / "demotions.csv", []),
+            curation_dir,
             CURATION_EXPORTED_ON,
         )
 
@@ -87,13 +79,14 @@ EXTRA_EDGES = [
 ]
 
 
-def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(tmp_path: Path) -> None:
+def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(
+    tmp_path: Path, curation_dir: Path
+) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-    demotion_path = _write_demotion_csv(tmp_path / "demotions.csv", [])
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -105,36 +98,56 @@ def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(tm
     assert "primaryParents" not in cape_verde
 
 
-def test_export_regional_genre_tree_demotes_listed_edge_to_secondary(tmp_path: Path) -> None:
+def test_export_regional_genre_tree_moves_added_extra_edge_to_secondary(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-    demotion_path = _write_demotion_csv(
-        tmp_path / "demotions.csv", [{"item_id": "Q11", "parent_id": "Q1", "reason": "classification only"}]
+    write_curation(
+        "secondary_parents",
+        [
+            {"item_id": "Q11", "parent_id": "Q1", "action": "add", "reason": "classification only"},
+            {"item_id": "Q11", "parent_id": "Q12", "action": "remove", "reason": "wrong"},
+        ],
     )
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
         ).read_text()
     )
 
     samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
-    assert samba["primaryParents"] == ["Q12"]
+    assert "primaryParents" not in samba
     assert samba["secondaryParents"] == ["Q1"]
 
 
-def test_export_regional_genre_tree_raises_on_stale_demotion(tmp_path: Path) -> None:
+def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-    demotion_path = _write_demotion_csv(
-        tmp_path / "demotions.csv", [{"item_id": "Q12", "parent_id": "Q99", "reason": "not exported"}]
-    )
+    write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q99", "action": "remove", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not extra parent edges"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON)
+        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON)
 
 
-def test_export_regional_genre_tree_raises_on_blank_demotion_reason(tmp_path: Path) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-    demotion_path = _write_demotion_csv(tmp_path / "demotions.csv", [{"item_id": "Q11", "parent_id": "Q1"}])
+def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
+    wikidata_silver_dir = _write_silver(tmp_path)
+    recording_id = "00000000-0000-0000-0000-00000000000a"
+    write_curation(
+        "essential_tracks",
+        [{"item_id": "Q11", "musicbrainz_recording_id": recording_id, "position": "1", "reason": "x"}],
+    )
+    write_curation("summary_overrides", [{"item_id": "Q1", "summary": "canonical only", "reason": "x"}])
 
-    with pytest.raises(ValueError, match="null/blank 'reason'"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", demotion_path, CURATION_EXPORTED_ON)
+    tree = json.loads(
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+        ).read_text()
+    )
+
+    samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
+    assert samba["essentialTracks"] == [recording_id]
+    assert all("summary" not in node for node in tree["tree"])

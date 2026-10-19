@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `curation` writes `manual_export.json` (`{"exportedOn": ...}`) from grow's `curation/export/` `exported_on`, failing if it is missing.
 - `gold` stamps both genre trees with a required `curationExportedOn`, so grow can tell which curation a tree was built from.
 - `gold` writes `_manifest.json` (`builtOn`, `curationExportedOn`, `pipelinesCommit`) atomically after every other output, and deletes it at the start of each run, so a partial Gold is never synced.
+- `curation` ingests the `recording_genre`, `recording_youtube_video`, `secondary_parents`, `essential_tracks` and `summary_overrides` lists.
+- `gold` applies `manual_recording_genre.csv` (replaces a song's computed genre, empty `genre_item_id` = genreless) and `manual_recording_youtube_video.csv` (replaces `youtube_video_id` and, when set, `youtube_unplayable_reason`) to `2_songs`.
+- `gold` genre trees carry `essentialTracks` (ordered by `position`) from `manual_essential_tracks.csv` and `summary` from `manual_summary_overrides.csv`.
+
+### Changed
+
+- `gold` reads `manual_secondary_parents.csv` (`add`/`remove` per `(item_id, parent_id)`, both trees) instead of `manual_regional_secondary_parents.csv`: an added edge is a `secondaryParents` ref, a removed Wikidata extra edge is dropped (stale removes raise). `curation` no longer ingests `regional_secondary_parents`.
 
 ## [6.2.5] - 2026-10-15
 
