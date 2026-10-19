@@ -13,6 +13,7 @@ from common.quality_checks import (
 )
 from jsonschema import Draft202012Validator
 
+from gold.delta_export import write_delta
 from gold.ndjson_parts import write_ndjson_parts
 from gold.song_export import MBID_PATTERN
 
@@ -160,5 +161,6 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
 
     parts_dir = output_dir / OUTPUT_DIRNAME
     part_count = write_ndjson_parts(artists, parts_dir, ROWS_PER_PART)
+    write_delta(artists, "musicbrainz_artist_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
     logger.info("wrote %d artists to %s in %d part(s)", artists.height, parts_dir, part_count)
     return parts_dir

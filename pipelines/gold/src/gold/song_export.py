@@ -13,6 +13,7 @@ from common.quality_checks import (
 )
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
+from gold.delta_export import write_delta
 from gold.ndjson_parts import write_ndjson_parts
 
 logger = logging.getLogger(__name__)
@@ -150,6 +151,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
 
     parts_dir = output_dir / OUTPUT_DIRNAME
     part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
+    write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,
