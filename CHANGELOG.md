@@ -47,14 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `musicbrainz` Silver applies `manual_recording_youtube_video.csv`: curated videos are pinned rank-0 candidates, checked for playability first, and always win in `5_songs` (the curated `unplayable_reason` wins over the checked one).
-- `gold` checks `manual_essential_tracks.csv` recordings against the songs before exporting anything.
+- `gold` checks `manual_essential_tracks.csv` recordings against the songs before exporting the songs and artists.
 - `gold` raises on a `manual_secondary_parents.csv` `add` whose parent is unresolvable, the item itself, or its main parent.
 - `gold` writes `2_songs_hashes.parquet`/`3_artists_hashes.parquet` and, against a synced baseline in `GOLD_OUTPUT_DIR/_synced/`, `2_songs_delta/`/`3_artists_delta/` (changed rows plus `deleted.ndjson.gz`) so grow can import only what changed.
 
 ### Changed
 
 - `gold` no longer applies `manual_recording_youtube_video.csv` (moved to `musicbrainz` Silver).
-- `gold` logs and ignores a `manual_secondary_parents.csv` `remove` that matches no exported edge instead of raising.
+- `gold` logs and ignores a `manual_secondary_parents.csv` `remove` whose parent is outside the tree's resolvable set instead of raising; a `remove` of a resolvable parent that is not an extra edge still raises.
 - `musicbrainz` Bronze ingests only the columns Silver reads for `recording` (`id`, `gid`, `name`, `artist_credit`) and `url` (`id`, `url`), the two largest tables, instead of `SELECT *`.
 - `gold` SCHEMA no longer claims the infra run script reads `_manifest.json`.
 - `gold` writes the `2_songs` and `3_artists` NDJSON parts in parallel threads.

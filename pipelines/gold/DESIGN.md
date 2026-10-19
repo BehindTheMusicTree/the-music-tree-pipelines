@@ -99,11 +99,11 @@ grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in
   raises when `parent_id` can't resolve in the tree being built (the canonical tree for the canonical
   export, canonical or regional for the regional one), equals `item_id`, or is already the item's main
   parent: grow would reject such an edge, so the export fails instead of shipping it. `remove` drops a
-  Wikidata extra parent edge; a removal that no longer matches an exported edge is logged and ignored,
-  since Wikidata edits can legitimately retire it.
+  Wikidata extra parent edge; it raises when the parent is resolvable but the edge is not an extra
+  parent edge, and is logged and ignored when the parent is outside the resolvable set.
 - `manual_essential_tracks.csv`: a genre's `essentialTracks`, ordered by `position`. Every recording id is
-  checked against `1_genre_match.parquet` before anything is exported, so a track not in the songs fails
-  the build early.
+  checked against `1_genre_match.parquet` before the songs and artists are exported, so a track not in
+  the songs fails the build.
 - `manual_summary_overrides.csv`: a genre's `summary`.
 - `manual_recording_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
   pre-override so the match report reflects the computed cascade.
