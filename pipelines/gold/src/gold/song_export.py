@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 
 import polars as pl
@@ -14,6 +13,7 @@ from common.quality_checks import (
 )
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
+from gold.ndjson_parts import write_ndjson_parts
 
 logger = logging.getLogger(__name__)
 
@@ -148,17 +148,13 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
 
-    # Wiped first so a smaller run never leaves a previous run's trailing parts behind.
     parts_dir = output_dir / OUTPUT_DIRNAME
-    shutil.rmtree(parts_dir, ignore_errors=True)
-    parts_dir.mkdir(parents=True)
-    for index, part in enumerate(songs.iter_slices(ROWS_PER_PART)):
-        part.write_ndjson(parts_dir / f"part-{index:05d}.ndjson.gz", compression="gzip")
+    part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,
         parts_dir,
-        index + 1,
+        part_count,
         songs["youtube_video_id"].null_count(),
         songs["genre_name"].null_count(),
     )

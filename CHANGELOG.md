@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `musicbrainz` Bronze ingests only the columns Silver reads for `recording` (`id`, `gid`, `name`, `artist_credit`) and `url` (`id`, `url`), the two largest tables, instead of `SELECT *`.
+- `gold` writes the `2_songs` and `3_artists` NDJSON parts in parallel threads.
+
 ## [6.4.0] - 2026-10-19
 
 ### Added

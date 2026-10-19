@@ -1,6 +1,5 @@
 import json
 import logging
-import shutil
 from pathlib import Path
 
 import polars as pl
@@ -14,6 +13,7 @@ from common.quality_checks import (
 )
 from jsonschema import Draft202012Validator
 
+from gold.ndjson_parts import write_ndjson_parts
 from gold.song_export import MBID_PATTERN
 
 logger = logging.getLogger(__name__)
@@ -158,11 +158,7 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
                 f"({ARTIST_SCHEMA_PATH}): {error.message}"
             )
 
-    # Wiped first so a smaller run never leaves a previous run's trailing parts behind.
     parts_dir = output_dir / OUTPUT_DIRNAME
-    shutil.rmtree(parts_dir, ignore_errors=True)
-    parts_dir.mkdir(parents=True)
-    for index, part in enumerate(artists.iter_slices(ROWS_PER_PART)):
-        part.write_ndjson(parts_dir / f"part-{index:05d}.ndjson.gz", compression="gzip")
-    logger.info("wrote %d artists to %s in %d part(s)", artists.height, parts_dir, index + 1)
+    part_count = write_ndjson_parts(artists, parts_dir, ROWS_PER_PART)
+    logger.info("wrote %d artists to %s in %d part(s)", artists.height, parts_dir, part_count)
     return parts_dir
