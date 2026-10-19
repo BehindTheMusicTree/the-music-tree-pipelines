@@ -166,6 +166,9 @@ def build_genre_tree(
         if unknown_items or unknown_refs:
             raise ValueError(f"{key} has unknown item id(s) {unknown_items} / parent ref(s) {unknown_refs}")
 
+    tracks_by_item = essential_tracks or {}
+    summary_by_item = summaries or {}
+
     def build_node(item_id: str) -> dict:
         node = {
             "id": item_id,
@@ -175,10 +178,10 @@ def build_genre_tree(
         for key, parents_by_item in extra_parents.items():
             if item_id in parents_by_item:
                 node[key] = parents_by_item[item_id]
-        if item_id in (essential_tracks or {}):
-            node["essentialTracks"] = essential_tracks[item_id]
-        if item_id in (summaries or {}):
-            node["summary"] = summaries[item_id]
+        if item_id in tracks_by_item:
+            node["essentialTracks"] = tracks_by_item[item_id]
+        if item_id in summary_by_item:
+            node["summary"] = summary_by_item[item_id]
         return node
 
     roots = (
