@@ -1,9 +1,12 @@
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
+from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
+from gold.song_export import MBID_PATTERN
 
 
 logger = logging.getLogger(__name__)
@@ -13,14 +16,7 @@ def load_extra_parent_edges(secondary_parents_path: Path, item_ids: set[str], re
     """Wikidata's non-main parent edges (`5_secondary_parents.parquet`) of `item_ids`, restricted to
     parents in `ref_ids` — the rows grow-the-music-tree-api can resolve when the tree is imported."""
     edges = pl.read_parquet(secondary_parents_path).filter(pl.col("item_id").is_in(list(item_ids)))
-    kept = (
-        edges.filter(pl.col("parent_id").is_in(list(ref_ids)))
-        .select("item_id", "parent_id")
-        .unique()
-        .with_columns(parent_numeric_id=pl.col("parent_id").str.slice(1).cast(pl.Int64, strict=False))
-        .sort("item_id", "parent_numeric_id", "parent_id")
-        .drop("parent_numeric_id")
-    )
+    kept = _sort_edges(edges.filter(pl.col("parent_id").is_in(list(ref_ids))).select("item_id", "parent_id").unique())
     logger.info(
         "kept %d extra parent edge(s) from %s, dropped %d pointing outside the resolvable set",
         kept.height,
@@ -28,6 +24,84 @@ def load_extra_parent_edges(secondary_parents_path: Path, item_ids: set[str], re
         edges.height - kept.height,
     )
     return kept
+
+
+def _sort_edges(edges: pl.DataFrame) -> pl.DataFrame:
+    return (
+        edges.with_columns(parent_numeric_id=pl.col("parent_id").str.slice(1).cast(pl.Int64, strict=False))
+        .sort("item_id", "parent_numeric_id", "parent_id")
+        .drop("parent_numeric_id")
+    )
+
+
+@dataclass(frozen=True)
+class TreeCuration:
+    secondary_parent_rules: pl.DataFrame
+    essential_tracks: dict[str, list[str]]
+    summaries: dict[str, str]
+
+
+def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids: set[str]) -> TreeCuration:
+    """The per-genre curation lists shared by both trees, validated against `all_item_ids` (both trees'
+    items) and restricted to `tree_item_ids`."""
+    secondary_parents = read_curation_csv(
+        curation_dir / "manual_secondary_parents.csv",
+        required=("item_id", "parent_id", "action", "reason"),
+        key=("item_id", "parent_id"),
+        patterns={"item_id": ITEM_ID_PATTERN, "parent_id": ITEM_ID_PATTERN, "action": r"^(add|remove)$"},
+    )
+    essential_tracks = read_curation_csv(
+        curation_dir / "manual_essential_tracks.csv",
+        required=("item_id", "musicbrainz_recording_id", "position", "reason"),
+        key=("item_id", "musicbrainz_recording_id"),
+        patterns={"item_id": ITEM_ID_PATTERN, "musicbrainz_recording_id": MBID_PATTERN, "position": r"^[0-9]+$"},
+    ).with_columns(pl.col("position").cast(pl.Int64))
+    if essential_tracks.select("item_id", "position").is_duplicated().any():
+        raise ValueError("manual_essential_tracks.csv has duplicate ('item_id', 'position') row(s)")
+    summaries = read_curation_csv(
+        curation_dir / "manual_summary_overrides.csv",
+        required=("item_id", "summary", "reason"),
+        key=("item_id",),
+        patterns={"item_id": ITEM_ID_PATTERN},
+    )
+
+    for name, df in (
+        ("manual_secondary_parents.csv", secondary_parents),
+        ("manual_essential_tracks.csv", essential_tracks),
+        ("manual_summary_overrides.csv", summaries),
+    ):
+        unknown = sorted(set(df.get_column("item_id")) - all_item_ids)
+        if unknown:
+            raise ValueError(f"{name} references item_id(s) not found in either genre tree: {unknown}")
+
+    def in_tree(df: pl.DataFrame) -> pl.DataFrame:
+        return df.filter(pl.col("item_id").is_in(list(tree_item_ids)))
+
+    tracks_by_item: dict[str, list[str]] = {}
+    for item_id, recording_id in (
+        in_tree(essential_tracks).sort("item_id", "position").select("item_id", "musicbrainz_recording_id").iter_rows()
+    ):
+        tracks_by_item.setdefault(item_id, []).append(recording_id)
+
+    return TreeCuration(
+        secondary_parent_rules=in_tree(secondary_parents).select("item_id", "parent_id", "action"),
+        essential_tracks=tracks_by_item,
+        summaries=dict(in_tree(summaries).select("item_id", "summary").iter_rows()),
+    )
+
+
+def apply_secondary_parent_rules(edges: pl.DataFrame, rules: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
+    dropping the `remove`d ones. A `remove` rule matching no edge raises as stale."""
+    added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
+    removed = rules.filter(pl.col("action") == "remove").select("item_id", "parent_id")
+    stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
+    if not stale.is_empty():
+        raise ValueError(
+            f"manual_secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}"
+        )
+    untouched = edges.join(pl.concat([added, removed]), on=["item_id", "parent_id"], how="anti")
+    return untouched, added
 
 
 def edges_to_parent_map(edges: pl.DataFrame) -> dict[str, list[str]]:
@@ -52,6 +126,8 @@ def build_genre_tree(
     secondary_parents: dict[str, list[str]] | None = None,
     external_ids: set[str] | None = None,
     unaccepted_root_ids: set[str] | None = None,
+    essential_tracks: dict[str, list[str]] | None = None,
+    summaries: dict[str, str] | None = None,
 ) -> dict:
     check_non_empty(hierarchy, "hierarchy")
     check_null_rate(hierarchy, "item_id", "hierarchy")
@@ -90,6 +166,9 @@ def build_genre_tree(
         if unknown_items or unknown_refs:
             raise ValueError(f"{key} has unknown item id(s) {unknown_items} / parent ref(s) {unknown_refs}")
 
+    tracks_by_item = essential_tracks or {}
+    summary_by_item = summaries or {}
+
     def build_node(item_id: str) -> dict:
         node = {
             "id": item_id,
@@ -99,6 +178,10 @@ def build_genre_tree(
         for key, parents_by_item in extra_parents.items():
             if item_id in parents_by_item:
                 node[key] = parents_by_item[item_id]
+        if item_id in tracks_by_item:
+            node["essentialTracks"] = tracks_by_item[item_id]
+        if item_id in summary_by_item:
+            node["summary"] = summary_by_item[item_id]
         return node
 
     roots = (

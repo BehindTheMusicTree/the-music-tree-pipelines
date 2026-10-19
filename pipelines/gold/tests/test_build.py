@@ -20,9 +20,9 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     gold_dir.mkdir()
     calls: list[str] = []
 
-    def fake_tree(name: str) -> Callable[[Path, Path, Path, str], Path]:
-        def export(_silver: Path, _out: Path, _csv: Path, curation_exported_on: str) -> Path:
-            assert curation_exported_on == EXPORTED_ON
+    def fake_tree(name: str) -> Callable[..., Path]:
+        def export(_silver: Path, _out: Path, *curation: object) -> Path:
+            assert curation[-1] == EXPORTED_ON
             assert not (gold_dir / build.MANIFEST_NAME).exists()
             calls.append(name)
             return _out
