@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+from typing import Any
 
 import httpx
 import polars as pl
@@ -9,8 +11,12 @@ from curation import ingest
 BASE_URL = "https://grow.example/v0/"
 
 
-def _export() -> dict[str, list[dict[str, str]]]:
-    export: dict[str, list[dict[str, str]]] = {name: [] for name in ingest.CURATION_LISTS}
+EXPORTED_ON = "2026-10-16T08:00:00+00:00"
+
+
+def _export() -> dict[str, Any]:
+    export: dict[str, Any] = {name: [] for name in ingest.CURATION_LISTS}
+    export["exported_on"] = EXPORTED_ON
     export["main_parent"] = [
         {
             "item_id": "Q9794",
@@ -49,7 +55,10 @@ def test_fetch_and_write_round_trips_csvs(monkeypatch: pytest.MonkeyPatch, tmp_p
 
     assert str(requests[0].url) == f"{BASE_URL}curation/export/"
     assert requests[0].headers["X-API-Key"] == "secret"
-    assert sorted(path.name for path in paths) == sorted(f"manual_{name}.csv" for name in ingest.CURATION_LISTS)
+    assert sorted(path.name for path in paths) == sorted(
+        [f"manual_{name}.csv" for name in ingest.CURATION_LISTS] + ["manual_export.json"]
+    )
+    assert json.loads((tmp_path / "manual_export.json").read_text()) == {"exportedOn": EXPORTED_ON}
 
     main_parent = pl.read_csv(tmp_path / "manual_main_parent.csv")
     assert main_parent.columns == list(ingest.CURATION_LISTS["main_parent"])
@@ -82,3 +91,13 @@ def test_write_raises_on_column_mismatch(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="genre_alias"):
         ingest.write_curation_csvs(export, tmp_path)
+
+
+def test_write_raises_on_missing_exported_on(tmp_path: Path) -> None:
+    export = _export()
+    del export["exported_on"]
+
+    with pytest.raises(ValueError, match="exported_on"):
+        ingest.write_curation_csvs(export, tmp_path)
+
+    assert not tmp_path.joinpath("manual_export.json").exists()

@@ -4,7 +4,9 @@ Part of the [the-music-tree-pipelines](../../README.md) monorepo.
 
 Bronze-only pipeline: pulls the hand-curated genre-tree rules (manual overrides, aliases, exclusions)
 from [grow-the-music-tree-api](https://github.com/BehindTheMusicTree/grow-the-music-tree-api)'s
-`curation/export/` endpoint and writes one `manual_<list>.csv` per rule list to `BRONZE_OUTPUT_DIR`.
+`curation/export/` endpoint and writes one `manual_<list>.csv` per rule list to `BRONZE_OUTPUT_DIR`, plus
+`manual_export.json` (`{"exportedOn": <the export's `exported_on`>}`, required — the run fails without it),
+which `gold` stamps into its genre trees as `curationExportedOn`.
 `wikidata`'s and `musicbrainz`'s Silver and `gold` read those CSVs from their `CURATION_BRONZE_DIR`.
 
 grow-the-music-tree-api is the source of truth: rules are edited through its `curation/<list>/entries/`
