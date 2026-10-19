@@ -56,12 +56,13 @@ def build_gold(
         wikidata_silver_dir,
         gold_output_dir,
         curation_dir / "manual_canonical_genre_pop_side.csv",
+        curation_dir,
         curation_exported_on,
     )
     export_regional_genre_tree(
         wikidata_silver_dir,
         gold_output_dir,
-        curation_dir / "manual_regional_secondary_parents.csv",
+        curation_dir,
         curation_exported_on,
     )
     genre_match_path = genre_match(
@@ -71,6 +72,6 @@ def build_gold(
         curation_dir / "manual_accepted_non_genre_tags.csv",
         gold_output_dir,
     )
-    export_songs(genre_match_path, gold_output_dir)
+    export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

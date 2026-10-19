@@ -181,6 +181,10 @@ shape — see below.
 Each step's own section below has the full column definitions and profiling detail behind these
 numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
 
+### 3.1.1 curation_resolutions.json
+
+Written first, every Silver run (possibly empty). `{"remaps": [{list, key, column, from, to}], "review": [{list, key, column, itemId, reason, target?}]}`, validated against `src/wikidata/schemas/curation_resolutions.schema.json`. `list` is the grow curation list name, `key` the row's `item_id`, `reason` one of `redirect_conflict`, `missing`, `not_in_tree`. See DESIGN.md#200-curation-qid-resolution.
+
 ### 3.2 1_item_links
 
 `1_item_links.parquet`: `wikidata_genre_tree.parquet` (Bronze) unchanged, plus two columns giving

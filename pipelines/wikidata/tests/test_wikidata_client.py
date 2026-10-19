@@ -139,3 +139,61 @@ def test_run_query_retries_transport_errors(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert result == []
     assert httpx_get.call_count == 2
+
+
+def _entities_response(entities: dict) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = {"entities": entities, "success": 1}
+    return response
+
+
+def test_fetch_entity_info_resolves_redirects_and_missing_in_batches(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client._get_entities.retry, "wait", tenacity.wait_none())
+    monkeypatch.setattr(wikidata_client, "WBGETENTITIES_MAX_IDS", 2)
+    httpx_get = MagicMock(
+        side_effect=[
+            _entities_response(
+                {
+                    "Q1": {"id": "Q2", "redirects": {"from": "Q1", "to": "Q2"}},
+                    "Q3": {"id": "Q3", "missing": ""},
+                }
+            ),
+            _entities_response({"Q4": {"id": "Q4"}}),
+        ]
+    )
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    assert wikidata_client.fetch_entity_info(["Q1", "Q3", "Q4"]) == {"Q1": "Q2", "Q3": None, "Q4": "Q4"}
+    assert httpx_get.call_count == 2
+    assert httpx_get.call_args_list[0].kwargs["params"] == {
+        "action": "wbgetentities",
+        "ids": "Q1|Q3",
+        "props": "info",
+        "format": "json",
+    }
+    assert httpx_get.call_args_list[0].kwargs["headers"] == {"User-Agent": wikidata_client.USER_AGENT}
+
+
+def test_fetch_entity_info_retries_transport_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client._get_entities.retry, "wait", tenacity.wait_none())
+    httpx_get = MagicMock(side_effect=[httpx.ConnectError("boom"), _entities_response({"Q1": {"id": "Q1"}})])
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    assert wikidata_client.fetch_entity_info(["Q1"]) == {"Q1": "Q1"}
+    assert httpx_get.call_count == 2
+
+
+def test_fetch_entity_info_raises_on_api_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = MagicMock()
+    response.json.return_value = {"error": {"code": "no-such-entity"}}
+    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=response))
+
+    with pytest.raises(ValueError, match="no-such-entity"):
+        wikidata_client.fetch_entity_info(["Q1"])
+
+
+def test_fetch_entity_info_raises_on_absent_entity(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_entities_response({})))
+
+    with pytest.raises(ValueError, match="no entity"):
+        wikidata_client.fetch_entity_info(["Q1"])

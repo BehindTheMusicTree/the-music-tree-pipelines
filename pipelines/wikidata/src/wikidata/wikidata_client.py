@@ -5,6 +5,8 @@ import httpx
 import tenacity
 
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
+API_ENDPOINT = "https://www.wikidata.org/w/api.php"
+WBGETENTITIES_MAX_IDS = 50
 USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/the-music-tree-pipelines)"
 
 MUSIC_GENRE_QID = "Q188451"
@@ -134,3 +136,38 @@ def run_query(
     response.raise_for_status()
     bindings = response.json()["results"]["bindings"]
     return [{key: binding.get(key, {}).get("value") for key in variables} for binding in bindings]
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
+    wait=tenacity.wait_exponential(multiplier=1, max=30),
+    stop=tenacity.stop_after_attempt(8),
+    reraise=True,
+)
+def _get_entities(ids: Sequence[str], timeout: float) -> dict[str, dict]:
+    response = httpx.get(
+        API_ENDPOINT,
+        params={"action": "wbgetentities", "ids": "|".join(ids), "props": "info", "format": "json"},
+        headers={"User-Agent": USER_AGENT},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if "error" in body:
+        raise ValueError(f"wbgetentities failed for {list(ids)}: {body['error']}")
+    return body["entities"]
+
+
+def fetch_entity_info(ids: Sequence[str], timeout: float = 60.0) -> dict[str, str | None]:
+    """Maps each QID to its current id: itself, its redirect target if merged, or None if deleted."""
+    resolved: dict[str, str | None] = {}
+    for start in range(0, len(ids), WBGETENTITIES_MAX_IDS):
+        batch = ids[start : start + WBGETENTITIES_MAX_IDS]
+        entities = _get_entities(batch, timeout)
+        absent = [qid for qid in batch if qid not in entities]
+        if absent:
+            raise ValueError(f"wbgetentities returned no entity for {absent}")
+        for qid in batch:
+            entity = entities[qid]
+            resolved[qid] = None if "missing" in entity else entity.get("redirects", {}).get("to", qid)
+    return resolved

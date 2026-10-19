@@ -5,7 +5,13 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
-from gold.genre_tree_builder import build_genre_tree, edges_to_parent_map, load_extra_parent_edges
+from gold.genre_tree_builder import (
+    apply_secondary_parent_rules,
+    build_genre_tree,
+    edges_to_parent_map,
+    load_extra_parent_edges,
+    load_tree_curation,
+)
 
 GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.json"
 
@@ -77,6 +83,7 @@ def export_canonical_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
     manual_canonical_genre_pop_side_path: Path,
+    curation_dir: Path,
     curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "7_canonical_hierarchy.parquet"
@@ -86,7 +93,10 @@ def export_canonical_genre_tree(
     # Imported first into grow, so a secondary ref can only resolve against this tree's own rows —
     # an edge to a regional (or unexported) item is dropped here rather than failing the import.
     item_ids = set(hierarchy.get_column("item_id"))
-    secondary_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
+    extra_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
+    regional_ids = set(pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet").get_column("item_id"))
+    curation = load_tree_curation(curation_dir, item_ids, item_ids | regional_ids)
+    untouched_edges, added_edges = apply_secondary_parent_rules(extra_edges, curation.secondary_parent_rules)
     roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))
     tree = {
@@ -95,8 +105,10 @@ def export_canonical_genre_tree(
         **build_genre_tree(
             hierarchy,
             pop_sides,
-            secondary_parents=edges_to_parent_map(secondary_edges),
+            secondary_parents=edges_to_parent_map(pl.concat([untouched_edges, added_edges])),
             unaccepted_root_ids=unaccepted_root_ids,
+            essential_tracks=curation.essential_tracks,
+            summaries=curation.summaries,
         ),
     }
 

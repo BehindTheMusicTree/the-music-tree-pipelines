@@ -124,6 +124,10 @@ downstream.
 
 ## 2. Silver
 
+### 2.0.0 Curation QID resolution
+
+Wikidata merges and deletes items, so a curated QID can drop out of the Bronze genre tree between two runs, which every step's inline "not found in the genre tree" check would turn into a failed run. `curation_resolution.py` runs first: each QID in the curation CSVs that's absent from its reference set (Bronze `item_id`s plus the pipeline-added overview and `LOCAL:` items; P2341 `item_id`s for `manual_indigenous_to_exclusions.csv`) is looked up with `wbgetentities`. A redirect to a known item is rewritten in place in the Bronze CSV, unless it would duplicate a row of the same list (or, for the exclusive theme/technique/out-of-scope/duplicate lists, of another of them). Otherwise the row is dropped for this run (`missing`, `not_in_tree`, `redirect_conflict`). Both outcomes go into `curation_resolutions.json`, keyed by grow list name and entry key, for admin review in grow; the inline checks stay as a safety net.
+
 ### 2.0 1_item_links — display-label casing
 
 `item_label`/`parent_label` stay the raw, untouched Wikidata string everywhere — every exact-match
