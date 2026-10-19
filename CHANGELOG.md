@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Silver resolves curated QIDs missing from the Bronze genre tree (or, for `indigenous_to_exclusions`, from P2341) before any step reads the curation CSVs: a Wikidata merge whose target is known is remapped in place, a deleted, out-of-tree or colliding QID's row is dropped from the run, both reported in `SILVER_OUTPUT_DIR/curation_resolutions.json` for admin review, so a Wikidata merge no longer kills the nightly.
+
 ## [6.3.0] - 2026-10-19
 
 ### Added
