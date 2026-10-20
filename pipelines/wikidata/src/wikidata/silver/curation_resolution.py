@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
+from wikidata.silver.regional_overview_classification import orphan_overview_parent_ids
 from wikidata.wikidata_client import EntityInfo, fetch_entities, fetch_labels
 
 logger = logging.getLogger(__name__)
@@ -56,13 +57,19 @@ def resolve_curation_qids(
     genre_tree_path: Path, indigenous_to_path: Path, curation_dir: Path, output_dir: Path
 ) -> Path:
     lists = {name: pl.read_csv(_csv_path(curation_dir, name), infer_schema=False) for name in QID_COLUMNS}
-    tree_ids = set(pl.read_parquet(genre_tree_path).get_column("item_id"))
+    tree = pl.read_parquet(genre_tree_path)
+    tree_ids = set(tree.get_column("item_id"))
     for name in ADDITION_LISTS:
         tree_ids |= _ids(pl.read_csv(_csv_path(curation_dir, name), infer_schema=False), "item_id")
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).get_column("item_id"))
 
+    # Silver promotes orphan "music of X" parents to root rows, so only regional_overrides can target them.
+    regional_ids = tree_ids | orphan_overview_parent_ids(tree)
+
     def reference(list_name: str) -> set[str]:
-        return indigenous_ids if list_name == "indigenous_to_exclusions" else tree_ids
+        if list_name == "indigenous_to_exclusions":
+            return indigenous_ids
+        return regional_ids if list_name == "regional_overrides" else tree_ids
 
     unknown = sorted(
         {
