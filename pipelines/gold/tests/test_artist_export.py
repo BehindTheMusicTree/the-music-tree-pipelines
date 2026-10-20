@@ -208,6 +208,27 @@ def test_export_artists_orders_nested_lists_regardless_of_input_order(tmp_path: 
     assert [group["title"] for group in band["release_groups"]] == ["Early", "Debut"]
 
 
+def test_export_artists_orders_members_tied_on_member_and_begin_year(tmp_path: Path) -> None:
+    stints = [
+        {**MEMBER_ROWS[1], "begin_year": 1991, "end_year": end_year, "ended": True, "roles": roles}
+        for end_year, roles in [(1993, ["drums"]), (1995, ["backing vocals"]), (1995, ["drums"])]
+    ]
+    exported = []
+    for name, stint_rows in (("forward", stints), ("reversed", stints[::-1])):
+        run_dir = tmp_path / name
+        run_dir.mkdir()
+        result = export_artists(*_write_inputs(run_dir, member_rows=[MEMBER_ROWS[0], *stint_rows]), run_dir / "gold")
+        band = next(artist for artist in _read_parts(result) if artist["musicbrainz_artist_id"] == BAND)
+        exported.append([m for m in band["members"] if m["musicbrainz_artist_id"] == DRUMMER])
+
+    assert exported[0] == exported[1]
+    assert [(m["end_year"], m["roles"]) for m in exported[0]] == [
+        (1993, ["drums"]),
+        (1995, ["backing vocals"]),
+        (1995, ["drums"]),
+    ]
+
+
 def test_export_artists_splits_parts_and_clears_stale_ones(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(artist_export, "ROWS_PER_PART", 3)
     parts_dir = tmp_path / "gold" / "3_artists"
