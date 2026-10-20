@@ -78,7 +78,7 @@ for the rationale, classification rules, and manual-CSV curation mechanics behin
 
 ## Setup
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. No credentials needed for this pipeline — `cp .env.example .env` to set `BRONZE_OUTPUT_DIR`/`SILVER_OUTPUT_DIR` (fail-fast: `wikidata.ingest`/`wikidata.silver`'s entrypoints raise a clear error naming the missing variable if `.env` isn't set up).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. No credentials needed for this pipeline — `cp .env.example .env` to set `BRONZE_OUTPUT_DIR`/`SILVER_OUTPUT_DIR`/`CURATION_BRONZE_DIR` (run `curation.ingest` first; fail-fast: `wikidata.ingest`/`wikidata.silver`'s entrypoints raise a clear error naming the missing variable if `.env` isn't set up).
 
 ## Running
 

@@ -18,6 +18,7 @@ All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-
       - [1.1.3 Bare QIDs, not full entity URIs](#113-bare-qids-not-full-entity-uris)
     - [1.2 wikidata_genre_indigenous_to.parquet and wikidata_genre_country_of_origin.parquet](#12-wikidata_genre_indigenous_toparquet-and-wikidata_genre_country_of_originparquet)
       - [1.2.1 Why separate tables, not extra columns on `wikidata_genre_tree.parquet`](#121-why-separate-tables-not-extra-columns-on-wikidata_genre_treeparquet)
+    - [1.3 wikidata_genre_descriptions.parquet](#13-wikidata_genre_descriptionsparquet)
   - [2. Silver](#2-silver)
     - [2.0 1_item_links — display-label casing](#20-1_item_links--display-label-casing)
     - [2.1 2_non_genre_pruning](#21-2_non_genre_pruning)
@@ -121,6 +122,22 @@ Each is therefore its own query, producing its own (item, value) table. See
 `wikidata_client.INDIGENOUS_TO_QUERY` / `COUNTRY_OF_ORIGIN_QUERY`, and
 [2.3 4_regional_classification](#23-4_regional_classification) below for how each is used
 downstream.
+
+### 1.3 wikidata_genre_descriptions.parquet
+
+Gold attaches a description and intro to every node it emits, and a node is not always a `P31` music
+genre: parents are unfiltered (see 1.1.2), orphan "music of" parents are promoted to their own rows
+(2.2.3), and `manual_regional_overview_additions.csv` adds overview items absent from Bronze (2.2.4).
+A `P31` SPARQL scope silently left those nodes without text, so the rows are keyed on the tree's own
+QIDs instead — every `item_id` and `parent_id` of `wikidata_genre_tree.parquet` plus the curated
+overview additions — which is why `ingest_descriptions` runs after `ingest_genre_tree` and reads the
+curation Bronze CSV. Lookups go through `wbgetentities` (`props=descriptions|sitelinks/urls`,
+`sitefilter=enwiki`) in batches of 50 rather than SPARQL, since the id set is already known; the
+English description and the enwiki sitelink are each single-valued per item, so one entity yields
+exactly one row; the `item_id` uniqueness check before the write pins that one-row-per-QID contract
+for Gold's lookup. The Wikipedia extracts API returns only as many extracts per response
+as fit its size limit and leaves the rest empty with a `continue` token, so `fetch_intros` follows
+`continue` until done instead of reading truncated batches as missing intros.
 
 ## 2. Silver
 

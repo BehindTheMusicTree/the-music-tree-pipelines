@@ -150,14 +150,19 @@ own (as of this writing: 2,496 rows).
 
 ### 2.4 wikidata_genre_descriptions.parquet
 
-One row per `P31` music genre item. The English short description comes from the Wikidata SPARQL
-query (`wikidata_client.DESCRIPTION_QUERY`, CC0); the intro comes from the English Wikipedia
-`action=query&prop=extracts&exintro&explaintext` API (`wikipedia_client.fetch_intros`, batches of 20,
-redirects followed; text is CC BY-SA, hence `wikipedia_url` for attribution).
+One row per tree QID: every `item_id` and `parent_id` of `wikidata_genre_tree.parquet` plus every
+`Q…` `item_id` of the curation Bronze `manual_regional_overview_additions.csv` (`CURATION_BRONZE_DIR`;
+`LOCAL:` ids have no Wikidata item and get no row), so `item_id` is unique (checked before the write).
+The English short description (CC0) and the English Wikipedia article come from `wbgetentities`
+(`wikidata_client.fetch_descriptions`, `props=descriptions|sitelinks/urls`, `sitefilter=enwiki`); the
+intro comes from the English Wikipedia `action=query&prop=extracts&exintro&explaintext` API
+(`wikipedia_client.fetch_intros`, batches of 20, redirects and `continue` followed; text is CC BY-SA,
+hence `wikipedia_url` for attribution). See [DESIGN.md](DESIGN.md#13-wikidata_genre_descriptionsparquet)
+for why the row scope is the tree's QIDs.
 
 | Column          | Type | Meaning                                                                 |
 | --------------- | ---- | ----------------------------------------------------------------------- |
-| item_id         | str  | Wikidata QID of the genre (e.g. `Q11399`)                               |
+| item_id         | str  | Wikidata QID of a tree node (e.g. `Q11399`)                             |
 | description     | str? | English Wikidata short description, or null                             |
 | wikipedia_url   | str? | URL of the English Wikipedia article, or null                           |
 | wikipedia_intro | str? | Plain-text intro of that article, or null (no article or empty intro)   |

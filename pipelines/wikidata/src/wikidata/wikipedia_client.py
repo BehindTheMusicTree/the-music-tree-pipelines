@@ -16,28 +16,41 @@ EXTRACTS_MAX_TITLES = 20
     stop=tenacity.stop_after_attempt(8),
     reraise=True,
 )
-def _get_extracts(titles: Sequence[str], timeout: float) -> dict:
-    response = httpx.get(
-        API_ENDPOINT,
-        params={
-            "action": "query",
-            "prop": "extracts",
-            "exintro": 1,
-            "explaintext": 1,
-            "exlimit": "max",
-            "redirects": 1,
-            "titles": "|".join(titles),
-            "format": "json",
-            "formatversion": 2,
-        },
-        headers={"User-Agent": USER_AGENT},
-        timeout=timeout,
-    )
+def _get_extracts_page(params: dict, timeout: float) -> dict:
+    response = httpx.get(API_ENDPOINT, params=params, headers={"User-Agent": USER_AGENT}, timeout=timeout)
     response.raise_for_status()
     body = response.json()
     if "error" in body:
-        raise ValueError(f"Wikipedia extracts query failed for {list(titles)}: {body['error']}")
-    return body["query"]
+        raise ValueError(f"Wikipedia extracts query failed for {params['titles']}: {body['error']}")
+    return body
+
+
+def _get_extracts(titles: Sequence[str], timeout: float) -> dict:
+    """Follows `continue` until done: one response carries only as many extracts as fit, the rest come empty."""
+    base_params = {
+        "action": "query",
+        "prop": "extracts",
+        "exintro": 1,
+        "explaintext": 1,
+        "exlimit": "max",
+        "redirects": 1,
+        "titles": "|".join(titles),
+        "format": "json",
+        "formatversion": 2,
+    }
+    renames: dict[str, list] = {"normalized": [], "redirects": []}
+    pages: dict[str, dict] = {}
+    continue_params: dict = {}
+    while True:
+        body = _get_extracts_page({**base_params, **continue_params}, timeout)
+        for key in renames:
+            renames[key] = body["query"].get(key, renames[key])
+        for page in body["query"]["pages"]:
+            if page.get("extract") or page["title"] not in pages:
+                pages[page["title"]] = page
+        if "continue" not in body:
+            return {**renames, "pages": list(pages.values())}
+        continue_params = body["continue"]
 
 
 def fetch_intros(titles: Sequence[str], timeout: float = 60.0) -> dict[str, str | None]:
