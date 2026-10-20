@@ -137,7 +137,7 @@ def resolve_curation_qids(
                     if column == "item_id":
                         conflict_list = next(other for other in sorted(colliding_lists) if target in keys[other])
                     elif target in pruned_ids:
-                        conflict_list = next(other for other in PRUNING_LISTS if target in keys[other])
+                        conflict_list = next(other for other in sorted(PRUNING_LISTS) if target in keys[other])
                     else:
                         conflict_list = name
                     row_review.append(
