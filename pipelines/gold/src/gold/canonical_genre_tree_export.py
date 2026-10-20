@@ -9,6 +9,7 @@ from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
     build_genre_tree,
     edges_to_parent_map,
+    load_descriptions,
     load_extra_parent_edges,
     load_tree_curation,
 )
@@ -84,6 +85,7 @@ def export_canonical_genre_tree(
     output_dir: Path,
     manual_canonical_genre_pop_side_path: Path,
     curation_dir: Path,
+    descriptions_path: Path,
     curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "7_canonical_hierarchy.parquet"
@@ -111,6 +113,7 @@ def export_canonical_genre_tree(
             unaccepted_root_ids=unaccepted_root_ids,
             essential_tracks=curation.essential_tracks,
             summaries=curation.summaries,
+            descriptions=load_descriptions(descriptions_path),
         ),
     }
 

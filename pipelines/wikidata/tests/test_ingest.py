@@ -126,3 +126,76 @@ def test_ingest_country_of_origin_raises_on_empty_results(monkeypatch: pytest.Mo
 
     with pytest.raises(ValueError, match="is empty"):
         bw.ingest_country_of_origin(tmp_path / "does" / "not" / "exist")
+
+
+def _description_inputs(tmp_path: Path, additions: list[dict[str, str]]) -> tuple[Path, Path]:
+    tree_path = tmp_path / "wikidata_genre_tree.parquet"
+    pl.DataFrame(
+        {
+            "item_id": ["Q11399", "Q188451", "Q9"],
+            "parent_id": ["Q188451", None, "Q11399"],
+        }
+    ).write_parquet(tree_path)
+    additions_path = tmp_path / "manual_regional_overview_additions.csv"
+    pl.DataFrame(additions, schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
+        additions_path
+    )
+    return tree_path, additions_path
+
+
+def test_ingest_descriptions_covers_tree_and_overview_qids(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    tree_path, additions_path = _description_inputs(
+        tmp_path,
+        [
+            {"item_id": "Q1049", "item_label": "music of France", "reason": "x"},
+            {"item_id": "LOCAL:music-of-x", "item_label": "music of X", "reason": "x"},
+        ],
+    )
+    rock = bw.wikidata_client.Description(
+        "genre of popular music", "Rock music", "https://en.wikipedia.org/wiki/Rock_music"
+    )
+    fetch_descriptions = MagicMock(
+        return_value={
+            "Q1049": bw.wikidata_client.Description("music of a country", None, None),
+            "Q11399": rock,
+            "Q188451": bw.wikidata_client.Description(None, None, None),
+            "Q9": bw.wikidata_client.Description(None, None, None),
+        }
+    )
+    monkeypatch.setattr(bw.wikidata_client, "fetch_descriptions", fetch_descriptions)
+    fetch_intros = MagicMock(return_value={"Rock music": "Rock is a genre."})
+    monkeypatch.setattr(bw.wikipedia_client, "fetch_intros", fetch_intros)
+
+    result = bw.ingest_descriptions(tree_path, additions_path, tmp_path / "bronze")
+
+    fetch_descriptions.assert_called_once_with(["Q1049", "Q11399", "Q188451", "Q9"])
+    fetch_intros.assert_called_once_with(["Rock music"])
+    assert result == tmp_path / "bronze" / "wikidata_genre_descriptions.parquet"
+    rows = {row["item_id"]: row for row in pl.read_parquet(result).to_dicts()}
+    assert rows["Q1049"]["description"] == "music of a country"
+    assert rows["Q11399"] == {
+        "item_id": "Q11399",
+        "description": "genre of popular music",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Rock_music",
+        "wikipedia_intro": "Rock is a genre.",
+    }
+    assert rows["Q9"] == {"item_id": "Q9", "description": None, "wikipedia_url": None, "wikipedia_intro": None}
+
+
+def test_ingest_descriptions_raises_on_duplicate_item_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    tree_path, additions_path = _description_inputs(tmp_path, [])
+    description = bw.wikidata_client.Description(None, None, None)
+    monkeypatch.setattr(
+        bw.wikidata_client, "fetch_descriptions", MagicMock(return_value={"Q9": description, "Q11399": description})
+    )
+    monkeypatch.setattr(bw.wikipedia_client, "fetch_intros", MagicMock(return_value={}))
+    real_check = bw.check_unique_key
+
+    def check_on_duplicated(df: pl.DataFrame, column: str, name: str) -> None:
+        real_check(df.with_columns(pl.lit("Q9").alias("item_id")), column, name)
+
+    monkeypatch.setattr(bw, "check_unique_key", check_on_duplicated)
+
+    with pytest.raises(ValueError, match="'item_id' is not unique"):
+        bw.ingest_descriptions(tree_path, additions_path, tmp_path / "bronze")
+    assert not (tmp_path / "bronze").exists()

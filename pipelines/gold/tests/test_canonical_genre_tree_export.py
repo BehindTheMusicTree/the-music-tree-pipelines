@@ -45,7 +45,9 @@ def _write_pop_side_csv(path: Path, rows: list[dict[str, str]]) -> None:
     pl.DataFrame(data, schema={column: pl.Utf8 for column in columns}).write_csv(path)
 
 
-def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_writes_tree_shape(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -56,7 +58,7 @@ def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path, curation_
     _write_pop_side_csv(pop_side_path, [])
 
     result = export_canonical_genre_tree(
-        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, CURATION_EXPORTED_ON
+        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
     )
 
     assert result == output_dir / "1_canonical_genre_tree.json"
@@ -65,7 +67,9 @@ def test_export_canonical_genre_tree_writes_tree_shape(tmp_path: Path, curation_
     assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
 
 
-def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_creates_output_dir(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -75,13 +79,15 @@ def test_export_canonical_genre_tree_creates_output_dir(tmp_path: Path, curation
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
 
-    export_canonical_genre_tree(wikidata_silver_dir, output_dir, pop_side_path, curation_dir, CURATION_EXPORTED_ON)
+    export_canonical_genre_tree(
+        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
+    )
 
     assert output_dir.is_dir()
 
 
 def test_export_canonical_genre_tree_raises_on_schema_violation(
-    tmp_path: Path, curation_dir: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import gold.canonical_genre_tree_export as module
 
@@ -100,11 +106,13 @@ def test_export_canonical_genre_tree_raises_on_schema_violation(
 
     with pytest.raises(ValueError, match="schema validation"):
         module.export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_marks_pop_side(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -115,7 +123,7 @@ def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path, curation_dir
     _write_pop_side_csv(pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"}])
 
     result = export_canonical_genre_tree(
-        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, CURATION_EXPORTED_ON
+        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
     )
 
     tree = json.loads(result.read_text())
@@ -124,7 +132,9 @@ def test_export_canonical_genre_tree_marks_pop_side(tmp_path: Path, curation_dir
     assert pop_rock["side"] == "pop"
 
 
-def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     rows = [row for row in TREE_ROWS if row["item_label"] != "Mainstream Pop"]
@@ -136,11 +146,13 @@ def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(tmp_path
 
     with pytest.raises(ValueError, match="Mainstream Pop"):
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_raises_on_unknown_root(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -153,11 +165,13 @@ def test_export_canonical_genre_tree_raises_on_unknown_root(tmp_path: Path, cura
 
     with pytest.raises(ValueError, match="not found among canonical roots"):
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_raises_on_non_direct_child(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_raises_on_non_direct_child(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -170,11 +184,13 @@ def test_export_canonical_genre_tree_raises_on_non_direct_child(tmp_path: Path, 
 
     with pytest.raises(ValueError, match="not a direct child of root"):
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_raises_on_duplicate_row(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_raises_on_duplicate_row(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -191,11 +207,13 @@ def test_export_canonical_genre_tree_raises_on_duplicate_row(tmp_path: Path, cur
 
     with pytest.raises(ValueError, match="duplicate"):
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_raises_on_no_core_child_left(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -212,11 +230,13 @@ def test_export_canonical_genre_tree_raises_on_no_core_child_left(tmp_path: Path
 
     with pytest.raises(ValueError, match="no core .non-pop. child left"):
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         )
 
 
-def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_marks_multiple_pop_sides(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     rows = [*TREE_ROWS, {"item_id": "Q6", "item_label": "soft rock", "parent_id": "Q1"}]
@@ -234,7 +254,7 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path, cu
     )
 
     result = export_canonical_genre_tree(
-        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, CURATION_EXPORTED_ON
+        wikidata_silver_dir, output_dir, pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
     )
 
     tree = json.loads(result.read_text())
@@ -243,7 +263,9 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(tmp_path: Path, cu
     assert sides == {"punk rock": None, "pop rock": "pop", "soft rock": "pop"}
 
 
-def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -262,7 +284,7 @@ def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_
 
     tree = json.loads(
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -274,7 +296,9 @@ def test_export_canonical_genre_tree_emits_only_canonical_secondary_parents(tmp_
     assert "secondaryParents" not in rock["children"][0]["children"][0]  # hardcore punk -> unknown Q99
 
 
-def test_export_canonical_genre_tree_flags_unaccepted_roots(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_canonical_genre_tree_flags_unaccepted_roots(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -285,7 +309,7 @@ def test_export_canonical_genre_tree_flags_unaccepted_roots(tmp_path: Path, cura
 
     tree = json.loads(
         export_canonical_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -297,7 +321,7 @@ MBID_A = "00000000-0000-0000-0000-00000000000a"
 MBID_B = "00000000-0000-0000-0000-00000000000b"
 
 
-def _export_with_secondary_edges(tmp_path: Path, curation_dir: Path) -> dict:
+def _export_with_secondary_edges(tmp_path: Path, curation_dir: Path, descriptions_path: Path) -> dict:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -306,7 +330,7 @@ def _export_with_secondary_edges(tmp_path: Path, curation_dir: Path) -> dict:
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
     _write_pop_side_csv(pop_side_path, [])
     result = export_canonical_genre_tree(
-        wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, CURATION_EXPORTED_ON
+        wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
     )
     return json.loads(result.read_text())
 
@@ -317,7 +341,10 @@ def _rock_child(tree: dict, name: str) -> dict:
 
 
 def test_export_canonical_genre_tree_applies_secondary_parent_rules(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation(
         "secondary_parents",
@@ -328,24 +355,30 @@ def test_export_canonical_genre_tree_applies_secondary_parent_rules(
         ],
     )
 
-    tree = _export_with_secondary_edges(tmp_path, curation_dir)
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
     assert "secondaryParents" not in _rock_child(tree, "pop rock")
     assert _rock_child(tree, "punk rock")["secondaryParents"] == ["Q5"]
 
 
 def test_export_canonical_genre_tree_ignores_removal_of_regional_parent(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation("secondary_parents", [{"item_id": "Q4", "parent_id": "Q10", "action": "remove", "reason": "x"}])
 
-    tree = _export_with_secondary_edges(tmp_path, curation_dir)
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
     assert _rock_child(tree, "pop rock")["secondaryParents"] == ["Q7"]
 
 
 def test_export_canonical_genre_tree_emits_essential_tracks_by_position(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation(
         "essential_tracks",
@@ -355,20 +388,37 @@ def test_export_canonical_genre_tree_emits_essential_tracks_by_position(
         ],
     )
 
-    tree = _export_with_secondary_edges(tmp_path, curation_dir)
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
     assert _rock_child(tree, "pop rock")["essentialTracks"] == [MBID_B, MBID_A]
     assert "essentialTracks" not in _rock_child(tree, "punk rock")
 
 
 def test_export_canonical_genre_tree_emits_summary_override(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation("summary_overrides", [{"item_id": "Q4", "summary": "Rock with pop hooks.", "reason": "x"}])
 
-    tree = _export_with_secondary_edges(tmp_path, curation_dir)
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
     assert _rock_child(tree, "pop rock")["summary"] == "Rock with pop hooks."
+
+
+def test_export_canonical_genre_tree_blank_summary_override_suppresses_summary(
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+) -> None:
+    write_curation("summary_overrides", [{"item_id": "Q4", "summary": "", "reason": "misleading intro"}])
+
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+    assert "summary" not in _rock_child(tree, "pop rock")
+    assert "summarySourceUrl" not in _rock_child(tree, "pop rock")
 
 
 @pytest.mark.parametrize(
@@ -391,6 +441,7 @@ def test_export_canonical_genre_tree_emits_summary_override(
 def test_export_canonical_genre_tree_raises_on_bad_curation_row(
     tmp_path: Path,
     curation_dir: Path,
+    descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
     name: str,
     row: dict[str, str],
@@ -399,11 +450,14 @@ def test_export_canonical_genre_tree_raises_on_bad_curation_row(
     write_curation(name, [row])
 
     with pytest.raises(ValueError, match=match):
-        _export_with_secondary_edges(tmp_path, curation_dir)
+        _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
 
 def test_export_canonical_genre_tree_raises_on_duplicate_essential_track_position(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation(
         "essential_tracks",
@@ -414,4 +468,4 @@ def test_export_canonical_genre_tree_raises_on_duplicate_essential_track_positio
     )
 
     with pytest.raises(ValueError, match="duplicate \\('item_id', 'position'\\)"):
-        _export_with_secondary_edges(tmp_path, curation_dir)
+        _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)

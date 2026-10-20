@@ -31,3 +31,12 @@ def test_country_of_origin_query_returns_rows_from_the_live_endpoint() -> None:
 
     assert len(rows) > 0
     assert any(row["item"] == "http://www.wikidata.org/entity/Q185676" for row in rows)  # fado
+
+
+@pytest.mark.integration
+def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live_api() -> None:
+    rock = wikidata_client.fetch_descriptions(["Q11399"])["Q11399"]
+
+    assert rock.description
+    assert rock.wikipedia_title == "Rock music"
+    assert rock.wikipedia_url == "https://en.wikipedia.org/wiki/Rock_music"

@@ -145,16 +145,19 @@ def run_query(
     stop=tenacity.stop_after_attempt(8),
     reraise=True,
 )
-def _get_entities(ids: Sequence[str], props: str, timeout: float) -> dict[str, dict]:
+def _get_entities(ids: Sequence[str], props: str, timeout: float, sitefilter: str | None) -> dict[str, dict]:
+    params = {
+        "action": "wbgetentities",
+        "ids": "|".join(ids),
+        "props": props,
+        "languages": LABEL_LANGUAGES.replace(",", "|"),
+        "format": "json",
+    }
+    if sitefilter is not None:
+        params["sitefilter"] = sitefilter
     response = httpx.get(
         API_ENDPOINT,
-        params={
-            "action": "wbgetentities",
-            "ids": "|".join(ids),
-            "props": props,
-            "languages": LABEL_LANGUAGES.replace(",", "|"),
-            "format": "json",
-        },
+        params=params,
         headers={"User-Agent": USER_AGENT},
         timeout=timeout,
     )
@@ -165,11 +168,13 @@ def _get_entities(ids: Sequence[str], props: str, timeout: float) -> dict[str, d
     return body["entities"]
 
 
-def _get_batched_entities(ids: Sequence[str], props: str, timeout: float) -> dict[str, dict]:
+def _get_batched_entities(
+    ids: Sequence[str], props: str, timeout: float, sitefilter: str | None = None
+) -> dict[str, dict]:
     entities: dict[str, dict] = {}
     for start in range(0, len(ids), WBGETENTITIES_MAX_IDS):
         batch = ids[start : start + WBGETENTITIES_MAX_IDS]
-        batch_entities = _get_entities(batch, props, timeout)
+        batch_entities = _get_entities(batch, props, timeout, sitefilter)
         absent = [qid for qid in batch if qid not in batch_entities]
         if absent:
             raise ValueError(f"wbgetentities returned no entity for {absent}")
@@ -221,3 +226,23 @@ def fetch_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, Entit
 
 def fetch_labels(ids: Sequence[str], timeout: float = 60.0) -> dict[str, str | None]:
     return {qid: _label(entity) for qid, entity in _get_batched_entities(ids, "labels", timeout).items()}
+
+
+@dataclass(frozen=True)
+class Description:
+    description: str | None
+    wikipedia_title: str | None
+    wikipedia_url: str | None
+
+
+def fetch_descriptions(ids: Sequence[str], timeout: float = 60.0) -> dict[str, Description]:
+    """English short description (CC0) and English Wikipedia article of each QID, all None for a deleted item."""
+    result: dict[str, Description] = {}
+    for qid, entity in _get_batched_entities(ids, "descriptions|sitelinks/urls", timeout, sitefilter="enwiki").items():
+        sitelink = entity.get("sitelinks", {}).get("enwiki", {})
+        result[qid] = Description(
+            description=entity.get("descriptions", {}).get("en", {}).get("value"),
+            wikipedia_title=sitelink.get("title"),
+            wikipedia_url=sitelink.get("url"),
+        )
+    return result
