@@ -49,15 +49,36 @@ def _resolve(tmp_path: Path, curation_dir: Path) -> dict:
 
 
 def _mock_api(monkeypatch: pytest.MonkeyPatch, entities: dict) -> MagicMock:
-    response = MagicMock()
-    response.json.return_value = {"entities": entities}
-    httpx_get = MagicMock(return_value=response)
+    def get(*args: object, params: dict, **kwargs: object) -> MagicMock:
+        response = MagicMock()
+        response.json.return_value = {"entities": {i: entities[i] for i in params["ids"].split("|") if i in entities}}
+        return response
+
+    httpx_get = MagicMock(side_effect=get)
     monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
     return httpx_get
 
 
 def _redirect(source: str, target: str) -> dict:
     return {"id": target, "redirects": {"from": source, "to": target}}
+
+
+MODIFIED = "2026-05-01T10:00:00Z"
+
+
+def _claims(pid: str, *targets: str) -> dict:
+    return {pid: [{"mainsnak": {"datavalue": {"value": {"id": t}}}, "rank": "normal"} for t in targets]}
+
+
+def _entity(item_id: str, label: str, claims: dict | None = None, redirect_from: str | None = None) -> dict:
+    redirects = {"redirects": {"from": redirect_from, "to": item_id}} if redirect_from else {}
+    return {
+        "id": item_id,
+        "labels": {"en": {"language": "en", "value": label}},
+        "modified": MODIFIED,
+        "claims": claims or {},
+        **redirects,
+    }
 
 
 def _item(item_id: str) -> dict:
@@ -125,7 +146,7 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
     assert pl.read_parquet(output).get_column("item_id").to_list() == ["Q1", "Q8"]
 
 
-def test_review_reasons_drop_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_review_reasons_drop_rows_with_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     curation_dir = _setup(
         tmp_path,
         {
@@ -139,10 +160,13 @@ def test_review_reasons_drop_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         monkeypatch,
         {
             "Q1": {"id": "Q1", "missing": ""},
-            "Q2": {"id": "Q2"},
-            "Q3": _redirect("Q3", "Q99"),
-            "Q4": _redirect("Q4", "Q5"),
-            "Q6": _redirect("Q6", "Q10"),
+            "Q2": _entity("Q2", "Two", {**_claims("P31", "Q50"), **_claims("P279", "Q51", "Q52")}),
+            "Q3": _entity("Q99", "Ninety-nine", _claims("P31", "Q50"), redirect_from="Q3"),
+            "Q4": _entity("Q5", "Five", redirect_from="Q4"),
+            "Q6": _entity("Q10", "Ten", redirect_from="Q6"),
+            "Q50": {"id": "Q50", "labels": {"fr": {"language": "fr", "value": "classe"}}},
+            "Q51": {"id": "Q51", "labels": {}},
+            "Q52": {"id": "Q52", "labels": {"en": {"language": "en", "value": "Parent"}}},
         },
     )
 
@@ -157,9 +181,22 @@ def test_review_reasons_drop_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
             "itemId": "Q6",
             "reason": "not_in_tree",
             "target": "Q10",
+            "evidence": {"label": "Ten", "modified": MODIFIED, "hasIndigenousTo": False},
         },
         {"list": "theme_genres", "key": "Q1", "column": "item_id", "itemId": "Q1", "reason": "missing"},
-        {"list": "theme_genres", "key": "Q2", "column": "item_id", "itemId": "Q2", "reason": "not_in_tree"},
+        {
+            "list": "theme_genres",
+            "key": "Q2",
+            "column": "item_id",
+            "itemId": "Q2",
+            "reason": "not_in_tree",
+            "evidence": {
+                "label": "Two",
+                "modified": MODIFIED,
+                "instanceOf": [{"id": "Q50", "label": "classe"}],
+                "subclassOf": [{"id": "Q51", "label": None}, {"id": "Q52", "label": "Parent"}],
+            },
+        },
         {
             "list": "theme_genres",
             "key": "Q3",
@@ -167,6 +204,12 @@ def test_review_reasons_drop_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
             "itemId": "Q3",
             "reason": "not_in_tree",
             "target": "Q99",
+            "evidence": {
+                "label": "Ninety-nine",
+                "modified": MODIFIED,
+                "instanceOf": [{"id": "Q50", "label": "classe"}],
+                "subclassOf": [],
+            },
         },
         {
             "list": "theme_genres",
@@ -175,10 +218,22 @@ def test_review_reasons_drop_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
             "itemId": "Q4",
             "reason": "redirect_conflict",
             "target": "Q5",
+            "evidence": {"label": "Five", "modified": MODIFIED, "conflictList": "theme_genres"},
         },
     ]
     assert [row["item_id"] for row in _read(curation_dir, "theme_genres")] == ["Q5"]
     assert _read(curation_dir, "indigenous_to_exclusions") == []
+
+
+def test_indigenous_item_with_p2341_still_out_of_reference_reports_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    curation_dir = _setup(tmp_path, {"indigenous_to_exclusions": [_item("Q1")]}, [], indigenous_ids=[])
+    _mock_api(monkeypatch, {"Q1": _entity("Q1", "One", _claims("P2341", "Q7"))})
+
+    report = _resolve(tmp_path, curation_dir)
+
+    assert report["review"][0]["evidence"] == {"label": "One", "modified": MODIFIED, "hasIndigenousTo": True}
 
 
 def test_exclusive_list_collision_is_reviewed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -187,7 +242,7 @@ def test_exclusive_list_collision_is_reviewed(tmp_path: Path, monkeypatch: pytes
         {"technique_genres": [_item("Q1")], "duplicate_genres": [_item("Q2")], "label_overrides": []},
         ["Q2"],
     )
-    _mock_api(monkeypatch, {"Q1": _redirect("Q1", "Q2")})
+    _mock_api(monkeypatch, {"Q1": _entity("Q2", "Two", redirect_from="Q1")})
 
     report = _resolve(tmp_path, curation_dir)
 
@@ -199,6 +254,7 @@ def test_exclusive_list_collision_is_reviewed(tmp_path: Path, monkeypatch: pytes
             "itemId": "Q1",
             "reason": "redirect_conflict",
             "target": "Q2",
+            "evidence": {"label": "Two", "modified": MODIFIED, "conflictList": "duplicate_genres"},
         }
     ]
     assert _read(curation_dir, "technique_genres") == []
@@ -232,13 +288,15 @@ def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkey
         },
         ["Q1", "Q3", "Q5"],
     )
-    _mock_api(monkeypatch, {"Q2": _redirect("Q2", "Q1"), "Q4": _redirect("Q4", "Q5")})
+    _mock_api(
+        monkeypatch, {"Q2": _entity("Q1", "One", redirect_from="Q2"), "Q4": _entity("Q5", "Five", redirect_from="Q4")}
+    )
 
     report = _resolve(tmp_path, curation_dir)
 
     assert report["remaps"] == []
-    assert [(r["key"], r["reason"], r["target"]) for r in report["review"]] == [
-        ("Q1", "redirect_conflict", "Q1"),
-        ("Q3", "redirect_conflict", "Q5"),
+    assert [(r["key"], r["reason"], r["target"], r["evidence"]["conflictList"]) for r in report["review"]] == [
+        ("Q1", "redirect_conflict", "Q1", "main_parent"),
+        ("Q3", "redirect_conflict", "Q5", "umbrella_canonical_genres"),
     ]
     assert _read(curation_dir, "main_parent") == []

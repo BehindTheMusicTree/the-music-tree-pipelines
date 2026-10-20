@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
-from wikidata.wikidata_client import fetch_entity_info
+from wikidata.wikidata_client import EntityInfo, fetch_entities, fetch_labels
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +73,36 @@ def resolve_curation_qids(
             if _QID_PATTERN.fullmatch(value.strip()) and value.strip() not in reference(name)
         }
     )
-    current_ids = fetch_entity_info(unknown) if unknown else {}
+    entities = fetch_entities(unknown) if unknown else {}
+    current_ids = {qid: None if info is None else info.id for qid, info in entities.items()}
+    class_ids = sorted(
+        {
+            class_id
+            for name, df in lists.items()
+            if name != "indigenous_to_exclusions"
+            for column in QID_COLUMNS[name]
+            for value in df.get_column(column).drop_nulls()
+            if (info := entities.get(value.strip())) and info.id not in reference(name)
+            for class_id in (*info.instance_of, *info.subclass_of)
+        }
+    )
+    class_labels = fetch_labels(class_ids) if class_ids else {}
+
+    def evidence(info: EntityInfo, reason: str, list_name: str, conflict_list: str | None) -> dict:
+        found: dict = {"label": info.label, "modified": info.modified}
+        if reason == "not_in_tree" and list_name == "indigenous_to_exclusions":
+            found["hasIndigenousTo"] = info.has_indigenous_to
+        elif reason == "not_in_tree":
+            found["instanceOf"] = [{"id": c, "label": class_labels[c]} for c in info.instance_of]
+            found["subclassOf"] = [{"id": c, "label": class_labels[c]} for c in info.subclass_of]
+        else:
+            found["conflictList"] = conflict_list
+        return {k: v for k, v in found.items() if v is not None}
 
     keys = {name: _ids(df, "item_id") for name, df in lists.items()}
     pruned_ids = set().union(*(keys[name] for name in PRUNING_LISTS))
     remaps: list[dict[str, str]] = []
-    review: list[dict[str, str]] = []
+    review: list[dict] = []
     for name, df in lists.items():
         colliding_lists = EXCLUSIVE_LISTS if name in EXCLUSIVE_LISTS else {name}
         rows = df.to_dicts()
@@ -93,15 +117,38 @@ def resolve_curation_qids(
                     continue
                 target = current_ids[qid]
                 entry = {"list": name, "key": key, "column": column}
-                if target is None:
+                info = entities[qid]
+                if info is None:
                     row_review.append({**entry, "itemId": qid, "reason": "missing"})
                 elif target not in reference(name):
                     redirect = {"target": target} if target != qid else {}
-                    row_review.append({**entry, "itemId": qid, "reason": "not_in_tree", **redirect})
+                    row_review.append(
+                        {
+                            **entry,
+                            "itemId": qid,
+                            "reason": "not_in_tree",
+                            **redirect,
+                            "evidence": evidence(info, "not_in_tree", name, None),
+                        }
+                    )
                 elif (column == "item_id" and any(target in keys[other] for other in colliding_lists)) or (
                     column != "item_id" and (target in pruned_ids or target == (row["item_id"] or "").strip())
                 ):
-                    row_review.append({**entry, "itemId": qid, "reason": "redirect_conflict", "target": target})
+                    if column == "item_id":
+                        conflict_list = next(other for other in sorted(colliding_lists) if target in keys[other])
+                    elif target in pruned_ids:
+                        conflict_list = next(other for other in PRUNING_LISTS if target in keys[other])
+                    else:
+                        conflict_list = name
+                    row_review.append(
+                        {
+                            **entry,
+                            "itemId": qid,
+                            "reason": "redirect_conflict",
+                            "target": target,
+                            "evidence": evidence(info, "redirect_conflict", name, conflict_list),
+                        }
+                    )
                 else:
                     row_remaps.append({**entry, "from": qid, "to": target})
             if row_review:
