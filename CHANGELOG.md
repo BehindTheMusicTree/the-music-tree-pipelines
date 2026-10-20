@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [6.5.1](#651---2026-10-20)
 - [6.5.0](#650---2026-10-19)
 - [6.4.0](#640---2026-10-19)
 - [6.3.0](#630---2026-10-19)
@@ -44,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [6.5.1] - 2026-10-20
+
+### Fixed
+
+- `wikidata` Silver `curation_resolution` no longer drops `manual_regional_overrides.csv` rows whose `item_id`/`overview_item_id` is an orphan "music of X" parent (present in Bronze only as a `parent_id`, promoted to a root row by `3_regional_overview_classification`); other lists still validate against Bronze `item_id`.
 
 ## [6.5.0] - 2026-10-19
 
