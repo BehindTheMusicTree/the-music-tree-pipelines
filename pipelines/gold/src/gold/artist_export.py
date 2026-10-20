@@ -117,6 +117,13 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
                 end_year="end_year",
                 ended="ended",
                 roles="roles",
+            ).sort_by(
+                "member_musicbrainz_artist_id",
+                "begin_year",
+                "end_year",
+                "ended",
+                pl.col("roles").list.join(","),
+                nulls_last=True,
             )
         )
     )
@@ -124,7 +131,7 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
         pl.scan_parquet(musicbrainz_silver_dir / "8_artist_links.parquet")
         .join(scope, on="musicbrainz_artist_id", how="semi")
         .group_by("musicbrainz_artist_id")
-        .agg(links=pl.struct("kind", "url"))
+        .agg(links=pl.struct("kind", "url").sort_by("kind", "url"))
     )
     release_groups = (
         pl.scan_parquet(musicbrainz_silver_dir / "9_artist_release_groups.parquet")
@@ -133,7 +140,7 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
         .agg(
             release_groups=pl.struct(
                 "musicbrainz_release_group_id", "title", "primary_type", "secondary_types", "first_release_year"
-            )
+            ).sort_by("first_release_year", "musicbrainz_release_group_id", nulls_last=True)
         )
     )
     artists = (

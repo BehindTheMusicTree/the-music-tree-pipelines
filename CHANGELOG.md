@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [6.6.0](#660---2026-10-20)
 - [6.5.1](#651---2026-10-20)
 - [6.5.0](#650---2026-10-19)
 - [6.4.0](#640---2026-10-19)
@@ -45,6 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [6.6.0] - 2026-10-20
+
+### Fixed
+
+- `gold` artist export also breaks ties between a member's stints in the same group (same member and begin year) by end year, ended flag and roles, so those artists stop being re-sent by the daily delta.
+- `gold` artist export orders each artist's members, links and release groups deterministically, so the daily delta no longer re-sends ~10k unchanged artists whose nested lists merely came out in a different order.
+
+### Added
+
+- `wikidata` Silver adds an optional `evidence` object to each `curation_resolutions.json` review entry (current label, last Wikidata edit, truthy P31/P279 with labels, plus P2341 presence for indigenous exclusions, colliding list) so admins can see why a curated QID was dropped.
 
 ## [6.5.1] - 2026-10-20
 

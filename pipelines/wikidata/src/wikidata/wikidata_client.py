@@ -1,5 +1,6 @@
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import httpx
 import tenacity
@@ -144,10 +145,16 @@ def run_query(
     stop=tenacity.stop_after_attempt(8),
     reraise=True,
 )
-def _get_entities(ids: Sequence[str], timeout: float) -> dict[str, dict]:
+def _get_entities(ids: Sequence[str], props: str, timeout: float) -> dict[str, dict]:
     response = httpx.get(
         API_ENDPOINT,
-        params={"action": "wbgetentities", "ids": "|".join(ids), "props": "info", "format": "json"},
+        params={
+            "action": "wbgetentities",
+            "ids": "|".join(ids),
+            "props": props,
+            "languages": LABEL_LANGUAGES.replace(",", "|"),
+            "format": "json",
+        },
         headers={"User-Agent": USER_AGENT},
         timeout=timeout,
     )
@@ -158,16 +165,59 @@ def _get_entities(ids: Sequence[str], timeout: float) -> dict[str, dict]:
     return body["entities"]
 
 
-def fetch_entity_info(ids: Sequence[str], timeout: float = 60.0) -> dict[str, str | None]:
-    """Maps each QID to its current id: itself, its redirect target if merged, or None if deleted."""
-    resolved: dict[str, str | None] = {}
+def _get_batched_entities(ids: Sequence[str], props: str, timeout: float) -> dict[str, dict]:
+    entities: dict[str, dict] = {}
     for start in range(0, len(ids), WBGETENTITIES_MAX_IDS):
         batch = ids[start : start + WBGETENTITIES_MAX_IDS]
-        entities = _get_entities(batch, timeout)
-        absent = [qid for qid in batch if qid not in entities]
+        batch_entities = _get_entities(batch, props, timeout)
+        absent = [qid for qid in batch if qid not in batch_entities]
         if absent:
             raise ValueError(f"wbgetentities returned no entity for {absent}")
-        for qid in batch:
-            entity = entities[qid]
-            resolved[qid] = None if "missing" in entity else entity.get("redirects", {}).get("to", qid)
-    return resolved
+        entities.update({qid: batch_entities[qid] for qid in batch})
+    return entities
+
+
+def _label(entity: dict) -> str | None:
+    labels = entity.get("labels", {})
+    return next((labels[lang]["value"] for lang in LABEL_LANGUAGES.split(",") if lang in labels), None)
+
+
+def _claim_ids(entity: dict, pid: str) -> list[str]:
+    """Truthy values, as SPARQL `wdt:` sees them: preferred-rank statements if any, else normal ones."""
+    statements = [s for s in entity.get("claims", {}).get(pid, []) if "datavalue" in s["mainsnak"]]
+    rank = "preferred" if any(s.get("rank") == "preferred" for s in statements) else "normal"
+    return [s["mainsnak"]["datavalue"]["value"]["id"] for s in statements if s.get("rank", "normal") == rank]
+
+
+@dataclass(frozen=True)
+class EntityInfo:
+    """A QID's resolved entity: for a merged item, the redirect target's data."""
+
+    id: str
+    label: str | None
+    modified: str | None
+    instance_of: list[str]
+    subclass_of: list[str]
+    has_indigenous_to: bool
+
+
+def fetch_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, EntityInfo | None]:
+    """Maps each QID to its current entity: itself, its redirect target if merged, or None if deleted."""
+    result: dict[str, EntityInfo | None] = {}
+    for qid, entity in _get_batched_entities(ids, "info|labels|claims", timeout).items():
+        if "missing" in entity:
+            result[qid] = None
+            continue
+        result[qid] = EntityInfo(
+            id=entity.get("redirects", {}).get("to", qid),
+            label=_label(entity),
+            modified=entity.get("modified"),
+            instance_of=_claim_ids(entity, "P31"),
+            subclass_of=_claim_ids(entity, "P279"),
+            has_indigenous_to=bool(_claim_ids(entity, INDIGENOUS_TO_PID)),
+        )
+    return result
+
+
+def fetch_labels(ids: Sequence[str], timeout: float = 60.0) -> dict[str, str | None]:
+    return {qid: _label(entity) for qid, entity in _get_batched_entities(ids, "labels", timeout).items()}
