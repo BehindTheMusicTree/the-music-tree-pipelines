@@ -48,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- `musicbrainz`: the on-demand `scripts/export_songs_json.py` (and its test); its last consumer, grow-api's `seed_prototype_tree --songs-file`, is gone and `gold` is the real export path.
+
+### Changed
+
+- `musicbrainz` README and `CLAUDE.md` now describe Silver → `gold` → `grow-the-music-tree-api` as the consumer path.
+
 ## [6.7.0] - 2026-10-20
 
 ### Added
