@@ -44,7 +44,7 @@ See [SCHEMA.md](SCHEMA.md).
 
 ## Setup
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. `cp .env.example .env` and point `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR` at those pipelines' Silver output.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. `cp .env.example .env` and point `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR` at those pipelines' Silver output and `WIKIDATA_BRONZE_DIR` at wikidata's Bronze output.
 
 ## Running
 
@@ -52,7 +52,7 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. 
 uv run --package gold python -m gold
 ```
 
-Reads `MUSICBRAINZ_SILVER_DIR`, `WIKIDATA_SILVER_DIR`, writes to `GOLD_OUTPUT_DIR` (all required, no in-code defaults — see `.env.example`).
+Reads `MUSICBRAINZ_SILVER_DIR`, `WIKIDATA_SILVER_DIR`, `WIKIDATA_BRONZE_DIR`, writes to `GOLD_OUTPUT_DIR` (all required, no in-code defaults — see `.env.example`).
 
 ## Testing
 

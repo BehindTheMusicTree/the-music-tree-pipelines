@@ -47,24 +47,31 @@ def write_manifest(gold_output_dir: Path, curation_exported_on: str, commit: str
 
 
 def build_gold(
-    musicbrainz_silver_dir: Path, wikidata_silver_dir: Path, curation_dir: Path, gold_output_dir: Path
+    musicbrainz_silver_dir: Path,
+    wikidata_silver_dir: Path,
+    wikidata_bronze_dir: Path,
+    curation_dir: Path,
+    gold_output_dir: Path,
 ) -> Path:
     # Unlinked first so a failed run never leaves a previous manifest vouching for partial outputs.
     (gold_output_dir / MANIFEST_NAME).unlink(missing_ok=True)
     commit = pipelines_commit()
     curation_exported_on = read_curation_exported_on(curation_dir)
+    descriptions_path = wikidata_bronze_dir / "wikidata_genre_descriptions.parquet"
 
     export_canonical_genre_tree(
         wikidata_silver_dir,
         gold_output_dir,
         curation_dir / "manual_canonical_genre_pop_side.csv",
         curation_dir,
+        descriptions_path,
         curation_exported_on,
     )
     export_regional_genre_tree(
         wikidata_silver_dir,
         gold_output_dir,
         curation_dir,
+        descriptions_path,
         curation_exported_on,
     )
     genre_match_path = genre_match(

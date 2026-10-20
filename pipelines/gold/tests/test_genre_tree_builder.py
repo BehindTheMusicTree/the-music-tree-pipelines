@@ -144,3 +144,37 @@ def test_build_genre_tree_raises_on_unknown_parent_ref() -> None:
 def test_build_genre_tree_raises_on_unknown_extra_parent_item() -> None:
     with pytest.raises(ValueError, match=r"primaryParents.*Q100"):
         build_genre_tree(_hierarchy(), primary_parents={"Q100": ["Q1"]})
+
+
+WIKI = "https://en.wikipedia.org/wiki/Jazz"
+
+
+def _jazz(descriptions: dict[str, dict[str, str | None]], summaries: dict[str, str] | None = None) -> dict:
+    tree = build_genre_tree(_hierarchy(), summaries=summaries, descriptions=descriptions)
+    return next(node for node in tree["tree"] if node["id"] == "Q5")
+
+
+def test_build_genre_tree_emits_description_and_wikipedia_summary() -> None:
+    node = _jazz({"Q5": {"description": "music genre", "wikipedia_url": WIKI, "wikipedia_intro": "Jazz is..."}})
+
+    assert node["description"] == "music genre"
+    assert node["summary"] == "Jazz is..."
+    assert node["summarySourceUrl"] == WIKI
+
+
+def test_build_genre_tree_manual_summary_beats_wikipedia_intro_without_attribution() -> None:
+    node = _jazz(
+        {"Q5": {"description": None, "wikipedia_url": WIKI, "wikipedia_intro": "Jazz is..."}},
+        summaries={"Q5": "Curated."},
+    )
+
+    assert node["summary"] == "Curated."
+    assert "summarySourceUrl" not in node
+    assert "description" not in node
+
+
+def test_build_genre_tree_without_intro_emits_no_summary() -> None:
+    node = _jazz({"Q5": {"description": "music genre", "wikipedia_url": None, "wikipedia_intro": None}})
+
+    assert "summary" not in node
+    assert "summarySourceUrl" not in node

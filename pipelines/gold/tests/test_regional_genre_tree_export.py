@@ -34,11 +34,15 @@ def _write_silver(tmp_path: Path, secondary_rows: list[dict[str, str]] | None = 
     return wikidata_silver_dir
 
 
-def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_regional_genre_tree_writes_tree_shape(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "gold"
 
-    result = export_regional_genre_tree(wikidata_silver_dir, output_dir, curation_dir, CURATION_EXPORTED_ON)
+    result = export_regional_genre_tree(
+        wikidata_silver_dir, output_dir, curation_dir, descriptions_path, CURATION_EXPORTED_ON
+    )
 
     assert result == output_dir / "1_regional_genre_tree.json"
     tree = json.loads(result.read_text())
@@ -46,17 +50,19 @@ def test_export_regional_genre_tree_writes_tree_shape(tmp_path: Path, curation_d
     assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
 
 
-def test_export_regional_genre_tree_creates_output_dir(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_regional_genre_tree_creates_output_dir(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    export_regional_genre_tree(wikidata_silver_dir, output_dir, curation_dir, CURATION_EXPORTED_ON)
+    export_regional_genre_tree(wikidata_silver_dir, output_dir, curation_dir, descriptions_path, CURATION_EXPORTED_ON)
 
     assert output_dir.is_dir()
 
 
 def test_export_regional_genre_tree_raises_on_schema_violation(
-    tmp_path: Path, curation_dir: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import gold.regional_genre_tree_export as module
 
@@ -68,6 +74,7 @@ def test_export_regional_genre_tree_raises_on_schema_violation(
             wikidata_silver_dir,
             tmp_path / "gold",
             curation_dir,
+            descriptions_path,
             CURATION_EXPORTED_ON,
         )
 
@@ -80,13 +87,13 @@ EXTRA_EDGES = [
 
 
 def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(
-    tmp_path: Path, curation_dir: Path
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -99,7 +106,10 @@ def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(
 
 
 def test_export_regional_genre_tree_moves_added_extra_edge_to_secondary(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation(
@@ -112,7 +122,7 @@ def test_export_regional_genre_tree_moves_added_extra_edge_to_secondary(
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -122,24 +132,32 @@ def test_export_regional_genre_tree_moves_added_extra_edge_to_secondary(
 
 
 def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q1", "action": "remove", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not extra parent edges"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON)
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
+        )
 
 
 def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q99", "action": "remove", "reason": "x"}])
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 
@@ -157,6 +175,7 @@ def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
 def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
     tmp_path: Path,
     curation_dir: Path,
+    descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
     row: dict[str, str],
     match: str,
@@ -165,11 +184,16 @@ def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
     write_curation("secondary_parents", [row])
 
     with pytest.raises(ValueError, match=f"manual_secondary_parents.csv adds edge.*{match}"):
-        export_regional_genre_tree(wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON)
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
+        )
 
 
 def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
-    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     wikidata_silver_dir = _write_silver(tmp_path)
     recording_id = "00000000-0000-0000-0000-00000000000a"
@@ -181,7 +205,7 @@ def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
 
     tree = json.loads(
         export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, CURATION_EXPORTED_ON
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
         ).read_text()
     )
 

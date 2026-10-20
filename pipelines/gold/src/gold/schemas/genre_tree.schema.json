@@ -33,7 +33,9 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "summary": { "type": "string", "minLength": 1 }
+        "summary": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "summarySourceUrl": { "type": "string", "minLength": 1 }
       },
       "required": ["id", "name", "children"],
       "additionalProperties": false

@@ -25,6 +25,7 @@ LABEL_LANGUAGES = "en,mul,es,fr,de,pt,it,nl,ru,ja,zh"
 GENRE_TREE_QUERY_VARIABLES = ("item", "itemLabel", "parent", "parentLabel", "relation")
 INDIGENOUS_TO_QUERY_VARIABLES = ("item", "indigenousTo", "indigenousToLabel")
 COUNTRY_OF_ORIGIN_QUERY_VARIABLES = ("item", "countryOfOrigin", "countryOfOriginLabel")
+DESCRIPTION_QUERY_VARIABLES = ("item", "description", "article", "articleName")
 
 # P31 = "instance of": class membership, identifies what an item *is*
 # (e.g. "rock music" P31 "music genre" — this is how we find the full set of genre items).
@@ -108,6 +109,25 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
   ?item wdt:P31 wd:{MUSIC_GENRE_QID} ;
         wdt:{COUNTRY_OF_ORIGIN_PID} ?countryOfOrigin .
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+}}
+"""
+
+# English short description (CC0) and English Wikipedia article of each genre. Both are single-valued
+# per item (one description per language, one sitelink per wiki), so the two independent OPTIONALs
+# cannot cross-multiply: exactly one row per genre, with either column unbound when absent — see
+# ingest.ingest_descriptions.
+DESCRIPTION_QUERY = f"""
+SELECT ?item ?description ?article ?articleName WHERE {{
+  ?item wdt:P31 wd:{MUSIC_GENRE_QID} .
+  OPTIONAL {{
+    ?item schema:description ?description .
+    FILTER(LANG(?description) = "en")
+  }}
+  OPTIONAL {{
+    ?article schema:about ?item ;
+             schema:isPartOf <https://en.wikipedia.org/> ;
+             schema:name ?articleName .
+  }}
 }}
 """
 

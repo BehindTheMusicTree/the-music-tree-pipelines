@@ -10,6 +10,7 @@ load_pipeline_env(gold.__file__)
 build_gold(
     resolve_pipeline_path(gold.__file__, require_env("MUSICBRAINZ_SILVER_DIR")),
     resolve_pipeline_path(gold.__file__, require_env("WIKIDATA_SILVER_DIR")),
+    resolve_pipeline_path(gold.__file__, require_env("WIKIDATA_BRONZE_DIR")),
     resolve_pipeline_path(gold.__file__, require_env("CURATION_BRONZE_DIR")),
     resolve_pipeline_path(gold.__file__, require_env("GOLD_OUTPUT_DIR")),
 )
