@@ -529,9 +529,9 @@ item:
 > rule. Live SPARQL queries against the real genre extension found that 2,727 of ~6,337 genre items
 > (~43%) have more than one `P279` parent even after Wikidata's own "best rank" resolution, and only
 > 1 item in the entire genre extension has any `P279` statement marked preferred rank —
-> so there's no cheap Wikidata-native signal to prefer. `musicbrainz/README.md` already documents
-> that the eventual single-parent hierarchy format for TheMusicTreeAPI is "not yet decided" — this
-> heuristic is a stand-in until that product/curation decision exists, with `manual_main_parent.csv`
+> so there's no cheap Wikidata-native signal to prefer. The single-parent hierarchy format was still
+> undecided when this heuristic was introduced — it is a stand-in until that product/curation decision
+> exists, with `manual_main_parent.csv`
 > as the escape hatch for any specific item it gets wrong in the meantime.
 
 #### 2.4.2 Secondary parents are kept, not dropped
