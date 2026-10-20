@@ -29,11 +29,34 @@
           "column": { "type": "string", "minLength": 1 },
           "itemId": { "type": "string", "pattern": "^Q[0-9]+$" },
           "reason": { "enum": ["redirect_conflict", "missing", "not_in_tree"] },
-          "target": { "type": "string", "pattern": "^Q[0-9]+$" }
+          "target": { "type": "string", "pattern": "^Q[0-9]+$" },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "modified": { "type": "string", "format": "date-time" },
+              "instanceOf": { "type": "array", "items": { "$ref": "#/$defs/classRef" } },
+              "subclassOf": { "type": "array", "items": { "$ref": "#/$defs/classRef" } },
+              "hasIndigenousTo": { "type": "boolean" },
+              "conflictList": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
         },
         "required": ["list", "key", "column", "itemId", "reason"],
         "additionalProperties": false
       }
+    }
+  },
+  "$defs": {
+    "classRef": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^Q[0-9]+$" },
+        "label": { "type": ["string", "null"] }
+      },
+      "required": ["id", "label"],
+      "additionalProperties": false
     }
   },
   "required": ["remaps", "review"],
