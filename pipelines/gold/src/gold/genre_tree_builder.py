@@ -38,7 +38,7 @@ def _sort_edges(edges: pl.DataFrame) -> pl.DataFrame:
 class TreeCuration:
     secondary_parent_rules: pl.DataFrame
     essential_tracks: dict[str, list[str]]
-    summaries: dict[str, str]
+    summaries: dict[str, str | None]
 
 
 def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids: set[str]) -> TreeCuration:
@@ -60,7 +60,7 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
         raise ValueError("manual_essential_tracks.csv has duplicate ('item_id', 'position') row(s)")
     summaries = read_curation_csv(
         curation_dir / "manual_summary_overrides.csv",
-        required=("item_id", "summary", "reason"),
+        required=("item_id", "reason"),
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN},
     )
@@ -156,7 +156,7 @@ def build_genre_tree(
     external_ids: set[str] | None = None,
     unaccepted_root_ids: set[str] | None = None,
     essential_tracks: dict[str, list[str]] | None = None,
-    summaries: dict[str, str] | None = None,
+    summaries: dict[str, str | None] | None = None,
     descriptions: dict[str, dict[str, str | None]] | None = None,
 ) -> dict:
     check_non_empty(hierarchy, "hierarchy")
@@ -214,9 +214,12 @@ def build_genre_tree(
         text = description_by_item.get(item_id, {})
         if text.get("description"):
             node["description"] = text["description"]
-        # A manual override replaces the Wikipedia intro, so it also drops the CC BY-SA attribution.
+        # A manual override replaces the Wikipedia intro, so it also drops the CC BY-SA attribution;
+        # a blank override suppresses the summary altogether.
         if item_id in summary_by_item:
-            node["summary"] = summary_by_item[item_id]
+            override = (summary_by_item[item_id] or "").strip()
+            if override:
+                node["summary"] = override
         elif text.get("wikipedia_intro"):
             node["summary"] = text["wikipedia_intro"]
             node["summarySourceUrl"] = text["wikipedia_url"]

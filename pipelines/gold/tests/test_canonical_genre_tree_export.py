@@ -407,6 +407,20 @@ def test_export_canonical_genre_tree_emits_summary_override(
     assert _rock_child(tree, "pop rock")["summary"] == "Rock with pop hooks."
 
 
+def test_export_canonical_genre_tree_blank_summary_override_suppresses_summary(
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+) -> None:
+    write_curation("summary_overrides", [{"item_id": "Q4", "summary": "", "reason": "misleading intro"}])
+
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+    assert "summary" not in _rock_child(tree, "pop rock")
+    assert "summarySourceUrl" not in _rock_child(tree, "pop rock")
+
+
 @pytest.mark.parametrize(
     ("name", "row", "match"),
     [

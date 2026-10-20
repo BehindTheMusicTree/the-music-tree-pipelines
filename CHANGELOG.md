@@ -49,8 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `wikidata` Bronze: new `wikidata_genre_descriptions.parquet` (`item_id, description, wikipedia_url, wikipedia_intro`), ingested by `wikidata.ingest` from the English Wikidata description and the English Wikipedia intro.
+- `wikidata` Bronze: new `wikidata_genre_descriptions.parquet` (`item_id, description, wikipedia_url, wikipedia_intro`), ingested by `wikidata.ingest` after the tree step from the English Wikidata description and the English Wikipedia intro, one row per tree QID (children and parents of `wikidata_genre_tree.parquet` plus the curated regional overview additions, so non-`P31` nodes get text too); `item_id` must be unique. `wikidata.ingest` now also reads `CURATION_BRONZE_DIR`.
 - `gold` genre tree nodes carry the optional `description` and `summary` (a `manual_summary_overrides.csv` entry wins, else the Wikipedia intro) plus `summarySourceUrl` (only when the intro is used, for CC BY-SA attribution).
+- A blank `summary` in `manual_summary_overrides.csv` is accepted and suppresses the genre's Wikipedia intro (no `summary`, no `summarySourceUrl`).
 - **Breaking** `gold` requires the new env var `WIKIDATA_BRONZE_DIR` (wikidata's Bronze output dir, no default) and fails fast if it or `wikidata_genre_descriptions.parquet` is missing; run `wikidata.ingest` before `gold` and add it to every environment that sets Gold's env.
 
 ## [6.6.0] - 2026-10-20
