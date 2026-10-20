@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `wikidata` Silver adds an optional `evidence` object to each `curation_resolutions.json` review entry (current label, last Wikidata edit, truthy P31/P279 with labels, plus P2341 presence for indigenous exclusions, colliding list) so admins can see why a curated QID was dropped.
 
+### Fixed
+
+- `gold` artist export orders each artist's members, links and release groups deterministically, so the daily delta no longer re-sends ~10k unchanged artists whose nested lists merely came out in a different order.
+
 ## [6.5.1] - 2026-10-20
 
 ### Fixed

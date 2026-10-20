@@ -111,6 +111,7 @@ def _write_inputs(
     song_artist_ids: list[str] = [SINGER, SINGER],
     link_rows: list[dict] = LINK_ROWS,
     release_group_rows: list[dict] = RELEASE_GROUP_ROWS,
+    member_rows: list[dict] = MEMBER_ROWS,
 ) -> tuple[Path, Path]:
     genre_match_path = tmp_path / "1_genre_match.parquet"
     pl.DataFrame({"artist_musicbrainz_id": song_artist_ids}).write_parquet(genre_match_path)
@@ -120,7 +121,7 @@ def _write_inputs(
         silver_dir / "6_artists.parquet"
     )
     pl.DataFrame(
-        MEMBER_ROWS,
+        member_rows,
         schema_overrides={"begin_year": pl.Int64, "end_year": pl.Int64, "roles": pl.List(pl.Utf8)},
     ).write_parquet(silver_dir / "7_artist_members.parquet")
     pl.DataFrame(link_rows).write_parquet(silver_dir / "8_artist_links.parquet")
@@ -175,6 +176,36 @@ def test_export_artists_scopes_song_artists_their_groups_and_members(tmp_path: P
     assert artists[SINGER]["country"] == "GB"
     assert artists[NESTED]["members"] == []
     assert (artists[SINGER]["members"], artists[SINGER]["links"], artists[SINGER]["release_groups"]) == ([], [], [])
+
+
+def test_export_artists_orders_nested_lists_regardless_of_input_order(tmp_path: Path) -> None:
+    link_rows = [
+        *LINK_ROWS,
+        {"musicbrainz_artist_id": BAND, "kind": "bandcamp", "url": "https://band.bandcamp.example"},
+    ]
+    release_group_rows = [
+        *RELEASE_GROUP_ROWS,
+        {
+            **RELEASE_GROUP_ROWS[0],
+            "musicbrainz_release_group_id": _mbid(101),
+            "title": "Early",
+            "first_release_year": 1991,
+        },
+    ]
+    result = export_artists(
+        *_write_inputs(
+            tmp_path,
+            link_rows=link_rows[::-1],
+            release_group_rows=release_group_rows[::-1],
+            member_rows=MEMBER_ROWS[::-1],
+        ),
+        tmp_path / "gold",
+    )
+
+    band = next(artist for artist in _read_parts(result) if artist["musicbrainz_artist_id"] == BAND)
+    assert [member["musicbrainz_artist_id"] for member in band["members"]] == [SINGER, DRUMMER, NESTED]
+    assert [link["kind"] for link in band["links"]] == ["bandcamp", "official"]
+    assert [group["title"] for group in band["release_groups"]] == ["Early", "Debut"]
 
 
 def test_export_artists_splits_parts_and_clears_stale_ones(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
