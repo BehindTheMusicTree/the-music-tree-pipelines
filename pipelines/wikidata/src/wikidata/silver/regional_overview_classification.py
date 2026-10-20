@@ -159,6 +159,17 @@ def _reclassify_existing_overview_items(df: pl.DataFrame, reclassifications: pl.
     return set(reclass_ids)
 
 
+def orphan_overview_parent_ids(df: pl.DataFrame) -> set[str]:
+    """Ids of "music of <place>" items that only ever appear as a parent, never as an item_id."""
+    return set(
+        df.filter(
+            pl.col("parent_id").is_not_null()
+            & pl.col("parent_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
+            & ~pl.col("parent_id").is_in(df.get_column("item_id").implode())
+        ).get_column("parent_id")
+    )
+
+
 def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
     """Some "music of <place>" items (e.g. "music of Wales") are never themselves classified P31
     instance-of music genre, so Bronze never fetches their own row — they only ever show up as a
@@ -167,13 +178,9 @@ def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
     target. Promoting them to their own root row (parent_id=null, same as any other unparented item)
     is mechanical - the id/label pair is already in the data - so it's done for every such item here,
     rather than one at a time by hand."""
-    known_item_ids = set(df.select("item_id").unique().to_series())
+    orphan_ids = orphan_overview_parent_ids(df)
     orphan_parents = (
-        df.filter(
-            pl.col("parent_id").is_not_null()
-            & pl.col("parent_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX)
-            & ~pl.col("parent_id").is_in(list(known_item_ids))
-        )
+        df.filter(pl.col("parent_id").is_in(list(orphan_ids)))
         .select(item_id="parent_id", item_label="parent_label", item_display_label="parent_display_label")
         .unique(subset="item_id")
     )
