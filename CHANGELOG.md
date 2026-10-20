@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `wikidata` Silver adds an optional `evidence` object to each `curation_resolutions.json` review entry (current label, last Wikidata edit, P31/P279 with labels or P2341 presence, colliding list) so admins can see why a curated QID was dropped.
+- `wikidata` Silver adds an optional `evidence` object to each `curation_resolutions.json` review entry (current label, last Wikidata edit, truthy P31/P279 with labels, plus P2341 presence for indigenous exclusions, colliding list) so admins can see why a curated QID was dropped.
 
 ## [6.5.1] - 2026-10-20
 

@@ -206,6 +206,16 @@ def test_fetch_entities_extracts_label_modified_and_claims(monkeypatch: pytest.M
     }
 
 
+def test_fetch_entities_keeps_only_preferred_claims_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    def statement(value: str, rank: str) -> dict:
+        return {"mainsnak": {"datavalue": {"value": {"id": value}}}, "rank": rank}
+
+    entity = {"id": "Q1", "claims": {"P31": [statement("Q5", "normal"), statement("Q6", "preferred")]}}
+    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_entities_response({"Q1": entity})))
+
+    assert wikidata_client.fetch_entities(["Q1"])["Q1"].instance_of == ["Q6"]
+
+
 def test_fetch_labels_returns_none_without_label(monkeypatch: pytest.MonkeyPatch) -> None:
     entities = {"Q1": {"id": "Q1", "labels": {"en": {"value": "one"}}}, "Q2": {"id": "Q2", "labels": {}}}
     monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_entities_response(entities)))

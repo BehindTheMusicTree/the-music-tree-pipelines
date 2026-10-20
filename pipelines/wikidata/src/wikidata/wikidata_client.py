@@ -183,11 +183,10 @@ def _label(entity: dict) -> str | None:
 
 
 def _claim_ids(entity: dict, pid: str) -> list[str]:
-    return [
-        statement["mainsnak"]["datavalue"]["value"]["id"]
-        for statement in entity.get("claims", {}).get(pid, [])
-        if statement.get("rank") != "deprecated" and "datavalue" in statement["mainsnak"]
-    ]
+    """Truthy values, as SPARQL `wdt:` sees them: preferred-rank statements if any, else normal ones."""
+    statements = [s for s in entity.get("claims", {}).get(pid, []) if "datavalue" in s["mainsnak"]]
+    rank = "preferred" if any(s.get("rank") == "preferred" for s in statements) else "normal"
+    return [s["mainsnak"]["datavalue"]["value"]["id"] for s in statements if s.get("rank", "normal") == rank]
 
 
 @dataclass(frozen=True)

@@ -211,7 +211,13 @@ def test_review_reasons_drop_rows_with_evidence(tmp_path: Path, monkeypatch: pyt
             "itemId": "Q6",
             "reason": "not_in_tree",
             "target": "Q10",
-            "evidence": {"label": "Ten", "modified": MODIFIED, "hasIndigenousTo": False},
+            "evidence": {
+                "label": "Ten",
+                "modified": MODIFIED,
+                "instanceOf": [],
+                "subclassOf": [],
+                "hasIndigenousTo": False,
+            },
         },
         {"list": "theme_genres", "key": "Q1", "column": "item_id", "itemId": "Q1", "reason": "missing"},
         {
@@ -255,15 +261,27 @@ def test_review_reasons_drop_rows_with_evidence(tmp_path: Path, monkeypatch: pyt
     assert _read(curation_dir, "indigenous_to_exclusions") == []
 
 
-def test_indigenous_item_with_p2341_still_out_of_reference_reports_it(
+def test_indigenous_item_with_p2341_still_out_of_reference_reports_its_classes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     curation_dir = _setup(tmp_path, {"indigenous_to_exclusions": [_item("Q1")]}, [], indigenous_ids=[])
-    _mock_api(monkeypatch, {"Q1": _entity("Q1", "One", _claims("P2341", "Q7"))})
+    _mock_api(
+        monkeypatch,
+        {
+            "Q1": _entity("Q1", "One", {**_claims("P2341", "Q7"), **_claims("P31", "Q50")}),
+            "Q50": _entity("Q50", "music tradition"),
+        },
+    )
 
     report = _resolve(tmp_path, curation_dir)
 
-    assert report["review"][0]["evidence"] == {"label": "One", "modified": MODIFIED, "hasIndigenousTo": True}
+    assert report["review"][0]["evidence"] == {
+        "label": "One",
+        "modified": MODIFIED,
+        "instanceOf": [{"id": "Q50", "label": "music tradition"}],
+        "subclassOf": [],
+        "hasIndigenousTo": True,
+    }
 
 
 def test_exclusive_list_collision_is_reviewed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

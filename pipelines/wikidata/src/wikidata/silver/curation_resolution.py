@@ -86,7 +86,6 @@ def resolve_curation_qids(
         {
             class_id
             for name, df in lists.items()
-            if name != "indigenous_to_exclusions"
             for column in QID_COLUMNS[name]
             for value in df.get_column(column).drop_nulls()
             if (info := entities.get(value.strip())) and info.id not in reference(name)
@@ -97,11 +96,11 @@ def resolve_curation_qids(
 
     def evidence(info: EntityInfo, reason: str, list_name: str, conflict_list: str | None) -> dict:
         found: dict = {"label": info.label, "modified": info.modified}
-        if reason == "not_in_tree" and list_name == "indigenous_to_exclusions":
-            found["hasIndigenousTo"] = info.has_indigenous_to
-        elif reason == "not_in_tree":
+        if reason == "not_in_tree":
             found["instanceOf"] = [{"id": c, "label": class_labels[c]} for c in info.instance_of]
             found["subclassOf"] = [{"id": c, "label": class_labels[c]} for c in info.subclass_of]
+            if list_name == "indigenous_to_exclusions":
+                found["hasIndigenousTo"] = info.has_indigenous_to
         else:
             found["conflictList"] = conflict_list
         return {k: v for k, v in found.items() if v is not None}
