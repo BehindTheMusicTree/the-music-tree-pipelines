@@ -117,7 +117,14 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
                 end_year="end_year",
                 ended="ended",
                 roles="roles",
-            ).sort_by("member_musicbrainz_artist_id", "begin_year", nulls_last=True)
+            ).sort_by(
+                "member_musicbrainz_artist_id",
+                "begin_year",
+                "end_year",
+                "ended",
+                pl.col("roles").list.join(","),
+                nulls_last=True,
+            )
         )
     )
     links = (
