@@ -27,13 +27,23 @@ def _fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(wikidata_client._get_entities.retry, "wait", tenacity.wait_none())
 
 
-def _setup(tmp_path: Path, rows: dict[str, list[dict]], tree_ids: list[str], indigenous_ids: list[str] = ()) -> Path:
+def _setup(
+    tmp_path: Path,
+    rows: dict[str, list[dict]],
+    tree_ids: list[str],
+    indigenous_ids: list[str] = (),
+    orphan_parent_ids: list[str] = (),
+) -> Path:
     curation_dir = tmp_path / "curation"
     curation_dir.mkdir()
     for name, columns in LIST_COLUMNS.items():
         df = pl.DataFrame(rows.get(name, []), schema=dict.fromkeys(columns, pl.Utf8))
         df.write_csv(curation_dir / f"manual_{name}.csv")
-    pl.DataFrame({"item_id": tree_ids}, schema={"item_id": pl.Utf8}).write_parquet(tmp_path / "tree.parquet")
+    tree = [{"item_id": i, "parent_id": None, "parent_label": None} for i in tree_ids]
+    tree += [{"item_id": tree_ids[0], "parent_id": i, "parent_label": f"music of {i}"} for i in orphan_parent_ids]
+    pl.DataFrame(tree, schema={"item_id": pl.Utf8, "parent_id": pl.Utf8, "parent_label": pl.Utf8}).write_parquet(
+        tmp_path / "tree.parquet"
+    )
     pl.DataFrame({"item_id": list(indigenous_ids)}, schema={"item_id": pl.Utf8}).write_parquet(
         tmp_path / "indigenous.parquet"
     )
@@ -82,6 +92,26 @@ def test_no_unknown_ids_skips_http_and_writes_empty_report(tmp_path: Path, monke
 
     assert _resolve(tmp_path, curation_dir) == {"remaps": [], "review": []}
     httpx_get.assert_not_called()
+
+
+def test_orphan_overview_parent_is_known_only_to_regional_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    override = {**_item("Q1"), "overview_item_id": "Q9", "exclude_other_parents": None}
+    curation_dir = _setup(
+        tmp_path, {"regional_overrides": [{**override, "item_id": "Q9"}]}, ["Q1"], orphan_parent_ids=["Q9"]
+    )
+    httpx_get = _mock_api(monkeypatch, {})
+
+    assert _resolve(tmp_path, curation_dir) == {"remaps": [], "review": []}
+    httpx_get.assert_not_called()
+
+    (tmp_path / "b").mkdir()
+    curation_dir = _setup(tmp_path / "b", {"technique_genres": [_item("Q9")]}, ["Q1"], orphan_parent_ids=["Q9"])
+    httpx_get = _mock_api(monkeypatch, {"Q9": {"id": "Q9"}})
+
+    assert [r["reason"] for r in _resolve(tmp_path / "b", curation_dir)["review"]] == ["not_in_tree"]
+    httpx_get.assert_called_once()
 
 
 def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
