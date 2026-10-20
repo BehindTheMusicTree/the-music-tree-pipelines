@@ -9,6 +9,7 @@ from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
     build_genre_tree,
     edges_to_parent_map,
+    load_descriptions,
     load_extra_parent_edges,
     load_tree_curation,
 )
@@ -22,6 +23,7 @@ def export_regional_genre_tree(
     wikidata_silver_dir: Path,
     output_dir: Path,
     curation_dir: Path,
+    descriptions_path: Path,
     curation_exported_on: str,
 ) -> Path:
     hierarchy_path = wikidata_silver_dir / "8_regional_hierarchy.parquet"
@@ -50,6 +52,7 @@ def export_regional_genre_tree(
             external_ids=canonical_ids,
             essential_tracks=curation.essential_tracks,
             summaries=curation.summaries,
+            descriptions=load_descriptions(descriptions_path),
         ),
     }
 

@@ -126,3 +126,31 @@ def test_ingest_country_of_origin_raises_on_empty_results(monkeypatch: pytest.Mo
 
     with pytest.raises(ValueError, match="is empty"):
         bw.ingest_country_of_origin(tmp_path / "does" / "not" / "exist")
+
+
+def test_ingest_descriptions_writes_parquet_with_intros(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    rows = [
+        {
+            "item": "http://www.wikidata.org/entity/Q11399",
+            "description": "genre of popular music",
+            "article": "https://en.wikipedia.org/wiki/Rock_music",
+            "articleName": "Rock music",
+        },
+        {"item": "http://www.wikidata.org/entity/Q5", "description": None, "article": None, "articleName": None},
+    ]
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=rows))
+    fetch_intros = MagicMock(return_value={"Rock music": "Rock is a genre."})
+    monkeypatch.setattr(bw.wikipedia_client, "fetch_intros", fetch_intros)
+
+    result = bw.ingest_descriptions(tmp_path / "bronze")
+
+    fetch_intros.assert_called_once_with(["Rock music"])
+    assert pl.read_parquet(result).to_dicts() == [
+        {
+            "item_id": "Q11399",
+            "description": "genre of popular music",
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Rock_music",
+            "wikipedia_intro": "Rock is a genre.",
+        },
+        {"item_id": "Q5", "description": None, "wikipedia_url": None, "wikipedia_intro": None},
+    ]

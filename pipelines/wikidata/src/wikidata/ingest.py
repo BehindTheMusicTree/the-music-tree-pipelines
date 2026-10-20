@@ -5,7 +5,7 @@ import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import check_non_empty
 
-from wikidata import wikidata_client
+from wikidata import wikidata_client, wikipedia_client
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,39 @@ def ingest_country_of_origin(output_dir: Path) -> Path:
     return output_path
 
 
+def ingest_descriptions(output_dir: Path) -> Path:
+    logger.info("querying Wikidata for genre descriptions and English Wikipedia articles")
+    rows = wikidata_client.run_query(
+        wikidata_client.DESCRIPTION_QUERY, variables=wikidata_client.DESCRIPTION_QUERY_VARIABLES
+    )
+    titles = [row["articleName"] for row in rows if row["articleName"] is not None]
+    logger.info("fetching %d Wikipedia intro(s)", len(titles))
+    intros = wikipedia_client.fetch_intros(titles)
+
+    df = pl.DataFrame(
+        {
+            "item_id": [_qid(row["item"]) for row in rows],
+            "description": [row["description"] for row in rows],
+            "wikipedia_url": [row["article"] for row in rows],
+            "wikipedia_intro": [intros[row["articleName"]] if row["articleName"] is not None else None for row in rows],
+        },
+        schema={
+            "item_id": pl.Utf8,
+            "description": pl.Utf8,
+            "wikipedia_url": pl.Utf8,
+            "wikipedia_intro": pl.Utf8,
+        },
+    )
+    check_non_empty(df, "wikidata_genre_descriptions")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_genre_descriptions.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
@@ -94,3 +127,4 @@ if __name__ == "__main__":
     ingest_genre_tree(output_dir)
     ingest_indigenous_to(output_dir)
     ingest_country_of_origin(output_dir)
+    ingest_descriptions(output_dir)

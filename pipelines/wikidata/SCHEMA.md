@@ -18,6 +18,7 @@ pipeline overview.
     - [2.1 wikidata_genre_tree.parquet](#21-wikidata_genre_treeparquet)
     - [2.2 wikidata_genre_indigenous_to.parquet](#22-wikidata_genre_indigenous_toparquet)
     - [2.3 wikidata_genre_country_of_origin.parquet](#23-wikidata_genre_country_of_originparquet)
+    - [2.4 wikidata_genre_descriptions.parquet](#24-wikidata_genre_descriptionsparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -87,7 +88,7 @@ used as a classification signal.
 
 ## 2. Bronze
 
-Three Parquet files, one per query in `wikidata_client.py`. See
+Four Parquet files, one per query in `wikidata_client.py`. See
 [DESIGN.md#1-bronze](DESIGN.md#1-bronze) for why `P31` (not a `P279*` walk) is the root query, why
 parents aren't restricted to genre items, and why `P2341`/`P495` are ingested into their own tables
 instead of `wikidata_genre_tree.parquet`.
@@ -146,6 +147,22 @@ with no `P495` value are absent entirely, no "root row" placeholder. See
 
 A genre with several `P495` values produces one row per value, so `item_id` is not unique on its
 own (as of this writing: 2,496 rows).
+
+### 2.4 wikidata_genre_descriptions.parquet
+
+One row per `P31` music genre item. The English short description comes from the Wikidata SPARQL
+query (`wikidata_client.DESCRIPTION_QUERY`, CC0); the intro comes from the English Wikipedia
+`action=query&prop=extracts&exintro&explaintext` API (`wikipedia_client.fetch_intros`, batches of 20,
+redirects followed; text is CC BY-SA, hence `wikipedia_url` for attribution).
+
+| Column          | Type | Meaning                                                                 |
+| --------------- | ---- | ----------------------------------------------------------------------- |
+| item_id         | str  | Wikidata QID of the genre (e.g. `Q11399`)                               |
+| description     | str? | English Wikidata short description, or null                             |
+| wikipedia_url   | str? | URL of the English Wikipedia article, or null                           |
+| wikipedia_intro | str? | Plain-text intro of that article, or null (no article or empty intro)   |
+
+Read only by `gold` (`WIKIDATA_BRONZE_DIR`), not by Silver.
 
 ## 3. Silver
 

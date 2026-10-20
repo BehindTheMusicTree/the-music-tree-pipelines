@@ -28,5 +28,14 @@ def curation_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def descriptions_path(tmp_path: Path) -> Path:
+    path = tmp_path / "wikidata_genre_descriptions.parquet"
+    pl.DataFrame(
+        schema={"item_id": pl.Utf8, "description": pl.Utf8, "wikipedia_url": pl.Utf8, "wikipedia_intro": pl.Utf8}
+    ).write_parquet(path)
+    return path
+
+
+@pytest.fixture
 def write_curation(curation_dir: Path) -> Callable[[str, list[dict[str, str]]], None]:
     return lambda name, rows: _write(curation_dir, name, rows)
