@@ -134,8 +134,8 @@ overview additions — which is why `ingest_descriptions` runs after `ingest_gen
 curation Bronze CSV. Lookups go through `wbgetentities` (`props=descriptions|sitelinks/urls`,
 `sitefilter=enwiki`) in batches of 50 rather than SPARQL, since the id set is already known; the
 English description and the enwiki sitelink are each single-valued per item, so one entity yields
-exactly one row, and the `item_id` uniqueness check before the write fails the run rather than letting
-Gold pick an arbitrary duplicate. The Wikipedia extracts API returns only as many extracts per response
+exactly one row; the `item_id` uniqueness check before the write pins that one-row-per-QID contract
+for Gold's lookup. The Wikipedia extracts API returns only as many extracts per response
 as fit its size limit and leaves the rest empty with a `continue` token, so `fetch_intros` follows
 `continue` until done instead of reading truncated batches as missing intros.
 
