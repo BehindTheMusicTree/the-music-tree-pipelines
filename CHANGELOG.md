@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Bronze: new `wikidata_genre_descriptions.parquet` (`item_id, description, wikipedia_url, wikipedia_intro`), ingested by `wikidata.ingest` from the English Wikidata description and the English Wikipedia intro.
+- `gold` genre tree nodes carry the optional `description` and `summary` (a `manual_summary_overrides.csv` entry wins, else the Wikipedia intro) plus `summarySourceUrl` (only when the intro is used, for CC BY-SA attribution).
+- **Breaking** `gold` requires the new env var `WIKIDATA_BRONZE_DIR` (wikidata's Bronze output dir, no default) and fails fast if it or `wikidata_genre_descriptions.parquet` is missing; run `wikidata.ingest` before `gold` and add it to every environment that sets Gold's env.
+
 ## [6.6.0] - 2026-10-20
 
 ### Fixed
@@ -56,9 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `wikidata` Bronze: new `wikidata_genre_descriptions.parquet` (`item_id, description, wikipedia_url, wikipedia_intro`), ingested by `wikidata.ingest` from the English Wikidata description and the English Wikipedia intro.
-- `gold` genre tree nodes carry the optional `description` and `summary` (a `manual_summary_overrides.csv` entry wins, else the Wikipedia intro) plus `summarySourceUrl` (only when the intro is used, for CC BY-SA attribution).
-- **Breaking** `gold` requires the new env var `WIKIDATA_BRONZE_DIR` (wikidata's Bronze output dir, no default) and fails fast if it or `wikidata_genre_descriptions.parquet` is missing; run `wikidata.ingest` before `gold` and add it to every environment that sets Gold's env.
 - `wikidata` Silver adds an optional `evidence` object to each `curation_resolutions.json` review entry (current label, last Wikidata edit, truthy P31/P279 with labels, plus P2341 presence for indigenous exclusions, colliding list) so admins can see why a curated QID was dropped.
 
 ## [6.5.1] - 2026-10-20
