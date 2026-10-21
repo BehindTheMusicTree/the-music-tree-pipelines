@@ -2,8 +2,7 @@
 
 Not run as part of `gold.__main__` — invoked directly (by the `infrastructure` repo's daily
 pipeline run) after `export_canonical_genre_tree` and `genre_match` have produced
-`1_canonical_genre_tree.json` and `1_genre_match.parquet`, mirroring
-`musicbrainz/scripts/export_songs_json.py`'s on-demand precedent. Reads that nested
+`1_canonical_genre_tree.json` and `1_genre_match.parquet`. Reads that nested
 `{"tree": [...]}` export and writes the flat `GenreTreeNode[]` shape
 (`packages/genre-tree-view/src/types.ts` in the `genre-tree-view` repo) genre-tree-view's
 playground consumes, with `itemCount` per node rolled up from `1_genre_match.parquet`'s resolved
