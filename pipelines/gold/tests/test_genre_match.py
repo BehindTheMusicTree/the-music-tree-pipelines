@@ -127,12 +127,36 @@ def test_genre_match_passes_youtube_unplayable_reason_through(tmp_path: Path) ->
     assert pl.read_parquet(result).to_dicts()[0]["youtube_unplayable_reason"] == "not_embeddable"
 
 
-def test_genre_match_music_suffix_normalization(tmp_path: Path) -> None:
-    result = _run_genre_match(tmp_path, [_song("Jazz Music")])
+@pytest.mark.parametrize(
+    ("tag", "label"),
+    [("Jazz Music", "jazz"), ("rock", "rock music"), ("Hip Hop", "hip-hop"), ("rhythm_and  blues", "rhythm and blues")],
+)
+def test_genre_match_normalized_key_matches_either_side(tmp_path: Path, tag: str, label: str) -> None:
+    hierarchy = [
+        {"item_id": "Q1", "item_label": "jazz", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q2", "item_label": "rock music", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q3", "item_label": "hip-hop", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q4", "item_label": "rhythm and blues", "parent_id": None, "is_umbrella": False},
+    ]
+    result = _run_genre_match(tmp_path, [_song(tag)], hierarchy_rows=hierarchy)
 
     row = pl.read_parquet(result).to_dicts()[0]
-    assert row["wikidata_genre_name"] == "jazz"
-    assert row["match_method"] == "music_suffix"
+    assert row["wikidata_genre_name"] == label
+    assert row["match_method"] == "normalized"
+
+
+def test_genre_match_ambiguous_genre_key_matches_by_exact_name_only(tmp_path: Path) -> None:
+    hierarchy = [
+        {"item_id": "Q1", "item_label": "dance", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q2", "item_label": "dance music", "parent_id": None, "is_umbrella": False},
+    ]
+    result = _run_genre_match(
+        tmp_path, [_song("Dance Music", title="A"), _song("dance-music", title="B")], hierarchy_rows=hierarchy
+    )
+
+    rows = {row["title"]: row for row in pl.read_parquet(result).to_dicts()}
+    assert (rows["A"]["wikidata_genre_name"], rows["A"]["match_method"]) == ("dance music", "exact")
+    assert (rows["B"]["wikidata_genre_name"], rows["B"]["match_method"]) == (None, "unmatched")
 
 
 def test_genre_match_uses_manual_alias_csv(tmp_path: Path) -> None:
@@ -226,6 +250,18 @@ def test_genre_match_raises_on_duplicate_alias_key(tmp_path: Path) -> None:
         )
 
 
+def test_genre_match_raises_on_alias_keys_differing_only_by_separator(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="duplicate"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            alias_rows=[
+                {"musicbrainz_genre_name": "d-n-b", "wikidata_genre_name": "drum and bass", "reason": "abbreviation"},
+                {"musicbrainz_genre_name": "d n b", "wikidata_genre_name": "drum and bass", "reason": "duplicate"},
+            ],
+        )
+
+
 def test_genre_match_raises_on_unknown_alias_wikidata_genre_name(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="not found in the canonical hierarchy"):
         _run_genre_match(
@@ -241,6 +277,17 @@ def test_genre_match_raises_on_dead_weight_alias(tmp_path: Path) -> None:
             tmp_path,
             [_song("Rock")],
             alias_rows=[{"musicbrainz_genre_name": "rock", "wikidata_genre_name": "rock", "reason": "already matches"}],
+        )
+
+
+def test_genre_match_raises_on_alias_that_normalizes_to_a_label(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="dead-weight"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            alias_rows=[
+                {"musicbrainz_genre_name": "Pop-Rock", "wikidata_genre_name": "pop rock", "reason": "hyphenated"}
+            ],
         )
 
 
@@ -401,3 +448,36 @@ def test_genre_match_ties_go_to_smallest_item_id(tmp_path: Path) -> None:
     result = _run_genre_match(tmp_path, [{**_song("x"), "genres": [("jazz", 2), ("drum and bass", 2)]}])
 
     assert pl.read_parquet(result).to_dicts()[0]["wikidata_genre_item_id"] == "Q2"
+
+
+def test_genre_match_alias_and_non_genre_apply_across_spellings(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [_song("D-N-B", title="A"), _song("A S M R", title="B")],
+        alias_rows=[{"musicbrainz_genre_name": "d n b", "wikidata_genre_name": "drum and bass", "reason": "abbr"}],
+        non_genre_rows=[{"musicbrainz_genre_name": "a-s-m-r", "reason": "not a genre"}],
+    )
+
+    rows = {row["title"]: row for row in pl.read_parquet(result).to_dicts()}
+    assert (rows["A"]["wikidata_genre_name"], rows["A"]["match_method"]) == ("drum and bass", "manual_alias")
+    assert (rows["B"]["wikidata_genre_name"], rows["B"]["match_method"]) == (None, "accepted_non_genre")
+
+
+def test_genre_match_raises_on_non_genre_that_normalizes_to_a_label(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="conflict"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            non_genre_rows=[{"musicbrainz_genre_name": "Jazz Music", "reason": "mistake"}],
+        )
+
+
+def test_genre_match_warns_on_ambiguous_canonical_genre_key(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    hierarchy = [
+        {"item_id": "Q1", "item_label": "dance", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q2", "item_label": "dance music", "parent_id": None, "is_umbrella": False},
+    ]
+    with caplog.at_level("WARNING"):
+        _run_genre_match(tmp_path, [_song("dance")], hierarchy_rows=hierarchy)
+
+    assert "sharing a genre key" in caplog.text

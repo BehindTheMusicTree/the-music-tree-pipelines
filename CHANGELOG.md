@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-10-22
+
+### Changed
+
+- `musicbrainz` Bronze skips re-extraction when the mirror's replication sequence and the table queries are unchanged since the last ingestion (recorded in `BRONZE_OUTPUT_DIR/_snapshot.json`); a standalone database without replication always re-extracts.
+- `gold` genre matching compares one normalized genre key on both sides (case, `-`/`_`/whitespace and a trailing `" music"` ignored), so musicbrainz `rock`/`pop`/`hip hop` now match wikidata `rock music`/`pop music`/`hip-hop`. The `music_suffix` `match_method` is renamed `normalized`. Curation CSV duplicate and dead-weight checks use the same key. Canonical labels that share a key (`dance`/`dance music`) match by exact name only.
+
 ## [7.0.1] - 2026-10-22
 
 ### Added

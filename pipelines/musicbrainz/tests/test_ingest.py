@@ -68,12 +68,115 @@ def test_ingest_table_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, t
         bm.ingest_table(MagicMock(), "recording", tmp_path)
 
 
-def test_run_bronze_ingestion_ingests_every_bronze_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    ingest_table = MagicMock(side_effect=lambda conn, table, output_dir: output_dir / f"{table}.parquet")
+def _fake_ingest_table(conn: object, table: str, output_dir: Path) -> Path:
+    path = output_dir / f"{table}.parquet"
+    path.touch()
+    return path
+
+
+def _mock_ingestion(monkeypatch: pytest.MonkeyPatch, sequence: int | None) -> MagicMock:
+    ingest_table = MagicMock(side_effect=_fake_ingest_table)
     monkeypatch.setattr(bm, "ingest_table", ingest_table)
+    monkeypatch.setattr(bm, "read_replication_sequence", MagicMock(return_value=sequence))
+    return ingest_table
+
+
+def test_run_bronze_ingestion_ingests_every_bronze_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    ingest_table = _mock_ingestion(monkeypatch, 187271)
 
     conn = MagicMock()
     result = bm.run_bronze_ingestion(conn, tmp_path)
 
     assert ingest_table.call_args_list == [((conn, table, tmp_path), {}) for table in bm.BRONZE_TABLES]
     assert result == [tmp_path / f"{table}.parquet" for table in bm.BRONZE_TABLES]
+
+
+def test_run_bronze_ingestion_skips_unchanged_mirror(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    ingest_table = _mock_ingestion(monkeypatch, 187271)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+    ingest_table.reset_mock()
+
+    result = bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    ingest_table.assert_not_called()
+    assert result == [tmp_path / f"{table}.parquet" for table in bm.BRONZE_TABLES]
+
+
+def test_run_bronze_ingestion_reingests_after_replication(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _mock_ingestion(monkeypatch, 187271)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+    ingest_table = _mock_ingestion(monkeypatch, 187272)
+
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    assert ingest_table.call_count == len(bm.BRONZE_TABLES)
+
+
+def test_run_bronze_ingestion_reingests_when_a_table_is_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    ingest_table = _mock_ingestion(monkeypatch, 187271)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+    ingest_table.reset_mock()
+    (tmp_path / "recording.parquet").unlink()
+
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    assert ingest_table.call_count == len(bm.BRONZE_TABLES)
+
+
+def test_run_bronze_ingestion_reingests_when_a_query_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    ingest_table = _mock_ingestion(monkeypatch, 187271)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+    ingest_table.reset_mock()
+    monkeypatch.setitem(bm.PROJECTED_COLUMNS, "recording", ("id",))
+
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    assert ingest_table.call_count == len(bm.BRONZE_TABLES)
+
+
+def test_run_bronze_ingestion_always_ingests_standalone_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    ingest_table = _mock_ingestion(monkeypatch, None)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    assert ingest_table.call_count == 2 * len(bm.BRONZE_TABLES)
+    assert not (tmp_path / bm.SNAPSHOT_FILENAME).exists()
+
+
+def test_run_bronze_ingestion_forgets_snapshot_when_interrupted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _mock_ingestion(monkeypatch, 187271)
+    bm.run_bronze_ingestion(MagicMock(), tmp_path)
+    ingest_table = _mock_ingestion(monkeypatch, 187272)
+    ingest_table.side_effect = KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        bm.run_bronze_ingestion(MagicMock(), tmp_path)
+
+    assert not (tmp_path / bm.SNAPSHOT_FILENAME).exists()
+
+
+def test_read_replication_sequence_returns_current_sequence() -> None:
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value.fetchall.return_value = [(187271,)]
+
+    assert bm.read_replication_sequence(conn) == 187271
+
+
+def test_read_replication_sequence_is_none_on_standalone_db() -> None:
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+
+    assert bm.read_replication_sequence(conn) is None
+
+
+def test_read_replication_sequence_raises_on_several_rows() -> None:
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value.fetchall.return_value = [(1,), (2,)]
+
+    with pytest.raises(ValueError, match="replication_control has 2 rows"):
+        bm.read_replication_sequence(conn)

@@ -27,8 +27,11 @@ at the first that succeeds:
 0. `no_genre` — the song has no tag in `10_song_genre` (none of its recordings carries a genre tag). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
-2. `music_suffix` — same, after stripping a trailing `" music"` from the musicbrainz name (covers the
-   bulk of the naming-convention gap between the two sources).
+2. `normalized` — equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
+   whitespace collapsed to one space, trailing `" music"` dropped. Covers the bulk of the naming-convention
+   gap in both directions: musicbrainz `rock`/`hip hop`/`jazz music` meet wikidata `rock music`/`hip-hop`/
+   `jazz`. When two canonical labels share a key (`dance`/`dance music`, `bass`/`bass music` are distinct
+   wikidata genres), neither is reachable by that key (logged); each still matches by `exact`.
 3. `manual_alias` — looked up in `manual_genre_alias.csv`, a data expert's curated real-genre alias.
 4. `accepted_non_genre` — looked up in `manual_accepted_non_genre_tags.csv`, a data expert's curated
    permanent-noise list. Kept in the output (not dropped) with a `null` `wikidata_genre_name`, for
@@ -108,15 +111,16 @@ break fails Gold before anything is posted. Keep the constants in step with grow
 
 Both manual CSVs are validated the same way `wikidata`'s manual CSVs are (see
 `non_genre_pruning.py::_load_dropped_ids`): a `ValueError` naming the CSV and offending value(s) for a
-blank/null required column, a duplicate key (case-insensitive), or an unknown reference. Additionally,
+blank/null required column, a duplicate key (same genre key, so `Hip-Hop` and `hip hop` collide), or an
+unknown reference. Additionally,
 each CSV is checked against the auto-match cascade and against each other, since an alias/non-genre entry
 that would already resolve automatically (or that conflicts with the other CSV) indicates stale or
 contradictory triage data:
 
 - `manual_genre_alias.csv`: `wikidata_genre_name` must exist in the canonical hierarchy;
-  `musicbrainz_genre_name` must not already match via `exact`/`music_suffix` (dead-weight alias).
+  `musicbrainz_genre_name` must not already match via `exact`/`normalized` (dead-weight alias).
 - `manual_accepted_non_genre_tags.csv`: `musicbrainz_genre_name` must not already match via
-  `exact`/`music_suffix`, nor appear in `manual_genre_alias.csv` (can't be both a real alias and
+  `exact`/`normalized`, nor share a genre key with a `manual_genre_alias.csv` entry (can't be both a real alias and
   permanent noise).
 
 ## Curation mechanics
