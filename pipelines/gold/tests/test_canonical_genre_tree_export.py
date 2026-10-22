@@ -21,8 +21,8 @@ TREE_ROWS = [
 REGIONAL_ROWS = [{"item_id": "Q10", "item_label": "music of Brazil", "parent_id": None}]
 
 
-def _hierarchy() -> pl.DataFrame:
-    return pl.DataFrame(TREE_ROWS)
+def _hierarchy(umbrella_ids: set[str] = frozenset()) -> pl.DataFrame:
+    return pl.DataFrame([{**row, "is_umbrella": row["item_id"] in umbrella_ids} for row in TREE_ROWS])
 
 
 def _write_secondary_parents(wikidata_silver_dir: Path, rows: list[dict[str, str]]) -> None:
@@ -138,7 +138,9 @@ def test_export_canonical_genre_tree_raises_when_no_mainstream_pop_root(
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     rows = [row for row in TREE_ROWS if row["item_label"] != "Mainstream Pop"]
-    pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pl.DataFrame([{**row, "is_umbrella": False} for row in rows]).write_parquet(
+        wikidata_silver_dir / "7_canonical_hierarchy.parquet"
+    )
     _write_canonical_roots(wikidata_silver_dir, set())
     _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
@@ -240,7 +242,9 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     rows = [*TREE_ROWS, {"item_id": "Q6", "item_label": "soft rock", "parent_id": "Q1"}]
-    pl.DataFrame(rows).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pl.DataFrame([{**row, "is_umbrella": False} for row in rows]).write_parquet(
+        wikidata_silver_dir / "7_canonical_hierarchy.parquet"
+    )
     _write_canonical_roots(wikidata_silver_dir, set())
     _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "gold"
@@ -469,3 +473,40 @@ def test_export_canonical_genre_tree_raises_on_duplicate_essential_track_positio
 
     with pytest.raises(ValueError, match="duplicate \\('item_id', 'position'\\)"):
         _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+
+def test_export_canonical_genre_tree_flags_umbrellas(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    _hierarchy({"Q1"}).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_canonical_roots(wikidata_silver_dir, set())
+    _write_secondary_parents(wikidata_silver_dir, [])
+    pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
+    _write_pop_side_csv(pop_side_path, [])
+
+    result = export_canonical_genre_tree(
+        wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
+    )
+
+    nodes = {node["id"]: node for node in json.loads(result.read_text())["tree"]}
+    assert nodes["Q1"]["isUmbrella"] is True
+    assert "isUmbrella" not in nodes["Q5"]
+
+
+def test_export_canonical_genre_tree_raises_on_childless_umbrella(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    _hierarchy({"Q5"}).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    _write_canonical_roots(wikidata_silver_dir, set())
+    _write_secondary_parents(wikidata_silver_dir, [])
+    pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
+    _write_pop_side_csv(pop_side_path, [])
+
+    with pytest.raises(ValueError, match="without children"):
+        export_canonical_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
+        )

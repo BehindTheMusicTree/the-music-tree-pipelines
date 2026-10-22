@@ -187,7 +187,7 @@ down to a real genre beneath it, and can never survive as a dangling parent for
   "music genre" classification was simply wrong (e.g. a near-empty stub with no real description,
   a record label, an event, a person) — as opposed to a real but off-topic genre
   (`manual_theme_genres.csv`) or a technique (`manual_technique_genres.csv`).
-- `manual_umbrella_canonical_genres.csv` — genuine music genres, correctly classified, but too
+- `manual_non_stylistic_genres.csv` — genuine music genres, correctly classified, but too
   broad to serve as a useful canonical grouping node (e.g. "alternative music", spanning countless
   pop/rock-deviating subgenres with no single coherent style) — as opposed to a misclassification
   (`manual_out_of_scope_genres.csv`), an off-topic theme (`manual_theme_genres.csv`), or a
@@ -565,6 +565,16 @@ classification steps: it reduces `6_canonical_parents.parquet` to one row per no
 item, producing a clean, directly-consumable canonical genre hierarchy edge list — excluding every
 `is_regional = true` item, which includes the `regional_overview` seed items themselves (see
 [2.7 8_regional_hierarchy](#27-8_regional_hierarchy) for those).
+
+#### Umbrella genres
+
+`manual_umbrella_genres.csv` (`item_id,item_label,reason`, curated in grow-the-music-tree-api's
+`umbrella_genres` list) marks genres that stay in the tree but never receive songs directly: a song is
+never just "techno", it is detroit techno or melodic techno. Distinct from
+`manual_non_stylistic_genres.csv`, which prunes appellations with no coherent style (French touch).
+Each id must be a canonical (non-regional) item with at least one child in this table — a leaf umbrella
+would leave its songs no sub-genre to move to — otherwise the run raises. `gold/umbrella_candidates.py`
+writes `1_umbrella_candidates.csv` to help find candidates.
 
 #### 2.6.1 Rule: prune to same-graph edges
 

@@ -33,12 +33,13 @@ QID_COLUMNS: dict[str, tuple[str, ...]] = {
     "regional_overrides": ("item_id", "overview_item_id"),
     "technique_genres": ("item_id",),
     "theme_genres": ("item_id",),
-    "umbrella_canonical_genres": ("item_id",),
+    "non_stylistic_genres": ("item_id",),
+    "umbrella_genres": ("item_id",),
 }
 # An item_id may sit in at most one of these (grow's EXCLUSIVE_LISTS).
 EXCLUSIVE_LISTS = frozenset({"theme_genres", "technique_genres", "out_of_scope_genres", "duplicate_genres"})
 # Items these lists prune never reach the steps that validate a main parent / overview target.
-PRUNING_LISTS = (*EXCLUSIVE_LISTS, "umbrella_canonical_genres")
+PRUNING_LISTS = (*EXCLUSIVE_LISTS, "non_stylistic_genres")
 # Lists whose items the pipeline adds to the tree itself, so references to them are known.
 ADDITION_LISTS = ("regional_overview_additions", "canonical_parent_additions")
 

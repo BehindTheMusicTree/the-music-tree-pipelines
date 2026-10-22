@@ -74,6 +74,14 @@ def _apply_recording_overrides(songs: pl.DataFrame, wikidata_silver_dir: Path, c
     )
     check_known_recordings(genres, songs, genre_csv)
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
+    umbrella_ids = set(
+        pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+        .filter(pl.col("is_umbrella"))
+        .get_column("item_id")
+    )
+    umbrella_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & umbrella_ids)
+    if umbrella_overrides:
+        raise ValueError(f"{genre_csv} assigns songs to umbrella genre(s), pick a subgenre: {umbrella_overrides}")
     unknown_genres = sorted(set(genres.get_column("genre_item_id").drop_nulls()) - names_by_id.keys())
     if unknown_genres:
         raise ValueError(f"{genre_csv} references genre_item_id(s) not found in either genre tree: {unknown_genres}")

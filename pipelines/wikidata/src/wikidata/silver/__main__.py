@@ -36,7 +36,7 @@ non_genre_pruning_path = prune_non_genre_items(
     curation_dir / "manual_theme_genres.csv",
     curation_dir / "manual_technique_genres.csv",
     curation_dir / "manual_out_of_scope_genres.csv",
-    curation_dir / "manual_umbrella_canonical_genres.csv",
+    curation_dir / "manual_non_stylistic_genres.csv",
     curation_dir / "manual_duplicate_genres.csv",
     silver_dir,
 )
@@ -58,6 +58,8 @@ regional_classification_path = classify_regional_genres(
 )
 main_parent_selection_path, _secondary_parents_path = select_main_parents(regional_classification_path, silver_dir)
 canonical_parents_path = flag_canonical_parents(main_parent_selection_path, silver_dir)
-canonical_hierarchy_path = prune_canonical_hierarchy(canonical_parents_path, silver_dir)
+canonical_hierarchy_path = prune_canonical_hierarchy(
+    canonical_parents_path, curation_dir / "manual_umbrella_genres.csv", silver_dir
+)
 prune_regional_hierarchy(canonical_parents_path, silver_dir)
 extract_canonical_roots(canonical_hierarchy_path, curation_dir / "manual_accepted_canonical_roots.csv", silver_dir)

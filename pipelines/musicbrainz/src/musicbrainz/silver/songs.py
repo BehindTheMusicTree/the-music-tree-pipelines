@@ -84,58 +84,6 @@ def youtube_candidates(bronze_dir: Path, silver_dir: Path, output_dir: Path, man
     return output_path
 
 
-def _precedence_closure(manual_genre_precedence_path: Path, genre: pl.DataFrame) -> pl.DataFrame:
-    rules = pl.read_csv(
-        manual_genre_precedence_path,
-        schema={"musicbrainz_genre_name": pl.Utf8, "over_musicbrainz_genre_name": pl.Utf8, "reason": pl.Utf8},
-    ).select(winner="musicbrainz_genre_name", loser="over_musicbrainz_genre_name")
-
-    if rules.null_count().sum_horizontal().item():
-        raise ValueError(f"{manual_genre_precedence_path.name} has row(s) with a blank genre name")
-
-    # grow-api accepts names with stray whitespace or typos, so an exact match against Bronze is the guard.
-    unknown = sorted((set(rules["winner"]) | set(rules["loser"])) - set(genre["name"]))
-    if unknown:
-        raise ValueError(f"{manual_genre_precedence_path.name} names genre(s) absent from genre.parquet: {unknown}")
-
-    # Transitive, so a winner also beats whatever the genres it beats beat (ska > reggae > dub => ska > dub).
-    closure = rules.unique()
-    while True:
-        extended = pl.concat(
-            [closure, closure.join(closure, left_on="loser", right_on="winner").select("winner", loser="loser_right")]
-        ).unique()
-        if extended.height == closure.height:
-            break
-        closure = extended
-
-    # grow-api doesn't reject reversed or longer cycles, so the pipeline is the guard.
-    cyclic = sorted(closure.filter(pl.col("winner") == pl.col("loser"))["winner"])
-    if cyclic:
-        raise ValueError(f"{manual_genre_precedence_path.name} has a self-pair or cycle involving: {cyclic}")
-
-    name_to_id = genre.select(pl.col("name"), pl.col("id"))
-    return (
-        closure.join(name_to_id, left_on="winner", right_on="name")
-        .join(name_to_id, left_on="loser", right_on="name", suffix="_loser")
-        .select(winner_id="id", loser_id="id_loser")
-    )
-
-
-def _apply_genre_precedence(song_genre: pl.LazyFrame, closure: pl.LazyFrame) -> pl.LazyFrame:
-    beaten = song_genre.join(closure, left_on="genre_id", right_on="loser_id").join(
-        song_genre.select("song_id", winner_id="genre_id"),
-        on=["song_id", "winner_id"],
-        how="semi",
-    )
-    inherited = beaten.group_by("song_id", "winner_id").agg(pl.col("weight").max().alias("beaten_weight"))
-    return (
-        song_genre.join(beaten.select("song_id", "genre_id").unique(), on=["song_id", "genre_id"], how="anti")
-        .join(inherited, left_on=["song_id", "genre_id"], right_on=["song_id", "winner_id"], how="left")
-        .with_columns(pl.max_horizontal("weight", "beaten_weight").alias("weight"))
-        .drop("beaten_weight")
-    )
-
-
 def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
     """One row per recording with a primary artist: `(recording_id, song_id, musicbrainz_recording_id, title,
     artist, artist_musicbrainz_id)`, `song_id` being the lowest `recording.id` of its song group."""
@@ -186,12 +134,8 @@ def songs(
     bronze_dir: Path,
     silver_dir: Path,
     output_dir: Path,
-    manual_genre_precedence_path: Path,
     manual_youtube_video_path: Path,
 ) -> Path:
-    genre = pl.read_parquet(bronze_dir / "genre.parquet")
-    closure = _precedence_closure(manual_genre_precedence_path, genre).lazy()
-
     song_recordings = _song_recordings(bronze_dir).cache()
     recording_song = song_recordings.select("recording_id", "song_id")
 
@@ -226,23 +170,6 @@ def songs(
     )
     youtube_video = pl.concat([manual_video, computed_video.join(manual_video, on="song_id", how="anti")])
 
-    # manual_genre_precedence.csv (curated in grow-the-music-tree-api): broad tags (pop, rock) carry more votes than
-    # precise ones (pop rock, ska), so a song tagged with both drops the broad one and its weight passes to the
-    # precise winner before the highest-weight pick. Weights are summed across the song's recordings first.
-    song_genre = (
-        pl.scan_parquet(silver_dir / "2_recording_genre.parquet")
-        .join(recording_song, on="recording_id")
-        .group_by("song_id", "genre_id")
-        .agg(pl.col("weight").sum())
-    )
-    primary_genre = (
-        _apply_genre_precedence(song_genre, closure)
-        .sort(["weight", "genre_id"], descending=[True, False])
-        .unique(subset="song_id", keep="first", maintain_order=True)
-        .join(genre.lazy().select(genre_id="id", genre_name="name"), on="genre_id")
-        .select("song_id", "genre_name")
-    )
-
     # Earliest valid year across the group's recordings. Out-of-range years are dropped before min(), so one corrupt
     # early date (e.g. 20) can't erase a valid one; nulls are dropped too.
     first_release_year = (
@@ -257,7 +184,6 @@ def songs(
     result = (
         song_recordings.filter(pl.col("recording_id") == pl.col("song_id"))
         .join(youtube_video, on="song_id", how="left")
-        .join(primary_genre, on="song_id", how="left")
         .join(first_release_year, on="song_id", how="left")
         .select(
             "musicbrainz_recording_id",
@@ -266,7 +192,6 @@ def songs(
             "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
-            "genre_name",
             "first_release_year",
         )
     )
@@ -279,16 +204,14 @@ def songs(
         .select(
             songs=pl.len(),
             without_video=pl.col("youtube_video_id").null_count(),
-            without_genre=pl.col("genre_name").null_count(),
         )
         .collect()
         .row(0, named=True)
     )
     logger.info(
-        "wrote %d songs to %s, %d without a video, %d without a genre",
+        "wrote %d songs to %s, %d without a video",
         counts["songs"],
         output_path,
         counts["without_video"],
-        counts["without_genre"],
     )
     return output_path

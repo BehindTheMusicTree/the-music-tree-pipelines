@@ -104,7 +104,7 @@ WHERE rt.count > 0
 
 `4_youtube_video_status` (`youtube_video_status.py`) — `(youtube_video_id, youtube_unplayable_reason, checked_at)`: one row per checked candidate video id, checked via the YouTube Data API `videos.list` (`part=status,contentDetails`, 50 ids per call, 1 quota unit each; key from `YOUTUBE_API_KEY`, sent as a header). `youtube_unplayable_reason` is null when playable, else the first matching rule: absent from the response → `not_found`; `status.embeddable` false → `not_embeddable`; `privacyStatus` is `private` → `private` (unlisted plays fine); `uploadStatus` not `processed` → `not_processed`. Region restrictions (`allowed` or `blocked`) are not flagged — they depend on the viewer's country, so they're left to the runtime playback fallback (`region_whitelisted` stays in the enum but isn't emitted). Rows from the previous run's parquet are kept; each run fetches at most `YOUTUBE_STATUS_MAX_BATCHES_PER_RUN` batches, pinned ids first, then never-checked ids, then ids older than 7 days (stalest first). Candidates beyond the budget have no row yet. 5xx/transport errors retry with backoff; a `quotaExceeded` 403 fails the run with a clear message, keeping completed batches.
 
-`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — `(musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, genre_name, first_release_year)`, one row per song: every recording with a primary artist, deduplicated into song groups. Built from `3_youtube_candidates` + `4_youtube_video_status`, `2_recording_genre`, the curation `manual_genre_precedence.csv` and `manual_recording_youtube_video.csv`, and Bronze `genre`/`recording`/`l_recording_work`/`artist_credit_name`/`artist`/`recording_first_release_date`.
+`5_songs` (`pipelines/musicbrainz/src/musicbrainz/silver/songs.py`) — `(musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, first_release_year)`, one row per song: every recording with a primary artist, deduplicated into song groups. Built from `3_youtube_candidates` + `4_youtube_video_status`, `3_youtube_candidates` and the curation `manual_recording_youtube_video.csv`, and Bronze `genre`/`recording`/`l_recording_work`/`artist_credit_name`/`artist`/`recording_first_release_date`.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
@@ -114,13 +114,12 @@ WHERE rt.count > 0
 | `artist_musicbrainz_id` | str | That artist's `artist.gid`. |
 | `youtube_video_id` | str, nullable | 11-char video id: the group's curated video when `manual_recording_youtube_video.csv` has one (empty id = no video), else the first playable checked candidate across the group by `rank` (then `recording_id`), else the best-ranked checked one; null when no candidate is checked yet or the group has none. |
 | `youtube_unplayable_reason` | str, nullable | The curated `unplayable_reason` when set, else the chosen video's checked reason; null when playable, unchecked, or when there's no video. |
-| `genre_name` | str, nullable | MusicBrainz `genre.name` with the highest weight summed across the group after curated precedence (ties: lowest `genre_id`); null when no recording of the group has a genre. |
 | `first_release_year` | int, nullable | Earliest `recording_first_release_date.year` within 1000-2100 across the group's recordings; null when none has one. |
 
 - **Song group**: a recording linked to exactly one work (`l_recording_work`) is grouped by `(work, primary artist)`; any other recording (no work, or several) by `(normalized title, primary artist)`, the title lowercased, trimmed, and whitespace-collapsed. See [DESIGN.md](DESIGN.md#song-groups).
 - **YouTube-only**: `link_type.name` (from `1_recording_link`) doesn't distinguish platform, so a YouTube candidate is a link whose `url` matches `youtube.com`/`youtu.be`.
 - **Video id extraction** handles `youtu.be/<id>`, `youtube.com/watch?v=<id>`, `youtube.com/embed/<id>`, and `youtube.com/v/<id>`, capturing exactly 11 characters. Shorter ids and bare playlist/channel URLs are dropped; a stray trailing character isn't captured.
-- **Genre precedence**: see [DESIGN.md](DESIGN.md#genre-precedence). The genre name is emitted as-is; reconciling it against wikidata's canonical names happens in `pipelines/gold`.
+- **Genre**: not picked here — see `10_song_genre`; choosing one (precedence, lineage) happens in `pipelines/gold`, see [gold DESIGN.md](../gold/DESIGN.md).
 - Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/3_youtube_candidates.parquet`, `4_youtube_video_status.parquet`, and `5_songs.parquet`.
 
 `6_artists` (`artists.py`) — one row per Bronze `artist`:
@@ -143,3 +142,5 @@ WHERE rt.count > 0
 Steps 6–9 run after `5_songs` in `python -m musicbrainz.silver`, unfiltered; scoping to song artists happens in `pipelines/gold`.
 
 `recording_genre_path` is not built yet (see [README.md#pipeline](README.md#pipeline)).
+
+`10_song_genre` (`song_genre.py`) — `(musicbrainz_recording_id, genre_name, weight)`, tidy/long: one row per (song, MusicBrainz `genre.name`), `weight` summing `2_recording_genre.weight` across the song's group (the same song groups and `musicbrainz_recording_id` as `5_songs`). Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/10_song_genre.parquet`.
