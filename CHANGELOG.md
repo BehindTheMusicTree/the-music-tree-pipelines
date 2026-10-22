@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-10-22
+
 ### Changed
 
 - `musicbrainz` Bronze skips re-extraction when the mirror's replication sequence and the table queries are unchanged since the last ingestion (recorded in `BRONZE_OUTPUT_DIR/_snapshot.json`); a standalone database without replication always re-extracts.
