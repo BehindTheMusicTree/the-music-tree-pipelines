@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.2.0] - 2026-10-22
+
 ### Changed
 
 - `musicbrainz` Bronze extracts tables as Arrow batches through ADBC (replacing psycopg + `pl.read_database`), four tables at a time on separate connections: a full extraction drops from ~11 min to ~1.5 min on prod. Column types are read from the catalog and cast so Parquet dtypes stay as before (integers `Int64`, uuids `String`); the all-null `parent` columns of `release_group_primary_type`/`release_group_secondary_type` are now `Int64` instead of `Null`. The first run after deploy re-extracts every table (queries changed).
