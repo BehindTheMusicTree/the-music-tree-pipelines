@@ -42,7 +42,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 
 **Bronze layer only, per pipeline:**
 
-- `musicbrainz`: connects to Postgres via `psycopg`, reads each raw table with Polars (`pl.read_database`), writes one Parquet file per table to `BRONZE_OUTPUT_DIR`. See `pipelines/musicbrainz/src/musicbrainz/{ingest.py,db.py}`.
+- `musicbrainz`: connects to Postgres via ADBC (`adbc_driver_postgresql`), streams each raw table as Arrow batches straight into one Parquet file per table in `BRONZE_OUTPUT_DIR`, four tables at a time on separate connections. See `pipelines/musicbrainz/src/musicbrainz/{ingest.py,db.py}`.
 - `wikidata`: queries the public Wikidata SPARQL endpoint (`https://query.wikidata.org/sparql`) live — no local DB. Pulls every item classified `P31` "instance of" music genre (`Q188451`) plus each genre's direct `P279` "subclass of" parent edges (unfiltered — pruning to genre-only parents is Silver-layer work), writes `wikidata_genre_tree.parquet`. See `pipelines/wikidata/src/wikidata/wikidata_client.py`.
 - Both pipelines raise (`common.quality_checks.check_non_empty`, `musicbrainz` inlining the same non-empty check on its streamed row count) if a Bronze extraction comes back with zero rows, failing the daily run loudly rather than letting Silver build on missing source data.
 
