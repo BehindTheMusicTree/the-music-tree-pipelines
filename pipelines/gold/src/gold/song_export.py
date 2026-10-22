@@ -14,6 +14,7 @@ from common.quality_checks import (
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
 from gold.delta_export import write_delta
+from gold.match_method import RESOLVED_METHODS
 from gold.ndjson_parts import write_ndjson_parts
 
 logger = logging.getLogger(__name__)
@@ -112,9 +113,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         "youtube_video_id",
         "youtube_unplayable_reason",
         "first_release_year",
-        genre_name=pl.when(pl.col("match_method").is_in(["exact", "music_suffix", "manual_alias"])).then(
-            pl.col("wikidata_genre_name")
-        ),
+        genre_name=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_name")),
     )
     songs = _apply_recording_overrides(songs, wikidata_silver_dir, curation_dir)
     out_of_range = songs.filter(~pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).height
