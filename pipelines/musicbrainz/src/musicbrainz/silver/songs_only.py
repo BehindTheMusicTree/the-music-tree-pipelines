@@ -1,5 +1,5 @@
 """Recompute only `5_songs.parquet` from the existing Bronze + Silver, for a curation run: no MusicBrainz ingest,
-no `1_recording_link`/`2_recording_genre`/`3_youtube_candidates`/`4_youtube_video_status` (so no YouTube quota)."""
+no `1_recording_link`/`3_youtube_candidates`/`4_youtube_video_status` (so no YouTube quota)."""
 
 import logging
 
@@ -9,14 +9,13 @@ import musicbrainz
 from musicbrainz.silver.songs import songs
 
 _BRONZE_INPUTS = (
-    "genre",
     "recording",
     "artist_credit_name",
     "artist",
     "l_recording_work",
     "recording_first_release_date",
 )
-_SILVER_INPUTS = ("2_recording_genre", "3_youtube_candidates", "4_youtube_video_status")
+_SILVER_INPUTS = ("3_youtube_candidates", "4_youtube_video_status")
 
 
 def main() -> None:
@@ -26,17 +25,14 @@ def main() -> None:
     curation_dir = resolve_pipeline_path(musicbrainz.__file__, require_env("CURATION_BRONZE_DIR"))
     inputs = [bronze_dir / f"{name}.parquet" for name in _BRONZE_INPUTS]
     inputs += [silver_dir / f"{name}.parquet" for name in _SILVER_INPUTS]
-    curation_inputs = [
-        curation_dir / "manual_genre_precedence.csv",
-        curation_dir / "manual_recording_youtube_video.csv",
-    ]
-    inputs += curation_inputs
+    manual_youtube_video_path = curation_dir / "manual_recording_youtube_video.csv"
+    inputs.append(manual_youtube_video_path)
     missing = [str(path) for path in inputs if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"songs-only run needs a previous full run's output, missing: {missing}")
     # ponytail: candidates/status aren't rebuilt here, so a newly curated video goes out unchecked (no reason, i.e.
     # playable) until the next full Silver run checks it.
-    songs(bronze_dir, silver_dir, silver_dir, *curation_inputs)
+    songs(bronze_dir, silver_dir, silver_dir, manual_youtube_video_path)
 
 
 if __name__ == "__main__":

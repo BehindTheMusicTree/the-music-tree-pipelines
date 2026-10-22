@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from wikidata.silver import canonical_hierarchy as ch
 from wikidata.silver.hierarchy_utils import OUTPUT_COLUMNS
@@ -140,16 +141,26 @@ def _write_canonical_parents(tmp_path: Path, rows: list[dict] | None = None) -> 
     return canonical_parents_path
 
 
+def _write_umbrellas(tmp_path: Path, item_ids: list[str]) -> Path:
+    path = tmp_path / "manual_umbrella_genres.csv"
+    pl.DataFrame(
+        {"item_id": item_ids, "item_label": item_ids, "reason": item_ids},
+        schema=dict.fromkeys(("item_id", "item_label", "reason"), pl.Utf8),
+    ).write_csv(path)
+    return path
+
+
 def test_prune_canonical_hierarchy_keeps_single_parent_per_item(tmp_path: Path) -> None:
     canonical_parents_path = _write_canonical_parents(tmp_path)
     output_dir = tmp_path / "silver"
 
-    canonical_path = ch.prune_canonical_hierarchy(canonical_parents_path, output_dir)
+    canonical_path = ch.prune_canonical_hierarchy(canonical_parents_path, _write_umbrellas(tmp_path, []), output_dir)
 
     assert canonical_path == output_dir / "7_canonical_hierarchy.parquet"
 
     canonical_df = pl.read_parquet(canonical_path)
-    assert canonical_df.columns == OUTPUT_COLUMNS
+    assert canonical_df.columns == [*OUTPUT_COLUMNS, "is_umbrella"]
+    assert not canonical_df["is_umbrella"].any()
 
     parent_by_item = {row["item_id"]: row["parent_id"] for row in canonical_df.to_dicts()}
     assert parent_by_item == {
@@ -172,6 +183,26 @@ def test_prune_canonical_hierarchy_creates_output_dir(tmp_path: Path) -> None:
     canonical_parents_path = _write_canonical_parents(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    ch.prune_canonical_hierarchy(canonical_parents_path, output_dir)
+    ch.prune_canonical_hierarchy(canonical_parents_path, _write_umbrellas(tmp_path, []), output_dir)
 
     assert output_dir.is_dir()
+
+
+def test_prune_canonical_hierarchy_flags_umbrella_with_children(tmp_path: Path) -> None:
+    canonical_path = ch.prune_canonical_hierarchy(
+        _write_canonical_parents(tmp_path), _write_umbrellas(tmp_path, ["Q11399"]), tmp_path / "silver"
+    )
+
+    flagged = {row["item_id"]: row["is_umbrella"] for row in pl.read_parquet(canonical_path).to_dicts()}
+    assert [item_id for item_id, is_umbrella in flagged.items() if is_umbrella] == ["Q11399"]
+
+
+@pytest.mark.parametrize(
+    ("item_id", "message"),
+    [("Q404", "not found in the genre tree"), ("Q3868594", "regional"), ("Q999999", "leaf")],
+)
+def test_prune_canonical_hierarchy_raises_on_invalid_umbrella(tmp_path: Path, item_id: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        ch.prune_canonical_hierarchy(
+            _write_canonical_parents(tmp_path), _write_umbrellas(tmp_path, [item_id]), tmp_path / "silver"
+        )

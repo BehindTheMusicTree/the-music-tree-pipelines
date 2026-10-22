@@ -111,6 +111,7 @@ def export_canonical_genre_tree(
             pop_sides,
             secondary_parents=edges_to_parent_map(pl.concat([untouched_edges, added_edges])),
             unaccepted_root_ids=unaccepted_root_ids,
+            umbrella_ids=set(hierarchy.filter(pl.col("is_umbrella")).get_column("item_id")),
             essential_tracks=curation.essential_tracks,
             summaries=curation.summaries,
             descriptions=load_descriptions(descriptions_path),

@@ -21,6 +21,7 @@
         "name": { "type": "string", "minLength": 1 },
         "side": { "type": "string", "enum": ["pop"] },
         "isUnacceptedRoot": { "type": "boolean", "const": true },
+        "isUmbrella": { "type": "boolean", "const": true },
         "children": {
           "type": "array",
           "items": { "$ref": "#/$defs/node" }
@@ -38,6 +39,8 @@
         "summarySourceUrl": { "type": "string", "minLength": 1 }
       },
       "required": ["id", "name", "children"],
+      "if": { "required": ["isUmbrella"] },
+      "then": { "properties": { "children": { "minItems": 1 } } },
       "additionalProperties": false
     },
     "parentRefs": {

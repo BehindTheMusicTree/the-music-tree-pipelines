@@ -12,6 +12,7 @@ from gold.canonical_genre_tree_export import export_canonical_genre_tree
 from gold.genre_match import genre_match
 from gold.regional_genre_tree_export import export_regional_genre_tree
 from gold.song_export import check_known_recordings, export_songs
+from gold.umbrella_candidates import export_umbrella_candidates
 
 MANIFEST_NAME = "_manifest.json"
 
@@ -76,9 +77,12 @@ def build_gold(
     )
     genre_match_path = genre_match(
         musicbrainz_silver_dir / "5_songs.parquet",
+        musicbrainz_silver_dir / "10_song_genre.parquet",
         wikidata_silver_dir / "7_canonical_hierarchy.parquet",
+        wikidata_silver_dir / "5_secondary_parents.parquet",
         curation_dir / "manual_genre_alias.csv",
         curation_dir / "manual_accepted_non_genre_tags.csv",
+        curation_dir / "manual_genre_precedence.csv",
         gold_output_dir,
     )
     essential_tracks_csv = "manual_essential_tracks.csv"
@@ -87,6 +91,7 @@ def build_gold(
         pl.read_parquet(genre_match_path, columns=["musicbrainz_recording_id"]),
         essential_tracks_csv,
     )
+    export_umbrella_candidates(wikidata_silver_dir / "7_canonical_hierarchy.parquet", genre_match_path, gold_output_dir)
     export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

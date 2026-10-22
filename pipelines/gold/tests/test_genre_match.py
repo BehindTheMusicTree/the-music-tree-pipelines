@@ -7,9 +7,12 @@ import pytest
 from gold.genre_match import genre_match
 
 HIERARCHY_ROWS = [
-    {"item_id": "Q1", "item_label": "rock"},
-    {"item_id": "Q2", "item_label": "jazz"},
-    {"item_id": "Q3", "item_label": "drum and bass"},
+    {"item_id": "Q1", "item_label": "rock", "parent_id": None, "is_umbrella": True},
+    {"item_id": "Q2", "item_label": "jazz", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q3", "item_label": "drum and bass", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q4", "item_label": "punk rock", "parent_id": "Q1", "is_umbrella": False},
+    {"item_id": "Q5", "item_label": "pop", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q6", "item_label": "pop rock", "parent_id": "Q1", "is_umbrella": False},
 ]
 
 
@@ -17,7 +20,7 @@ def _mbid(index: int) -> str:
     return f"00000000-0000-0000-0000-{index:012d}"
 
 
-def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
+def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
     path = tmp_path / "5_songs.parquet"
     rows = [
         {
@@ -30,14 +33,39 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> Path:
         for i, row in enumerate(rows)
     ]
     pl.DataFrame(
-        rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16}
+        [{k: v for k, v in row.items() if k not in ("genre_name", "genres")} for row in rows],
+        schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16},
     ).write_parquet(path)
-    return path
+    genre_path = tmp_path / "10_song_genre.parquet"
+    tags = [
+        {"musicbrainz_recording_id": row["musicbrainz_recording_id"], "genre_name": name, "weight": weight}
+        for row in rows
+        for name, weight in (row.get("genres") or ([(row["genre_name"], 1)] if row.get("genre_name") else []))
+    ]
+    pl.DataFrame(
+        tags, schema={"musicbrainz_recording_id": pl.Utf8, "genre_name": pl.Utf8, "weight": pl.Int64}
+    ).write_parquet(genre_path)
+    return path, genre_path
 
 
 def _write_hierarchy(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     path = tmp_path / "7_canonical_hierarchy.parquet"
-    pl.DataFrame(rows if rows is not None else HIERARCHY_ROWS).write_parquet(path)
+    pl.DataFrame(
+        rows if rows is not None else HIERARCHY_ROWS,
+        schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "parent_id": pl.Utf8, "is_umbrella": pl.Boolean},
+    ).write_parquet(path)
+    return path
+
+
+def _write_secondary_parents(tmp_path: Path, rows: list[dict] | None = None) -> Path:
+    path = tmp_path / "5_secondary_parents.parquet"
+    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(path)
+    return path
+
+
+def _write_precedence_csv(tmp_path: Path, rows: list[dict] | None = None) -> Path:
+    path = tmp_path / "manual_genre_precedence.csv"
+    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "over_item_id": pl.Utf8, "reason": pl.Utf8}).write_csv(path)
     return path
 
 
@@ -61,13 +89,21 @@ def _run_genre_match(
     hierarchy_rows: list[dict] | None = None,
     alias_rows: list[dict] | None = None,
     non_genre_rows: list[dict] | None = None,
+    precedence_rows: list[dict] | None = None,
+    secondary_rows: list[dict] | None = None,
     output_dir: Path | None = None,
 ) -> Path:
-    song_path = _write_songs(tmp_path, song_rows)
-    hierarchy_path = _write_hierarchy(tmp_path, hierarchy_rows)
-    alias_path = _write_alias_csv(tmp_path, alias_rows)
-    non_genre_path = _write_non_genre_csv(tmp_path, non_genre_rows)
-    return genre_match(song_path, hierarchy_path, alias_path, non_genre_path, output_dir or (tmp_path / "gold"))
+    song_path, song_genre_path = _write_songs(tmp_path, song_rows)
+    return genre_match(
+        song_path,
+        song_genre_path,
+        _write_hierarchy(tmp_path, hierarchy_rows),
+        _write_secondary_parents(tmp_path, secondary_rows),
+        _write_alias_csv(tmp_path, alias_rows),
+        _write_non_genre_csv(tmp_path, non_genre_rows),
+        _write_precedence_csv(tmp_path, precedence_rows),
+        output_dir or (tmp_path / "gold"),
+    )
 
 
 def _song(genre_name: str, title: str = "Song") -> dict:
@@ -131,20 +167,12 @@ def test_genre_match_writes_unresolved_report_for_untriaged_names(tmp_path: Path
     output_dir = tmp_path / "gold"
     result = _run_genre_match(tmp_path, [_song("some random tag", title="Untriaged Song")], output_dir=output_dir)
 
-    df = pl.read_parquet(result)
-    row = df.to_dicts()[0]
+    row = pl.read_parquet(result).to_dicts()[0]
     assert row["wikidata_genre_name"] is None
     assert row["match_method"] == "unmatched"
 
     unresolved = pl.read_csv(output_dir / "1_genre_match_unresolved.csv")
-    assert unresolved.to_dicts() == [
-        {
-            "genre_name": "some random tag",
-            "title": "Untriaged Song",
-            "artist": "Artist",
-            "youtube_video_id": "abc123abc12",
-        }
-    ]
+    assert unresolved.to_dicts() == [{"genre_name": "some random tag", "song_count": 1, "weight_sum": 1}]
 
 
 def test_genre_match_writes_empty_unresolved_report_when_all_matched(tmp_path: Path) -> None:
@@ -284,7 +312,7 @@ def test_genre_match_clears_malformed_youtube_video_id(tmp_path: Path) -> None:
         ],
     )
 
-    df = pl.read_parquet(result)
+    df = pl.read_parquet(result).sort("title", descending=True)
     assert df.select("title", "youtube_video_id", "youtube_unplayable_reason", "match_method").to_dicts() == [
         {
             "title": "Good Song",
@@ -304,3 +332,72 @@ def test_genre_match_raises_on_non_genre_conflicting_with_alias_csv(tmp_path: Pa
             alias_rows=[{"musicbrainz_genre_name": "d&b", "wikidata_genre_name": "drum and bass", "reason": "test"}],
             non_genre_rows=[{"musicbrainz_genre_name": "d&b", "reason": "mistake"}],
         )
+
+
+def _by_title(result: Path) -> dict[str, dict]:
+    return {row["title"]: row for row in pl.read_parquet(result).to_dicts()}
+
+
+def test_genre_match_descendant_beats_ancestor_and_inherits_weight(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("x", title="S"), "genres": [("rock", 5), ("punk rock", 1)]}])
+
+    row = pl.read_parquet(result).to_dicts()[0]
+    assert (row["wikidata_genre_item_id"], row["wikidata_genre_name"], row["is_umbrella"]) == ("Q4", "punk rock", False)
+
+
+def test_genre_match_secondary_parent_counts_as_ancestor(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [{**_song("x"), "genres": [("pop", 9), ("pop rock", 1)]}],
+        secondary_rows=[{"item_id": "Q6", "parent_id": "Q5"}],
+    )
+
+    assert pl.read_parquet(result).to_dicts()[0]["wikidata_genre_item_id"] == "Q6"
+
+
+def test_genre_match_keeps_umbrella_when_it_is_the_best_genre(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [_song("Rock")])
+
+    row = pl.read_parquet(result).to_dicts()[0]
+    assert (row["wikidata_genre_item_id"], row["is_umbrella"]) == ("Q1", True)
+
+
+def test_genre_match_manual_precedence_applies(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [{**_song("x"), "genres": [("jazz", 9), ("drum and bass", 1)]}],
+        precedence_rows=[{"item_id": "Q3", "over_item_id": "Q2", "reason": "test"}],
+    )
+
+    assert pl.read_parquet(result).to_dicts()[0]["wikidata_genre_item_id"] == "Q3"
+
+
+def test_genre_match_raises_on_precedence_reversing_lineage(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cycle"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            precedence_rows=[{"item_id": "Q1", "over_item_id": "Q4", "reason": "test"}],
+        )
+
+
+def test_genre_match_raises_on_unknown_precedence_item(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not found in the canonical hierarchy"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            precedence_rows=[{"item_id": "Q999", "over_item_id": "Q1", "reason": "test"}],
+        )
+
+
+def test_genre_match_unresolved_tag_does_not_beat_resolved_one(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("x"), "genres": [("random tag", 9), ("jazz", 1)]}])
+
+    row = pl.read_parquet(result).to_dicts()[0]
+    assert (row["wikidata_genre_name"], row["match_method"]) == ("jazz", "exact")
+
+
+def test_genre_match_ties_go_to_smallest_item_id(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("x"), "genres": [("jazz", 2), ("drum and bass", 2)]}])
+
+    assert pl.read_parquet(result).to_dicts()[0]["wikidata_genre_item_id"] == "Q2"

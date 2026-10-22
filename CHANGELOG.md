@@ -48,6 +48,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-10-22
+
+### Breaking
+
+- `curation`: list `umbrella_canonical_genres` renamed `non_stylistic_genres` (same pruning); new list `umbrella_genres` (`item_id, item_label, reason`); `genre_precedence` is now keyed by QIDs (`item_id, over_item_id, reason`). Must ship together with the matching grow-the-music-tree-api release.
+- `musicbrainz`: `5_songs` no longer has `genre_name`; genre tags move to the new `10_song_genre.parquet` and genre selection moves to `gold`.
+
+### Added
+
+- `wikidata`: `7_canonical_hierarchy` gets `is_umbrella` from `manual_umbrella_genres.csv`; an unknown, regional or leaf umbrella raises.
+- `gold`: umbrella genres (kept in the tree, no direct songs) exported as `isUmbrella` on canonical tree nodes and `is_umbrella`/`wikidata_genre_item_id` in `1_genre_match.parquet`; `1_umbrella_candidates.csv` triage report; a `manual_recording_genre.csv` row on an umbrella raises.
+- `gold`: a descendant genre now beats its ancestors (primary and secondary parents) when picking a song's genre, on top of `manual_genre_precedence.csv`; an unresolved tag no longer beats a resolved one. `1_genre_match_unresolved.csv` is now `genre_name, song_count, weight_sum`.
+
+### Removed
+
+- `musicbrainz`: the on-demand `scripts/export_songs_json.py` (and its test); its last consumer, grow-api's `seed_prototype_tree --songs-file`, is gone and `gold` is the real export path.
+
+### Changed
+
+- `musicbrainz` README and `CLAUDE.md` now describe Silver → `gold` → `grow-the-music-tree-api` as the consumer path.
+
 ## [6.7.0] - 2026-10-20
 
 ### Added

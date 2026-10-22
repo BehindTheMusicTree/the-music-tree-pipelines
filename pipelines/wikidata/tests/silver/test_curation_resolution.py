@@ -169,7 +169,7 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
     output = prune_non_genre_items(
         item_links,
         *(curation_dir / f"manual_{name}.csv" for name in ("theme_genres", "technique_genres", "out_of_scope_genres")),
-        curation_dir / "manual_umbrella_canonical_genres.csv",
+        curation_dir / "manual_non_stylistic_genres.csv",
         curation_dir / "manual_duplicate_genres.csv",
         tmp_path / "silver",
     )
@@ -313,7 +313,7 @@ def test_non_exclusive_list_may_share_target_with_exclusive_list(
 ) -> None:
     curation_dir = _setup(
         tmp_path,
-        {"umbrella_canonical_genres": [_item("Q1")], "duplicate_genres": [_item("Q2")]},
+        {"non_stylistic_genres": [_item("Q1")], "duplicate_genres": [_item("Q2")]},
         ["Q2"],
     )
     _mock_api(monkeypatch, {"Q1": _redirect("Q1", "Q2")})
@@ -321,7 +321,7 @@ def test_non_exclusive_list_may_share_target_with_exclusive_list(
     report = _resolve(tmp_path, curation_dir)
 
     assert report["review"] == []
-    assert [row["item_id"] for row in _read(curation_dir, "umbrella_canonical_genres")] == ["Q2"]
+    assert [row["item_id"] for row in _read(curation_dir, "non_stylistic_genres")] == ["Q2"]
 
 
 def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -332,7 +332,7 @@ def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkey
                 {**_item("Q1"), "parent_item_id": "Q2", "exclude_other_parents": None},
                 {**_item("Q3"), "parent_item_id": "Q4", "exclude_other_parents": None},
             ],
-            "umbrella_canonical_genres": [_item("Q5")],
+            "non_stylistic_genres": [_item("Q5")],
         },
         ["Q1", "Q3", "Q5"],
     )
@@ -345,6 +345,6 @@ def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkey
     assert report["remaps"] == []
     assert [(r["key"], r["reason"], r["target"], r["evidence"]["conflictList"]) for r in report["review"]] == [
         ("Q1", "redirect_conflict", "Q1", "main_parent"),
-        ("Q3", "redirect_conflict", "Q5", "umbrella_canonical_genres"),
+        ("Q3", "redirect_conflict", "Q5", "non_stylistic_genres"),
     ]
     assert _read(curation_dir, "main_parent") == []

@@ -48,6 +48,7 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(build, "export_canonical_genre_tree", fake_tree("canonical"))
     monkeypatch.setattr(build, "export_regional_genre_tree", fake_tree("regional"))
     monkeypatch.setattr(build, "genre_match", _fake_genre_match(gold_dir, calls))
+    monkeypatch.setattr(build, "export_umbrella_candidates", lambda *_: calls.append("umbrella_candidates"))
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "export_artists", lambda *_: calls.append("artists"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
@@ -55,7 +56,7 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     path = build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", curation_dir, gold_dir)
     (gold_dir / "m.parquet").unlink()
 
-    assert calls == ["canonical", "regional", "match", "songs", "artists"]
+    assert calls == ["canonical", "regional", "match", "umbrella_candidates", "songs", "artists"]
     manifest = json.loads(path.read_text())
     assert path == gold_dir / "_manifest.json"
     assert manifest["curationExportedOn"] == EXPORTED_ON
@@ -72,6 +73,7 @@ def test_build_gold_raises_on_unknown_essential_track(monkeypatch: pytest.Monkey
     monkeypatch.setattr(build, "export_canonical_genre_tree", lambda *_: None)
     monkeypatch.setattr(build, "export_regional_genre_tree", lambda *_: None)
     monkeypatch.setattr(build, "genre_match", _fake_genre_match(gold_dir, calls))
+    monkeypatch.setattr(build, "export_umbrella_candidates", lambda *_: None)
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 

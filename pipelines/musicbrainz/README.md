@@ -6,7 +6,7 @@ Bronze/Silver ingestion of MusicBrainz recording data — links (YouTube, stream
 
 MusicBrainz stores recordings, their external links (`url`/`l_recording_url`/`link`/`link_type`), and community genre tags (`recording_tag`/`tag`/`genre`). This project ingests those tables as-is (Bronze), then derives a recording ↔ link correspondence and a recording ↔ genre correspondence (Silver), via a Python/Polars/Postgres pipeline. Genre hierarchy construction (root genre → subgenre) is separate, ongoing work in the [`wikidata`](../wikidata/README.md) pipeline of this monorepo — the two pipelines are independent for now, with no cross-pipeline joins yet.
 
-Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosystem, feeding [TheMusicTreeAPI](https://github.com/BehindTheMusicTree/the-music-tree-api), which in turn serves [GrowTheMusicTree](https://github.com/BehindTheMusicTree/grow-the-music-tree-frontend) (community taxonomy curation) and [HearTheMusicTree](https://github.com/BehindTheMusicTree/hear-the-music-tree-api) (genre-aware playlists). musicbrainz does not write to TheMusicTreeAPI directly — it publishes an independent dataset for TheMusicTreeAPI to ingest.
+Part of the [BehindTheMusicTree](https://github.com/BehindTheMusicTree) ecosystem. Its Silver output feeds this monorepo's [`gold`](../gold/README.md) export, which [grow-the-music-tree-api](https://github.com/BehindTheMusicTree/grow-the-music-tree-api) imports to serve [GrowTheMusicTree](https://github.com/BehindTheMusicTree/grow-the-music-tree-frontend). musicbrainz does not write to any API directly.
 
 ## Table of Contents
 
@@ -41,12 +41,7 @@ See [SCHEMA.md](SCHEMA.md) for the data dictionary, source-schema deviations, an
 
 ## Consumers
 
-This repo's output (`recording_link`, `recording_genre`) is an **independent dataset** — musicbrainz does not call or write into any other ecosystem service. It is intended to be ingested by [TheMusicTreeAPI](https://github.com/BehindTheMusicTree/the-music-tree-api), which owns the authoritative `Genre`/`Criteria` hierarchy (parent + root fields, closure table via `CriteriaLineageRel`) served to:
-
-- **[GrowTheMusicTree](https://github.com/BehindTheMusicTree/grow-the-music-tree-frontend)** — community-driven curation of the genre taxonomy
-- **[HearTheMusicTree](https://github.com/BehindTheMusicTree/hear-the-music-tree-api)** — genre intelligence for playlist generation and classification
-
-**Not yet decided:** the publishing format/mechanism for TheMusicTreeAPI to ingest this dataset (e.g. versioned Parquet artifact, CSV export). This is a future integration point, not built yet.
+This repo's Silver output is an **independent dataset** — musicbrainz does not call or write into any other ecosystem service. The [`gold`](../gold/README.md) pipeline of this monorepo reads it, joins it with [`wikidata`](../wikidata/README.md)'s canonical and regional genre hierarchies, and exports the genre trees, songs and artists that [grow-the-music-tree-api](https://github.com/BehindTheMusicTree/grow-the-music-tree-api) imports at seed time. See the gold README for the export format.
 
 ## Data source
 
