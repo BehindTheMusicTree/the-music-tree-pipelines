@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-10-22
+
 ### Breaking
 
 - `curation`: list `umbrella_canonical_genres` renamed `non_stylistic_genres` (same pruning); new list `umbrella_genres` (`item_id, item_label, reason`); `genre_precedence` is now keyed by QIDs (`item_id, over_item_id, reason`). Must ship together with the matching grow-the-music-tree-api release.
