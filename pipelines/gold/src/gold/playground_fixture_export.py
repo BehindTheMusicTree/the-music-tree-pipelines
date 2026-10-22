@@ -56,6 +56,8 @@ def _flatten(
         }
         if "side" in node:
             flat_node["side"] = node["side"]
+        if node.get("isUmbrella"):
+            flat_node["umbrella"] = True
         flat.append(flat_node)
         flat.extend(child_flat)
         subtree_total += item_count

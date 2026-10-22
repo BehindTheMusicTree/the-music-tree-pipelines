@@ -111,6 +111,28 @@ def test_export_playground_fixture_flattens_nested_tree(tmp_path: Path) -> None:
     ]
 
 
+def test_export_playground_fixture_marks_umbrella_nodes(tmp_path: Path) -> None:
+    tree = {
+        **TREE,
+        "tree": [
+            {
+                "id": "Q1",
+                "name": "Electronic",
+                "isUmbrella": True,
+                "children": [{"id": "Q2", "name": "Techno", "children": []}],
+            }
+        ],
+    }
+    tree_path = _write_tree(tmp_path, tree)
+    genre_match_path = _write_genre_match(tmp_path, rows=[])
+
+    result = export_playground_fixture(tree_path, genre_match_path, tmp_path / "genre-tree.json")
+
+    fixture = {node["id"]: node for node in json.loads(result.read_text())}
+    assert fixture["electronic"]["umbrella"] is True
+    assert "umbrella" not in fixture["techno"]
+
+
 def test_export_playground_fixture_rolls_up_item_counts_to_ancestors(tmp_path: Path) -> None:
     tree_path = _write_tree(tmp_path)
     genre_match_path = _write_genre_match(tmp_path)
