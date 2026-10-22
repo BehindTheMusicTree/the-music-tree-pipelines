@@ -167,9 +167,16 @@ def test_read_replication_sequence_returns_current_sequence() -> None:
     assert bm.read_replication_sequence(conn) == 187271
 
 
-def test_read_replication_sequence_raises_without_exactly_one_row() -> None:
+def test_read_replication_sequence_is_none_on_standalone_db() -> None:
     conn = MagicMock()
     conn.cursor.return_value.__enter__.return_value.fetchall.return_value = []
 
-    with pytest.raises(ValueError, match="replication_control has 0 rows"):
+    assert bm.read_replication_sequence(conn) is None
+
+
+def test_read_replication_sequence_raises_on_several_rows() -> None:
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value.fetchall.return_value = [(1,), (2,)]
+
+    with pytest.raises(ValueError, match="replication_control has 2 rows"):
         bm.read_replication_sequence(conn)

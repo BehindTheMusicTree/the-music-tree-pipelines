@@ -57,13 +57,13 @@ def table_query(table: str) -> str:
 
 
 def read_replication_sequence(conn: psycopg.Connection) -> int | None:
-    """The mirror's replication sequence; None on a standalone database, which never replicates."""
+    """The mirror's replication sequence; None on a standalone database (no or a NULL row), which never replicates."""
     with conn.cursor() as cur:
         cur.execute("SELECT current_replication_sequence FROM musicbrainz.replication_control")
         rows = cur.fetchall()
-    if len(rows) != 1:
-        raise ValueError(f"replication_control has {len(rows)} rows, expected 1")
-    return rows[0][0]
+    if len(rows) > 1:
+        raise ValueError(f"replication_control has {len(rows)} rows, expected at most 1")
+    return rows[0][0] if rows else None
 
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
