@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold.playground_fixture_export` emits `umbrella: true` on umbrella nodes, so the genre-tree-view playground fixture shows them.
+
 ## [7.0.0] - 2026-10-22
 
 ### Breaking
