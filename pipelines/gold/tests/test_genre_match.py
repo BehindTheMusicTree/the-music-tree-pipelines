@@ -448,3 +448,36 @@ def test_genre_match_ties_go_to_smallest_item_id(tmp_path: Path) -> None:
     result = _run_genre_match(tmp_path, [{**_song("x"), "genres": [("jazz", 2), ("drum and bass", 2)]}])
 
     assert pl.read_parquet(result).to_dicts()[0]["wikidata_genre_item_id"] == "Q2"
+
+
+def test_genre_match_alias_and_non_genre_apply_across_spellings(tmp_path: Path) -> None:
+    result = _run_genre_match(
+        tmp_path,
+        [_song("D-N-B", title="A"), _song("A S M R", title="B")],
+        alias_rows=[{"musicbrainz_genre_name": "d n b", "wikidata_genre_name": "drum and bass", "reason": "abbr"}],
+        non_genre_rows=[{"musicbrainz_genre_name": "a-s-m-r", "reason": "not a genre"}],
+    )
+
+    rows = {row["title"]: row for row in pl.read_parquet(result).to_dicts()}
+    assert (rows["A"]["wikidata_genre_name"], rows["A"]["match_method"]) == ("drum and bass", "manual_alias")
+    assert (rows["B"]["wikidata_genre_name"], rows["B"]["match_method"]) == (None, "accepted_non_genre")
+
+
+def test_genre_match_raises_on_non_genre_that_normalizes_to_a_label(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="conflict"):
+        _run_genre_match(
+            tmp_path,
+            [_song("Rock")],
+            non_genre_rows=[{"musicbrainz_genre_name": "Jazz Music", "reason": "mistake"}],
+        )
+
+
+def test_genre_match_warns_on_ambiguous_canonical_genre_key(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    hierarchy = [
+        {"item_id": "Q1", "item_label": "dance", "parent_id": None, "is_umbrella": False},
+        {"item_id": "Q2", "item_label": "dance music", "parent_id": None, "is_umbrella": False},
+    ]
+    with caplog.at_level("WARNING"):
+        _run_genre_match(tmp_path, [_song("dance")], hierarchy_rows=hierarchy)
+
+    assert "sharing a genre key" in caplog.text
