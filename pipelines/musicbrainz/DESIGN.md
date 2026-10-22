@@ -2,6 +2,14 @@
 
 Rationale behind the musicbrainz pipeline's derivations. Columns and types live in [SCHEMA.md](SCHEMA.md).
 
+## Bronze refresh
+
+A full Bronze extraction takes 10–20 minutes, while the mirror changes at most once per replication
+packet. `_snapshot.json` records the replication sequence and the per-table queries that produced the
+Parquet files; a run that finds both unchanged, and every file present, keeps them. A query change
+(a new table, a different column projection) re-extracts even at the same sequence. A standalone
+database (the sample dataset) has no replication sequence, so it always re-extracts.
+
 ## Song groups
 
 `5_songs` keeps every recording with a primary artist, collapsed into songs, because the goal is a

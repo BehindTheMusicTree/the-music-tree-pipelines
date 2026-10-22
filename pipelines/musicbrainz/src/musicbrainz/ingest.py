@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -46,6 +47,24 @@ PROJECTED_COLUMNS = {
     "url": ("id", "url"),
 }
 
+# Records which mirror state and queries produced the Parquet files, so a run against an unchanged mirror skips
+# re-extracting them.
+SNAPSHOT_FILENAME = "_snapshot.json"
+
+
+def table_query(table: str) -> str:
+    return f"SELECT {', '.join(PROJECTED_COLUMNS.get(table, ('*',)))} from musicbrainz.{table}"
+
+
+def read_replication_sequence(conn: psycopg.Connection) -> int | None:
+    """The mirror's replication sequence; None on a standalone database, which never replicates."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT current_replication_sequence FROM musicbrainz.replication_control")
+        rows = cur.fetchall()
+    if len(rows) != 1:
+        raise ValueError(f"replication_control has {len(rows)} rows, expected 1")
+    return rows[0][0]
+
 
 def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path:
     if table not in BRONZE_TABLES:
@@ -61,7 +80,7 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
     writer: pq.ParquetWriter | None = None
     with conn.cursor(name=f"bronze_{table}") as cur:
         batches = pl.read_database(
-            f"SELECT {', '.join(PROJECTED_COLUMNS.get(table, ('*',)))} from musicbrainz.{table}",
+            table_query(table),
             cur,
             iter_batches=True,
             batch_size=BATCH_SIZE,
@@ -85,7 +104,24 @@ def ingest_table(conn: psycopg.Connection, table: str, output_dir: Path) -> Path
 
 
 def run_bronze_ingestion(conn: psycopg.Connection, output_dir: Path) -> list[Path]:
-    return [ingest_table(conn, table, output_dir) for table in BRONZE_TABLES]
+    sequence = read_replication_sequence(conn)
+    snapshot = {"replication_sequence": sequence, "queries": {table: table_query(table) for table in BRONZE_TABLES}}
+    snapshot_path = output_dir / SNAPSHOT_FILENAME
+    paths = [output_dir / f"{table}.parquet" for table in BRONZE_TABLES]
+    if (
+        sequence is not None
+        and snapshot_path.exists()
+        and json.loads(snapshot_path.read_text()) == snapshot
+        and all(path.exists() for path in paths)
+    ):
+        logger.info("mirror unchanged since replication sequence %d, keeping existing bronze tables", sequence)
+        return paths
+
+    snapshot_path.unlink(missing_ok=True)
+    paths = [ingest_table(conn, table, output_dir) for table in BRONZE_TABLES]
+    if sequence is not None:
+        snapshot_path.write_text(json.dumps(snapshot))
+    return paths
 
 
 if __name__ == "__main__":
