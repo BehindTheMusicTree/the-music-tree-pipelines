@@ -34,29 +34,9 @@ video is a `pinned` rank-0 candidate, `youtube_video_status` spends budget on pi
 `unplayable_reason` winning over the checked one. `songs_only` reads the same CSV but checks nothing, so a
 newly curated video ships with a null reason until the next full Silver run.
 
-## Genre precedence
+## Genre selection
 
-`5_songs` keeps one genre per song. Picking by `recording_genre.weight` alone lets broad tags
-win systematically, because they collect more votes than precise ones (staging data: pop beat pop
-rock 659 times, rock beat classic rock 330 times, and reggae/dub beat ska on all 13 ska recordings,
-leaving ska with no songs).
-
-`manual_genre_precedence.csv` (curated in grow-the-music-tree-api's `genre_precedence` list, pulled
-into `CURATION_BRONZE_DIR` by the `curation` pipeline) lists `(musicbrainz_genre_name,
-over_musicbrainz_genre_name, reason)` rules: when a song carries both genres, the more precise
-`musicbrainz_genre_name` wins. Names are MusicBrainz `genre.name` values.
-
-Before the weight pick, per song (weights summed across its recordings):
-
-- Rules apply transitively (ska over reggae, reggae over dub, so ska over dub too).
-- Every genre beaten by another genre on the same song is dropped.
-- Each surviving winner's weight becomes the max of its own weight and the weights of the genres it
-  beat, so the precise genre also beats unrelated genres the broad one would have beaten.
-- The usual rule then applies: highest weight, ties go to the lowest `genre_id`.
-
-The run fails fast on a self-pair, on a cycle of any length, on a blank name, and on a name absent
-from Bronze `genre.parquet`. grow-api accepts reversed and longer cycles and untrimmed names (such as
-`"ska "`), so the pipeline is the guard.
+`5_songs` carries no genre. `10_song_genre` emits every genre tag of a song with its summed weight, and `gold` picks one (curated precedence and the lineage rule) once the tags are resolved against the canonical tree — see `pipelines/gold/DESIGN.md#genre-precedence-and-lineage`.
 
 ## First release year
 

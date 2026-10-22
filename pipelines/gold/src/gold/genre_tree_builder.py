@@ -155,6 +155,7 @@ def build_genre_tree(
     secondary_parents: dict[str, list[str]] | None = None,
     external_ids: set[str] | None = None,
     unaccepted_root_ids: set[str] | None = None,
+    umbrella_ids: set[str] | None = None,
     essential_tracks: dict[str, list[str]] | None = None,
     summaries: dict[str, str | None] | None = None,
     descriptions: dict[str, dict[str, str | None]] | None = None,
@@ -200,12 +201,21 @@ def build_genre_tree(
     summary_by_item = summaries or {}
     description_by_item = descriptions or {}
 
+    umbrellas = umbrella_ids or set()
+    childless_umbrellas = sorted(item_id for item_id in umbrellas if not children_by_parent.get(item_id))
+    if childless_umbrellas:
+        raise ValueError(
+            f"umbrella genre(s) without children, their songs would have no subgenre: {childless_umbrellas}"
+        )
+
     def build_node(item_id: str) -> dict:
         node = {
             "id": item_id,
             "name": display_labels_by_id[item_id],
             "children": [build_node(child_id) for child_id in children_by_parent.get(item_id, [])],
         }
+        if item_id in umbrellas:
+            node["isUmbrella"] = True
         for key, parents_by_item in extra_parents.items():
             if item_id in parents_by_item:
                 node[key] = parents_by_item[item_id]

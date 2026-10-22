@@ -11,6 +11,7 @@ from musicbrainz.silver.artist_release_groups import artist_release_groups
 from musicbrainz.silver.artists import artists
 from musicbrainz.silver.recording_genre import recording_genre
 from musicbrainz.silver.recording_link import recording_link
+from musicbrainz.silver.song_genre import song_genre
 from musicbrainz.silver.songs import songs, youtube_candidates
 from musicbrainz.silver.youtube_video_status import youtube_video_status
 
@@ -30,10 +31,10 @@ songs(
     bronze_dir,
     silver_dir,
     silver_dir,
-    curation_dir / "manual_genre_precedence.csv",
     curation_dir / "manual_recording_youtube_video.csv",
 )
 artists(bronze_dir, silver_dir)
 artist_members(bronze_dir, silver_dir)
 artist_links(bronze_dir, silver_dir)
 artist_release_groups(bronze_dir, silver_dir)
+song_genre(bronze_dir, silver_dir, silver_dir)

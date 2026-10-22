@@ -24,7 +24,7 @@ The remaining ~17% splits between real naming-convention mismatches (fixable via
 `genre_match` tags each row with a `match_method`, trying each of the following in order and stopping
 at the first that succeeds:
 
-0. `no_genre` — the song has no `genre_name` (none of its recordings carries a genre tag). Kept with
+0. `no_genre` — the song has no tag in `10_song_genre` (none of its recordings carries a genre tag). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
 2. `music_suffix` — same, after stripping a trailing `" music"` from the musicbrainz name (covers the
@@ -34,6 +34,35 @@ at the first that succeeds:
    permanent-noise list. Kept in the output (not dropped) with a `null` `wikidata_genre_name`, for
    audit visibility — a reviewer can see it was triaged, not silently missed.
 5. `unmatched` — anything left. **Not a hard failure.**
+
+The cascade runs per distinct tag name of `10_song_genre`. A song's resolved tags are summed per canonical
+`item_id` (several MusicBrainz tags can resolve to one item), then precedence applies (next section). An
+unresolved tag never wins: the best resolved item does, and the song's `match_method` is that item's
+method (else the top unresolved tag's method, else `no_genre`).
+
+## Genre precedence and lineage
+
+Picking by weight alone lets broad tags win systematically (pop beat pop rock 659 times on staging, rock
+beat classic rock 330 times, reggae/dub beat ska on all 13 ska recordings). Per song, after resolution:
+
+- **Lineage**: a descendant beats its ancestors. Edges are the primary parents of
+  `7_canonical_hierarchy` plus the secondary parents of `5_secondary_parents` (so pop rock beats pop).
+- **Manual precedence**: `manual_genre_precedence.csv` (`item_id, over_item_id, reason`, QIDs) adds rules for
+  pairs the tree does not relate (ska over reggae).
+- Rules close transitively; every genre beaten by another on the same song is dropped, and each
+  surviving winner's weight becomes the max of its own and the beaten genres' weights.
+- The highest weight wins; ties go to the smallest `item_id`.
+
+The run fails on a self-pair, a cycle (a manual pair reversing a lineage included), or an id absent from
+the canonical hierarchy.
+
+## Umbrella genres
+
+A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`) keeps it: the genre
+stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
+A `manual_recording_genre.csv` row targeting an umbrella raises, mirroring grow's refusal.
+`1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
+as triage for the `umbrella_genres` curation list.
 
 ## Why `unmatched` is a soft warning, not a raise
 
@@ -45,8 +74,7 @@ daily Gold run on every new unmatched name would make the pipeline fragile for n
 tag alias doesn't corrupt the tree or the songs export, it just means fewer songs get a resolved genre
 this run (they're still exported, with a null genre).
 
-Instead, `genre_match` logs a warning and writes every unmatched `(genre_name, title, artist,
-youtube_video_id)` combination to `1_genre_match_unresolved.csv` every run (even when empty) — a durable,
+Instead, `genre_match` logs a warning and writes every unmatched tag name with its song and weight totals to `1_genre_match_unresolved.csv` every run (even when empty) — a durable,
 human-scannable triage surface. A data expert reviews it and promotes each name into
 `manual_genre_alias.csv` (real genre, different name) or `manual_accepted_non_genre_tags.csv` (permanent
 noise), same closing-the-loop shape as `wikidata`'s manual-CSV backstops, just non-blocking.

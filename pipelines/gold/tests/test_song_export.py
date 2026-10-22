@@ -82,7 +82,12 @@ def _write_silver(tmp_path: Path) -> Path:
     silver_dir = tmp_path / "wikidata_silver"
     silver_dir.mkdir(exist_ok=True)
     pl.DataFrame(
-        {"item_id": ["Q1", "Q2"], "item_label": ["rock", "punk"], "item_display_label": [None, "Punk"]},
+        {
+            "item_id": ["Q1", "Q2", "Q3"],
+            "item_label": ["rock", "punk", "techno"],
+            "item_display_label": [None, "Punk", None],
+            "is_umbrella": [False, False, True],
+        },
         schema_overrides={"item_display_label": pl.Utf8},
     ).write_parquet(silver_dir / "7_canonical_hierarchy.parquet")
     pl.DataFrame({"item_id": ["Q10"], "item_label": ["samba"]}).write_parquet(
@@ -243,6 +248,7 @@ def test_export_songs_applies_recording_genre_overrides(
             "malformed",
         ),
         ("recording_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
+        ("recording_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q3", "reason": "x"}, "umbrella"),
         ("recording_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
     ],
 )

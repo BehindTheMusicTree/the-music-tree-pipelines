@@ -391,6 +391,7 @@ run earlier, in `2_non_genre_pruning` — see
 | parent_display_label | str? | Same as in `1_item_links`, for `parent_id`, or null |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
 | relation_type | str? | `"P279"`, `"P361"`, or `"manual_main_parent"` — which property/source produced this edge, or null for a root row |
+| is_umbrella | bool | `true` when `item_id` is in `manual_umbrella_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
 
 Genre items with zero surviving rows in _either_ this output or `8_regional_hierarchy` (the silent
 vanish) are all non-regional, i.e. every one is an "opera"-shaped item, not a regional one. See

@@ -6,6 +6,7 @@ import polars as pl
 from jsonschema import ValidationError, validate
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
+from gold.genre_precedence import apply_precedence, precedence_closure
 
 GENRE_MATCH_REPORT_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_match_report.schema.json"
 
@@ -86,57 +87,21 @@ def _validate_manual_accepted_non_genre_tags(
         )
 
 
-def genre_match(
-    songs_path: Path,
-    canonical_hierarchy_path: Path,
-    manual_genre_alias_path: Path,
-    manual_accepted_non_genre_tags_path: Path,
-    output_dir: Path,
-) -> Path:
-    logger.info("matching %s genres against %s", songs_path, canonical_hierarchy_path)
-    songs = pl.read_parquet(songs_path)
-    hierarchy = pl.read_parquet(canonical_hierarchy_path)
+METHOD_RANK = {"exact": 0, "music_suffix": 1, "manual_alias": 2}
 
-    check_non_empty(songs, songs_path.name)
-    check_non_empty(hierarchy, canonical_hierarchy_path.name)
-    check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
 
-    is_malformed = ~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN)
-    malformed_video_id = songs.filter(is_malformed)
-    if not malformed_video_id.is_empty():
-        logger.warning(
-            "%d song(s) with a malformed youtube_video_id, video cleared before genre matching: %s",
-            malformed_video_id.height,
-            sorted(set(malformed_video_id.select("youtube_video_id").to_series())),
-        )
-        songs = songs.with_columns(
-            pl.when(is_malformed).then(None).otherwise(pl.col(column)).alias(column)
-            for column in ("youtube_video_id", "youtube_unplayable_reason")
-        )
-
-    canonical_labels = set(hierarchy.select("item_label").unique().to_series())
-    canonical_lookup = {label.lower(): label for label in canonical_labels}
-
-    alias_df = pl.read_csv(manual_genre_alias_path)
-    non_genre_df = pl.read_csv(manual_accepted_non_genre_tags_path)
-    _validate_manual_genre_alias(alias_df, canonical_lookup, canonical_labels, manual_genre_alias_path.name)
-    alias_lower = {row["musicbrainz_genre_name"].lower() for row in alias_df.iter_rows(named=True)}
-    _validate_manual_accepted_non_genre_tags(
-        non_genre_df, canonical_lookup, alias_lower, manual_accepted_non_genre_tags_path.name
-    )
-
-    alias_lookup = {
-        row["musicbrainz_genre_name"].lower(): row["wikidata_genre_name"] for row in alias_df.iter_rows(named=True)
-    }
-    non_genre_set = set(non_genre_df.select("musicbrainz_genre_name").to_series().str.to_lowercase())
-
-    matched = (
-        songs.with_columns(
-            genre_lower=pl.col("genre_name").str.to_lowercase(),
-        )
-        .with_columns(
-            genre_suffix_stripped=pl.col("genre_lower").str.replace(_MUSIC_SUFFIX_PATTERN, ""),
-        )
+def _resolve_tags(
+    tag_names: pl.DataFrame,
+    item_id_by_label: dict[str, str],
+    canonical_lookup: dict[str, str],
+    alias_lookup: dict[str, str],
+    non_genre_set: set[str],
+) -> pl.DataFrame:
+    """One row per distinct tag name: `(genre_name, item_id, method)`, `method` being the first cascade step
+    that resolves it, else `accepted_non_genre` / `unmatched` (null `item_id`)."""
+    return (
+        tag_names.with_columns(genre_lower=pl.col("genre_name").str.to_lowercase())
+        .with_columns(genre_suffix_stripped=pl.col("genre_lower").str.replace(_MUSIC_SUFFIX_PATTERN, ""))
         .with_columns(
             exact_match=pl.col("genre_lower").replace_strict(canonical_lookup, default=None, return_dtype=pl.Utf8),
             suffix_match=pl.col("genre_suffix_stripped").replace_strict(
@@ -146,10 +111,8 @@ def genre_match(
             is_non_genre=pl.col("genre_lower").is_in(list(non_genre_set)),
         )
         .with_columns(
-            wikidata_genre_name=pl.coalesce("exact_match", "suffix_match", "alias_match"),
-            match_method=pl.when(pl.col("genre_name").is_null())
-            .then(pl.lit("no_genre"))
-            .when(pl.col("exact_match").is_not_null())
+            label=pl.coalesce("exact_match", "suffix_match", "alias_match"),
+            method=pl.when(pl.col("exact_match").is_not_null())
             .then(pl.lit("exact"))
             .when(pl.col("suffix_match").is_not_null())
             .then(pl.lit("music_suffix"))
@@ -160,37 +123,142 @@ def genre_match(
             .otherwise(pl.lit("unmatched")),
         )
         .select(
+            "genre_name",
+            item_id=pl.col("label").replace_strict(item_id_by_label, default=None, return_dtype=pl.Utf8),
+            method="method",
+        )
+    )
+
+
+def genre_match(
+    songs_path: Path,
+    song_genre_path: Path,
+    canonical_hierarchy_path: Path,
+    secondary_parents_path: Path,
+    manual_genre_alias_path: Path,
+    manual_accepted_non_genre_tags_path: Path,
+    manual_genre_precedence_path: Path,
+    output_dir: Path,
+) -> Path:
+    logger.info("matching %s genres against %s", song_genre_path, canonical_hierarchy_path)
+    songs = pl.scan_parquet(songs_path)
+    hierarchy = pl.read_parquet(canonical_hierarchy_path)
+
+    check_non_empty(songs.head(1).collect(), songs_path.name)
+    check_non_empty(hierarchy, canonical_hierarchy_path.name)
+    check_null_rate(hierarchy, "item_label", canonical_hierarchy_path.name)
+
+    is_malformed = ~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN)
+    malformed_ids = sorted(set(songs.filter(is_malformed).select("youtube_video_id").collect().to_series()))
+    if malformed_ids:
+        logger.warning("malformed youtube_video_id(s), video cleared before genre matching: %s", malformed_ids)
+        songs = songs.with_columns(
+            pl.when(is_malformed).then(None).otherwise(pl.col(column)).alias(column)
+            for column in ("youtube_video_id", "youtube_unplayable_reason")
+        )
+
+    item_id_by_label = dict(
+        hierarchy.sort("item_id")
+        .unique(subset="item_label", keep="first", maintain_order=True)
+        .select("item_label", "item_id")
+        .iter_rows()
+    )
+    canonical_labels = set(item_id_by_label)
+    canonical_lookup = {label.lower(): label for label in canonical_labels}
+
+    alias_df = pl.read_csv(manual_genre_alias_path)
+    non_genre_df = pl.read_csv(manual_accepted_non_genre_tags_path)
+    _validate_manual_genre_alias(alias_df, canonical_lookup, canonical_labels, manual_genre_alias_path.name)
+    alias_lower = {row["musicbrainz_genre_name"].lower() for row in alias_df.iter_rows(named=True)}
+    _validate_manual_accepted_non_genre_tags(
+        non_genre_df, canonical_lookup, alias_lower, manual_accepted_non_genre_tags_path.name
+    )
+    alias_lookup = {
+        row["musicbrainz_genre_name"].lower(): row["wikidata_genre_name"] for row in alias_df.iter_rows(named=True)
+    }
+    non_genre_set = set(non_genre_df.select("musicbrainz_genre_name").to_series().str.to_lowercase())
+
+    song_genre = pl.scan_parquet(song_genre_path)
+    resolution = _resolve_tags(
+        song_genre.select("genre_name").unique().collect(),
+        item_id_by_label,
+        canonical_lookup,
+        alias_lookup,
+        non_genre_set,
+    )
+    tags = song_genre.join(resolution.lazy(), on="genre_name")
+
+    resolved = (
+        tags.filter(pl.col("item_id").is_not_null())
+        .with_columns(method_rank=pl.col("method").replace_strict(METHOD_RANK, return_dtype=pl.UInt8))
+        .group_by("musicbrainz_recording_id", "item_id")
+        .agg(pl.col("weight").sum(), pl.col("method_rank").min())
+    )
+    closure = precedence_closure(hierarchy, secondary_parents_path, manual_genre_precedence_path)
+    best = (
+        apply_precedence(resolved, closure)
+        .sort(["weight", "item_id"], descending=[True, False])
+        .group_by("musicbrainz_recording_id")
+        .first()
+        .select(
+            "musicbrainz_recording_id",
+            "item_id",
+            resolved_method=pl.col("method_rank").replace_strict(dict(enumerate(METHOD_RANK)), return_dtype=pl.Utf8),
+        )
+    )
+    leftover = (
+        tags.filter(pl.col("item_id").is_null())
+        .sort(["weight", "genre_name"], descending=[True, False])
+        .group_by("musicbrainz_recording_id")
+        .first()
+        .select("musicbrainz_recording_id", leftover_method="method")
+    )
+    labels = hierarchy.select("item_id", wikidata_genre_name="item_label", is_umbrella=pl.col("is_umbrella"))
+    matched = (
+        songs.join(best, on="musicbrainz_recording_id", how="left")
+        .join(leftover, on="musicbrainz_recording_id", how="left")
+        .join(labels.lazy(), on="item_id", how="left")
+        .select(
             "musicbrainz_recording_id",
             "title",
             "artist",
             "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
-            "genre_name",
             "first_release_year",
             "wikidata_genre_name",
-            "match_method",
+            wikidata_genre_item_id="item_id",
+            is_umbrella=pl.col("is_umbrella").fill_null(False),
+            match_method=pl.coalesce("resolved_method", "leftover_method", pl.lit("no_genre")),
         )
     )
-
-    # genre_match is a per-row lookup, not a join — height must stay exactly equal to `songs`; any
-    # drift would mean a future change accidentally turned this into a fan-out/fan-in join.
-    check_row_count_delta(songs.height, matched.height, "genre_match")
-
-    unresolved = matched.filter(pl.col("match_method") == "unmatched").select(
-        "genre_name", "title", "artist", "youtube_video_id"
-    )
-    distinct_names = sorted(set(unresolved.select("genre_name").to_series()))
-    if distinct_names:
-        logger.warning(
-            "%d unmatched genre name(s), see 1_genre_match_unresolved.csv: %s", len(distinct_names), distinct_names
-        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "1_genre_match.parquet"
+    matched.sink_parquet(output_path)
+
+    # genre_match is a per-song lookup, not a join — the row count must stay exactly equal to `songs`; any
+    # drift would mean a future change accidentally turned this into a fan-out/fan-in join.
+    song_count = songs.select(pl.len()).collect().item()
+    check_row_count_delta(song_count, pl.scan_parquet(output_path).select(pl.len()).collect().item(), "genre_match")
+
+    unresolved = (
+        tags.filter(pl.col("method") == "unmatched")
+        .group_by("genre_name")
+        .agg(song_count=pl.len(), weight_sum=pl.col("weight").sum())
+        .sort(["song_count", "genre_name"], descending=[True, False])
+        .collect()
+    )
+    if not unresolved.is_empty():
+        logger.warning(
+            "%d unmatched genre name(s), see 1_genre_match_unresolved.csv: %s",
+            unresolved.height,
+            unresolved["genre_name"].to_list(),
+        )
     unresolved_path = output_dir / "1_genre_match_unresolved.csv"
     unresolved.write_csv(unresolved_path)
 
-    report = {"unresolvedGenreTagCount": len(distinct_names)}
+    report = {"unresolvedGenreTagCount": unresolved.height}
     schema = json.loads(GENRE_MATCH_REPORT_SCHEMA_PATH.read_text())
     try:
         validate(report, schema)
@@ -198,9 +266,11 @@ def genre_match(
         raise ValueError(f"genre match report failed schema validation ({GENRE_MATCH_REPORT_SCHEMA_PATH}): {e.message}")
     (output_dir / "1_genre_match_report.json").write_text(json.dumps(report, indent=2))
 
-    output_path = output_dir / "1_genre_match.parquet"
-    matched.write_parquet(output_path)
     logger.info(
-        "wrote %d rows to %s (%d unresolved, see %s)", matched.height, output_path, unresolved.height, unresolved_path
+        "wrote %d rows to %s (%d unresolved tag(s), see %s)",
+        song_count,
+        output_path,
+        unresolved.height,
+        unresolved_path,
     )
     return output_path

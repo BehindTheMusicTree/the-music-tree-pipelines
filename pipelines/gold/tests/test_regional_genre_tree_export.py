@@ -27,7 +27,9 @@ def _write_silver(tmp_path: Path, secondary_rows: list[dict[str, str]] | None = 
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet")
-    pl.DataFrame(CANONICAL_ROWS).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pl.DataFrame([{**row, "is_umbrella": False} for row in CANONICAL_ROWS]).write_parquet(
+        wikidata_silver_dir / "7_canonical_hierarchy.parquet"
+    )
     pl.DataFrame(secondary_rows or [], schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(
         wikidata_silver_dir / "5_secondary_parents.parquet"
     )
