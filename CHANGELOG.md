@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.0.0] - 2026-10-26
+
 ### Changed
 
 - **Breaking** (deploy with grow-the-music-tree-api 13.2.0): curation lists `recording_genre` and `essential_tracks` are now `song_genre` and `essential_songs` (CSVs `manual_song_genre.csv`, `manual_essential_songs.csv`), and the genre tree node key `essentialTracks` is now `essentialSongs`.
