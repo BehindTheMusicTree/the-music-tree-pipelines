@@ -33,6 +33,8 @@ def artists(bronze_dir: Path, output_dir: Path) -> Path:
         .select(
             musicbrainz_artist_id="gid",
             name="name",
+            sort_name="sort_name",
+            disambiguation=pl.when(pl.col("comment") != "").then(pl.col("comment")),
             type="type_name",
             country="country",
             begin_year="begin_date_year",

@@ -16,6 +16,8 @@
     "begin_year",
     "end_year",
     "ended",
+    "disambiguation",
+    "aliases",
     "members",
     "links",
     "release_groups"
@@ -28,6 +30,8 @@
     "begin_year": { "$ref": "#/$defs/year" },
     "end_year": { "$ref": "#/$defs/year" },
     "ended": { "type": "boolean" },
+    "disambiguation": { "type": ["string", "null"], "minLength": 1 },
+    "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "members": {
       "type": "array",
       "items": {

@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `musicbrainz` ingests `artist_alias`; Silver `6_artists` gains `sort_name` and `disambiguation` and `11_artist_aliases` is new. Gold `3_artists` rows carry `disambiguation` and `aliases` (alias names and sort names, plus the artist sort name, minus the display name) for grow's artist search. Requires grow-the-music-tree-api with `Artist.disambiguation`/`ArtistAlias` (already deployed); tested.
 - `geohistory` Silver applies three curation lists from grow-api (`entity_exclusions`, `entity_membership_overrides`, `entity_time_span_overrides`), pulled by `curation` and read through the new `CURATION_BRONZE_DIR`; deploy after grow-the-music-tree-api's `feature/geohistory-curation`, otherwise `curation.ingest` raises on the missing lists.
 - `geohistory` pipeline: Bronze `glottolog_languoid.parquet` from the pinned Glottolog CLDF release (`GLOTTOLOG_CLDF_VERSION`).
 - `wikidata` Bronze writes `wikidata_cultural_entity.parquet` (languoids, archaeological cultures, historical countries) and `wikidata_cultural_entity_claim.parquet` (dates, succession, part-of, coordinates).
