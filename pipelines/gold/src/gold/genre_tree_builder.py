@@ -101,8 +101,8 @@ def apply_secondary_parent_rules(
     """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
     dropping the `remove`d ones. `ref_ids` are the parents this tree's import can resolve. An `add` to an
     unresolvable parent, to the item itself or duplicating its main parent (`hierarchy`) raises; a
-    `remove` of an unresolvable parent is ignored (`edges` never hold one); any other `remove` matching
-    no edge raises as stale."""
+    `remove` of an unresolvable parent or of the item's main parent is ignored (`edges` never hold either;
+    the latter is satisfied while that parent is main); any other `remove` matching no edge raises as stale."""
     added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
     bad_adds = {
         "to a parent outside this tree's resolvable set": added.filter(~pl.col("parent_id").is_in(list(ref_ids))),
@@ -124,6 +124,14 @@ def apply_secondary_parent_rules(
             unresolvable.rows(),
         )
         removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
+    of_main = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
+    if not of_main.is_empty():
+        logger.info(
+            "ignoring %d manual_secondary_parents.csv removal(s) of the item's main parent: %s",
+            of_main.height,
+            of_main.rows(),
+        )
+        removed = removed.join(of_main, on=["item_id", "parent_id"], how="anti")
     stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
     if not stale.is_empty():
         raise ValueError(
