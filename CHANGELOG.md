@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking** (deploy with grow-the-music-tree-api 13.2.0): curation lists `recording_genre` and `essential_tracks` are now `song_genre` and `essential_songs` (CSVs `manual_song_genre.csv`, `manual_essential_songs.csv`), and the genre tree node key `essentialTracks` is now `essentialSongs`.
 - **Breaking** (deploy with grow-the-music-tree-api's `feature/curation-drop-derived-labels`): curation lists no longer carry derived names. `item_label`, `parent_label` and `recording_label` are dropped from every list; `manual_canonical_parent_additions.csv` and `manual_regional_overview_additions.csv` name their new node in `label`, and `manual_overview_reclassifications.csv` no longer checks a name against Bronze. Names are resolved from the item catalog instead.
 
+### Fixed
+
+- `gold` no longer raises when `manual_secondary_parents.csv` removes an edge that is now the item's main parent (a `main_parent` rule promoted it); the removal is satisfied, logged and kept for if the main parent moves away.
+
 ### Added
 
 - `wikidata` Bronze cultural entities also pull modern countries and cultural regions, and `geohistory` Silver turns them into entities (the most specific kind wins for an item matching several).
