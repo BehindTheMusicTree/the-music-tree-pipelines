@@ -58,12 +58,12 @@ Read from `CURATION_BRONZE_DIR` (curation pipeline's Bronze output) — see [DES
 
 **`manual_canonical_genre_pop_side.csv`**: `root_genre_name, pop_child_genre_name, reason` — for a canonical root, which direct child(ren) are `the-music-tree-genre-kit`'s "pop" side; a root may have zero, one, or several pop children (one row each), but at least one direct child must remain "core".
 
-**`manual_secondary_parents.csv`**: `item_id, parent_id, action, item_label, parent_label, reason` — `action` `add` or `remove`. Ids are `Q…` or `LOCAL:…`.
+**`manual_secondary_parents.csv`**: `item_id, parent_id, action, reason` — `action` `add` or `remove`. Ids are `Q…` or `LOCAL:…`.
 
 **`manual_essential_tracks.csv`**: `item_id, musicbrainz_recording_id, position, reason` — `position` unique per item.
 
 **`manual_summary_overrides.csv`**: `item_id, summary, reason` — a genre's `summary`; a blank `summary` suppresses the Wikipedia intro (no `summary`, no `summarySourceUrl`).
 
-**`manual_recording_genre.csv`**: `musicbrainz_recording_id, genre_item_id, recording_label, reason` — replaces a song's computed genre (takes precedence over `manual_genre_precedence.csv`); empty `genre_item_id` makes it genreless.
+**`manual_recording_genre.csv`**: `musicbrainz_recording_id, genre_item_id, reason` — replaces a song's computed genre (takes precedence over `manual_genre_precedence.csv`); empty `genre_item_id` makes it genreless.
 
 All four raise on a blank required value, a malformed id, a duplicate key, an `item_id`/`genre_item_id` in neither tree, or (recording lists) a recording not in the songs.

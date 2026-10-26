@@ -84,17 +84,17 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
     blank = manual_additions.filter(
         pl.col("item_id").is_null()
         | (pl.col("item_id").str.strip_chars() == "")
-        | pl.col("item_label").is_null()
-        | (pl.col("item_label").str.strip_chars() == "")
+        | pl.col("label").is_null()
+        | (pl.col("label").str.strip_chars() == "")
     )
     if not blank.is_empty():
         raise ValueError(
-            "manual_canonical_parent_additions.csv rows must not have a blank item_id or item_label: "
+            "manual_canonical_parent_additions.csv rows must not have a blank item_id or label: "
             f"{blank.select('item_id').to_series().to_list()}"
         )
 
     manual_additions = manual_additions.with_columns(
-        item_id=pl.col("item_id").str.strip_chars(), item_label=pl.col("item_label").str.strip_chars()
+        item_id=pl.col("item_id").str.strip_chars(), label=pl.col("label").str.strip_chars()
     )
 
     non_local = manual_additions.filter(~pl.col("item_id").str.starts_with(LOCAL_ID_PREFIX))
@@ -117,7 +117,8 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
         )
 
     added = manual_additions.with_columns(
-        item_display_label=pl.col("item_label"),
+        item_label=pl.col("label"),
+        item_display_label=pl.col("label"),
         parent_id=pl.lit(None, dtype=pl.Utf8),
         parent_label=pl.lit(None, dtype=pl.Utf8),
         parent_display_label=pl.lit(None, dtype=pl.Utf8),
@@ -417,7 +418,7 @@ def classify_regional_genres(
     manual_overrides = pl.read_csv(manual_overrides_path)
     manual_override_ids = set(manual_overrides.select("item_id").unique().to_series())
     df = _apply_overview_overrides(df, manual_overrides)
-    manual_canonical_additions_schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
+    manual_canonical_additions_schema = {"item_id": pl.Utf8, "label": pl.Utf8, "reason": pl.Utf8}
     df = _add_manual_canonical_parent_items(
         df, pl.read_csv(manual_canonical_parent_additions_path, schema_overrides=manual_canonical_additions_schema)
     )
