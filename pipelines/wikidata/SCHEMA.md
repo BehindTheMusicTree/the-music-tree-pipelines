@@ -182,7 +182,7 @@ item can appear under several kinds, and under several Glottocodes (e.g. Limburg
 | ---------- | ---- | ---------------------------------------------------------------------------------------------------- |
 | item_id    | str  | Wikidata QID (e.g. `Q12107`)                                                                         |
 | item_label | str  | English/`mul`-fallback label                                                                         |
-| kind       | str  | `languoid` (has `P1394`), `archaeological_culture` (`P31/P279*` `Q465299`) or `historical_country` (`P31/P279*` `Q3024240`) |
+| kind       | str  | `languoid` (has `P1394`), `archaeological_culture` (`P31/P279*` `Q465299`), `historical_country` (`P31/P279*` `Q3024240`) or `time_period` (the `P2348` targets of the two previous kinds, a date fallback and no entity of its own) |
 | glottocode | str? | `P1394` Glottocode for `languoid` rows, null otherwise                                               |
 
 As of this writing: 18,276 rows (languoid 11,925, historical_country 5,026, archaeological_culture 1,325).

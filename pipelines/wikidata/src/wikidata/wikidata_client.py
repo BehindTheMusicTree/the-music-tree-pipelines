@@ -121,12 +121,17 @@ CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 
 # Which items belong to each cultural-entity kind. An item can match several kinds (a historical
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
-# so ingestion keeps one row per (item, kind, glottocode). Ethnic groups
+# so ingestion keeps one row per (item, kind, glottocode). time_period items are the P2348 targets of the
+# archaeological cultures and historical countries: they are no entities, only a date fallback. Ethnic groups
 # (Q41710, ~80k items) are deliberately absent: too broad to pull wholesale, they are added on demand.
 CULTURAL_ENTITY_KIND_PATTERNS = {
     "languoid": "?item wdt:P1394 ?glottocode .",
     "archaeological_culture": f"?item wdt:P31/wdt:P279* wd:{ARCHAEOLOGICAL_CULTURE_QID} .",
     "historical_country": f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_COUNTRY_QID} .",
+    "time_period": (
+        f"VALUES ?class {{ wd:{ARCHAEOLOGICAL_CULTURE_QID} wd:{HISTORICAL_COUNTRY_QID} }} "
+        "?source wdt:P31/wdt:P279* ?class ; wdt:P2348 ?item ."
+    ),
 }
 
 # Claim properties that date, locate, or relate a cultural entity. P571/P576 = inception/dissolution,

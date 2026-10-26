@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `geohistory` pipeline: Bronze `glottolog_languoid.parquet` from the pinned Glottolog CLDF release (`GLOTTOLOG_CLDF_VERSION`).
 - `wikidata` Bronze writes `wikidata_cultural_entity.parquet` (languoids, archaeological cultures, historical countries) and `wikidata_cultural_entity_claim.parquet` (dates, succession, part-of, coordinates).
+- `geohistory` Silver: `1_cultural_entity` (+ Wikidata crosswalk), `2_entity_membership`, `3_entity_succession` and `4_entity_time_span`, run by `python -m geohistory.silver`.
+- `wikidata` Bronze ingests the `time_period` targets of cultures and countries (`P2348`) so their dates can back entity dates.
 - `wikidata` Silver writes `curation_items.json` (every Bronze item, pruned ones included, with its label) for grow-the-music-tree-api's curation item catalog, tested in `test_curation_items.py`.
 
 ## [7.2.0] - 2026-10-22

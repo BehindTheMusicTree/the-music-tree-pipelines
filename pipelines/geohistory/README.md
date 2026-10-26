@@ -12,4 +12,5 @@ ingested by `wikidata`. See `DESIGN.md` and `SCHEMA.md`.
 ```sh
 cp .env.example .env
 uv run --package geohistory python -m geohistory.ingest
+uv run --package geohistory python -m geohistory.silver
 ```

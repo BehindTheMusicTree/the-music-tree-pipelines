@@ -290,3 +290,11 @@ def test_cultural_entity_claim_query_reads_date_precision_and_skips_deprecated_s
     assert "DeprecatedRank" in date_query
     assert "?item wdt:P1366 ?value ." in item_query
     assert "precision" not in item_query.split("WHERE", 1)[1]
+
+
+def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countries() -> None:
+    period = wikidata_client.cultural_entity_query("time_period")
+
+    assert "wdt:P2348 ?item" in period
+    assert "wd:Q465299" in period
+    assert "wd:Q3024240" in period
