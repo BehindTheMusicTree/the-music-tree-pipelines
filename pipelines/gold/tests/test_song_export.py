@@ -220,11 +220,11 @@ def test_export_songs_raises_on_malformed_musicbrainz_recording_id(tmp_path: Pat
         export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
 
 
-def test_export_songs_applies_recording_genre_overrides(
+def test_export_songs_applies_song_genre_overrides(
     tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
 ) -> None:
     write_curation(
-        "recording_genre",
+        "song_genre",
         [
             {"musicbrainz_recording_id": _mbid(0), "genre_item_id": None, "reason": "genreless"},
             {"musicbrainz_recording_id": _mbid(2), "genre_item_id": "Q2", "reason": "x"},
@@ -243,13 +243,13 @@ def test_export_songs_applies_recording_genre_overrides(
     ("name", "row", "match"),
     [
         (
-            "recording_genre",
+            "song_genre",
             {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "rock", "reason": "x"},
             "malformed",
         ),
-        ("recording_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
-        ("recording_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q3", "reason": "x"}, "umbrella"),
-        ("recording_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
+        ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
+        ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q3", "reason": "x"}, "umbrella"),
+        ("song_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
     ],
 )
 def test_export_songs_raises_on_bad_recording_override(
