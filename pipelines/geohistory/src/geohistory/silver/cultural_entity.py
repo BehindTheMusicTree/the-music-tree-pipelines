@@ -9,7 +9,16 @@ from geohistory.silver.curation import read_curation_list
 logger = logging.getLogger(__name__)
 
 EXCLUDED_CATEGORIES = ("Bookkeeping", "Sign_Language", "Artificial_Language")
-WIKIDATA_ENTITY_KINDS = ("archaeological_culture", "historical_country", "country", "cultural_region")
+WIKIDATA_ENTITY_KINDS = (
+    "archaeological_culture",
+    "civilization",
+    "historical_country",
+    "country",
+    "historical_region",
+    "ethnic_group",
+    "cultural_region",
+    "macro_region",
+)
 _NUMBER = r"-?[\d.]+(?:[eE][-+]?\d+)?"
 POINT_PATTERN = rf"^Point\(({_NUMBER}) ({_NUMBER})\)$"
 

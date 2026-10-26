@@ -47,8 +47,8 @@ One row per cultural entity. `entity_id` is unique. Profile on the real Bronze: 
 
 | Column            | Type | Meaning                                                                                                     |
 | ----------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
-| entity_id         | str  | Glottocode for `family`/`language`/`dialect`, Wikidata QID for `archaeological_culture`/`historical_country`/`country`/`cultural_region` |
-| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `historical_country`, `country` or `cultural_region`                         |
+| entity_id         | str  | Glottocode for `family`/`language`/`dialect`, Wikidata QID for the Wikidata kinds below |
+| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `civilization`, `historical_country`, `country`, `historical_region`, `ethnic_group`, `cultural_region` or `macro_region` |
 | label             | str  | Glottolog name or Wikidata label                                                                            |
 | latitude          | f64? | Latitude                                                                                                    |
 | longitude         | f64? | Longitude                                                                                                   |

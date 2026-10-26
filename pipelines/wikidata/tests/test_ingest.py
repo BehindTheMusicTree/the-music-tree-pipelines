@@ -211,9 +211,13 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
     rows_by_kind = {
         "languoid": [_entity_row("Q1", "Limburgish", "limb1263"), _entity_row("Q1", "Limburgish", "limb1265")],
         "archaeological_culture": [_entity_row("Q2", "Caral", None), _entity_row("Q2", "Caral", None)],
+        "civilization": [_entity_row("Q6", "Maya", None)],
         "historical_country": [_entity_row("Q1", "Limburgish", None)],
         "country": [_entity_row("Q4", "Mexico", None)],
+        "historical_region": [_entity_row("Q7", "Bohemia", None)],
+        "ethnic_group": [_entity_row("Q8", "Berbers", None)],
         "cultural_region": [_entity_row("Q5", "Maghreb", None)],
+        "macro_region": [_entity_row("Q9", "Caribbean", None)],
         "time_period": [_entity_row("Q3", "Bronze Age", None)],
     }
     kinds = iter(rows_by_kind)
@@ -225,11 +229,15 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
     assert result == tmp_path / "bronze" / "wikidata_cultural_entity.parquet"
     assert pl.read_parquet(result).select("item_id", "kind", "glottocode").rows() == [
         ("Q2", "archaeological_culture", None),
+        ("Q6", "civilization", None),
         ("Q4", "country", None),
         ("Q5", "cultural_region", None),
+        ("Q8", "ethnic_group", None),
         ("Q1", "historical_country", None),
+        ("Q7", "historical_region", None),
         ("Q1", "languoid", "limb1263"),
         ("Q1", "languoid", "limb1265"),
+        ("Q9", "macro_region", None),
         ("Q3", "time_period", None),
     ]
     assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT

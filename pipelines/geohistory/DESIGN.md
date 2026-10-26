@@ -26,8 +26,12 @@ Priority: curated > Wikidata > dates carried by the traditions placed on an enti
 ## 4. Scope
 
 Modern countries (`Q6256`, ~670 items) and cultural regions (`Q3502482`, ~330) are ingested in bulk: they are
-small, datable, and the countries are what genres link to through `P495`. Ethnic groups (~80k) and historical
-regions (~113k) are not: too broad and mostly undated. They enter on demand through curation.
+small, datable, and the countries are what genres link to through `P495`. Civilizations (`Q8432`, ~110) too.
+Ethnic groups (~80k) and historical regions (~113k) are too broad and mostly undated, so only those with at least 30
+sitelinks are kept (~990 and ~4,200): Wikipedia coverage is a measurable proxy for notability. A macro region
+(Caribbean, Southeast Asia...) has no class: it is any item that at least two countries or historical countries
+are part of, located in, or on the continent of, so the envelopes follow the lanes already ingested. Anything
+else enters on demand through curation.
 
 ## 5. Multiple Glottocodes
 
@@ -36,9 +40,9 @@ keyed on `item_id|kind|glottocode`, not `item_id|kind`.
 
 ## 6. Silver entities
 
-One entity per Glottocode (`entity_id` = glottocode) and one per QID for archaeological cultures, historical
-countries, modern countries and cultural regions. An item matching several kinds keeps the most specific, in that
-order. A Wikidata item carrying a Glottocode attaches to it through the crosswalk instead of becoming an entity
+One entity per Glottocode (`entity_id` = glottocode) and one per QID for every Wikidata kind. An item matching
+several kinds keeps the most specific: archaeological culture, civilization, historical country, country,
+historical region, ethnic group, cultural region, macro region. A Wikidata item carrying a Glottocode attaches to it through the crosswalk instead of becoming an entity
 of its own. Glottocodes absent from Glottolog are left out with a warning. Categories `Bookkeeping`,
 `Sign_Language` and `Artificial_Language` are excluded with their descendants: pseudo-families or languages with
 no musical tradition. Dialects are kept; the minimal cut chooses the lanes later. Glottolog coordinates win over

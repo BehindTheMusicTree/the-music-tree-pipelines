@@ -116,6 +116,11 @@ ARCHAEOLOGICAL_CULTURE_QID = "Q465299"
 HISTORICAL_COUNTRY_QID = "Q3024240"
 COUNTRY_QID = "Q6256"
 CULTURAL_REGION_QID = "Q3502482"
+CIVILIZATION_QID = "Q8432"
+ETHNIC_GROUP_QID = "Q41710"
+HISTORICAL_REGION_QID = "Q1620908"
+NOTABLE_SITELINKS = 30
+MACRO_REGION_MIN_MEMBERS = 2
 CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
 
 CULTURAL_ENTITY_QUERY_VARIABLES = ("item", "itemLabel", "glottocode")
@@ -124,19 +129,42 @@ CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 # Which items belong to each cultural-entity kind. An item can match several kinds (a historical
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
 # so ingestion keeps one row per (item, kind, glottocode). time_period items are the P2348 targets of the
-# archaeological cultures, historical and modern countries and cultural regions: they are no entities, only a
-# date fallback. Ethnic groups (Q41710, ~80k items) and historical regions (Q1620908, ~113k) are deliberately
-# absent: too broad to pull wholesale, they are added on demand.
+# archaeological cultures, civilizations, historical and modern countries and cultural regions: they are no
+# entities, only a date fallback. Ethnic groups (~80k items) and historical regions (~113k) are too broad to pull
+# wholesale, so only those with at least NOTABLE_SITELINKS sitelinks are kept. A macro region has no class of its
+# own: it is any item that at least MACRO_REGION_MIN_MEMBERS countries or historical countries are part of
+# (P361), located in (P706) or on the continent of (P30); members are matched on a direct P31 and the
+# optimizer is switched off, as WDQS otherwise starts from the P361 triples and exceeds its timeout.
 CULTURAL_ENTITY_KIND_PATTERNS = {
     "languoid": "?item wdt:P1394 ?glottocode .",
     "archaeological_culture": f"?item wdt:P31/wdt:P279* wd:{ARCHAEOLOGICAL_CULTURE_QID} .",
+    "civilization": f"?item wdt:P31/wdt:P279* wd:{CIVILIZATION_QID} .",
     "historical_country": f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_COUNTRY_QID} .",
     "country": f"?item wdt:P31/wdt:P279* wd:{COUNTRY_QID} .",
+    "historical_region": (
+        f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_REGION_QID} ; wikibase:sitelinks ?sitelinks . "
+        f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"
+    ),
+    "ethnic_group": (
+        f"?item wdt:P31/wdt:P279* wd:{ETHNIC_GROUP_QID} ; wikibase:sitelinks ?sitelinks . "
+        f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"
+    ),
     "cultural_region": f"?item wdt:P31/wdt:P279* wd:{CULTURAL_REGION_QID} .",
-    "time_period": (
-        f"VALUES ?class {{ wd:{ARCHAEOLOGICAL_CULTURE_QID} wd:{HISTORICAL_COUNTRY_QID} "
-        f"wd:{COUNTRY_QID} wd:{CULTURAL_REGION_QID} }} "
-        "?source wdt:P31/wdt:P279* ?class ; wdt:P2348 ?item ."
+    "macro_region": (
+        "{ SELECT ?item WHERE { hint:Query hint:optimizer 'None' . "
+        f"VALUES ?memberClass {{ wd:{COUNTRY_QID} wd:{HISTORICAL_COUNTRY_QID} }} "
+        "?member wdt:P31 ?memberClass ; wdt:P361|wdt:P706|wdt:P30 ?item . } "
+        f"GROUP BY ?item HAVING (COUNT(DISTINCT ?member) >= {MACRO_REGION_MIN_MEMBERS}) }}"
+    ),
+    "time_period": " UNION ".join(
+        f"{{ ?source wdt:P31/wdt:P279* wd:{qid} ; wdt:P2348 ?item . }}"
+        for qid in (
+            ARCHAEOLOGICAL_CULTURE_QID,
+            CIVILIZATION_QID,
+            HISTORICAL_COUNTRY_QID,
+            COUNTRY_QID,
+            CULTURAL_REGION_QID,
+        )
     ),
 }
 
