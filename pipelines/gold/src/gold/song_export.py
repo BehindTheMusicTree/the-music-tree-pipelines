@@ -66,7 +66,7 @@ def check_known_recordings(overrides: pl.DataFrame, songs: pl.DataFrame, csv_nam
 
 
 def _apply_recording_overrides(songs: pl.DataFrame, wikidata_silver_dir: Path, curation_dir: Path) -> pl.DataFrame:
-    genre_csv = "manual_recording_genre.csv"
+    genre_csv = "manual_song_genre.csv"
     genres = read_curation_csv(
         curation_dir / genre_csv,
         required=("musicbrainz_recording_id", "reason"),

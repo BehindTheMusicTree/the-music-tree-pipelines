@@ -85,11 +85,11 @@ def build_gold(
         curation_dir / "manual_genre_precedence.csv",
         gold_output_dir,
     )
-    essential_tracks_csv = "manual_essential_tracks.csv"
+    essential_songs_csv = "manual_essential_songs.csv"
     check_known_recordings(
-        pl.read_csv(curation_dir / essential_tracks_csv, columns=["musicbrainz_recording_id"], infer_schema=False),
+        pl.read_csv(curation_dir / essential_songs_csv, columns=["musicbrainz_recording_id"], infer_schema=False),
         pl.read_parquet(genre_match_path, columns=["musicbrainz_recording_id"]),
-        essential_tracks_csv,
+        essential_songs_csv,
     )
     export_umbrella_candidates(wikidata_silver_dir / "7_canonical_hierarchy.parquet", genre_match_path, gold_output_dir)
     export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)

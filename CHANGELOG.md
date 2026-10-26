@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking** (deploy with grow-the-music-tree-api 13.2.0): curation lists `recording_genre` and `essential_tracks` are now `song_genre` and `essential_songs` (CSVs `manual_song_genre.csv`, `manual_essential_songs.csv`), and the genre tree node key `essentialTracks` is now `essentialSongs`.
 - **Breaking** (deploy with grow-the-music-tree-api's `feature/curation-drop-derived-labels`): curation lists no longer carry derived names. `item_label`, `parent_label` and `recording_label` are dropped from every list; `manual_canonical_parent_additions.csv` and `manual_regional_overview_additions.csv` name their new node in `label`, and `manual_overview_reclassifications.csv` no longer checks a name against Bronze. Names are resolved from the item catalog instead.
 
 ### Fixed

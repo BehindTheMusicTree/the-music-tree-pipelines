@@ -101,16 +101,16 @@ def test_write_accepts_api_column_order(tmp_path: Path) -> None:
             "reason": "r",
         }
     ]
-    export["recording_genre"] = [{"musicbrainz_recording_id": "rec-1", "genre_item_id": "Q1", "reason": ""}]
+    export["song_genre"] = [{"musicbrainz_recording_id": "rec-1", "genre_item_id": "Q1", "reason": ""}]
 
     ingest.write_curation_csvs(export, tmp_path)
 
     secondary = pl.read_csv(tmp_path / "manual_secondary_parents.csv")
     assert secondary.columns == list(ingest.CURATION_LISTS["secondary_parents"])
     assert secondary.row(0) == ("Q1", "Q2", "add", "r")
-    recording_genre = pl.read_csv(tmp_path / "manual_recording_genre.csv")
-    assert recording_genre.columns == list(ingest.CURATION_LISTS["recording_genre"])
-    assert recording_genre.row(0) == ("rec-1", "Q1", None)
+    song_genre = pl.read_csv(tmp_path / "manual_song_genre.csv")
+    assert song_genre.columns == list(ingest.CURATION_LISTS["song_genre"])
+    assert song_genre.row(0) == ("rec-1", "Q1", None)
 
 
 def test_write_raises_on_missing_exported_on(tmp_path: Path) -> None:

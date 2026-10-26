@@ -37,7 +37,7 @@ def _sort_edges(edges: pl.DataFrame) -> pl.DataFrame:
 @dataclass(frozen=True)
 class TreeCuration:
     secondary_parent_rules: pl.DataFrame
-    essential_tracks: dict[str, list[str]]
+    essential_songs: dict[str, list[str]]
     summaries: dict[str, str | None]
 
 
@@ -50,14 +50,14 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
         key=("item_id", "parent_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "parent_id": ITEM_ID_PATTERN, "action": r"^(add|remove)$"},
     )
-    essential_tracks = read_curation_csv(
-        curation_dir / "manual_essential_tracks.csv",
+    essential_songs = read_curation_csv(
+        curation_dir / "manual_essential_songs.csv",
         required=("item_id", "musicbrainz_recording_id", "position", "reason"),
         key=("item_id", "musicbrainz_recording_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "musicbrainz_recording_id": MBID_PATTERN, "position": r"^[0-9]+$"},
     ).with_columns(pl.col("position").cast(pl.Int64))
-    if essential_tracks.select("item_id", "position").is_duplicated().any():
-        raise ValueError("manual_essential_tracks.csv has duplicate ('item_id', 'position') row(s)")
+    if essential_songs.select("item_id", "position").is_duplicated().any():
+        raise ValueError("manual_essential_songs.csv has duplicate ('item_id', 'position') row(s)")
     summaries = read_curation_csv(
         curation_dir / "manual_summary_overrides.csv",
         required=("item_id", "reason"),
@@ -67,7 +67,7 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
 
     for name, df in (
         ("manual_secondary_parents.csv", secondary_parents),
-        ("manual_essential_tracks.csv", essential_tracks),
+        ("manual_essential_songs.csv", essential_songs),
         ("manual_summary_overrides.csv", summaries),
     ):
         unknown = sorted(set(df.get_column("item_id")) - all_item_ids)
@@ -77,15 +77,15 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
     def in_tree(df: pl.DataFrame) -> pl.DataFrame:
         return df.filter(pl.col("item_id").is_in(list(tree_item_ids)))
 
-    tracks_by_item: dict[str, list[str]] = {}
+    songs_by_item: dict[str, list[str]] = {}
     for item_id, recording_id in (
-        in_tree(essential_tracks).sort("item_id", "position").select("item_id", "musicbrainz_recording_id").iter_rows()
+        in_tree(essential_songs).sort("item_id", "position").select("item_id", "musicbrainz_recording_id").iter_rows()
     ):
-        tracks_by_item.setdefault(item_id, []).append(recording_id)
+        songs_by_item.setdefault(item_id, []).append(recording_id)
 
     return TreeCuration(
         secondary_parent_rules=in_tree(secondary_parents).select("item_id", "parent_id", "action"),
-        essential_tracks=tracks_by_item,
+        essential_songs=songs_by_item,
         summaries=dict(in_tree(summaries).select("item_id", "summary").iter_rows()),
     )
 
@@ -164,7 +164,7 @@ def build_genre_tree(
     external_ids: set[str] | None = None,
     unaccepted_root_ids: set[str] | None = None,
     umbrella_ids: set[str] | None = None,
-    essential_tracks: dict[str, list[str]] | None = None,
+    essential_songs: dict[str, list[str]] | None = None,
     summaries: dict[str, str | None] | None = None,
     descriptions: dict[str, dict[str, str | None]] | None = None,
 ) -> dict:
@@ -205,7 +205,7 @@ def build_genre_tree(
         if unknown_items or unknown_refs:
             raise ValueError(f"{key} has unknown item id(s) {unknown_items} / parent ref(s) {unknown_refs}")
 
-    tracks_by_item = essential_tracks or {}
+    songs_by_item = essential_songs or {}
     summary_by_item = summaries or {}
     description_by_item = descriptions or {}
 
@@ -227,8 +227,8 @@ def build_genre_tree(
         for key, parents_by_item in extra_parents.items():
             if item_id in parents_by_item:
                 node[key] = parents_by_item[item_id]
-        if item_id in tracks_by_item:
-            node["essentialTracks"] = tracks_by_item[item_id]
+        if item_id in songs_by_item:
+            node["essentialSongs"] = songs_by_item[item_id]
         text = description_by_item.get(item_id, {})
         if text.get("description"):
             node["description"] = text["description"]
