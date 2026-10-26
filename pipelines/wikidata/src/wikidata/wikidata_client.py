@@ -114,6 +114,8 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
 
 ARCHAEOLOGICAL_CULTURE_QID = "Q465299"
 HISTORICAL_COUNTRY_QID = "Q3024240"
+COUNTRY_QID = "Q6256"
+CULTURAL_REGION_QID = "Q3502482"
 CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
 
 CULTURAL_ENTITY_QUERY_VARIABLES = ("item", "itemLabel", "glottocode")
@@ -122,14 +124,18 @@ CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 # Which items belong to each cultural-entity kind. An item can match several kinds (a historical
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
 # so ingestion keeps one row per (item, kind, glottocode). time_period items are the P2348 targets of the
-# archaeological cultures and historical countries: they are no entities, only a date fallback. Ethnic groups
-# (Q41710, ~80k items) are deliberately absent: too broad to pull wholesale, they are added on demand.
+# archaeological cultures, historical and modern countries and cultural regions: they are no entities, only a
+# date fallback. Ethnic groups (Q41710, ~80k items) and historical regions (Q1620908, ~113k) are deliberately
+# absent: too broad to pull wholesale, they are added on demand.
 CULTURAL_ENTITY_KIND_PATTERNS = {
     "languoid": "?item wdt:P1394 ?glottocode .",
     "archaeological_culture": f"?item wdt:P31/wdt:P279* wd:{ARCHAEOLOGICAL_CULTURE_QID} .",
     "historical_country": f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_COUNTRY_QID} .",
+    "country": f"?item wdt:P31/wdt:P279* wd:{COUNTRY_QID} .",
+    "cultural_region": f"?item wdt:P31/wdt:P279* wd:{CULTURAL_REGION_QID} .",
     "time_period": (
-        f"VALUES ?class {{ wd:{ARCHAEOLOGICAL_CULTURE_QID} wd:{HISTORICAL_COUNTRY_QID} }} "
+        f"VALUES ?class {{ wd:{ARCHAEOLOGICAL_CULTURE_QID} wd:{HISTORICAL_COUNTRY_QID} "
+        f"wd:{COUNTRY_QID} wd:{CULTURAL_REGION_QID} }} "
         "?source wdt:P31/wdt:P279* ?class ; wdt:P2348 ?item ."
     ),
 }

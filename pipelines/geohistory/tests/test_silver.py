@@ -193,6 +193,24 @@ def test_entity_membership_lets_glottolog_override_contradicting_p361(dirs):
     assert ("fam1", "lang1", "wikidata_p361") not in pl.read_parquet(path).rows()
 
 
+def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs):
+    entities = [
+        entity("Q1", "country"),
+        entity("Q1", "historical_country"),
+        entity("Q2", "cultural_region"),
+        entity("Q2", "country"),
+        entity("Q3", "cultural_region"),
+    ]
+    base_bronze(dirs, entities=entities, claims=[])
+    bronze, wikidata, silver = dirs
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    kinds = dict(out.select("entity_id", "kind").rows())
+    assert kinds == {"Q1": "historical_country", "Q2": "country", "Q3": "cultural_region"}
+
+
 def test_entity_membership_raises_on_cycle(dirs):
     entities = [entity("Q10", "archaeological_culture"), entity("Q11", "archaeological_culture")]
     claims = [claim("Q10", "P361", "Q11"), claim("Q11", "P361", "Q10")]

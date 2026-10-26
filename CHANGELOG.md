@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `wikidata` Bronze cultural entities also pull modern countries and cultural regions, and `geohistory` Silver turns them into entities (the most specific kind wins for an item matching several).
 - `geohistory` Silver applies three curation lists from grow-api (`entity_exclusions`, `entity_membership_overrides`, `entity_time_span_overrides`), pulled by `curation` and read through the new `CURATION_BRONZE_DIR`; deploy after grow-the-music-tree-api's `feature/geohistory-curation`, otherwise `curation.ingest` raises on the missing lists.
 - `geohistory` pipeline: Bronze `glottolog_languoid.parquet` from the pinned Glottolog CLDF release (`GLOTTOLOG_CLDF_VERSION`).
 - `wikidata` Bronze writes `wikidata_cultural_entity.parquet` (languoids, archaeological cultures, historical countries) and `wikidata_cultural_entity_claim.parquet` (dates, succession, part-of, coordinates).
