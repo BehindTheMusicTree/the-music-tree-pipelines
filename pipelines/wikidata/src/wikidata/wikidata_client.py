@@ -130,8 +130,8 @@ CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
 # so ingestion keeps one row per (item, kind, glottocode). time_period items are the P2348 targets of the
 # archaeological cultures, civilizations, historical and modern countries and cultural regions: they are no
-# entities, only a date fallback. Ethnic groups (~80k items) and historical regions (~113k) are too broad to pull
-# wholesale, so only those with at least NOTABLE_SITELINKS sitelinks are kept. A macro region has no class of its
+# entities, only a date fallback, joined by UNION since a VALUES class list makes WDQS time out.
+# Ethnic groups (~80k items) and historical regions (~113k) are too broad to pull wholesale, so only those with at least NOTABLE_SITELINKS sitelinks are kept. A macro region has no class of its
 # own: it is any item that at least MACRO_REGION_MIN_MEMBERS countries or historical countries are part of
 # (P361), located in (P706) or on the continent of (P30); members are matched on a direct P31 and the
 # optimizer is switched off, as WDQS otherwise starts from the P361 triples and exceeds its timeout.
