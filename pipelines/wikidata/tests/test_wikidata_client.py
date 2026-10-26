@@ -298,3 +298,5 @@ def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countr
     assert "wdt:P2348 ?item" in period
     assert "wd:Q465299" in period
     assert "wd:Q3024240" in period
+    assert period.count(" UNION ") == 3
+    assert "VALUES" not in period
