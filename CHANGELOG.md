@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `wikidata` Bronze no longer times out (HTTP 504) pulling the cultural-entity time periods: the four source classes are now joined by `UNION` instead of a `VALUES` class list.
+
 ## [8.0.0] - 2026-10-26
 
 ### Changed
