@@ -9,7 +9,7 @@ from geohistory.silver.curation import read_curation_list
 logger = logging.getLogger(__name__)
 
 EXCLUDED_CATEGORIES = ("Bookkeeping", "Sign_Language", "Artificial_Language")
-WIKIDATA_ENTITY_KINDS = ("archaeological_culture", "historical_country")
+WIKIDATA_ENTITY_KINDS = ("archaeological_culture", "historical_country", "country", "cultural_region")
 _NUMBER = r"-?[\d.]+(?:[eE][-+]?\d+)?"
 POINT_PATTERN = rf"^Point\(({_NUMBER}) ({_NUMBER})\)$"
 
@@ -60,7 +60,11 @@ def cultural_entity(
     wikidata_entities = (
         wikidata.filter(pl.col("kind").is_in(WIKIDATA_ENTITY_KINDS))
         .join(linked.select("item_id").unique(), on="item_id", how="anti")
-        .sort("item_id", "kind", "item_label")
+        .sort(
+            "item_id",
+            pl.col("kind").replace_strict({kind: rank for rank, kind in enumerate(WIKIDATA_ENTITY_KINDS)}),
+            "item_label",
+        )
         .unique("item_id", keep="first", maintain_order=True)
         .select(
             pl.col("item_id").alias("entity_id"),
