@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking** (deploy with grow-the-music-tree-api's `feature/curation-drop-derived-labels`): curation lists no longer carry derived names. `item_label`, `parent_label` and `recording_label` are dropped from every list; `manual_canonical_parent_additions.csv` and `manual_regional_overview_additions.csv` name their new node in `label`, and `manual_overview_reclassifications.csv` no longer checks a name against Bronze. Names are resolved from the item catalog instead.
+
 ### Added
 
 - `wikidata` Silver writes `curation_items.json` (every Bronze item, pruned ones included, with its label) for grow-the-music-tree-api's curation item catalog, tested in `test_curation_items.py`.
