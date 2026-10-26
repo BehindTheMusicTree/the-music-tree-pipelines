@@ -212,6 +212,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         "languoid": [_entity_row("Q1", "Limburgish", "limb1263"), _entity_row("Q1", "Limburgish", "limb1265")],
         "archaeological_culture": [_entity_row("Q2", "Caral", None), _entity_row("Q2", "Caral", None)],
         "historical_country": [_entity_row("Q1", "Limburgish", None)],
+        "time_period": [_entity_row("Q3", "Bronze Age", None)],
     }
     kinds = iter(rows_by_kind)
     run_query = MagicMock(side_effect=lambda *args, **kwargs: rows_by_kind[next(kinds)])
@@ -225,6 +226,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         ("Q1", "historical_country", None),
         ("Q1", "languoid", "limb1263"),
         ("Q1", "languoid", "limb1265"),
+        ("Q3", "time_period", None),
     ]
     assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT
 
