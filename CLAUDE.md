@@ -27,6 +27,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 ## Commands
 
 - **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.ingest` / `uv run --package wikidata python -m wikidata.ingest`
+- **Run geohistory (Bronze):** `uv run --package geohistory python -m geohistory.ingest` (needs `GLOTTOLOG_CLDF_VERSION`, `BRONZE_OUTPUT_DIR`)
 - **Run curation (Bronze, before wikidata Bronze, wikidata/musicbrainz Silver and gold):** `uv run --package curation python -m curation.ingest` (needs `GROW_API_BASE_URL`, `GROW_API_KEY`, `BRONZE_OUTPUT_DIR`)
 - **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` — see `pipelines/wikidata/CLAUDE.md` for the full step-by-step breakdown
 - **Run musicbrainz Silver:** `uv run --package musicbrainz python -m musicbrainz.silver` (reads `BRONZE_OUTPUT_DIR/l_recording_url.parquet`, `url.parquet`, `link.parquet`, and `link_type.parquet`, writes `SILVER_OUTPUT_DIR/1_recording_link.parquet`; also reads `recording_tag.parquet`, `tag.parquet`, `genre.parquet`, writes `SILVER_OUTPUT_DIR/2_recording_genre.parquet`; `4_youtube_video_status` needs `YOUTUBE_API_KEY` and `YOUTUBE_STATUS_MAX_BATCHES_PER_RUN`; `5_songs` also reads `l_recording_work.parquet` and `CURATION_BRONZE_DIR/manual_recording_youtube_video.csv`; `10_song_genre` writes the per-song genre tags, so run curation first)

@@ -112,6 +112,61 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
 """
 
 
+ARCHAEOLOGICAL_CULTURE_QID = "Q465299"
+HISTORICAL_COUNTRY_QID = "Q3024240"
+CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
+
+CULTURAL_ENTITY_QUERY_VARIABLES = ("item", "itemLabel", "glottocode")
+CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
+
+# Which items belong to each cultural-entity kind. An item can match several kinds (a historical
+# country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
+# so ingestion keeps one row per (item, kind, glottocode). Ethnic groups
+# (Q41710, ~80k items) are deliberately absent: too broad to pull wholesale, they are added on demand.
+CULTURAL_ENTITY_KIND_PATTERNS = {
+    "languoid": "?item wdt:P1394 ?glottocode .",
+    "archaeological_culture": f"?item wdt:P31/wdt:P279* wd:{ARCHAEOLOGICAL_CULTURE_QID} .",
+    "historical_country": f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_COUNTRY_QID} .",
+}
+
+# Claim properties that date, locate, or relate a cultural entity. P571/P576 = inception/dissolution,
+# P580/P582 = start/end time (the ones archaeological cultures actually carry), P2348 = time period,
+# P1365/P1366 = replaces/replaced by, P361 = part of, P625 = coordinate location.
+CULTURAL_CLAIM_DATE_PIDS = ("P571", "P576", "P580", "P582")
+CULTURAL_CLAIM_PIDS = (*CULTURAL_CLAIM_DATE_PIDS, "P2348", "P1365", "P1366", "P361", "P625")
+
+
+def cultural_entity_query(kind: str) -> str:
+    return f"""
+SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
+  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}
+  {"" if kind == "languoid" else "OPTIONAL { ?item wdt:P1394 ?glottocode . }"}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+}}
+"""
+
+
+# Claims are queried per (kind, property) rather than in one wide row for the same
+# cross-multiplication reason documented above INDIGENOUS_TO_QUERY, and to keep each request
+# short enough for WDQS's timeout. Dates come from the full-value node, so the raw literal (BCE
+# years such as "-2600-01-01T00:00:00Z" included) and its precision (century, millennium...) are
+# kept; deprecated statements are dropped, every other rank is kept for Silver to arbitrate.
+def cultural_entity_claim_query(kind: str, pid: str) -> str:
+    if pid in CULTURAL_CLAIM_DATE_PIDS:
+        value_pattern = f"""
+  ?item p:{pid} ?statement .
+  ?statement psv:{pid} ?node ; wikibase:rank ?rank .
+  ?node wikibase:timeValue ?value ; wikibase:timePrecision ?precision .
+  FILTER(?rank != wikibase:DeprecatedRank)"""
+    else:
+        value_pattern = f"\n  ?item wdt:{pid} ?value ."
+    return f"""
+SELECT DISTINCT ?item ?value ?precision WHERE {{
+  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}{value_pattern}
+}}
+"""
+
+
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
     wait=tenacity.wait_exponential(multiplier=1, max=30),

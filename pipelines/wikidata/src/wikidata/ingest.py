@@ -87,6 +87,79 @@ def ingest_country_of_origin(output_dir: Path) -> Path:
     return output_path
 
 
+def ingest_cultural_entities(output_dir: Path) -> Path:
+    frames = []
+    for kind in wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS:
+        logger.info("querying Wikidata for cultural entities of kind %s", kind)
+        rows = wikidata_client.run_query(
+            wikidata_client.cultural_entity_query(kind),
+            variables=wikidata_client.CULTURAL_ENTITY_QUERY_VARIABLES,
+            timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+        )
+        frames.append(
+            pl.DataFrame(
+                {
+                    "item_id": [_qid(row["item"]) for row in rows],
+                    "item_label": [row["itemLabel"] for row in rows],
+                    "kind": [kind] * len(rows),
+                    "glottocode": [row["glottocode"] for row in rows],
+                },
+                schema=dict.fromkeys(("item_id", "item_label", "kind", "glottocode"), pl.String),
+            )
+        )
+    df = pl.concat(frames).unique().sort("kind", "item_id")
+    check_non_empty(df, "wikidata_cultural_entity")
+    check_unique_key(
+        df.select(pl.concat_str("item_id", "kind", "glottocode", separator="|", ignore_nulls=True).alias("key")),
+        "key",
+        "wikidata_cultural_entity",
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_cultural_entity.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
+def ingest_cultural_entity_claims(output_dir: Path) -> Path:
+    frames = []
+    for kind in wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS:
+        for pid in wikidata_client.CULTURAL_CLAIM_PIDS:
+            logger.info("querying Wikidata for %s claims of %s entities", pid, kind)
+            rows = wikidata_client.run_query(
+                wikidata_client.cultural_entity_claim_query(kind, pid),
+                variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+            frames.append(
+                pl.DataFrame(
+                    {
+                        "item_id": [_qid(row["item"]) for row in rows],
+                        "property": [pid] * len(rows),
+                        "value": [_qid(row["value"]) for row in rows],
+                        "time_precision": [row["precision"] for row in rows],
+                    },
+                    schema={
+                        "item_id": pl.String,
+                        "property": pl.String,
+                        "value": pl.String,
+                        "time_precision": pl.String,
+                    },
+                ).with_columns(pl.col("time_precision").cast(pl.Int8))
+            )
+    df = pl.concat(frames).unique().sort("property", "item_id", "value")
+    check_non_empty(df, "wikidata_cultural_entity_claim")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_cultural_entity_claim.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
 def _tree_qids(genre_tree_path: Path, manual_overview_additions_path: Path) -> list[str]:
     """QIDs of every node Silver can emit: Bronze tree children and parents, plus curated regional overviews."""
     tree = pl.read_parquet(genre_tree_path)
@@ -139,3 +212,5 @@ if __name__ == "__main__":
     ingest_indigenous_to(output_dir)
     ingest_country_of_origin(output_dir)
     ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
+    ingest_cultural_entities(output_dir)
+    ingest_cultural_entity_claims(output_dir)
