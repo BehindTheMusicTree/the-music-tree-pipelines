@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Silver writes `curation_items.json` (every Bronze item, pruned ones included, with its label) for grow-the-music-tree-api's curation item catalog, tested in `test_curation_items.py`.
+
 ## [7.2.0] - 2026-10-22
 
 ### Changed

@@ -207,6 +207,10 @@ numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
 
 Written first, every Silver run (possibly empty). `{"remaps": [{list, key, column, from, to}], "review": [{list, key, column, itemId, reason, target?, evidence?}]}`, validated against `src/wikidata/schemas/curation_resolutions.schema.json`. `list` is the grow curation list name, `key` the row's `item_id`, `reason` one of `redirect_conflict`, `missing`, `not_in_tree`. `evidence` (optional, never null-valued keys, omitted for `missing`) holds the facts behind the reason: `label`, `modified` (last Wikidata edit, ISO datetime) of the resolved entity (the redirect target for a merged item), plus for `not_in_tree` `instanceOf`/`subclassOf` (`[{id, label|null}]`, current truthy P31/P279: preferred-rank statements if any, else normal ones, as Bronze's `wdt:` sees them) and, for `indigenous_to_exclusions`, also `hasIndigenousTo` (bool), and for `redirect_conflict` `conflictList` (the curation list holding the colliding entry). See DESIGN.md#200-curation-qid-resolution.
 
+### 3.1.2 curation_items.json
+
+Written every Silver run, right after `curation_resolutions.json`. `{"items": [{id, label}]}`: every item of `wikidata_genre_tree.parquet` (`item_id` and `parent_id`, so items pruned later are included) with its Bronze label, one entry per id, sorted by id; items whose label is only the QID fallback are left out. grow-the-music-tree-api stores it as the catalog that names curation item ids outside the canonical tree.
+
 ### 3.2 1_item_links
 
 `1_item_links.parquet`: `wikidata_genre_tree.parquet` (Bronze) unchanged, plus two columns giving

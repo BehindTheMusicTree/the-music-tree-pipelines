@@ -6,6 +6,7 @@ import wikidata
 from wikidata.silver.canonical_hierarchy import prune_canonical_hierarchy
 from wikidata.silver.canonical_parents import flag_canonical_parents
 from wikidata.silver.canonical_roots import extract_canonical_roots
+from wikidata.silver.curation_items import write_curation_items
 from wikidata.silver.curation_resolution import resolve_curation_qids
 from wikidata.silver.item_links import add_item_links
 from wikidata.silver.main_parent_selection import select_main_parents
@@ -25,6 +26,7 @@ resolve_curation_qids(
     curation_dir,
     silver_dir,
 )
+write_curation_items(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
 item_links_path = add_item_links(
     bronze_dir / "wikidata_genre_tree.parquet",
     silver_dir,
