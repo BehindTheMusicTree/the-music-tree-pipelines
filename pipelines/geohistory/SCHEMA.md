@@ -73,7 +73,7 @@ Direct parent edges of the membership DAG (child belongs to parent). `(child_id,
 | --------- | ---- | ---------------------------------------- |
 | child_id  | str  | `1_cultural_entity.entity_id`            |
 | parent_id | str  | `1_cultural_entity.entity_id`            |
-| source    | str  | `glottolog` or `wikidata_p361`           |
+| source    | str  | `glottolog`, `wikidata_p361` or `curation` |
 
 ### 2.4 3_entity_succession.parquet
 
@@ -95,7 +95,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | entity_id       | str  | `1_cultural_entity.entity_id`                                                   |
 | start_year      | i32? | Start year                                                                      |
 | start_precision | i8?  | Wikidata time precision of the start; null for Glottolog                        |
-| start_source    | str? | `P571`, `P580`, `period` or `glottolog`                                         |
+| start_source    | str? | `P571`, `P580`, `period`, `glottolog` or `curation`                            |
 | end_year        | i32? | End year; null = no end known (alive)                                           |
 | end_precision   | i8?  | Wikidata time precision of the end; null for Glottolog                          |
-| end_source      | str? | `P576`, `P582`, `period` or `glottolog`                                         |
+| end_source      | str? | `P576`, `P582`, `period`, `glottolog` or `curation`                            |

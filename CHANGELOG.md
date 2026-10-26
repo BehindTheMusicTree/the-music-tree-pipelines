@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `geohistory` Silver applies three curation lists from grow-api (`entity_exclusions`, `entity_membership_overrides`, `entity_time_span_overrides`), pulled by `curation` and read through the new `CURATION_BRONZE_DIR`; deploy after grow-the-music-tree-api's `feature/geohistory-curation`, otherwise `curation.ingest` raises on the missing lists.
 - `geohistory` pipeline: Bronze `glottolog_languoid.parquet` from the pinned Glottolog CLDF release (`GLOTTOLOG_CLDF_VERSION`).
 - `wikidata` Bronze writes `wikidata_cultural_entity.parquet` (languoids, archaeological cultures, historical countries) and `wikidata_cultural_entity_claim.parquet` (dates, succession, part-of, coordinates).
 - `geohistory` Silver: `1_cultural_entity` (+ Wikidata crosswalk), `2_entity_membership`, `3_entity_succession` and `4_entity_time_span`, run by `python -m geohistory.silver`.

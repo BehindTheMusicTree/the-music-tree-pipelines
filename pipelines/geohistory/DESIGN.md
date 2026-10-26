@@ -56,3 +56,17 @@ documentation. End mirrors it with max `P576`/`P582` and the last year of docume
 A null end means alive; the 1950 ceiling is applied in Gold. An entity starting after it ends is logged and kept
 for curation.
 
+## 9. Curation
+
+Three lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
+Glottocodes or QIDs.
+
+- `entity_exclusions` removes the entity from `1_cultural_entity` and the crosswalk, so its edges, successions and
+  dates disappear downstream. An id out of scope is logged.
+- `entity_membership_overrides` runs after the source edges and before the cycle check, so it is the way to break a
+  cycle. `remove` drops an edge (a missing edge is logged); `add` inserts one with source `curation` and raises
+  if an end is not an entity. Any other `action` raises.
+- `entity_time_span_overrides` wins over every sourced date (`start_source`/`end_source` = `curation`, precision
+  null). An empty year keeps the sourced value.
+
+Header drift in a list raises. Additions and succession overrides are not curated yet.
