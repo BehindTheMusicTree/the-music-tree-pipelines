@@ -107,7 +107,7 @@ def ingest_cultural_entities(output_dir: Path) -> Path:
                 schema=dict.fromkeys(("item_id", "item_label", "kind", "glottocode"), pl.String),
             )
         )
-    df = pl.concat(frames).unique().sort("kind", "item_id")
+    df = pl.concat(frames).unique().sort("kind", "item_id", "glottocode")
     check_non_empty(df, "wikidata_cultural_entity")
     check_unique_key(
         df.select(pl.concat_str("item_id", "kind", "glottocode", separator="|", ignore_nulls=True).alias("key")),
