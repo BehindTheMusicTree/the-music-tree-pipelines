@@ -64,6 +64,6 @@ Read from `CURATION_BRONZE_DIR` (curation pipeline's Bronze output) — see [DES
 
 **`manual_summary_overrides.csv`**: `item_id, summary, reason` — a genre's `summary`; a blank `summary` suppresses the Wikipedia intro (no `summary`, no `summarySourceUrl`).
 
-**`manual_recording_genre.csv`**: `musicbrainz_recording_id, genre_item_id, reason` — replaces a song's computed genre (takes precedence over `manual_genre_precedence.csv`); empty `genre_item_id` makes it genreless.
+**`manual_recording_genre.csv`**: `musicbrainz_recording_id, genre_item_id, reason` — replaces a song's computed genre (`musicbrainz_recording_id` is the song's representative recording id; takes precedence over `manual_genre_precedence.csv`); empty `genre_item_id` makes it genreless.
 
 All four raise on a blank required value, a malformed id, a duplicate key, an `item_id`/`genre_item_id` in neither tree, or (recording lists) a recording not in the songs.
