@@ -23,6 +23,7 @@ BRONZE_TABLES = (
     "artist_credit",
     "artist_credit_name",
     "artist",
+    "artist_alias",
     "artist_type",
     "area",
     "iso_3166_1",

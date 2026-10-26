@@ -20,6 +20,8 @@ def _artist(mbid: str, name: str, type_: str | None = "person") -> dict:
     return {
         "musicbrainz_artist_id": mbid,
         "name": name,
+        "sort_name": name,
+        "disambiguation": None,
         "type": type_,
         "country": None,
         "begin_year": None,
@@ -93,6 +95,11 @@ LINK_ROWS = [
     {"musicbrainz_artist_id": BAND, "kind": "official", "url": "https://band.example"},
     {"musicbrainz_artist_id": STRANGER, "kind": "official", "url": "https://stranger.example"},
 ]
+ALIAS_ROWS = [
+    {"musicbrainz_artist_id": BAND, "alias": "The Band"},
+    {"musicbrainz_artist_id": BAND, "alias": "band"},
+    {"musicbrainz_artist_id": STRANGER, "alias": "Out Of Scope"},
+]
 RELEASE_GROUP_ROWS = [
     {
         "musicbrainz_artist_id": BAND,
@@ -111,6 +118,7 @@ def _write_inputs(
     song_artist_ids: list[str] = [SINGER, SINGER],
     link_rows: list[dict] = LINK_ROWS,
     release_group_rows: list[dict] = RELEASE_GROUP_ROWS,
+    alias_rows: list[dict] = ALIAS_ROWS,
     member_rows: list[dict] = MEMBER_ROWS,
 ) -> tuple[Path, Path]:
     genre_match_path = tmp_path / "1_genre_match.parquet"
@@ -126,6 +134,7 @@ def _write_inputs(
     ).write_parquet(silver_dir / "7_artist_members.parquet")
     pl.DataFrame(link_rows).write_parquet(silver_dir / "8_artist_links.parquet")
     pl.DataFrame(release_group_rows).write_parquet(silver_dir / "9_artist_release_groups.parquet")
+    pl.DataFrame(alias_rows).write_parquet(silver_dir / "11_artist_aliases.parquet")
     return genre_match_path, silver_dir
 
 
@@ -151,6 +160,8 @@ def test_export_artists_scopes_song_artists_their_groups_and_members(tmp_path: P
         "begin_year": 1990,
         "end_year": 2001,
         "ended": True,
+        "disambiguation": None,
+        "aliases": ["The Band"],
         "members": [
             {
                 "musicbrainz_artist_id": SINGER,
@@ -175,6 +186,7 @@ def test_export_artists_scopes_song_artists_their_groups_and_members(tmp_path: P
     }
     assert artists[SINGER]["country"] == "GB"
     assert artists[NESTED]["members"] == []
+    assert artists[SINGER]["aliases"] == []
     assert (artists[SINGER]["members"], artists[SINGER]["links"], artists[SINGER]["release_groups"]) == ([], [], [])
 
 
@@ -287,3 +299,15 @@ def test_export_artists_raises_on_malformed_artist_id(tmp_path: Path) -> None:
     inputs = _write_inputs(tmp_path, [*ARTIST_ROWS, _artist("not-an-mbid", "Bad")], ["not-an-mbid"])
     with pytest.raises(ValueError, match="malformed musicbrainz_artist_id"):
         export_artists(*inputs, tmp_path / "gold")
+
+
+def test_export_artists_adds_sort_name_and_disambiguation_but_not_the_display_name(tmp_path: Path) -> None:
+    artist_rows = [
+        {**row, "sort_name": "Band, The", "disambiguation": "UK band"} if row["musicbrainz_artist_id"] == BAND else row
+        for row in ARTIST_ROWS
+    ]
+
+    result = export_artists(*_write_inputs(tmp_path, artist_rows=artist_rows), tmp_path / "gold")
+
+    band = next(a for a in _read_parts(result) if a["musicbrainz_artist_id"] == BAND)
+    assert (band["disambiguation"], band["aliases"]) == ("UK band", ["Band, The", "The Band"])
