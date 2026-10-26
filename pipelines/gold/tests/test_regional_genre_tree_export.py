@@ -191,7 +191,7 @@ def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
         )
 
 
-def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
+def test_export_regional_genre_tree_emits_essential_songs_and_summary(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
@@ -200,7 +200,7 @@ def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
     wikidata_silver_dir = _write_silver(tmp_path)
     recording_id = "00000000-0000-0000-0000-00000000000a"
     write_curation(
-        "essential_tracks",
+        "essential_songs",
         [{"item_id": "Q11", "musicbrainz_recording_id": recording_id, "position": "1", "reason": "x"}],
     )
     write_curation("summary_overrides", [{"item_id": "Q1", "summary": "canonical only", "reason": "x"}])
@@ -212,5 +212,5 @@ def test_export_regional_genre_tree_emits_essential_tracks_and_summary(
     )
 
     samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
-    assert samba["essentialTracks"] == [recording_id]
+    assert samba["essentialSongs"] == [recording_id]
     assert all("summary" not in node for node in tree["tree"])

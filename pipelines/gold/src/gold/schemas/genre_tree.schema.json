@@ -28,7 +28,7 @@
         },
         "primaryParents": { "$ref": "#/$defs/parentRefs" },
         "secondaryParents": { "$ref": "#/$defs/parentRefs" },
-        "essentialTracks": {
+        "essentialSongs": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "minItems": 1,

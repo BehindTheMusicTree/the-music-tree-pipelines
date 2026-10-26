@@ -378,14 +378,14 @@ def test_export_canonical_genre_tree_ignores_removal_of_regional_parent(
     assert _rock_child(tree, "pop rock")["secondaryParents"] == ["Q7"]
 
 
-def test_export_canonical_genre_tree_emits_essential_tracks_by_position(
+def test_export_canonical_genre_tree_emits_essential_songs_by_position(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation(
-        "essential_tracks",
+        "essential_songs",
         [
             {"item_id": "Q4", "musicbrainz_recording_id": MBID_A, "position": "2", "reason": "x"},
             {"item_id": "Q4", "musicbrainz_recording_id": MBID_B, "position": "1", "reason": "x"},
@@ -394,8 +394,8 @@ def test_export_canonical_genre_tree_emits_essential_tracks_by_position(
 
     tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
-    assert _rock_child(tree, "pop rock")["essentialTracks"] == [MBID_B, MBID_A]
-    assert "essentialTracks" not in _rock_child(tree, "punk rock")
+    assert _rock_child(tree, "pop rock")["essentialSongs"] == [MBID_B, MBID_A]
+    assert "essentialSongs" not in _rock_child(tree, "punk rock")
 
 
 def test_export_canonical_genre_tree_emits_summary_override(
@@ -434,7 +434,7 @@ def test_export_canonical_genre_tree_blank_summary_override_suppresses_summary(
         ("secondary_parents", {"item_id": "Q2", "parent_id": "Q2", "action": "add", "reason": "x"}, "to itself"),
         ("secondary_parents", {"item_id": "Q2", "parent_id": "Q1", "action": "add", "reason": "x"}, "main parent"),
         (
-            "essential_tracks",
+            "essential_songs",
             {"item_id": "Q4", "musicbrainz_recording_id": "nope", "position": "1", "reason": "x"},
             "malformed",
         ),
@@ -457,14 +457,14 @@ def test_export_canonical_genre_tree_raises_on_bad_curation_row(
         _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
 
-def test_export_canonical_genre_tree_raises_on_duplicate_essential_track_position(
+def test_export_canonical_genre_tree_raises_on_duplicate_essential_song_position(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
     write_curation(
-        "essential_tracks",
+        "essential_songs",
         [
             {"item_id": "Q4", "musicbrainz_recording_id": MBID_A, "position": "1", "reason": "x"},
             {"item_id": "Q4", "musicbrainz_recording_id": MBID_B, "position": "1", "reason": "x"},

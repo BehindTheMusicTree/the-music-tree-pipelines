@@ -50,7 +50,7 @@ def export_regional_genre_tree(
             primary_parents=edges_to_parent_map(primary_edges),
             secondary_parents=edges_to_parent_map(secondary_edges),
             external_ids=canonical_ids,
-            essential_tracks=curation.essential_tracks,
+            essential_songs=curation.essential_songs,
             summaries=curation.summaries,
             descriptions=load_descriptions(descriptions_path),
         ),
