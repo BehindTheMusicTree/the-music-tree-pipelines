@@ -3,6 +3,8 @@ from pathlib import Path
 
 import polars as pl
 
+from geohistory.silver.curation import read_curation_list
+
 logger = logging.getLogger(__name__)
 
 DATE_PROPERTIES = pl.DataFrame(
@@ -48,7 +50,40 @@ def _best(candidates: pl.DataFrame, side: str, *, latest: bool) -> pl.DataFrame:
     )
 
 
-def entity_time_span(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Path) -> Path:
+def _apply_overrides(time_span: pl.DataFrame, overrides: pl.DataFrame) -> pl.DataFrame:
+    rules = overrides.select(
+        "entity_id",
+        pl.col("start_year").cast(pl.Int32).alias("override_start"),
+        pl.col("end_year").cast(pl.Int32).alias("override_end"),
+    )
+    unknown = rules.join(time_span.select("entity_id"), on="entity_id", how="anti")
+    if unknown.height:
+        logger.warning(
+            "%d time span override(s) target unknown entities: %s",
+            unknown.height,
+            unknown["entity_id"].head(5).to_list(),
+        )
+    joined = time_span.join(rules, on="entity_id", how="left")
+    return joined.with_columns(
+        *(
+            expr
+            for side in ("start", "end")
+            for expr in (
+                pl.when(pl.col(f"override_{side}").is_not_null())
+                .then(pl.lit(None, pl.Int8))
+                .otherwise(pl.col(f"{side}_precision"))
+                .alias(f"{side}_precision"),
+                pl.when(pl.col(f"override_{side}").is_not_null())
+                .then(pl.lit("curation"))
+                .otherwise(pl.col(f"{side}_source"))
+                .alias(f"{side}_source"),
+                pl.coalesce(f"override_{side}", f"{side}_year").alias(f"{side}_year"),
+            )
+        )
+    ).select(time_span.columns)
+
+
+def entity_time_span(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
     languoids = pl.read_parquet(bronze_dir / "glottolog_languoid.parquet")
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity_claim.parquet")
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet").select("entity_id")
@@ -92,6 +127,7 @@ def entity_time_span(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Pa
         .join(_best(candidates, "end", latest=True), on="entity_id", how="left")
         .sort("entity_id")
     )
+    time_span = _apply_overrides(time_span, read_curation_list(curation_dir, "entity_time_span_overrides"))
     inverted = time_span.filter(pl.col("start_year") > pl.col("end_year")).height
     if inverted:
         logger.warning("%d entities start after they end", inverted)

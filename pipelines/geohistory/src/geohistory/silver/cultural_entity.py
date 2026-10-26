@@ -4,6 +4,8 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import check_non_empty, check_unique_key
 
+from geohistory.silver.curation import read_curation_list
+
 logger = logging.getLogger(__name__)
 
 EXCLUDED_CATEGORIES = ("Bookkeeping", "Sign_Language", "Artificial_Language")
@@ -41,7 +43,9 @@ def _glottolog_entities(languoids: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def cultural_entity(bronze_dir: Path, wikidata_bronze_dir: Path, output_dir: Path) -> tuple[Path, Path]:
+def cultural_entity(
+    bronze_dir: Path, wikidata_bronze_dir: Path, output_dir: Path, curation_dir: Path
+) -> tuple[Path, Path]:
     languoids = pl.read_parquet(bronze_dir / "glottolog_languoid.parquet")
     wikidata = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity.parquet")
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity_claim.parquet")
@@ -108,6 +112,12 @@ def cultural_entity(bronze_dir: Path, wikidata_bronze_dir: Path, output_dir: Pat
         .select("entity_id", "kind", "label", "latitude", "longitude", "coordinate_source", "macroarea")
         .sort("entity_id")
     )
+    excluded = read_curation_list(curation_dir, "entity_exclusions")["entity_id"].to_list()
+    unknown_exclusions = sorted(set(excluded) - set(entities["entity_id"].to_list()))
+    if unknown_exclusions:
+        logger.warning("%d excluded entity id(s) are not in scope: %s", len(unknown_exclusions), unknown_exclusions[:5])
+    entities = entities.filter(~pl.col("entity_id").is_in(excluded))
+    crosswalk = crosswalk.filter(~pl.col("entity_id").is_in(excluded))
     check_non_empty(entities, "1_cultural_entity")
     check_unique_key(entities, "entity_id", "1_cultural_entity")
 

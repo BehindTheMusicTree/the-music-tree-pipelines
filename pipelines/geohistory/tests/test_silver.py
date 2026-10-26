@@ -2,6 +2,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from geohistory.silver.curation import LISTS
 from geohistory.silver.cultural_entity import cultural_entity, wikidata_points
 from geohistory.silver.entity_membership import entity_membership
 from geohistory.silver.entity_succession import entity_succession
@@ -44,7 +45,16 @@ def dirs(tmp_path: Path):
     bronze.mkdir()
     wikidata.mkdir()
     silver.mkdir()
+    write_curation(tmp_path / "curation")
     return bronze, wikidata, silver
+
+
+def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
+    curation.mkdir(exist_ok=True)
+    for list_name, columns in LISTS.items():
+        lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
+        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+    return curation
 
 
 def write_bronze(dirs, languoids, entities, claims):
@@ -89,8 +99,9 @@ def test_cultural_entity_excludes_categories_and_descendants(dirs):
     ]
     base_bronze(dirs, languoids, [], [])
     bronze, wikidata, silver = dirs
+    curation = silver.parent / "curation"
 
-    cultural_entity(bronze, wikidata, silver)
+    cultural_entity(bronze, wikidata, silver, curation)
 
     assert pl.read_parquet(silver / "1_cultural_entity.parquet")["entity_id"].to_list() == ["fam1", "lang1"]
 
@@ -108,8 +119,9 @@ def test_cultural_entity_maps_wikidata_items_to_glottocodes_and_prefers_glottolo
     claims = [claim("Q1", "P625", "Point(10.5 20.5)"), claim("Q4", "P625", "Point(3 4)")]
     base_bronze(dirs, entities=entities, claims=claims)
     bronze, wikidata, silver = dirs
+    curation = silver.parent / "curation"
 
-    entity_path, crosswalk_path = cultural_entity(bronze, wikidata, silver)
+    entity_path, crosswalk_path = cultural_entity(bronze, wikidata, silver, curation)
 
     entities_out = pl.read_parquet(entity_path).sort("entity_id")
     assert entities_out["entity_id"].to_list() == ["Q4", "dial1", "fam1", "lang1"]
@@ -134,9 +146,10 @@ def test_cultural_entity_maps_wikidata_items_to_glottocodes_and_prefers_glottolo
 def test_cultural_entity_raises_when_nothing_is_in_scope(dirs):
     base_bronze(dirs, [languoid("sign", "family", "Sign_Language")], [], [])
     bronze, wikidata, silver = dirs
+    curation = silver.parent / "curation"
 
     with pytest.raises(ValueError):
-        cultural_entity(bronze, wikidata, silver)
+        cultural_entity(bronze, wikidata, silver, curation)
 
 
 def test_entity_membership_uses_glottolog_parent_and_wikidata_p361(dirs):
@@ -154,9 +167,10 @@ def test_entity_membership_uses_glottolog_parent_and_wikidata_p361(dirs):
     ]
     base_bronze(dirs, entities=entities, claims=claims)
     bronze, wikidata, silver = dirs
-    cultural_entity(bronze, wikidata, silver)
+    curation = silver.parent / "curation"
+    cultural_entity(bronze, wikidata, silver, curation)
 
-    path = entity_membership(bronze, wikidata, silver)
+    path = entity_membership(bronze, wikidata, silver, curation)
 
     assert pl.read_parquet(path).rows() == [
         ("Q10", "Q11", "wikidata_p361"),
@@ -171,9 +185,10 @@ def test_entity_membership_lets_glottolog_override_contradicting_p361(dirs):
     claims = [claim("Q2", "P361", "Q1")]
     base_bronze(dirs, entities=entities, claims=claims)
     bronze, wikidata, silver = dirs
-    cultural_entity(bronze, wikidata, silver)
+    curation = silver.parent / "curation"
+    cultural_entity(bronze, wikidata, silver, curation)
 
-    path = entity_membership(bronze, wikidata, silver)
+    path = entity_membership(bronze, wikidata, silver, curation)
 
     assert ("fam1", "lang1", "wikidata_p361") not in pl.read_parquet(path).rows()
 
@@ -183,10 +198,11 @@ def test_entity_membership_raises_on_cycle(dirs):
     claims = [claim("Q10", "P361", "Q11"), claim("Q11", "P361", "Q10")]
     base_bronze(dirs, entities=entities, claims=claims)
     bronze, wikidata, silver = dirs
-    cultural_entity(bronze, wikidata, silver)
+    curation = silver.parent / "curation"
+    cultural_entity(bronze, wikidata, silver, curation)
 
     with pytest.raises(ValueError, match="cycle"):
-        entity_membership(bronze, wikidata, silver)
+        entity_membership(bronze, wikidata, silver, curation)
 
 
 def test_entity_succession_orients_p1365_and_p1366_and_merges_sources(dirs):
@@ -203,7 +219,8 @@ def test_entity_succession_orients_p1365_and_p1366_and_merges_sources(dirs):
     ]
     base_bronze(dirs, entities=entities, claims=claims)
     bronze, wikidata, silver = dirs
-    cultural_entity(bronze, wikidata, silver)
+    curation = silver.parent / "curation"
+    cultural_entity(bronze, wikidata, silver, curation)
 
     path = entity_succession(wikidata, silver)
 
@@ -235,9 +252,10 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
     ]
     base_bronze(dirs, languoids, entities, claims)
     bronze, wikidata, silver = dirs
-    cultural_entity(bronze, wikidata, silver)
+    curation = silver.parent / "curation"
+    cultural_entity(bronze, wikidata, silver, curation)
 
-    path = entity_time_span(bronze, wikidata, silver)
+    path = entity_time_span(bronze, wikidata, silver, curation)
 
     rows = {row["entity_id"]: row for row in pl.read_parquet(path).to_dicts()}
     assert (rows["Q10"]["start_year"], rows["Q10"]["start_precision"], rows["Q10"]["start_source"]) == (
@@ -252,3 +270,80 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
     assert (rows["lang1"]["end_year"], rows["lang1"]["end_source"]) == (1900, "glottolog")
     assert rows["Q12"]["start_year"] > rows["Q12"]["end_year"]
     assert rows["fam1"]["start_year"] is None
+
+
+def test_cultural_entity_drops_excluded_entities_and_their_edges(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_exclusions=[("lang1", "not a tradition")])
+
+    entity_path, crosswalk_path = cultural_entity(bronze, wikidata, silver, curation)
+    edges = pl.read_parquet(entity_membership(bronze, wikidata, silver, curation))
+
+    assert "lang1" not in pl.read_parquet(entity_path)["entity_id"].to_list()
+    assert pl.read_parquet(crosswalk_path)["entity_id"].to_list() == []
+    assert edges.filter((pl.col("child_id") == "lang1") | (pl.col("parent_id") == "lang1")).height == 0
+
+
+def test_entity_membership_overrides_remove_and_add_edges(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = write_curation(
+        silver.parent / "curation",
+        entity_membership_overrides=[
+            ("dial1", "lang1", "remove", "wrong parent"),
+            ("dial1", "fam1", "add", "belongs to the family"),
+        ],
+    )
+    cultural_entity(bronze, wikidata, silver, curation)
+
+    path = entity_membership(bronze, wikidata, silver, curation)
+
+    rows = pl.read_parquet(path).filter(pl.col("child_id") == "dial1").rows()
+    assert rows == [("dial1", "fam1", "curation")]
+
+
+def test_entity_membership_overrides_raise_on_invalid_action_or_unknown_entity(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = write_curation(
+        silver.parent / "curation", entity_membership_overrides=[("dial1", "lang1", "move", "typo")]
+    )
+    cultural_entity(bronze, wikidata, silver, curation)
+    with pytest.raises(ValueError, match="invalid action"):
+        entity_membership(bronze, wikidata, silver, curation)
+
+    curation = write_curation(
+        silver.parent / "curation", entity_membership_overrides=[("dial1", "zzzz9999", "add", "unknown")]
+    )
+    with pytest.raises(ValueError, match="unknown entities"):
+        entity_membership(bronze, wikidata, silver, curation)
+
+
+def test_entity_time_span_overrides_win_and_blank_year_keeps_sourced_value(dirs):
+    languoids = [
+        languoid("fam1", "family", "Family"),
+        languoid("lang1", first_year_of_documentation=1800, last_year_of_documentation=1900, classification="fam1"),
+    ]
+    base_bronze(dirs, languoids, [entity("Q1", "has_glottocode", "lang1")])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(
+        silver.parent / "curation", entity_time_span_overrides=[("lang1", "-500", "", "dated by excavation")]
+    )
+    cultural_entity(bronze, wikidata, silver, curation)
+
+    path = entity_time_span(bronze, wikidata, silver, curation)
+
+    row = pl.read_parquet(path).filter(pl.col("entity_id") == "lang1").to_dicts()[0]
+    assert (row["start_year"], row["start_precision"], row["start_source"]) == (-500, None, "curation")
+    assert (row["end_year"], row["end_source"]) == (1900, "glottolog")
+
+
+def test_read_curation_list_raises_on_unexpected_columns(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = silver.parent / "curation"
+    (curation / "manual_entity_exclusions.csv").write_text("entity_id\n")
+
+    with pytest.raises(ValueError, match="expected"):
+        cultural_entity(bronze, wikidata, silver, curation)
