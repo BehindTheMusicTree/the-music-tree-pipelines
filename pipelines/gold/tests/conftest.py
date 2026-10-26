@@ -5,10 +5,10 @@ import polars as pl
 import pytest
 
 CURATION_COLUMNS = {
-    "secondary_parents": ("item_id", "parent_id", "action", "item_label", "parent_label", "reason"),
-    "essential_tracks": ("item_id", "musicbrainz_recording_id", "position", "reason"),
+    "secondary_parents": ("item_id", "parent_id", "action", "reason"),
+    "essential_songs": ("item_id", "musicbrainz_recording_id", "position", "reason"),
     "summary_overrides": ("item_id", "summary", "reason"),
-    "recording_genre": ("musicbrainz_recording_id", "genre_item_id", "recording_label", "reason"),
+    "song_genre": ("musicbrainz_recording_id", "genre_item_id", "reason"),
 }
 
 

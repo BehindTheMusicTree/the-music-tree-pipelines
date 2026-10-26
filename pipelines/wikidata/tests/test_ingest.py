@@ -199,3 +199,83 @@ def test_ingest_descriptions_raises_on_duplicate_item_id(monkeypatch: pytest.Mon
     with pytest.raises(ValueError, match="'item_id' is not unique"):
         bw.ingest_descriptions(tree_path, additions_path, tmp_path / "bronze")
     assert not (tmp_path / "bronze").exists()
+
+
+def _entity_row(qid: str, label: str, glottocode: str | None) -> dict[str, str | None]:
+    return {"item": f"http://www.wikidata.org/entity/{qid}", "itemLabel": label, "glottocode": glottocode}
+
+
+def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows_by_kind = {
+        "languoid": [_entity_row("Q1", "Limburgish", "limb1263"), _entity_row("Q1", "Limburgish", "limb1265")],
+        "archaeological_culture": [_entity_row("Q2", "Caral", None), _entity_row("Q2", "Caral", None)],
+        "historical_country": [_entity_row("Q1", "Limburgish", None)],
+        "country": [_entity_row("Q4", "Mexico", None)],
+        "cultural_region": [_entity_row("Q5", "Maghreb", None)],
+        "time_period": [_entity_row("Q3", "Bronze Age", None)],
+    }
+    kinds = iter(rows_by_kind)
+    run_query = MagicMock(side_effect=lambda *args, **kwargs: rows_by_kind[next(kinds)])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entities(tmp_path / "bronze")
+
+    assert result == tmp_path / "bronze" / "wikidata_cultural_entity.parquet"
+    assert pl.read_parquet(result).select("item_id", "kind", "glottocode").rows() == [
+        ("Q2", "archaeological_culture", None),
+        ("Q4", "country", None),
+        ("Q5", "cultural_region", None),
+        ("Q1", "historical_country", None),
+        ("Q1", "languoid", "limb1263"),
+        ("Q1", "languoid", "limb1265"),
+        ("Q3", "time_period", None),
+    ]
+    assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT
+
+
+def test_ingest_cultural_entities_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_cultural_entities(tmp_path)
+
+
+def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows_by_pid = {
+        "P571": [
+            {"item": "http://www.wikidata.org/entity/Q153836", "value": "-3500-01-01T00:00:00Z", "precision": "7"}
+        ],
+        "P1366": [
+            {
+                "item": "http://www.wikidata.org/entity/Q35505",
+                "value": "http://www.wikidata.org/entity/Q294",
+                "precision": None,
+            }
+        ],
+    }
+
+    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
+        for pid, rows in rows_by_pid.items():
+            if f"p:{pid} " in query or f"wdt:{pid} " in query:
+                return rows
+        return []
+
+    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
+
+    result = bw.ingest_cultural_entity_claims(tmp_path)
+
+    assert pl.read_parquet(result).rows() == [
+        ("Q35505", "P1366", "Q294", None),
+        ("Q153836", "P571", "-3500-01-01T00:00:00Z", 7),
+    ]
+
+
+def test_ingest_cultural_entity_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_cultural_entity_claims(tmp_path)

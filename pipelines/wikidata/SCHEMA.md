@@ -19,6 +19,8 @@ pipeline overview.
     - [2.2 wikidata_genre_indigenous_to.parquet](#22-wikidata_genre_indigenous_toparquet)
     - [2.3 wikidata_genre_country_of_origin.parquet](#23-wikidata_genre_country_of_originparquet)
     - [2.4 wikidata_genre_descriptions.parquet](#24-wikidata_genre_descriptionsparquet)
+    - [2.5 wikidata_cultural_entity.parquet](#25-wikidata_cultural_entityparquet)
+    - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -169,6 +171,36 @@ for why the row scope is the tree's QIDs.
 
 Read only by `gold` (`WIKIDATA_BRONZE_DIR`), not by Silver.
 
+### 2.5 wikidata_cultural_entity.parquet
+
+One row per (item, kind, Glottocode): every item that is a cultural entity of one of three kinds. An
+item can appear under several kinds, and under several Glottocodes (e.g. Limburgish `limb1263` /
+`limb1265`), so the unique key is `item_id|kind|glottocode`. Ethnic groups (~80k) are out of scope. See
+`wikidata_client.cultural_entity_query`.
+
+| Column     | Type | Meaning                                                                                              |
+| ---------- | ---- | ---------------------------------------------------------------------------------------------------- |
+| item_id    | str  | Wikidata QID (e.g. `Q12107`)                                                                         |
+| item_label | str  | English/`mul`-fallback label                                                                         |
+| kind       | str  | `languoid` (has `P1394`), `archaeological_culture` (`P31/P279*` `Q465299`), `historical_country` (`P31/P279*` `Q3024240`), `country` (`P31/P279*` `Q6256`), `cultural_region` (`P31/P279*` `Q3502482`) or `time_period` (the `P2348` targets of the four previous kinds, a date fallback and no entity of its own) |
+| glottocode | str? | `P1394` Glottocode for `languoid` rows, null otherwise                                               |
+
+As of this writing: 19,382 rows (languoid 11,925, historical_country 5,026, archaeological_culture 1,325, country 673, cultural_region 323, time_period 110).
+
+### 2.6 wikidata_cultural_entity_claim.parquet
+
+One row per (item, property, value) claim of a cultural entity of any kind, one query per (kind ×
+property). Deprecated statements are excluded. See `wikidata_client.cultural_entity_claim_query`.
+
+| Column         | Type | Meaning                                                                                                               |
+| -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| item_id        | str  | Wikidata QID of the cultural entity                                                                                   |
+| property       | str  | One of `P571` inception, `P576` dissolved, `P580` start time, `P582` end time, `P2348` time period, `P1365` replaces, `P1366` replaced by, `P361` part of, `P625` coordinate location |
+| value          | str  | Date properties: raw ISO literal kept as is, BCE years included (e.g. `-3500-01-01T00:00:00Z`); other properties: the QID (or the coordinate literal for `P625`) |
+| time_precision | i8?  | `wikibase:timePrecision` for date properties (7 century, 8 decade, 9 year, …), null otherwise                         |
+
+As of this writing: 16,596 rows.
+
 ## 3. Silver
 
 All nine steps below are produced by `wikidata.silver`. `1_item_links` preserves the Bronze
@@ -206,6 +238,10 @@ numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
 ### 3.1.1 curation_resolutions.json
 
 Written first, every Silver run (possibly empty). `{"remaps": [{list, key, column, from, to}], "review": [{list, key, column, itemId, reason, target?, evidence?}]}`, validated against `src/wikidata/schemas/curation_resolutions.schema.json`. `list` is the grow curation list name, `key` the row's `item_id`, `reason` one of `redirect_conflict`, `missing`, `not_in_tree`. `evidence` (optional, never null-valued keys, omitted for `missing`) holds the facts behind the reason: `label`, `modified` (last Wikidata edit, ISO datetime) of the resolved entity (the redirect target for a merged item), plus for `not_in_tree` `instanceOf`/`subclassOf` (`[{id, label|null}]`, current truthy P31/P279: preferred-rank statements if any, else normal ones, as Bronze's `wdt:` sees them) and, for `indigenous_to_exclusions`, also `hasIndigenousTo` (bool), and for `redirect_conflict` `conflictList` (the curation list holding the colliding entry). See DESIGN.md#200-curation-qid-resolution.
+
+### 3.1.2 curation_items.json
+
+Written every Silver run, right after `curation_resolutions.json`. `{"items": [{id, label}]}`: every item of `wikidata_genre_tree.parquet` (`item_id` and `parent_id`, so items pruned later are included) with its Bronze label, one entry per id, sorted by id; items whose label is only the QID fallback are left out. grow-the-music-tree-api stores it as the catalog that names curation item ids outside the canonical tree.
 
 ### 3.2 1_item_links
 

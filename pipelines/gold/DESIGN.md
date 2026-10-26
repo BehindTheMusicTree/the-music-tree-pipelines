@@ -63,7 +63,7 @@ the canonical hierarchy.
 
 A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`) keeps it: the genre
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
-A `manual_recording_genre.csv` row targeting an umbrella raises, mirroring grow's refusal.
+A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
 as triage for the `umbrella_genres` curation list.
 
@@ -132,12 +132,14 @@ grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in
   export, canonical or regional for the regional one), equals `item_id`, or is already the item's main
   parent: grow would reject such an edge, so the export fails instead of shipping it. `remove` drops a
   Wikidata extra parent edge; it raises when the parent is resolvable but the edge is not an extra
-  parent edge, and is logged and ignored when the parent is outside the resolvable set.
-- `manual_essential_tracks.csv`: a genre's `essentialTracks`, ordered by `position`. Every recording id is
-  checked against `1_genre_match.parquet` before the songs and artists are exported, so a track not in
-  the songs fails the build.
+  parent edge, and is logged and ignored when the parent is outside the resolvable set or is the
+  item's main parent (a `main_parent` rule promoted it: the removal holds while it is main and applies
+  again if the main parent moves away).
+- `manual_essential_songs.csv`: a genre's `essentialSongs`, ordered by `position`. Every song id
+  (`musicbrainz_recording_id`) is checked against `1_genre_match.parquet` before the songs and artists are
+  exported, so an essential song missing from the songs fails the build.
 - `manual_summary_overrides.csv`: a genre's `summary`.
-- `manual_recording_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
+- `manual_song_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
   pre-override so the match report reflects the computed cascade.
 - `manual_recording_youtube_video.csv` is not applied here: musicbrainz Silver pins it as a rank-0
   candidate so its playability gets checked (see `pipelines/musicbrainz/DESIGN.md`).

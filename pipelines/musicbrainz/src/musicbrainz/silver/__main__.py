@@ -5,6 +5,7 @@ import httpx
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import musicbrainz
+from musicbrainz.silver.artist_aliases import artist_aliases
 from musicbrainz.silver.artist_links import artist_links
 from musicbrainz.silver.artist_members import artist_members
 from musicbrainz.silver.artist_release_groups import artist_release_groups
@@ -37,4 +38,5 @@ artists(bronze_dir, silver_dir)
 artist_members(bronze_dir, silver_dir)
 artist_links(bronze_dir, silver_dir)
 artist_release_groups(bronze_dir, silver_dir)
+artist_aliases(bronze_dir, silver_dir)
 song_genre(bronze_dir, silver_dir, silver_dir)

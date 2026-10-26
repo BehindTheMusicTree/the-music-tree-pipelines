@@ -193,7 +193,7 @@ def _write_manual_main_parent(tmp_path: Path) -> Path:
 
 def _write_manual_canonical_parent_additions(tmp_path: Path) -> Path:
     manual_canonical_parent_additions_path = tmp_path / "manual_canonical_parent_additions.csv"
-    pl.DataFrame(schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
+    pl.DataFrame(schema={"item_id": pl.Utf8, "label": pl.Utf8, "reason": pl.Utf8}).write_csv(
         manual_canonical_parent_additions_path
     )
     return manual_canonical_parent_additions_path
@@ -720,7 +720,7 @@ def test_classify_regional_genres_raises_on_duplicate_parent_override_item_id(tm
 def test_add_manual_canonical_parent_items_adds_synthetic_node() -> None:
     df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS)
     manual_additions = pl.DataFrame(
-        {"item_id": ["LOCAL:reggae-dub"], "item_label": ["Reggae/Dub"], "reason": ["synthetic grouping node"]}
+        {"item_id": ["LOCAL:reggae-dub"], "label": ["Reggae/Dub"], "reason": ["synthetic grouping node"]}
     )
 
     result = sr._add_manual_canonical_parent_items(df, manual_additions)
@@ -737,22 +737,24 @@ def test_add_manual_canonical_parent_items_adds_synthetic_node() -> None:
 def test_add_manual_canonical_parent_items_no_op_on_empty_additions() -> None:
     df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS)
 
-    result = sr._add_manual_canonical_parent_items(df, pl.DataFrame(schema=df.schema).select("item_id", "item_label"))
+    result = sr._add_manual_canonical_parent_items(
+        df, pl.DataFrame(schema=df.schema).select("item_id").with_columns(label=pl.lit(""))
+    )
 
     assert result.equals(df)
 
 
 def test_add_manual_canonical_parent_items_raises_on_blank_item_label() -> None:
     df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS)
-    manual_additions = pl.DataFrame({"item_id": ["LOCAL:reggae-dub"], "item_label": [""], "reason": ["test"]})
+    manual_additions = pl.DataFrame({"item_id": ["LOCAL:reggae-dub"], "label": [""], "reason": ["test"]})
 
-    with pytest.raises(ValueError, match="blank item_id or item_label"):
+    with pytest.raises(ValueError, match="blank item_id or label"):
         sr._add_manual_canonical_parent_items(df, manual_additions)
 
 
 def test_add_manual_canonical_parent_items_raises_on_non_local_prefix() -> None:
     df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS)
-    manual_additions = pl.DataFrame({"item_id": ["Q999999999"], "item_label": ["fabricated genre"], "reason": ["test"]})
+    manual_additions = pl.DataFrame({"item_id": ["Q999999999"], "label": ["fabricated genre"], "reason": ["test"]})
 
     with pytest.raises(ValueError, match="LOCAL:"):
         sr._add_manual_canonical_parent_items(df, manual_additions)
@@ -763,7 +765,7 @@ def test_add_manual_canonical_parent_items_raises_on_duplicate_item_id() -> None
     manual_additions = pl.DataFrame(
         {
             "item_id": ["LOCAL:reggae-dub", "LOCAL:reggae-dub"],
-            "item_label": ["Reggae/Dub", "Reggae/Dub again"],
+            "label": ["Reggae/Dub", "Reggae/Dub again"],
             "reason": ["test", "test duplicate"],
         }
     )
@@ -776,7 +778,7 @@ def test_add_manual_canonical_parent_items_raises_on_item_id_already_present() -
     df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS).with_columns(
         item_id=pl.when(pl.col("item_id") == "Q8341").then(pl.lit("LOCAL:reggae-dub")).otherwise(pl.col("item_id"))
     )
-    manual_additions = pl.DataFrame({"item_id": ["LOCAL:reggae-dub"], "item_label": ["Reggae/Dub"], "reason": ["test"]})
+    manual_additions = pl.DataFrame({"item_id": ["LOCAL:reggae-dub"], "label": ["Reggae/Dub"], "reason": ["test"]})
 
     with pytest.raises(ValueError, match="already present"):
         sr._add_manual_canonical_parent_items(df, manual_additions)

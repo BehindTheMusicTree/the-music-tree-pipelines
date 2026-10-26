@@ -40,9 +40,9 @@ REGIONAL_OVERVIEW_PREFIX = "music of "
 # genre with a `P279`/`P361` parent edge) that a data expert has decided belongs in the regional
 # graph as a non-genre overview node instead — e.g. "European folk music" (Q98528192), a
 # continent-wide folk-music umbrella rather than a specific style. Unlike
-# `manual_regional_overview_additions.csv`, `item_label` here does NOT need the "music of " prefix
+# `manual_regional_overview_additions.csv`, no "music of " prefix is needed here
 # (that's the whole point — these are exactly the items the prefix rule can't catch), but `item_id`
-# MUST already be present in the genre tree, with a matching `item_label`, and not already flagged
+# MUST already be present in the genre tree, and not already flagged
 # `is_regional_overview` by the prefix rule. See DESIGN.md#22-3_regional_overview_classification.
 MANUAL_OVERVIEW_RECLASSIFICATION_REASON = "manual_overview_reclassification"
 
@@ -54,23 +54,23 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
     blank = manual_additions.filter(
         pl.col("item_id").is_null()
         | (pl.col("item_id").str.strip_chars() == "")
-        | pl.col("item_label").is_null()
-        | (pl.col("item_label").str.strip_chars() == "")
+        | pl.col("label").is_null()
+        | (pl.col("label").str.strip_chars() == "")
     )
     if not blank.is_empty():
         raise ValueError(
-            "manual_regional_overview_additions.csv rows must not have a blank item_id or item_label: "
+            "manual_regional_overview_additions.csv rows must not have a blank item_id or label: "
             f"{blank.select('item_id').to_series().to_list()}"
         )
 
     manual_additions = manual_additions.with_columns(
-        item_id=pl.col("item_id").str.strip_chars(), item_label=pl.col("item_label").str.strip_chars()
+        item_id=pl.col("item_id").str.strip_chars(), label=pl.col("label").str.strip_chars()
     )
 
-    non_prefixed = manual_additions.filter(~pl.col("item_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX))
+    non_prefixed = manual_additions.filter(~pl.col("label").str.starts_with(REGIONAL_OVERVIEW_PREFIX))
     if not non_prefixed.is_empty():
         raise ValueError(
-            "manual_regional_overview_additions.csv rows must have an item_label starting with "
+            "manual_regional_overview_additions.csv rows must have a label starting with "
             f"'{REGIONAL_OVERVIEW_PREFIX}': {non_prefixed.select('item_id').to_series().to_list()}"
         )
 
@@ -87,7 +87,8 @@ def _add_manual_overview_items(df: pl.DataFrame, manual_additions: pl.DataFrame)
         )
 
     added = manual_additions.with_columns(
-        item_display_label=pl.col("item_label"),
+        item_label=pl.col("label"),
+        item_display_label=pl.col("label"),
         parent_id=pl.lit(None, dtype=pl.Utf8),
         parent_label=pl.lit(None, dtype=pl.Utf8),
         parent_display_label=pl.lit(None, dtype=pl.Utf8),
@@ -106,21 +107,14 @@ def _reclassify_existing_overview_items(df: pl.DataFrame, reclassifications: pl.
     if reclassifications.is_empty():
         return set()
 
-    blank = reclassifications.filter(
-        pl.col("item_id").is_null()
-        | (pl.col("item_id").str.strip_chars() == "")
-        | pl.col("item_label").is_null()
-        | (pl.col("item_label").str.strip_chars() == "")
-    )
+    blank = reclassifications.filter(pl.col("item_id").is_null() | (pl.col("item_id").str.strip_chars() == ""))
     if not blank.is_empty():
         raise ValueError(
-            "manual_overview_reclassifications.csv rows must not have a blank item_id or item_label: "
+            "manual_overview_reclassifications.csv rows must not have a blank item_id: "
             f"{blank.select('item_id').to_series().to_list()}"
         )
 
-    reclassifications = reclassifications.with_columns(
-        item_id=pl.col("item_id").str.strip_chars(), item_label=pl.col("item_label").str.strip_chars()
-    )
+    reclassifications = reclassifications.with_columns(item_id=pl.col("item_id").str.strip_chars())
 
     reclass_ids = reclassifications.select("item_id").to_series().to_list()
     if len(reclass_ids) != len(set(reclass_ids)):
@@ -133,17 +127,6 @@ def _reclassify_existing_overview_items(df: pl.DataFrame, reclassifications: pl.
             "manual_overview_reclassifications.csv rows reference item_id(s) not found in the genre tree "
             f"(this file is only for items already present in Bronze; use manual_regional_overview_additions.csv "
             f"for items missing entirely): {unknown_ids}"
-        )
-
-    mismatched = [
-        (item_id, item_label, known_labels[item_id])
-        for item_id, item_label in reclassifications.select("item_id", "item_label").iter_rows()
-        if known_labels[item_id] != item_label
-    ]
-    if mismatched:
-        raise ValueError(
-            "manual_overview_reclassifications.csv rows have an item_label that doesn't match the genre tree's "
-            f"item_label for that item_id: {mismatched}"
         )
 
     already_overview = [
@@ -209,10 +192,10 @@ def classify_regional_from_overviews(
     logger.info("classifying regional from overviews %s", non_genre_pruning_path)
     df = pl.read_parquet(non_genre_pruning_path)
     df = _promote_orphan_overview_parents(df)
-    manual_additions_schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
+    manual_additions_schema = {"item_id": pl.Utf8, "label": pl.Utf8, "reason": pl.Utf8}
     df = _add_manual_overview_items(df, pl.read_csv(manual_additions_path, schema_overrides=manual_additions_schema))
     reclass_ids = _reclassify_existing_overview_items(
-        df, pl.read_csv(reclassifications_path, schema_overrides=manual_additions_schema)
+        df, pl.read_csv(reclassifications_path, schema_overrides={"item_id": pl.Utf8, "reason": pl.Utf8})
     )
 
     reclass_ids_list = sorted(reclass_ids)

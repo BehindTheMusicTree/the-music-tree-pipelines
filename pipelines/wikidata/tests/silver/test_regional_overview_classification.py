@@ -38,7 +38,7 @@ def _write_item_links(tmp_path: Path) -> Path:
 
 def _write_manual_additions(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     manual_additions_path = tmp_path / "manual_regional_overview_additions.csv"
-    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
+    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "label": pl.Utf8, "reason": pl.Utf8}).write_csv(
         manual_additions_path
     )
     return manual_additions_path
@@ -46,9 +46,7 @@ def _write_manual_additions(tmp_path: Path, rows: list[dict] | None = None) -> P
 
 def _write_reclassifications(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     reclassifications_path = tmp_path / "manual_overview_reclassifications.csv"
-    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
-        reclassifications_path
-    )
+    pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "reason": pl.Utf8}).write_csv(reclassifications_path)
     return reclassifications_path
 
 
@@ -153,7 +151,7 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_missing_from
         [
             {
                 "item_id": "Q16147503",
-                "item_label": "music of Dominica",
+                "label": "music of Dominica",
                 "reason": "never P31 music genre nor a parent_label in Bronze; real Wikidata QID looked up by hand",
             }
         ],
@@ -188,7 +186,7 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_with_synthet
         [
             {
                 "item_id": "LOCAL:indigenous-americas",
-                "item_label": "music of Indigenous peoples of the Americas",
+                "label": "music of Indigenous peoples of the Americas",
                 "reason": "synthetic (no matching Wikidata overview item)",
             }
         ],
@@ -219,22 +217,20 @@ def test_classify_regional_from_overviews_adds_manual_overview_item_with_synthet
 def test_classify_regional_from_overviews_rejects_manual_addition_without_music_of_prefix(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": "Q1", "item_label": "not a regional overview", "reason": "bad row"}]
+        tmp_path, [{"item_id": "Q1", "label": "not a regional overview", "reason": "bad row"}]
     )
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
 
-    with pytest.raises(ValueError, match="item_label"):
+    with pytest.raises(ValueError, match="label"):
         sc.classify_regional_from_overviews(
             non_genre_pruning_path, manual_additions_path, reclassifications_path, output_dir
         )
 
 
-def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_item_label(tmp_path: Path) -> None:
+def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_label(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
-    manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": "Q1", "item_label": None, "reason": "bad row"}]
-    )
+    manual_additions_path = _write_manual_additions(tmp_path, [{"item_id": "Q1", "label": None, "reason": "bad row"}])
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
 
@@ -244,11 +240,9 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_blank_ite
         )
 
 
-def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_item_label(tmp_path: Path) -> None:
+def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_label(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
-    manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": "Q1", "item_label": "  ", "reason": "bad row"}]
-    )
+    manual_additions_path = _write_manual_additions(tmp_path, [{"item_id": "Q1", "label": "  ", "reason": "bad row"}])
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
 
@@ -261,7 +255,7 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_ite
 def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_item_id(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": "", "item_label": "music of nowhere", "reason": "bad row"}]
+        tmp_path, [{"item_id": "", "label": "music of nowhere", "reason": "bad row"}]
     )
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
@@ -275,7 +269,7 @@ def test_classify_regional_from_overviews_rejects_manual_addition_with_empty_ite
 def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bronze(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": "Q3868594", "item_label": "music of Kenya", "reason": "already present"}]
+        tmp_path, [{"item_id": "Q3868594", "label": "music of Kenya", "reason": "already present"}]
     )
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
@@ -291,7 +285,7 @@ def test_classify_regional_from_overviews_rejects_manual_addition_already_in_bro
 ) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(
-        tmp_path, [{"item_id": " Q3868594 ", "item_label": " music of Kenya ", "reason": "already present"}]
+        tmp_path, [{"item_id": " Q3868594 ", "label": " music of Kenya ", "reason": "already present"}]
     )
     output_dir = tmp_path / "silver"
     reclassifications_path = _write_reclassifications(tmp_path)
@@ -306,7 +300,7 @@ def test_classify_regional_from_overviews_reclassifies_existing_item_as_overview
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(tmp_path)
     reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "Q11399", "item_label": "rock music", "reason": "test reclassification"}]
+        tmp_path, [{"item_id": "Q11399", "reason": "test reclassification"}]
     )
     output_dir = tmp_path / "silver"
 
@@ -323,9 +317,7 @@ def test_classify_regional_from_overviews_reclassifies_existing_item_as_overview
 def test_classify_regional_from_overviews_rejects_reclassification_of_unknown_item(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(tmp_path)
-    reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "Q999999", "item_label": "not in the tree", "reason": "bad row"}]
-    )
+    reclassifications_path = _write_reclassifications(tmp_path, [{"item_id": "Q999999", "reason": "bad row"}])
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="not found in the genre tree"):
@@ -334,26 +326,10 @@ def test_classify_regional_from_overviews_rejects_reclassification_of_unknown_it
         )
 
 
-def test_classify_regional_from_overviews_rejects_reclassification_with_mismatched_label(tmp_path: Path) -> None:
-    non_genre_pruning_path = _write_item_links(tmp_path)
-    manual_additions_path = _write_manual_additions(tmp_path)
-    reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "Q11399", "item_label": "wrong label", "reason": "bad row"}]
-    )
-    output_dir = tmp_path / "silver"
-
-    with pytest.raises(ValueError, match="item_label"):
-        sc.classify_regional_from_overviews(
-            non_genre_pruning_path, manual_additions_path, reclassifications_path, output_dir
-        )
-
-
 def test_classify_regional_from_overviews_rejects_reclassification_already_flagged_overview(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(tmp_path)
-    reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "Q3868594", "item_label": "music of Kenya", "reason": "redundant"}]
-    )
+    reclassifications_path = _write_reclassifications(tmp_path, [{"item_id": "Q3868594", "reason": "redundant"}])
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="already flagged is_regional_overview"):
@@ -362,26 +338,10 @@ def test_classify_regional_from_overviews_rejects_reclassification_already_flagg
         )
 
 
-def test_classify_regional_from_overviews_rejects_reclassification_with_blank_item_label(tmp_path: Path) -> None:
-    non_genre_pruning_path = _write_item_links(tmp_path)
-    manual_additions_path = _write_manual_additions(tmp_path)
-    reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "Q11399", "item_label": "  ", "reason": "bad row"}]
-    )
-    output_dir = tmp_path / "silver"
-
-    with pytest.raises(ValueError, match="blank"):
-        sc.classify_regional_from_overviews(
-            non_genre_pruning_path, manual_additions_path, reclassifications_path, output_dir
-        )
-
-
 def test_classify_regional_from_overviews_rejects_reclassification_with_blank_item_id(tmp_path: Path) -> None:
     non_genre_pruning_path = _write_item_links(tmp_path)
     manual_additions_path = _write_manual_additions(tmp_path)
-    reclassifications_path = _write_reclassifications(
-        tmp_path, [{"item_id": "", "item_label": "rock music", "reason": "bad row"}]
-    )
+    reclassifications_path = _write_reclassifications(tmp_path, [{"item_id": "", "reason": "bad row"}])
     output_dir = tmp_path / "silver"
 
     with pytest.raises(ValueError, match="blank"):
@@ -396,8 +356,8 @@ def test_classify_regional_from_overviews_rejects_duplicate_reclassification_ite
     reclassifications_path = _write_reclassifications(
         tmp_path,
         [
-            {"item_id": "Q11399", "item_label": "rock music", "reason": "test reclassification"},
-            {"item_id": "Q11399", "item_label": "rock music", "reason": "duplicate row"},
+            {"item_id": "Q11399", "reason": "test reclassification"},
+            {"item_id": "Q11399", "reason": "duplicate row"},
         ],
     )
     output_dir = tmp_path / "silver"

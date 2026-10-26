@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 
-from gold.genre_tree_builder import build_genre_tree
+from gold.genre_tree_builder import apply_secondary_parent_rules, build_genre_tree
 
 TREE_ROWS = [
     {"item_id": "Q1", "item_label": "rock", "parent_id": None},
@@ -190,3 +190,27 @@ def test_build_genre_tree_without_intro_emits_no_summary() -> None:
 
     assert "summary" not in node
     assert "summarySourceUrl" not in node
+
+
+def _rule_inputs() -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    hierarchy = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q1"]})
+    edges = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q3"]})
+    rules = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q1"], "action": ["remove"]})
+    return hierarchy, edges, rules
+
+
+def test_apply_secondary_parent_rules_ignores_removal_of_main_parent() -> None:
+    hierarchy, edges, rules = _rule_inputs()
+
+    untouched, added = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3"})
+
+    assert untouched.rows() == [("Q2", "Q3")]
+    assert added.is_empty()
+
+
+def test_apply_secondary_parent_rules_raises_on_removal_matching_nothing() -> None:
+    hierarchy, edges, _ = _rule_inputs()
+    rules = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q4"], "action": ["remove"]})
+
+    with pytest.raises(ValueError, match="not extra parent edges"):
+        apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3", "Q4"})

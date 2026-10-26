@@ -70,6 +70,12 @@ def _check_artists(artists: pl.DataFrame) -> None:
     if blank_name:
         raise ValueError(f"{OUTPUT_DIRNAME}: {blank_name} row(s) with a blank name")
     check_max_length(artists, "name", ARTIST_NAME_LEN_MAX, OUTPUT_DIRNAME)
+    check_max_length(
+        artists.select(alias=pl.col("aliases").explode(empty_as_null=False)).drop_nulls(),
+        "alias",
+        ARTIST_NAME_LEN_MAX,
+        OUTPUT_DIRNAME,
+    )
     release_group_titles = artists.select(
         release_group_title=pl.col("release_groups")
         .list.eval(pl.element().struct.field("title"))
@@ -143,9 +149,28 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
             ).sort_by("first_release_year", "musicbrainz_release_group_id", nulls_last=True)
         )
     )
+    silver_artists = pl.scan_parquet(musicbrainz_silver_dir / "6_artists.parquet").join(
+        scope, on="musicbrainz_artist_id", how="semi"
+    )
+    aliases = (
+        pl.concat(
+            [
+                pl.scan_parquet(musicbrainz_silver_dir / "11_artist_aliases.parquet").join(
+                    scope, on="musicbrainz_artist_id", how="semi"
+                ),
+                silver_artists.select("musicbrainz_artist_id", alias="sort_name"),
+            ]
+        )
+        .join(silver_artists.select("musicbrainz_artist_id", "name"), on="musicbrainz_artist_id")
+        .filter(
+            pl.col("alias").str.strip_chars().str.to_lowercase() != pl.col("name").str.strip_chars().str.to_lowercase()
+        )
+        .group_by("musicbrainz_artist_id")
+        .agg(aliases=pl.col("alias").unique().sort())
+    )
     artists = (
-        pl.scan_parquet(musicbrainz_silver_dir / "6_artists.parquet")
-        .join(scope, on="musicbrainz_artist_id", how="semi")
+        silver_artists.drop("sort_name")
+        .join(aliases, on="musicbrainz_artist_id", how="left")
         .join(nested_members, on="musicbrainz_artist_id", how="left")
         .join(links, on="musicbrainz_artist_id", how="left")
         .join(release_groups, on="musicbrainz_artist_id", how="left")
@@ -154,7 +179,7 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
     )
     artists = artists.with_columns(
         pl.col(column).fill_null(pl.lit([], dtype=artists.schema[column]))
-        for column in ("members", "links", "release_groups")
+        for column in ("aliases", "members", "links", "release_groups")
     )
     _check_artists(artists)
     validator = Draft202012Validator(json.loads(ARTIST_SCHEMA_PATH.read_text()))

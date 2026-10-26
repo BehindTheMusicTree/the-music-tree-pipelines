@@ -11,7 +11,7 @@ Data dictionary and lineage notes for `musicbrainz`. See [README.md#pipeline](RE
 
 ## 1. Bronze
 
-Twenty-five MusicBrainz Postgres tables (`musicbrainz` schema), ingested to Parquet (`SELECT *`, except `recording` — `id`, `gid`, `name`, `artist_credit` — and `url` — `id`, `url` — the two largest tables, projected to the columns Silver reads): `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`, `recording_first_release_date`.
+Twenty-six MusicBrainz Postgres tables (`musicbrainz` schema), ingested to Parquet (`SELECT *`, except `recording` — `id`, `gid`, `name`, `artist_credit` — and `url` — `id`, `url` — the two largest tables, projected to the columns Silver reads): `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_alias`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`, `recording_first_release_date`.
 
 `release_group` (and its type/meta tables) is ingested for artist discographies: it carries its own `artist_credit` FK and a first-release year in `release_group_meta`, so no release-level join is needed. `release`, `medium` and `track` are still not ingested: `release` has no FK to `recording` (MusicBrainz links them via `medium`/`track`) and no FK to `genre`, and no consumer needs release-level data (e.g. `release.status`).
 
@@ -128,6 +128,8 @@ WHERE rt.count > 0
 | --- | --- | --- |
 | `musicbrainz_artist_id` | str | `artist.gid`. |
 | `name` | str | `artist.name`. |
+| `sort_name` | str | `artist.sort_name`. |
+| `disambiguation` | str, nullable | `artist.comment`; null when empty. |
 | `type` | str, nullable | `artist_type.name`, lowercased (`person`, `group`, `orchestra`, `choir`, `character`, `other`). |
 | `country` | str, nullable | `iso_3166_1.code` of `artist.area` (lowest code when an area has several); null when the area isn't a country. ISO user-assigned codes (`AA`, `QM`–`QZ`, `XA`–`XZ`, `ZZ`, which MusicBrainz uses for regions such as `XE` Europe and `XW` Worldwide) are ignored, except `XK` (Kosovo). |
 | `begin_year`, `end_year` | int, nullable | `artist.begin_date_year`, `artist.end_date_year`. |
@@ -144,3 +146,5 @@ Steps 6–9 run after `5_songs` in `python -m musicbrainz.silver`, unfiltered; s
 `recording_genre_path` is not built yet (see [README.md#pipeline](README.md#pipeline)).
 
 `10_song_genre` (`song_genre.py`) — `(musicbrainz_recording_id, genre_name, weight)`, tidy/long: one row per (song, MusicBrainz `genre.name`), `weight` summing `2_recording_genre.weight` across the song's group (the same song groups and `musicbrainz_recording_id` as `5_songs`). Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/10_song_genre.parquet`.
+
+`11_artist_aliases` (`artist_aliases.py`) — `(musicbrainz_artist_id, alias)`, one row per distinct non-blank `artist_alias.name` or `artist_alias.sort_name` of an artist, so grow can match search queries to alternate spellings and scripts.
