@@ -271,3 +271,22 @@ def test_fetch_descriptions_extracts_english_description_and_enwiki_sitelink(mon
         "descriptions|sitelinks/urls",
         "enwiki",
     )
+
+
+def test_cultural_entity_query_requires_glottocode_only_for_languoids() -> None:
+    languoid = wikidata_client.cultural_entity_query("languoid")
+    culture = wikidata_client.cultural_entity_query("archaeological_culture")
+
+    assert "OPTIONAL" not in languoid
+    assert "OPTIONAL { ?item wdt:P1394 ?glottocode . }" in culture
+    assert "wd:Q465299" in culture
+
+
+def test_cultural_entity_claim_query_reads_date_precision_and_skips_deprecated_statements() -> None:
+    date_query = wikidata_client.cultural_entity_claim_query("historical_country", "P571")
+    item_query = wikidata_client.cultural_entity_claim_query("historical_country", "P1366")
+
+    assert "wikibase:timePrecision ?precision" in date_query
+    assert "DeprecatedRank" in date_query
+    assert "?item wdt:P1366 ?value ." in item_query
+    assert "precision" not in item_query.split("WHERE", 1)[1]
