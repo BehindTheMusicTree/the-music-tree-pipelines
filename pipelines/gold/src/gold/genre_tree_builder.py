@@ -126,7 +126,7 @@ def apply_secondary_parent_rules(
         removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
     of_main = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
     if not of_main.is_empty():
-        logger.info(
+        logger.warning(
             "ignoring %d manual_secondary_parents.csv removal(s) of the item's main parent: %s",
             of_main.height,
             of_main.rows(),

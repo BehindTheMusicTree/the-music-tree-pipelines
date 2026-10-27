@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `gold` no longer raises when `manual_secondary_parents.csv` removes an edge that is now the item's main parent (a `main_parent` rule promoted it); the removal is satisfied, logged and kept for if the main parent moves away.
+- `gold` no longer raises when `manual_secondary_parents.csv` removes an edge that is now the item's main parent (a `main_parent` rule promoted it); the removal is satisfied, logged as a warning and kept for if the main parent moves away.
 
 ### Added
 
