@@ -51,9 +51,10 @@ def _clip(span: Span) -> Span:
 
 
 def _overlap(a: Span, b: Span) -> bool:
-    if None in (a[0], a[1], b[0], b[1]):
+    (a_start, a_end), (b_start, b_end) = a, b
+    if a_start is None or a_end is None or b_start is None or b_end is None:
         return True
-    return max(a[0], b[0]) < min(a[1], b[1])
+    return max(a_start, b_start) < min(a_end, b_end)
 
 
 def _columns(lanes: list[str], spans: dict[str, Span], successions: list[tuple[str, str]]) -> dict[str, str]:
@@ -120,7 +121,7 @@ def genealogy_lane(silver_dir: Path) -> tuple[Path, Path]:
     column_of = _columns(lanes, spans, list(succession.select("predecessor_id", "successor_id").rows()))
 
     lane_rows = [(lane, labels[lane], column_of[lane], *spans[lane]) for lane in lanes]
-    band_rows = []
+    band_rows: list[tuple[str, str, str, int | None, int | None]] = []
     for band, lane_set in sorted(bands.items()):
         start, end = span_of(band)
         if start is None:

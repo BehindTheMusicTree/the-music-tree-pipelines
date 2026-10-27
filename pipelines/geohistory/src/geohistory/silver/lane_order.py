@@ -77,7 +77,7 @@ def lane_order(silver_dir: Path) -> tuple[Path, Path]:
     order = _seriate(prior, bands)
     position = {column: index for index, column in enumerate(order)}
 
-    fragments = []
+    fragments: list[tuple[str, str, int, int, int, int | None, int | None]] = []
     labels = dict(band_rows.select("entity_id", "label").unique().rows())
     spans = {b: (s, e) for b, s, e in band_rows.select("entity_id", "start_year", "end_year").unique().rows()}
     for band, columns in sorted(bands.items()):
