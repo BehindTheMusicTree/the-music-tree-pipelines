@@ -55,15 +55,21 @@ RECORDING_FIRST_RELEASE_DATE_ROWS = [
 
 
 CHECKED_AT = datetime(2026, 1, 1, tzinfo=UTC)
+VIEW_COUNTS = {"aaaaaaaaaaa": 100, "zzzzzzzzzzz": 200}
 
 
 def _write_status(silver_dir: Path, reasons: dict[str, str | None]) -> None:
     pl.DataFrame(
         [
-            {"youtube_video_id": video_id, "youtube_unplayable_reason": reason, "checked_at": CHECKED_AT}
+            {
+                "youtube_video_id": video_id,
+                "youtube_unplayable_reason": reason,
+                "youtube_view_count": VIEW_COUNTS.get(video_id),
+                "checked_at": CHECKED_AT,
+            }
             for video_id, reason in reasons.items()
         ],
-        schema_overrides={"youtube_unplayable_reason": pl.Utf8},
+        schema_overrides={"youtube_unplayable_reason": pl.Utf8, "youtube_view_count": pl.Int64},
     ).write_parquet(silver_dir / "4_youtube_video_status.parquet")
 
 
@@ -254,6 +260,14 @@ def test_songs_falls_back_to_next_playable_candidate(tmp_path: Path) -> None:
     }
 
 
+def test_songs_carries_the_chosen_video_view_count(tmp_path: Path) -> None:
+    bronze_dir, silver_dir = _write_inputs(tmp_path, {**ALL_PLAYABLE, "aaaaaaaaaaa": "not_embeddable"})
+
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output"))
+
+    assert result.filter(pl.col("title") == "Song A")["youtube_view_count"].to_list() == [200]
+
+
 def test_songs_keeps_rank_one_with_its_reason_when_no_candidate_is_playable(tmp_path: Path) -> None:
     assert _song_a(tmp_path, {"aaaaaaaaaaa": "not_found", "zzzzzzzzzzz": "private"}) == {
         "youtube_video_id": "aaaaaaaaaaa",
@@ -394,6 +408,20 @@ def test_songs_curated_video_always_wins(tmp_path: Path) -> None:
         "Song E": ("mmmmmmmmmmm", None),
         "Song F": ("eeeeeeeeeee", None),
     }
+
+
+def test_songs_curated_video_carries_its_view_count_once_checked(tmp_path: Path) -> None:
+    videos = (
+        {"musicbrainz_recording_id": _mbid(1000), "youtube_video_id": "zzzzzzzzzzz", "reason": "x"},
+        {"musicbrainz_recording_id": _mbid(1003), "youtube_video_id": "mmmmmmmmmmm", "reason": "x"},
+    )
+    bronze_dir, silver_dir = _write_inputs(tmp_path, ALL_PLAYABLE, videos)
+
+    result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output"))
+
+    view_counts = dict(result.select("title", "youtube_view_count").rows())
+    assert view_counts["Song A"] == 200
+    assert view_counts["Song E"] is None
 
 
 @pytest.mark.parametrize(
