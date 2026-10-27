@@ -107,6 +107,21 @@ def test_tradition_anchors_dates_and_links(paths):
     assert json.loads((silver / "5_tradition_report.json").read_text()) == {"unplacedTraditionCount": 1}
 
 
+def test_tradition_skips_items_without_a_label(paths):
+    wikidata, silver, curation = paths
+    claims_path = wikidata / "wikidata_music_tradition_claims.parquet"
+    pl.concat(
+        [
+            pl.read_parquet(claims_path),
+            pl.DataFrame([label("Q105", None), claim("Q105", "P571", "+1300-00-00T00:00:00Z", 9)], schema=CLAIM_SCHEMA),
+        ]
+    ).write_parquet(claims_path)
+
+    tradition(wikidata, silver, curation)
+
+    assert "Q105" not in set(pl.read_parquet(silver / "5_tradition.parquet")["wikidata_id"])
+
+
 def test_tradition_curation_overrides(paths):
     wikidata, silver, curation = curation_with(
         paths,

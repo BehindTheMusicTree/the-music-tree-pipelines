@@ -133,7 +133,7 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
     claim_start, claim_end = _claim_years(dated, "start", latest=False), _claim_years(dated, "end", latest=True)
     labels = {
         item: label
-        for item, label in claims.filter(pl.col("property") == "label")
+        for item, label in claims.filter((pl.col("property") == "label") & pl.col("value").is_not_null())
         .sort("item_id", "value")
         .unique("item_id", keep="first", maintain_order=True)
         .select("item_id", "value")
