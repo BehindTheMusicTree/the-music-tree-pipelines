@@ -7,6 +7,7 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import check_non_empty, check_unique_key
 
 from wikidata import wikidata_client, wikipedia_client
+from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,60 @@ def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str])
     return output_path
 
 
+def read_tradition_additions(path: Path) -> list[str]:
+    return pl.read_csv(path, infer_schema=False)["wikidata_id"].to_list()
+
+
+def tradition_extra_qids(
+    genre_tree_path: Path, manual_overview_additions_path: Path, tradition_additions: list[str]
+) -> list[str]:
+    """Candidates no P31 music genre pattern reaches: overviews known only as tree parents, curated ones, additions."""
+    tree = pl.read_parquet(genre_tree_path)
+    overviews = tree.filter(
+        pl.col("parent_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX) & pl.col("parent_id").str.starts_with("Q")
+    )["parent_id"].to_list()
+    overview_additions = pl.read_csv(manual_overview_additions_path, schema_overrides={"item_id": pl.Utf8})["item_id"]
+    curated = [qid for qid in overview_additions.to_list() if qid.startswith("Q")]
+    return sorted({*overviews, *curated, *tradition_additions})
+
+
+def ingest_music_tradition_claims(output_dir: Path, patterns: Mapping[str, str]) -> Path:
+    frames = []
+    for kind in patterns:
+        for pid in wikidata_client.TRADITION_CLAIM_PIDS:
+            logger.info("querying Wikidata for %s claims of %s tradition candidates", pid, kind)
+            rows = wikidata_client.run_query(
+                wikidata_client.tradition_claim_query(kind, pid, patterns),
+                variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+            frames.append(
+                pl.DataFrame(
+                    {
+                        "item_id": [_qid(row["item"]) for row in rows],
+                        "property": [pid] * len(rows),
+                        "value": [_qid(row["value"]) for row in rows],
+                        "time_precision": [row["precision"] for row in rows],
+                    },
+                    schema={
+                        "item_id": pl.String,
+                        "property": pl.String,
+                        "value": pl.String,
+                        "time_precision": pl.String,
+                    },
+                ).with_columns(pl.col("time_precision").cast(pl.Int8))
+            )
+    df = pl.concat(frames).unique().sort("property", "item_id", "value")
+    check_non_empty(df, "wikidata_music_tradition_claims")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_music_tradition_claims.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
 def _tree_qids(genre_tree_path: Path, manual_overview_additions_path: Path) -> list[str]:
     """QIDs of every node Silver can emit: Bronze tree children and parents, plus curated regional overviews."""
     tree = pl.read_parquet(genre_tree_path)
@@ -222,3 +277,13 @@ if __name__ == "__main__":
     )
     ingest_cultural_entities(output_dir, entity_patterns)
     ingest_cultural_entity_claims(output_dir, entity_patterns)
+    ingest_music_tradition_claims(
+        output_dir,
+        wikidata_client.tradition_candidate_patterns(
+            tradition_extra_qids(
+                genre_tree_path,
+                curation_dir / "manual_regional_overview_additions.csv",
+                read_tradition_additions(curation_dir / "manual_tradition_additions.csv"),
+            )
+        ),
+    )

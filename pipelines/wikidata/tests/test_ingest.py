@@ -296,3 +296,66 @@ def test_ingest_cultural_entity_claims_raises_on_empty_results(monkeypatch: pyte
 
     with pytest.raises(ValueError, match="is empty"):
         bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
+
+
+def test_tradition_extra_qids_covers_parent_only_overviews_curated_overviews_and_additions(tmp_path: Path) -> None:
+    tree = tmp_path / "tree.parquet"
+    pl.DataFrame(
+        {
+            "item_id": ["Q1", "Q2", "Q3"],
+            "parent_id": ["Q10", "Q11", "LOCAL:x"],
+            "parent_label": ["music of Wales", "rock music", "music of nowhere"],
+        }
+    ).write_parquet(tree)
+    overview_additions = tmp_path / "overviews.csv"
+    overview_additions.write_text("item_id,label,reason\nQ20,music of Tuva,r\nLOCAL:y,music of Mars,r\n")
+
+    assert bw.tradition_extra_qids(tree, overview_additions, ["Q30"]) == ["Q10", "Q20", "Q30"]
+
+
+def test_read_tradition_additions_returns_the_listed_qids(tmp_path: Path) -> None:
+    path = tmp_path / "additions.csv"
+    path.write_text("wikidata_id,reason\nQ5,r\n")
+
+    assert bw.read_tradition_additions(path) == ["Q5"]
+
+
+def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows_by_marker = {
+        "p:P571 ": [{"item": "http://www.wikidata.org/entity/Q1", "value": "+1890-01-01T00:00:00Z", "precision": "9"}],
+        "wdt:P2596 ": [
+            {
+                "item": "http://www.wikidata.org/entity/Q1",
+                "value": "http://www.wikidata.org/entity/Q2",
+                "precision": None,
+            }
+        ],
+        "wikibase:sitelinks ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "42", "precision": None}],
+        "?itemLabel AS ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "blues", "precision": None}],
+    }
+
+    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
+        for marker, rows in rows_by_marker.items():
+            if marker in query:
+                return rows
+        return []
+
+    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
+
+    result = bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+
+    assert pl.read_parquet(result).rows() == [
+        ("Q1", "P2596", "Q2", None),
+        ("Q1", "P571", "+1890-01-01T00:00:00Z", 9),
+        ("Q1", "label", "blues", None),
+        ("Q1", "sitelinks", "42", None),
+    ]
+
+
+def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))

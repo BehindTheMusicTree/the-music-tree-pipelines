@@ -21,6 +21,7 @@ pipeline overview.
     - [2.4 wikidata_genre_descriptions.parquet](#24-wikidata_genre_descriptionsparquet)
     - [2.5 wikidata_cultural_entity.parquet](#25-wikidata_cultural_entityparquet)
     - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
+    - [2.7 wikidata_music_tradition_claims.parquet](#27-wikidata_music_tradition_claimsparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -200,6 +201,20 @@ property). Deprecated statements are excluded. See `wikidata_client.cultural_ent
 | time_precision | i8?  | `wikibase:timePrecision` for date properties (7 century, 8 decade, 9 year, …), null otherwise                         |
 
 As of this writing: 16,596 rows.
+
+### 2.7 wikidata_music_tradition_claims.parquet
+
+Raw claims of the music-tradition candidates, one row per (item, property, value), unfiltered by date (the ≤ 1950 rule
+is semantic and applied in `geohistory` Silver). Candidates are every `P31` music genre item (`Q188451`), the "music
+of <place>" overviews the genre tree only knows as parents, the `manual_regional_overview_additions.csv` QIDs and the
+`manual_tradition_additions.csv` QIDs. Deduplicated.
+
+| Column         | Type | Meaning                                                                                                                      |
+| -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
+| item_id        | str  | Wikidata QID of the candidate                                                                                                |
+| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
+| value          | str  | Date properties: raw ISO literal as is, BCE years included; `sitelinks`: the count; `label`: the label; others: the QID      |
+| time_precision | i8?  | `wikibase:timePrecision` for date properties, null otherwise                                                                 |
 
 ## 3. Silver
 

@@ -233,6 +233,60 @@ SELECT DISTINCT ?item ?value ?precision WHERE {{
 """
 
 
+MUSIC_GENRE_KIND = "music_genre"
+LABEL_PID = "label"
+SITELINKS_PID = "sitelinks"
+
+# Claim properties that date, anchor or link a music tradition candidate. P2596 = culture, P1269 = facet of,
+# P495 = country of origin, P17 = country, P361 = part of, P155/P156 = follows/followed by, P737 = influenced by.
+# P279 (subclass of) is not listed: the genre tree already carries it. `label` and `sitelinks` are pseudo-properties
+# ingested through the same long table.
+TRADITION_CLAIM_PIDS = (
+    *CULTURAL_CLAIM_DATE_PIDS,
+    "P2596",
+    "P1269",
+    COUNTRY_OF_ORIGIN_PID,
+    "P17",
+    "P361",
+    "P155",
+    "P156",
+    "P737",
+    SITELINKS_PID,
+    LABEL_PID,
+)
+
+
+def tradition_candidate_patterns(extra_qids: Sequence[str]) -> dict[str, str]:
+    """Every P31 music genre item, plus (when `extra_qids` is not empty) exactly the listed items as kind `curated`.
+
+    `extra_qids` are the tradition additions, the regional overview additions and the "music of <place>" overviews
+    that the genre tree only knows as parents: none of them is necessarily a P31 music genre itself.
+    """
+    patterns = {MUSIC_GENRE_KIND: f"?item wdt:P31 wd:{MUSIC_GENRE_QID} ."}
+    if not extra_qids:
+        return patterns
+    curated = curated_entity_patterns(sorted(set(extra_qids)))[CURATED_KIND]
+    return {**patterns, CURATED_KIND: curated}
+
+
+def tradition_claim_query(kind: str, pid: str, patterns: Mapping[str, str]) -> str:
+    if pid == SITELINKS_PID:
+        return f"""
+SELECT DISTINCT ?item ?value ?precision WHERE {{
+  {patterns[kind]}
+  ?item wikibase:sitelinks ?value .
+}}
+"""
+    if pid == LABEL_PID:
+        return f"""
+SELECT DISTINCT ?item (?itemLabel AS ?value) ?precision WHERE {{
+  {patterns[kind]}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+}}
+"""
+    return cultural_entity_claim_query(kind, pid, patterns)
+
+
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
     wait=tenacity.wait_exponential(multiplier=1, max=30),
