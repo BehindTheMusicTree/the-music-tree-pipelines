@@ -40,3 +40,15 @@ def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live
     assert rock.description
     assert rock.wikipedia_title == "Rock music"
     assert rock.wikipedia_url == "https://en.wikipedia.org/wiki/Rock_music"
+
+
+@pytest.mark.integration
+def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
+    patterns = {"music_genre": "VALUES ?item { wd:Q11399 }"}
+    rows = wikidata_client.run_query(
+        wikidata_client.tradition_claim_query("music_genre", wikidata_client.LABEL_PID, patterns),
+        variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
+        timeout=60.0,
+    )
+
+    assert [row["value"] for row in rows] == ["rock music"]

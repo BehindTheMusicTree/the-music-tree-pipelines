@@ -364,6 +364,9 @@ def test_tradition_claim_query_reads_sitelinks_labels_dates_and_plain_claims() -
     assert "?item wikibase:sitelinks ?value" in wikidata_client.tradition_claim_query(
         "music_genre", "sitelinks", patterns
     )
-    assert "SERVICE wikibase:label" in wikidata_client.tradition_claim_query("music_genre", "label", patterns)
+    label_query = wikidata_client.tradition_claim_query("music_genre", "label", patterns)
+    assert "SERVICE wikibase:label" in label_query
+    assert "?item rdfs:label ?value" in label_query
+    assert "AS ?value" not in label_query
     assert "psv:P571" in wikidata_client.tradition_claim_query("music_genre", "P571", patterns)
     assert "?item wdt:P2596 ?value" in wikidata_client.tradition_claim_query("music_genre", "P2596", patterns)
