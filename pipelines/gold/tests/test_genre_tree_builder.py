@@ -214,3 +214,24 @@ def test_apply_secondary_parent_rules_raises_on_removal_matching_nothing() -> No
 
     with pytest.raises(ValueError, match="not extra parent edges"):
         apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3", "Q4"})
+
+
+def test_apply_secondary_parent_rules_with_mixed_rules(caplog: pytest.LogCaptureFixture) -> None:
+    hierarchy = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q1"]})
+    edges = pl.DataFrame({"item_id": ["Q2", "Q2"], "parent_id": ["Q3", "Q5"]})
+    rules = pl.DataFrame(
+        {
+            "item_id": ["Q2"] * 4,
+            "parent_id": ["Q1", "Q3", "Q9", "Q4"],
+            "action": ["remove", "remove", "remove", "add"],
+        }
+    )
+
+    with caplog.at_level("INFO"):
+        untouched, added = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3", "Q4", "Q5"})
+
+    assert untouched.rows() == [("Q2", "Q5")]
+    assert added.rows() == [("Q2", "Q4")]
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "main parent" in warnings[0].getMessage()
