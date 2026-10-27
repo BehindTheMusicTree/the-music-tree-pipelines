@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `geohistory` cultural entities can be added on demand: the `entity_additions` curation list (QIDs) makes `wikidata` Bronze ingest those items, with their claims, as kind `curated`, which `geohistory` Silver keeps below every bulk kind and fails on when a listed QID is absent from Bronze. Covers items no bulk class reaches, such as an archaeological site or a historiographical region.
+
 ## [8.0.1] - 2026-10-26
 
 ### Fixed

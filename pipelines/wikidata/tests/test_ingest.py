@@ -219,12 +219,13 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         "cultural_region": [_entity_row("Q5", "Maghreb", None)],
         "macro_region": [_entity_row("Q9", "Caribbean", None)],
         "time_period": [_entity_row("Q3", "Bronze Age", None)],
+        "curated": [_entity_row("Q10", "Oued Beht", None)],
     }
     kinds = iter(rows_by_kind)
     run_query = MagicMock(side_effect=lambda *args, **kwargs: rows_by_kind[next(kinds)])
     monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
 
-    result = bw.ingest_cultural_entities(tmp_path / "bronze")
+    result = bw.ingest_cultural_entities(tmp_path / "bronze", bw.wikidata_client.curated_entity_patterns(["Q10"]))
 
     assert result == tmp_path / "bronze" / "wikidata_cultural_entity.parquet"
     assert pl.read_parquet(result).select("item_id", "kind", "glottocode").rows() == [
@@ -232,6 +233,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         ("Q6", "civilization", None),
         ("Q4", "country", None),
         ("Q5", "cultural_region", None),
+        ("Q10", "curated", None),
         ("Q8", "ethnic_group", None),
         ("Q1", "historical_country", None),
         ("Q7", "historical_region", None),
@@ -243,11 +245,18 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
     assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT
 
 
+def test_read_entity_additions_returns_the_listed_qids(tmp_path: Path) -> None:
+    path = tmp_path / "manual_entity_additions.csv"
+    path.write_text("entity_id,reason\nQ123559,al-Andalus\nQ141814080,Oued Beht\n")
+
+    assert bw.read_entity_additions(path) == ["Q123559", "Q141814080"]
+
+
 def test_ingest_cultural_entities_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_cultural_entities(tmp_path)
+        bw.ingest_cultural_entities(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
 
 
 def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_values(
@@ -274,7 +283,7 @@ def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_valu
 
     monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
 
-    result = bw.ingest_cultural_entity_claims(tmp_path)
+    result = bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
 
     assert pl.read_parquet(result).rows() == [
         ("Q35505", "P1366", "Q294", None),
@@ -286,4 +295,4 @@ def test_ingest_cultural_entity_claims_raises_on_empty_results(monkeypatch: pyte
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_cultural_entity_claims(tmp_path)
+        bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)

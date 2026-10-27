@@ -1,5 +1,6 @@
 import json
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 import httpx
@@ -175,10 +176,29 @@ CULTURAL_CLAIM_DATE_PIDS = ("P571", "P576", "P580", "P582")
 CULTURAL_CLAIM_PIDS = (*CULTURAL_CLAIM_DATE_PIDS, "P2348", "P1365", "P1366", "P361", "P625")
 
 
-def cultural_entity_query(kind: str) -> str:
+CURATED_KIND = "curated"
+QID_PATTERN = re.compile(r"Q[0-9]+")
+
+
+def curated_entity_patterns(qids: Sequence[str]) -> dict[str, str]:
+    """The bulk kind patterns plus, when `qids` is not empty, a `curated` kind selecting exactly those items."""
+    invalid = [qid for qid in qids if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"entity additions must be Wikidata QIDs, got {invalid[:5]}")
+    if len(set(qids)) != len(qids):
+        raise ValueError("entity additions contain duplicate QIDs")
+    if not qids:
+        return CULTURAL_ENTITY_KIND_PATTERNS
+    return {
+        **CULTURAL_ENTITY_KIND_PATTERNS,
+        CURATED_KIND: f"VALUES ?item {{ {' '.join(f'wd:{qid}' for qid in qids)} }}",
+    }
+
+
+def cultural_entity_query(kind: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS) -> str:
     return f"""
 SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
-  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}
+  {patterns[kind]}
   {"" if kind == "languoid" else "OPTIONAL { ?item wdt:P1394 ?glottocode . }"}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
@@ -190,7 +210,9 @@ SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
 # short enough for WDQS's timeout. Dates come from the full-value node, so the raw literal (BCE
 # years such as "-2600-01-01T00:00:00Z" included) and its precision (century, millennium...) are
 # kept; deprecated statements are dropped, every other rank is kept for Silver to arbitrate.
-def cultural_entity_claim_query(kind: str, pid: str) -> str:
+def cultural_entity_claim_query(
+    kind: str, pid: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS
+) -> str:
     if pid in CULTURAL_CLAIM_DATE_PIDS:
         value_pattern = f"""
   ?item p:{pid} ?statement .
@@ -201,7 +223,7 @@ def cultural_entity_claim_query(kind: str, pid: str) -> str:
         value_pattern = f"\n  ?item wdt:{pid} ?value ."
     return f"""
 SELECT DISTINCT ?item ?value ?precision WHERE {{
-  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}{value_pattern}
+  {patterns[kind]}{value_pattern}
 }}
 """
 
