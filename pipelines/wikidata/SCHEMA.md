@@ -19,6 +19,7 @@ pipeline overview.
     - [2.2 wikidata_genre_indigenous_to.parquet](#22-wikidata_genre_indigenous_toparquet)
     - [2.3 wikidata_genre_country_of_origin.parquet](#23-wikidata_genre_country_of_originparquet)
     - [2.4 wikidata_genre_descriptions.parquet](#24-wikidata_genre_descriptionsparquet)
+    - [2.4.1 wikidata_genre_aliases.parquet](#241-wikidata_genre_aliasesparquet)
     - [2.5 wikidata_cultural_entity.parquet](#25-wikidata_cultural_entityparquet)
     - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
     - [2.7 wikidata_music_tradition_claims.parquet](#27-wikidata_music_tradition_claimsparquet)
@@ -157,7 +158,7 @@ One row per tree QID: every `item_id` and `parent_id` of `wikidata_genre_tree.pa
 `Q…` `item_id` of the curation Bronze `manual_regional_overview_additions.csv` (`CURATION_BRONZE_DIR`;
 `LOCAL:` ids have no Wikidata item and get no row), so `item_id` is unique (checked before the write).
 The English short description (CC0) and the English Wikipedia article come from `wbgetentities`
-(`wikidata_client.fetch_descriptions`, `props=descriptions|sitelinks/urls`, `sitefilter=enwiki`); the
+(`wikidata_client.fetch_descriptions`, `props=descriptions|aliases|sitelinks/urls`, `sitefilter=enwiki`); the
 intro comes from the English Wikipedia `action=query&prop=extracts&exintro&explaintext` API
 (`wikipedia_client.fetch_intros`, batches of 20, redirects and `continue` followed; text is CC BY-SA,
 hence `wikipedia_url` for attribution). See [DESIGN.md](DESIGN.md#13-wikidata_genre_descriptionsparquet)
@@ -171,6 +172,18 @@ for why the row scope is the tree's QIDs.
 | wikipedia_intro | str? | Plain-text intro of that article, or null (no article or empty intro)   |
 
 Read only by `gold` (`WIKIDATA_BRONZE_DIR`), not by Silver.
+
+### 2.4.1 wikidata_genre_aliases.parquet
+
+The English aliases (`skos:altLabel`) of the same QIDs, from the same `wbgetentities` calls; one row per
+`(item_id, alias)` (unique, checked before the write), long format.
+
+| Column  | Type | Meaning                                         |
+| ------- | ---- | ----------------------------------------------- |
+| item_id | str  | Wikidata QID of a tree node (e.g. `Q11399`)     |
+| alias   | str  | One English Wikidata alias of that item         |
+
+Read only by `gold` (`WIKIDATA_BRONZE_DIR`, `genre_match`'s `wikidata_alias` step), not by Silver.
 
 ### 2.5 wikidata_cultural_entity.parquet
 

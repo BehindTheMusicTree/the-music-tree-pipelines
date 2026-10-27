@@ -9,6 +9,9 @@ CURATION_COLUMNS = {
     "essential_songs": ("item_id", "musicbrainz_recording_id", "position", "reason"),
     "summary_overrides": ("item_id", "summary", "reason"),
     "song_genre": ("musicbrainz_recording_id", "genre_item_id", "reason"),
+    "genre_precedence": ("item_id", "over_item_id", "reason"),
+    "genre_disambiguation": ("musicbrainz_genre_name", "item_id", "is_default", "reason"),
+    "genre_disambiguation_context": ("musicbrainz_genre_name", "item_id", "context_item_id", "reason"),
 }
 
 

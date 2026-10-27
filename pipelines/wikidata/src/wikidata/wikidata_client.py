@@ -410,16 +410,21 @@ class Description:
     description: str | None
     wikipedia_title: str | None
     wikipedia_url: str | None
+    aliases: list[str]
 
 
 def fetch_descriptions(ids: Sequence[str], timeout: float = 60.0) -> dict[str, Description]:
-    """English short description (CC0) and English Wikipedia article of each QID, all None for a deleted item."""
+    """English short description (CC0), English aliases and English Wikipedia article of each QID, all None (aliases
+    empty) for a deleted item."""
     result: dict[str, Description] = {}
-    for qid, entity in _get_batched_entities(ids, "descriptions|sitelinks/urls", timeout, sitefilter="enwiki").items():
+    for qid, entity in _get_batched_entities(
+        ids, "descriptions|aliases|sitelinks/urls", timeout, sitefilter="enwiki"
+    ).items():
         sitelink = entity.get("sitelinks", {}).get("enwiki", {})
         result[qid] = Description(
             description=entity.get("descriptions", {}).get("en", {}).get("value"),
             wikipedia_title=sitelink.get("title"),
             wikipedia_url=sitelink.get("url"),
+            aliases=[alias["value"] for alias in entity.get("aliases", {}).get("en", [])],
         )
     return result

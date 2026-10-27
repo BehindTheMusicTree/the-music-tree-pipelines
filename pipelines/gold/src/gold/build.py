@@ -85,6 +85,9 @@ def build_gold(
         curation_dir / "manual_genre_alias.csv",
         curation_dir / "manual_accepted_non_genre_tags.csv",
         curation_dir / "manual_genre_precedence.csv",
+        curation_dir / "manual_genre_disambiguation.csv",
+        curation_dir / "manual_genre_disambiguation_context.csv",
+        wikidata_bronze_dir / "wikidata_genre_aliases.parquet",
         gold_output_dir,
     )
     essential_songs_csv = "manual_essential_songs.csv"

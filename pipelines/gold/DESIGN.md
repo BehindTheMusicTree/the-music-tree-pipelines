@@ -36,12 +36,42 @@ at the first that succeeds:
 4. `accepted_non_genre` — looked up in `manual_accepted_non_genre_tags.csv`, a data expert's curated
    permanent-noise list. Kept in the output (not dropped) with a `null` `wikidata_genre_name`, for
    audit visibility — a reviewer can see it was triaged, not silently missed.
-5. `unmatched` — anything left. **Not a hard failure.**
+5. `wikidata_alias` — genre-key equality against an English Wikidata alias (`skos:altLabel`, wikidata
+   Bronze `wikidata_genre_aliases.parquet`) of a canonical item: IDM, EBM, chillout, psytrance. It runs after
+   both curation lists, so `manual_genre_alias.csv` re-targets a wrong alias and
+   `manual_accepted_non_genre_tags.csv` blocks one. Dropped (one warning lists them): an alias whose key equals
+   its own label's (adds nothing), equals **any** canonical label key (the label always wins — `soft rock` is an
+   alias of sunshine pop and the label of soft rock; a label key shared by two labels is only reachable by
+   exact name, so a differently spelled tag would otherwise fall to the alias). A key shared by aliases of
+   several items keeps only the most precise of them (precedence closure): one left is a plain alias, several
+   left (on different lineages: `rap`, `club`) become automatic disambiguation candidates with no default.
+6. `ambiguous` — the tag's key has disambiguation candidates (curated in `manual_genre_disambiguation.csv`,
+   else the automatic Wikidata ones). Picked per song from its other genres, see
+   [Ambiguous tags](#ambiguous-tags); a tag a song picks a candidate for resolves as `disambiguated`.
+7. `unmatched` — anything left. **Not a hard failure.**
 
 The cascade runs per distinct tag name of `10_song_genre`. A song's resolved tags are summed per canonical
 `item_id` (several MusicBrainz tags can resolve to one item), then precedence applies (next section). An
 unresolved tag never wins: the best resolved item does, and the song's `match_method` is that item's
 method (else the top unresolved tag's method, else `no_genre`).
+
+## Ambiguous tags
+
+Some tags mean several canonical genres: `r&b` is rhythm and blues or contemporary R&B. Per song and per
+ambiguous tag, with the song's **context** = the genres its other tags resolved to without ambiguity, and
+"under" = beating in the precedence closure (lineage + `manual_genre_precedence.csv`):
+
+1. A context genre is a candidate or under one (`r&b` + soul, `r&b` + quiet storm) → the tag is ignored on
+   that song: no genre, no weight. The context genre already says more.
+2. Otherwise a candidate **fits** when it is under a context genre (`r&b` + pop → contemporary R&B, under pop
+   music) or the song carries one of its `manual_genre_disambiguation_context.csv` hints, or a genre under it
+   (`r&b` + hip hop or trap → contemporary R&B): styles related without one being a subgenre of the other.
+3. Fitting candidates beaten by another fitting candidate are dropped. Exactly one left → `disambiguated` to
+   it. None, or several → the curated default (`is_default`), also `disambiguated`.
+4. No default (automatic Wikidata candidates, or a curated set without one) → the tag stays unresolved on that
+   song (`ambiguous`), and counts in `1_genre_match_unresolved.csv` until a default is curated.
+
+The pick then joins the song's other genres and goes through precedence like any resolved tag.
 
 ## Genre precedence and lineage
 
@@ -55,6 +85,13 @@ beat classic rock 330 times, reggae/dub beat ska on all 13 ska recordings). Per 
 - Rules close transitively; every genre beaten by another on the same song is dropped, and each
   surviving winner's weight becomes the max of its own and the beaten genres' weights.
 - The highest weight wins; ties go to the smallest `item_id`.
+
+**Secondary genres**: the other survivors of precedence, by weight, become `secondary_genre_item_ids`. Since
+precedence already dropped every genre beaten by another on the song, none is an ancestor of the chosen genre
+or of another secondary (punk rock + hardcore punk keep only hardcore punk). Unresolved tags are never
+secondaries, but every raw tag stays in `musicbrainz_genres` so it can be curated or linked later. When
+`manual_song_genre.csv` overrides the genre, `song_export` drops that genre and the genres it beats (same
+closure) from the secondaries.
 
 The run fails on a self-pair, a cycle (a manual pair reversing a lineage included), or an id absent from
 the canonical hierarchy.
@@ -122,6 +159,11 @@ contradictory triage data:
 - `manual_accepted_non_genre_tags.csv`: `musicbrainz_genre_name` must not already match via
   `exact`/`normalized`, nor share a genre key with a `manual_genre_alias.csv` entry (can't be both a real alias and
   permanent noise).
+- `manual_genre_disambiguation.csv`: every `item_id` in the canonical hierarchy; a genre key not already
+  resolved by a label (`exact`/`normalized`), `manual_genre_alias.csv` or `manual_accepted_non_genre_tags.csv`;
+  at least 2 distinct candidates per key and at most one default. It replaces the key's automatic candidates.
+- `manual_genre_disambiguation_context.csv`: each `(musicbrainz_genre_name, item_id)` a candidate of
+  `manual_genre_disambiguation.csv`; `context_item_id` in the canonical hierarchy.
 
 ## Curation mechanics
 
