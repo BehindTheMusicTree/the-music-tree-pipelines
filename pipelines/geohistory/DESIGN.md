@@ -31,7 +31,7 @@ Ethnic groups (~80k) and historical regions (~113k) are too broad and mostly und
 sitelinks are kept (~990 and ~4,200): Wikipedia coverage is a measurable proxy for notability. A macro region
 (Caribbean, Southeast Asia...) has no class: it is any item that at least two countries or historical countries
 are part of, located in, or on the continent of, so the envelopes follow the lanes already ingested. Anything
-else enters on demand through curation.
+else enters on demand through the `entity_additions` curation list (§9). Archaeological sites (`Q839954`, ~75k) are not ingested wholesale: they are places, mostly undated and without a tradition of their own, and no sitelink threshold separates the useful ones.
 
 ## 5. Multiple Glottocodes
 
@@ -64,9 +64,12 @@ for curation.
 
 ## 9. Curation
 
-Three lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
+Four lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
 Glottocodes or QIDs.
 
+- `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
+  covers them. A curated item already covered by a bulk kind keeps that kind and is logged; a QID absent from Bronze
+  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog.
 - `entity_exclusions` removes the entity from `1_cultural_entity` and the crosswalk, so its edges, successions and
   dates disappear downstream. An id out of scope is logged.
 - `entity_membership_overrides` runs after the source edges and before the cycle check, so it is the way to break a
@@ -75,4 +78,4 @@ Glottocodes or QIDs.
 - `entity_time_span_overrides` wins over every sourced date (`start_source`/`end_source` = `curation`, precision
   null). An empty year keeps the sourced value.
 
-Header drift in a list raises. Additions and succession overrides are not curated yet.
+Header drift in a list raises. Succession overrides are not curated yet.

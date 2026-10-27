@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 
 import polars as pl
@@ -87,12 +88,16 @@ def ingest_country_of_origin(output_dir: Path) -> Path:
     return output_path
 
 
-def ingest_cultural_entities(output_dir: Path) -> Path:
+def read_entity_additions(path: Path) -> list[str]:
+    return pl.read_csv(path, infer_schema=False)["entity_id"].to_list()
+
+
+def ingest_cultural_entities(output_dir: Path, patterns: Mapping[str, str]) -> Path:
     frames = []
-    for kind in wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS:
+    for kind in patterns:
         logger.info("querying Wikidata for cultural entities of kind %s", kind)
         rows = wikidata_client.run_query(
-            wikidata_client.cultural_entity_query(kind),
+            wikidata_client.cultural_entity_query(kind, patterns),
             variables=wikidata_client.CULTURAL_ENTITY_QUERY_VARIABLES,
             timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
         )
@@ -123,13 +128,13 @@ def ingest_cultural_entities(output_dir: Path) -> Path:
     return output_path
 
 
-def ingest_cultural_entity_claims(output_dir: Path) -> Path:
+def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str]) -> Path:
     frames = []
-    for kind in wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS:
+    for kind in patterns:
         for pid in wikidata_client.CULTURAL_CLAIM_PIDS:
             logger.info("querying Wikidata for %s claims of %s entities", pid, kind)
             rows = wikidata_client.run_query(
-                wikidata_client.cultural_entity_claim_query(kind, pid),
+                wikidata_client.cultural_entity_claim_query(kind, pid, patterns),
                 variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
                 timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
             )
@@ -212,5 +217,8 @@ if __name__ == "__main__":
     ingest_indigenous_to(output_dir)
     ingest_country_of_origin(output_dir)
     ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
-    ingest_cultural_entities(output_dir)
-    ingest_cultural_entity_claims(output_dir)
+    entity_patterns = wikidata_client.curated_entity_patterns(
+        read_entity_additions(curation_dir / "manual_entity_additions.csv")
+    )
+    ingest_cultural_entities(output_dir, entity_patterns)
+    ingest_cultural_entity_claims(output_dir, entity_patterns)

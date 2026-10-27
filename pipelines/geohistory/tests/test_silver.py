@@ -373,6 +373,27 @@ def test_entity_time_span_overrides_win_and_blank_year_keeps_sourced_value(dirs)
     assert (row["end_year"], row["end_source"]) == (1900, "glottolog")
 
 
+def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
+    entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q2", "country")]
+    base_bronze(dirs, entities=entities, claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "site"), ("Q2", "dup")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    assert dict(out.select("entity_id", "kind").rows()) == {"Q1": "curated", "Q2": "country"}
+
+
+def test_cultural_entity_raises_when_an_addition_is_missing_from_the_bronze(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "gone")])
+
+    with pytest.raises(ValueError, match="Q999"):
+        cultural_entity(bronze, wikidata, silver, curation)
+
+
 def test_read_curation_list_raises_on_unexpected_columns(dirs):
     base_bronze(dirs)
     bronze, wikidata, silver = dirs

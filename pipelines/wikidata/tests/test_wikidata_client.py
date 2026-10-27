@@ -318,3 +318,23 @@ def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countr
     assert "wd:Q8432" in period
     assert period.count(" UNION ") == 4
     assert "VALUES" not in period
+
+
+def test_curated_entity_patterns_add_a_values_kind_for_the_listed_qids() -> None:
+    patterns = wikidata_client.curated_entity_patterns(["Q123559", "Q141814080"])
+    query = wikidata_client.cultural_entity_query("curated", patterns)
+    claim_query = wikidata_client.cultural_entity_claim_query("curated", "P571", patterns)
+
+    assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in query
+    assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in claim_query
+    assert list(patterns)[-1] == wikidata_client.CURATED_KIND
+
+
+def test_curated_entity_patterns_without_qids_keep_the_bulk_kinds_only() -> None:
+    assert wikidata_client.curated_entity_patterns([]) == wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS
+
+
+@pytest.mark.parametrize("qids", [["Genre"], ["bret1244"], ["Q1", "Q1"]])
+def test_curated_entity_patterns_raise_on_invalid_or_duplicate_ids(qids: list[str]) -> None:
+    with pytest.raises(ValueError, match="entity additions"):
+        wikidata_client.curated_entity_patterns(qids)
