@@ -231,7 +231,7 @@ def _tree_qids(genre_tree_path: Path, manual_overview_additions_path: Path) -> l
 
 def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: Path, output_dir: Path) -> Path:
     item_ids = _tree_qids(genre_tree_path, manual_overview_additions_path)
-    logger.info("fetching descriptions and English Wikipedia articles for %d tree QID(s)", len(item_ids))
+    logger.info("fetching descriptions, aliases and English Wikipedia articles for %d tree QID(s)", len(item_ids))
     descriptions = wikidata_client.fetch_descriptions(item_ids)
     titles = [d.wikipedia_title for d in descriptions.values() if d.wikipedia_title is not None]
     logger.info("fetching %d Wikipedia intro(s)", len(titles))
@@ -260,6 +260,18 @@ def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: P
     output_path = output_dir / "wikidata_genre_descriptions.parquet"
     df.write_parquet(output_path)
     logger.info("wrote %d rows to %s", df.height, output_path)
+
+    aliases = pl.DataFrame(
+        [(item_id, alias) for item_id, d in descriptions.items() for alias in d.aliases],
+        schema={"item_id": pl.Utf8, "alias": pl.Utf8},
+        orient="row",
+    )
+    check_non_empty(aliases, "wikidata_genre_aliases")
+    if aliases.is_duplicated().any():
+        raise ValueError("wikidata_genre_aliases: (item_id, alias) is not unique")
+    aliases_path = output_dir / "wikidata_genre_aliases.parquet"
+    aliases.write_parquet(aliases_path)
+    logger.info("wrote %d rows to %s", aliases.height, aliases_path)
 
     return output_path
 

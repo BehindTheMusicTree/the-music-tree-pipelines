@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `wikidata` Bronze writes the English Wikidata aliases of every tree QID to `wikidata_genre_aliases.parquet` (same `wbgetentities` calls as the descriptions); gold `genre_match` resolves MusicBrainz tags through them as a last cascade step (`wikidata_alias`, after both curation lists), dropping aliases that collide with a canonical label or point to several items.
+- gold songs keep their secondary genres and raw MusicBrainz tags: `1_genre_match.parquet` adds `secondary_genre_item_ids` (resolved genres left after precedence, so never an ancestor of the chosen genre) and `musicbrainz_genres` (every tag with its weight), and `2_songs` adds `secondary_genre_names` and `musicbrainz_genres` (a `manual_song_genre.csv` override drops its genre and the genres it beats from the secondaries). Every song lands in `2_songs_delta` once.
+
 ## [8.1.1] - 2026-10-27
 
 ### Fixed

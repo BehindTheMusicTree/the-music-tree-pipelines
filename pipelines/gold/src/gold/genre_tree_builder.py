@@ -6,7 +6,7 @@ import polars as pl
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta, check_unique_key
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
-from gold.song_export import MBID_PATTERN
+from gold.curation_csv import MBID_PATTERN
 
 
 logger = logging.getLogger(__name__)

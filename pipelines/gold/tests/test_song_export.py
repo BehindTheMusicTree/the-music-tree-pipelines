@@ -17,6 +17,7 @@ MATCH_ROWS = [
         "youtube_unplayable_reason": None,
         "genre_name": "Rock",
         "wikidata_genre_name": "rock",
+        "wikidata_genre_item_id": "Q1",
         "match_method": "exact",
     },
     {
@@ -28,6 +29,7 @@ MATCH_ROWS = [
         "first_release_year": 1977,
         "genre_name": "Jazz",
         "wikidata_genre_name": "jazz",
+        "wikidata_genre_item_id": "Q4",
         "match_method": "exact",
     },
     {
@@ -70,6 +72,9 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "youtube_unplayable_reason": None,
             "youtube_view_count": None,
             "first_release_year": None,
+            "wikidata_genre_item_id": None,
+            "secondary_genre_item_ids": [],
+            "musicbrainz_genres": [],
             **row,
         }
         for i, row in enumerate(rows if rows is not None else MATCH_ROWS)
@@ -80,6 +85,9 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "youtube_unplayable_reason": pl.Utf8,
             "youtube_view_count": pl.Int64,
             "first_release_year": pl.Int16,
+            "wikidata_genre_item_id": pl.Utf8,
+            "secondary_genre_item_ids": pl.List(pl.Utf8),
+            "musicbrainz_genres": pl.List(pl.Struct({"name": pl.Utf8, "weight": pl.Int64})),
         },
     ).write_parquet(path)
     return path
@@ -90,13 +98,17 @@ def _write_silver(tmp_path: Path) -> Path:
     silver_dir.mkdir(exist_ok=True)
     pl.DataFrame(
         {
-            "item_id": ["Q1", "Q2", "Q3"],
-            "item_label": ["rock", "punk", "techno"],
-            "item_display_label": [None, "Punk", None],
-            "is_umbrella": [False, False, True],
+            "item_id": ["Q1", "Q2", "Q3", "Q4", "Q5"],
+            "item_label": ["rock", "punk", "techno", "jazz", "hardcore punk"],
+            "item_display_label": [None, "Punk", None, None, None],
+            "parent_id": [None, "Q1", None, None, "Q2"],
+            "is_umbrella": [False, False, True, False, False],
         },
-        schema_overrides={"item_display_label": pl.Utf8},
+        schema_overrides={"item_display_label": pl.Utf8, "parent_id": pl.Utf8},
     ).write_parquet(silver_dir / "7_canonical_hierarchy.parquet")
+    pl.DataFrame(schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(
+        silver_dir / "5_secondary_parents.parquet"
+    )
     pl.DataFrame({"item_id": ["Q10"], "item_label": ["samba"]}).write_parquet(
         silver_dir / "8_regional_hierarchy.parquet"
     )
@@ -139,6 +151,8 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "youtube_view_count": 1234,
         "first_release_year": 1977,
         "genre_name": "jazz",
+        "secondary_genre_names": [],
+        "musicbrainz_genres": [],
     }
     assert songs[4]["youtube_video_id"] is None
 
@@ -286,3 +300,46 @@ def test_export_songs_raises_on_bad_recording_override(
 
     with pytest.raises(ValueError, match=match):
         export_songs(_write_genre_match(tmp_path), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+
+
+def test_export_songs_writes_secondary_genre_names_and_musicbrainz_genres(tmp_path: Path, curation_dir: Path) -> None:
+    row = {
+        **MATCH_ROWS[0],
+        "secondary_genre_item_ids": ["Q4", "Q2"],
+        "musicbrainz_genres": [{"name": "Rock", "weight": 3}, {"name": "some tag", "weight": 1}],
+    }
+
+    songs = _read_parts(
+        export_songs(_write_genre_match(tmp_path, rows=[row]), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+    )
+
+    assert songs[0]["secondary_genre_names"] == ["jazz", "Punk"]
+    assert songs[0]["musicbrainz_genres"] == [{"name": "Rock", "weight": 3}, {"name": "some tag", "weight": 1}]
+
+
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [("Q2", ["jazz", "hardcore punk"]), ("Q5", ["jazz"]), (None, ["punk", "jazz", "hardcore punk"])],
+)
+def test_export_songs_override_drops_secondaries_its_genre_is_or_beats(
+    tmp_path: Path,
+    curation_dir: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+    override: str | None,
+    expected: list[str],
+) -> None:
+    write_curation("song_genre", [{"musicbrainz_recording_id": _mbid(0), "genre_item_id": override, "reason": "x"}])
+    row = {**MATCH_ROWS[0], "secondary_genre_item_ids": ["Q2", "Q4", "Q5"]}
+
+    songs = _read_parts(
+        export_songs(_write_genre_match(tmp_path, rows=[row]), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+    )
+
+    assert [name.lower() for name in songs[0]["secondary_genre_names"]] == expected
+
+
+def test_export_songs_raises_on_genre_among_its_secondaries(tmp_path: Path, curation_dir: Path) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "secondary_genre_item_ids": ["Q1"]}])
+
+    with pytest.raises(ValueError, match="among their secondary genres"):
+        export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
