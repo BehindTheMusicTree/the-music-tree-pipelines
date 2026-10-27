@@ -16,6 +16,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 - `wikidata`'s Bronze `wikidata_genre_descriptions.parquet` (`WIKIDATA_BRONZE_DIR`): the source of the tree nodes' `description` and Wikipedia `summary` — see `pipelines/wikidata/SCHEMA.md`.
 - `musicbrainz`'s `6_artists.parquet`, `7_artist_members.parquet`, `8_artist_links.parquet`, `9_artist_release_groups.parquet`, `11_artist_aliases.parquet` — see `pipelines/musicbrainz/SCHEMA.md`.
 - `musicbrainz`'s `5_songs.parquet`: `musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, youtube_view_count, genre_name, first_release_year` — see `pipelines/musicbrainz/SCHEMA.md`.
+- `geohistory`'s `3_entity_succession.parquet`, `5_tradition.parquet`, `5_tradition_link.parquet`, `6_genealogy_lane.parquet`, `7_lane_order.parquet`, `7_band_fragment.parquet` (`GEOHISTORY_SILVER_DIR`) — see `pipelines/geohistory/SCHEMA.md`.
 
 ## 2. Outputs
 
@@ -45,6 +46,8 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 **`2_songs_hashes.parquet`, `3_artists_hashes.parquet`** — `(<key>, row_hash)` per exported row (`musicbrainz_recording_id` / `musicbrainz_artist_id`; `row_hash` is the Polars hash of every other column, so it is only comparable within one Polars version — after an upgrade every row differs once). Written atomically each run.
 
 **`2_songs_delta/`, `3_artists_delta/`** — only written when `_synced/<name>_hashes.parquet` exists (the baseline the `infrastructure` run script copies there after grow merged a run successfully). `part-NNNNN.ndjson.gz`: the full-export rows (same shape and part size as `2_songs`/`3_artists`) whose key is new or whose `row_hash` differs from the baseline. `deleted.ndjson.gz`: `{"<key>": str}` per baseline key absent from this run. Cleared each run.
+
+**`4_genealogy.json`** — `{"columns": [{"id": str, "position": int, "lanes": [{"entityId": str, "label": str, "startYear": int | null, "endYear": int}]}], "bands": [{"entityId": str, "label": str, "fragment": int, "startPosition": int, "endPosition": int, "startYear": int | null, "endYear": int | null}], "successions": [{"predecessorId": str, "successorId": str}], "traditions": [{"wikidataId": str, "label": str, "start": int | null, "end": int | null, "anchorId": str | null, "inCanonicalTree": bool}], "traditionLinks": [{"sourceId": str, "targetId": str, "kind": "lineage" | "association"}]}`. Columns ordered by `position` (0 = west), lanes by start year; `successions` keep only edges between entities shown as a lane or band; `anchorId` is null for an unplaced tradition; `inCanonicalTree` is true when the tradition's QID is an `item_id` of `7_canonical_hierarchy`. Raises `ValueError` on zero traditions or columns, a column without lanes, or a schema violation (`src/gold/schemas/genealogy.schema.json`). POSTed to `grow-the-music-tree-api`'s `/v1/genealogy/import/`.
 
 **`_manifest.json`** — `{"builtOn": str, "curationExportedOn": str, "pipelinesCommit": str}`: the build's UTC ISO 8601 timestamp, the curation `exportedOn` stamped into both trees, and this repo's `git rev-parse HEAD`. Deleted at the start of every Gold run and written atomically (temp file + rename) only after every other output succeeded, so its presence means the Gold outputs are complete and consistent.
 

@@ -51,12 +51,13 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(build, "export_umbrella_candidates", lambda *_: calls.append("umbrella_candidates"))
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "export_artists", lambda *_: calls.append("artists"))
+    monkeypatch.setattr(build, "export_genealogy", lambda *_: calls.append("genealogy"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 
-    path = build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", curation_dir, gold_dir)
+    path = build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, gold_dir)
     (gold_dir / "m.parquet").unlink()
 
-    assert calls == ["canonical", "regional", "match", "umbrella_candidates", "songs", "artists"]
+    assert calls == ["canonical", "regional", "match", "umbrella_candidates", "songs", "artists", "genealogy"]
     manifest = json.loads(path.read_text())
     assert path == gold_dir / "_manifest.json"
     assert manifest["curationExportedOn"] == EXPORTED_ON
@@ -78,7 +79,7 @@ def test_build_gold_raises_on_unknown_essential_track(monkeypatch: pytest.Monkey
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 
     with pytest.raises(ValueError, match=f"manual_essential_songs.csv references unknown.*{MBID_B}"):
-        build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", curation_dir, gold_dir)
+        build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, gold_dir)
 
     assert calls == ["match"]
 
@@ -95,7 +96,7 @@ def test_build_gold_removes_stale_manifest_on_failure(monkeypatch: pytest.Monkey
     monkeypatch.setattr(build, "export_canonical_genre_tree", failing_export)
 
     with pytest.raises(ValueError, match="boom"):
-        build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", curation_dir, gold_dir)
+        build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, gold_dir)
 
     assert not (gold_dir / build.MANIFEST_NAME).exists()
 
@@ -105,7 +106,9 @@ def test_build_gold_raises_without_curation_exported_on(tmp_path: Path) -> None:
     _write_curation(curation_dir, {})
 
     with pytest.raises(ValueError, match="exportedOn"):
-        build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", curation_dir, tmp_path / "gold")
+        build.build_gold(
+            tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, tmp_path / "gold"
+        )
 
 
 def test_pipelines_commit_is_a_sha() -> None:
