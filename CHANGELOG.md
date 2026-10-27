@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `wikidata` Bronze cultural entities also pull civilizations, notable historical regions and ethnic groups (at least 30 sitelinks) and macro regions (parts of at least two countries), and `geohistory` Silver turns them into entities.
 - `wikidata` Bronze cultural entities also pull modern countries and cultural regions, and `geohistory` Silver turns them into entities (the most specific kind wins for an item matching several).
 - `musicbrainz` ingests `artist_alias`; Silver `6_artists` gains `sort_name` and `disambiguation` and `11_artist_aliases` is new. Gold `3_artists` rows carry `disambiguation` and `aliases` (alias names and sort names, plus the artist sort name, minus the display name) for grow's artist search. Requires grow-the-music-tree-api with `Artist.disambiguation`/`ArtistAlias` (already deployed); tested.
 - `geohistory` Silver applies three curation lists from grow-api (`entity_exclusions`, `entity_membership_overrides`, `entity_time_span_overrides`), pulled by `curation` and read through the new `CURATION_BRONZE_DIR`; deploy after grow-the-music-tree-api's `feature/geohistory-curation`, otherwise `curation.ingest` raises on the missing lists.

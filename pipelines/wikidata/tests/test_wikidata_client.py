@@ -282,6 +282,23 @@ def test_cultural_entity_query_requires_glottocode_only_for_languoids() -> None:
     assert "wd:Q465299" in culture
 
 
+def test_cultural_entity_query_keeps_only_notable_ethnic_groups_and_historical_regions() -> None:
+    for kind, qid in (("ethnic_group", "Q41710"), ("historical_region", "Q1620908")):
+        query = wikidata_client.cultural_entity_query(kind)
+
+        assert f"wd:{qid}" in query
+        assert f"FILTER(?sitelinks >= {wikidata_client.NOTABLE_SITELINKS})" in query
+
+
+def test_cultural_entity_query_selects_items_that_several_countries_belong_to_as_macro_regions() -> None:
+    query = wikidata_client.cultural_entity_query("macro_region")
+
+    assert "wdt:P361|wdt:P706|wdt:P30" in query
+    assert f"HAVING (COUNT(DISTINCT ?member) >= {wikidata_client.MACRO_REGION_MIN_MEMBERS})" in query
+    assert "wd:Q6256" in query
+    assert "wd:Q3024240" in query
+
+
 def test_cultural_entity_claim_query_reads_date_precision_and_skips_deprecated_statements() -> None:
     date_query = wikidata_client.cultural_entity_claim_query("historical_country", "P571")
     item_query = wikidata_client.cultural_entity_claim_query("historical_country", "P1366")
@@ -298,5 +315,6 @@ def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countr
     assert "wdt:P2348 ?item" in period
     assert "wd:Q465299" in period
     assert "wd:Q3024240" in period
-    assert period.count(" UNION ") == 3
+    assert "wd:Q8432" in period
+    assert period.count(" UNION ") == 4
     assert "VALUES" not in period

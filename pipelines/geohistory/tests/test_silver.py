@@ -200,6 +200,14 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
         entity("Q2", "cultural_region"),
         entity("Q2", "country"),
         entity("Q3", "cultural_region"),
+        entity("Q4", "macro_region"),
+        entity("Q4", "cultural_region"),
+        entity("Q5", "ethnic_group"),
+        entity("Q5", "cultural_region"),
+        entity("Q6", "civilization"),
+        entity("Q6", "historical_country"),
+        entity("Q7", "historical_region"),
+        entity("Q7", "ethnic_group"),
     ]
     base_bronze(dirs, entities=entities, claims=[])
     bronze, wikidata, silver = dirs
@@ -208,7 +216,15 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
 
     out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
     kinds = dict(out.select("entity_id", "kind").rows())
-    assert kinds == {"Q1": "historical_country", "Q2": "country", "Q3": "cultural_region"}
+    assert kinds == {
+        "Q1": "historical_country",
+        "Q2": "country",
+        "Q3": "cultural_region",
+        "Q4": "cultural_region",
+        "Q5": "ethnic_group",
+        "Q6": "civilization",
+        "Q7": "historical_region",
+    }
 
 
 def test_entity_membership_raises_on_cycle(dirs):
