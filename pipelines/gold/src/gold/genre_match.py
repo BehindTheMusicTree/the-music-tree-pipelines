@@ -173,7 +173,7 @@ def genre_match(
         logger.warning("malformed youtube_video_id(s), video cleared before genre matching: %s", malformed_ids)
         songs = songs.with_columns(
             pl.when(is_malformed).then(None).otherwise(pl.col(column)).alias(column)
-            for column in ("youtube_video_id", "youtube_unplayable_reason")
+            for column in ("youtube_video_id", "youtube_unplayable_reason", "youtube_view_count")
         )
 
     item_id_by_label = dict(
@@ -241,6 +241,7 @@ def genre_match(
             "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
+            "youtube_view_count",
             "first_release_year",
             "wikidata_genre_name",
             wikidata_genre_item_id="item_id",

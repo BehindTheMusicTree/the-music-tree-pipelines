@@ -149,7 +149,7 @@ def songs(
         .join(recording_song, on="recording_id")
         .sort("song_id", pl.col("youtube_unplayable_reason").is_not_null(), "rank", "recording_id")
         .unique(subset="song_id", keep="first", maintain_order=True)
-        .select("song_id", "youtube_video_id", "youtube_unplayable_reason")
+        .select("song_id", "youtube_video_id", "youtube_unplayable_reason", "youtube_view_count")
     )
     # A curated video always wins, checked or not: its reason is the rule's when set, else the checked status
     # (null, i.e. playable, while unchecked).
@@ -166,6 +166,7 @@ def songs(
             youtube_unplayable_reason=pl.when(pl.col("youtube_video_id").is_not_null()).then(
                 pl.coalesce("unplayable_reason", "youtube_unplayable_reason")
             ),
+            youtube_view_count="youtube_view_count",
         )
     )
     youtube_video = pl.concat([manual_video, computed_video.join(manual_video, on="song_id", how="anti")])
@@ -192,6 +193,7 @@ def songs(
             "artist_musicbrainz_id",
             "youtube_video_id",
             "youtube_unplayable_reason",
+            "youtube_view_count",
             "first_release_year",
         )
     )

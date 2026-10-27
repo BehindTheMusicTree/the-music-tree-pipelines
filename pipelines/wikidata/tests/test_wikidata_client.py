@@ -282,6 +282,23 @@ def test_cultural_entity_query_requires_glottocode_only_for_languoids() -> None:
     assert "wd:Q465299" in culture
 
 
+def test_cultural_entity_query_keeps_only_notable_ethnic_groups_and_historical_regions() -> None:
+    for kind, qid in (("ethnic_group", "Q41710"), ("historical_region", "Q1620908")):
+        query = wikidata_client.cultural_entity_query(kind)
+
+        assert f"wd:{qid}" in query
+        assert f"FILTER(?sitelinks >= {wikidata_client.NOTABLE_SITELINKS})" in query
+
+
+def test_cultural_entity_query_selects_items_that_several_countries_belong_to_as_macro_regions() -> None:
+    query = wikidata_client.cultural_entity_query("macro_region")
+
+    assert "wdt:P361|wdt:P706|wdt:P30" in query
+    assert f"HAVING (COUNT(DISTINCT ?member) >= {wikidata_client.MACRO_REGION_MIN_MEMBERS})" in query
+    assert "wd:Q6256" in query
+    assert "wd:Q3024240" in query
+
+
 def test_cultural_entity_claim_query_reads_date_precision_and_skips_deprecated_statements() -> None:
     date_query = wikidata_client.cultural_entity_claim_query("historical_country", "P571")
     item_query = wikidata_client.cultural_entity_claim_query("historical_country", "P1366")
@@ -298,5 +315,55 @@ def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countr
     assert "wdt:P2348 ?item" in period
     assert "wd:Q465299" in period
     assert "wd:Q3024240" in period
-    assert period.count(" UNION ") == 3
+    assert "wd:Q8432" in period
+    assert period.count(" UNION ") == 4
     assert "VALUES" not in period
+
+
+def test_curated_entity_patterns_add_a_values_kind_for_the_listed_qids() -> None:
+    patterns = wikidata_client.curated_entity_patterns(["Q123559", "Q141814080"])
+    query = wikidata_client.cultural_entity_query("curated", patterns)
+    claim_query = wikidata_client.cultural_entity_claim_query("curated", "P571", patterns)
+
+    assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in query
+    assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in claim_query
+    assert list(patterns)[-1] == wikidata_client.CURATED_KIND
+
+
+def test_curated_entity_patterns_without_qids_keep_the_bulk_kinds_only() -> None:
+    assert wikidata_client.curated_entity_patterns([]) == wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS
+
+
+@pytest.mark.parametrize("qids", [["Genre"], ["bret1244"], ["Q1", "Q1"]])
+def test_curated_entity_patterns_raise_on_invalid_or_duplicate_ids(qids: list[str]) -> None:
+    with pytest.raises(ValueError, match="entity additions"):
+        wikidata_client.curated_entity_patterns(qids)
+
+
+def test_country_query_excludes_great_homelands() -> None:
+    query = wikidata_client.cultural_entity_query("country")
+    assert f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{wikidata_client.GREAT_HOMELAND_QID} . }}" in query
+
+
+def test_tradition_candidate_patterns_select_music_genres_and_the_listed_extra_items() -> None:
+    patterns = wikidata_client.tradition_candidate_patterns(["Q2", "Q1", "Q2"])
+
+    assert patterns["music_genre"] == "?item wdt:P31 wd:Q188451 ."
+    assert patterns["curated"] == "VALUES ?item { wd:Q1 wd:Q2 }"
+    assert list(wikidata_client.tradition_candidate_patterns([])) == ["music_genre"]
+
+
+def test_tradition_candidate_patterns_raise_on_invalid_ids() -> None:
+    with pytest.raises(ValueError, match="Wikidata QIDs"):
+        wikidata_client.tradition_candidate_patterns(["not-a-qid"])
+
+
+def test_tradition_claim_query_reads_sitelinks_labels_dates_and_plain_claims() -> None:
+    patterns = wikidata_client.tradition_candidate_patterns([])
+
+    assert "?item wikibase:sitelinks ?value" in wikidata_client.tradition_claim_query(
+        "music_genre", "sitelinks", patterns
+    )
+    assert "SERVICE wikibase:label" in wikidata_client.tradition_claim_query("music_genre", "label", patterns)
+    assert "psv:P571" in wikidata_client.tradition_claim_query("music_genre", "P571", patterns)
+    assert "?item wdt:P2596 ?value" in wikidata_client.tradition_claim_query("music_genre", "P2596", patterns)

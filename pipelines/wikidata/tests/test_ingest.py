@@ -211,35 +211,52 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
     rows_by_kind = {
         "languoid": [_entity_row("Q1", "Limburgish", "limb1263"), _entity_row("Q1", "Limburgish", "limb1265")],
         "archaeological_culture": [_entity_row("Q2", "Caral", None), _entity_row("Q2", "Caral", None)],
+        "civilization": [_entity_row("Q6", "Maya", None)],
         "historical_country": [_entity_row("Q1", "Limburgish", None)],
         "country": [_entity_row("Q4", "Mexico", None)],
+        "historical_region": [_entity_row("Q7", "Bohemia", None)],
+        "ethnic_group": [_entity_row("Q8", "Berbers", None)],
         "cultural_region": [_entity_row("Q5", "Maghreb", None)],
+        "macro_region": [_entity_row("Q9", "Caribbean", None)],
         "time_period": [_entity_row("Q3", "Bronze Age", None)],
+        "curated": [_entity_row("Q10", "Oued Beht", None)],
     }
     kinds = iter(rows_by_kind)
     run_query = MagicMock(side_effect=lambda *args, **kwargs: rows_by_kind[next(kinds)])
     monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
 
-    result = bw.ingest_cultural_entities(tmp_path / "bronze")
+    result = bw.ingest_cultural_entities(tmp_path / "bronze", bw.wikidata_client.curated_entity_patterns(["Q10"]))
 
     assert result == tmp_path / "bronze" / "wikidata_cultural_entity.parquet"
     assert pl.read_parquet(result).select("item_id", "kind", "glottocode").rows() == [
         ("Q2", "archaeological_culture", None),
+        ("Q6", "civilization", None),
         ("Q4", "country", None),
         ("Q5", "cultural_region", None),
+        ("Q10", "curated", None),
+        ("Q8", "ethnic_group", None),
         ("Q1", "historical_country", None),
+        ("Q7", "historical_region", None),
         ("Q1", "languoid", "limb1263"),
         ("Q1", "languoid", "limb1265"),
+        ("Q9", "macro_region", None),
         ("Q3", "time_period", None),
     ]
     assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT
+
+
+def test_read_entity_additions_returns_the_listed_qids(tmp_path: Path) -> None:
+    path = tmp_path / "manual_entity_additions.csv"
+    path.write_text("entity_id,reason\nQ123559,al-Andalus\nQ141814080,Oued Beht\n")
+
+    assert bw.read_entity_additions(path) == ["Q123559", "Q141814080"]
 
 
 def test_ingest_cultural_entities_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_cultural_entities(tmp_path)
+        bw.ingest_cultural_entities(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
 
 
 def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_values(
@@ -266,7 +283,7 @@ def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_valu
 
     monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
 
-    result = bw.ingest_cultural_entity_claims(tmp_path)
+    result = bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
 
     assert pl.read_parquet(result).rows() == [
         ("Q35505", "P1366", "Q294", None),
@@ -278,4 +295,67 @@ def test_ingest_cultural_entity_claims_raises_on_empty_results(monkeypatch: pyte
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_cultural_entity_claims(tmp_path)
+        bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
+
+
+def test_tradition_extra_qids_covers_parent_only_overviews_curated_overviews_and_additions(tmp_path: Path) -> None:
+    tree = tmp_path / "tree.parquet"
+    pl.DataFrame(
+        {
+            "item_id": ["Q1", "Q2", "Q3"],
+            "parent_id": ["Q10", "Q11", "LOCAL:x"],
+            "parent_label": ["music of Wales", "rock music", "music of nowhere"],
+        }
+    ).write_parquet(tree)
+    overview_additions = tmp_path / "overviews.csv"
+    overview_additions.write_text("item_id,label,reason\nQ20,music of Tuva,r\nLOCAL:y,music of Mars,r\n")
+
+    assert bw.tradition_extra_qids(tree, overview_additions, ["Q30"]) == ["Q10", "Q20", "Q30"]
+
+
+def test_read_tradition_additions_returns_the_listed_qids(tmp_path: Path) -> None:
+    path = tmp_path / "additions.csv"
+    path.write_text("wikidata_id,reason\nQ5,r\n")
+
+    assert bw.read_tradition_additions(path) == ["Q5"]
+
+
+def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows_by_marker = {
+        "p:P571 ": [{"item": "http://www.wikidata.org/entity/Q1", "value": "+1890-01-01T00:00:00Z", "precision": "9"}],
+        "wdt:P2596 ": [
+            {
+                "item": "http://www.wikidata.org/entity/Q1",
+                "value": "http://www.wikidata.org/entity/Q2",
+                "precision": None,
+            }
+        ],
+        "wikibase:sitelinks ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "42", "precision": None}],
+        "?itemLabel AS ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "blues", "precision": None}],
+    }
+
+    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
+        for marker, rows in rows_by_marker.items():
+            if marker in query:
+                return rows
+        return []
+
+    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
+
+    result = bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+
+    assert pl.read_parquet(result).rows() == [
+        ("Q1", "P2596", "Q2", None),
+        ("Q1", "P571", "+1890-01-01T00:00:00Z", 9),
+        ("Q1", "label", "blues", None),
+        ("Q1", "sitelinks", "42", None),
+    ]
+
+
+def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))

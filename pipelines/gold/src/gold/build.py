@@ -9,6 +9,7 @@ import polars as pl
 
 from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
+from gold.genealogy_export import export_genealogy
 from gold.genre_match import genre_match
 from gold.regional_genre_tree_export import export_regional_genre_tree
 from gold.song_export import check_known_recordings, export_songs
@@ -51,6 +52,7 @@ def build_gold(
     musicbrainz_silver_dir: Path,
     wikidata_silver_dir: Path,
     wikidata_bronze_dir: Path,
+    geohistory_silver_dir: Path,
     curation_dir: Path,
     gold_output_dir: Path,
 ) -> Path:
@@ -94,4 +96,5 @@ def build_gold(
     export_umbrella_candidates(wikidata_silver_dir / "7_canonical_hierarchy.parquet", genre_match_path, gold_output_dir)
     export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
+    export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.1.0] - 2026-10-27
+
+### Added
+
+- gold: `4_genealogy.json` export (columns, bands, successions, traditions, tradition links) built from geohistory Silver, validated against `genealogy.schema.json`; requires `GEOHISTORY_SILVER_DIR`.
+- `geohistory` Silver builds the music-tradition genealogy: `5_tradition` (traditions anchored on cultural entities, with lineage/association links and an unplaced triage CSV), `6_genealogy_lane`/`6_genealogy_band` (lanes, bands and shared columns) and `7_lane_order`/`7_band_fragment` (deterministic west-to-east seriation), driven by the four tradition curation lists.
+- `wikidata` Bronze ingests the raw claims of the music-tradition candidates (every `P31` music genre, the "music of <place>" overviews, the tradition additions) into `wikidata_music_tradition_claims.parquet`: dates, culture, facet of, country, follows/followed by, influenced by, sitelinks and label, unfiltered by date. `curation` Bronze pulls the four tradition lists (`tradition_additions`, `tradition_exclusions`, `tradition_placement_overrides`, `tradition_link_overrides`), the first of which `wikidata` Bronze reads.
+- Songs carry the YouTube view count of their chosen video (`youtube_view_count`): `musicbrainz` Silver `4_youtube_video_status` now also requests `part=statistics` in the same `videos.list` calls (no extra quota), `5_songs` and `gold`'s `1_genre_match` carry it, and the `2_songs` export adds it (null when there's no video or it isn't checked yet; ids cached before this change fill in as the 7-day TTL refreshes them).
+- `geohistory` cultural entities can be added on demand: the `entity_additions` curation list (QIDs) makes `wikidata` Bronze ingest those items, with their claims, as kind `curated`, which `geohistory` Silver keeps below every bulk kind and fails on when a listed QID is absent from Bronze. Covers items no bulk class reaches, such as an archaeological site or a historiographical region.
+
+### Fixed
+
+- `wikidata` Bronze no longer ingests "great homeland" items (Greater Serbia, Megali Idea, Pan-Iranism…) as kind `country`: Wikidata makes that class a subclass of country though these are irredentist projects, and their mutual `P361` claims made `geohistory` Silver fail on a cycle in `2_entity_membership`.
+- `geohistory` Silver no longer fails on a time period starting before -10 million years (Proterozoic, -2.5 billion, overflowed the Int32 year): such dates are ignored, as no human tradition predates them.
+
 ## [8.0.1] - 2026-10-26
 
 ### Fixed
@@ -63,10 +78,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `gold` no longer raises when `manual_secondary_parents.csv` removes an edge that is now the item's main parent (a `main_parent` rule promoted it); the removal is satisfied, logged and kept for if the main parent moves away.
+- `gold` no longer raises when `manual_secondary_parents.csv` removes an edge that is now the item's main parent (a `main_parent` rule promoted it); the removal is satisfied, logged as a warning and kept for if the main parent moves away.
 
 ### Added
 
+- `wikidata` Bronze cultural entities also pull civilizations, notable historical regions and ethnic groups (at least 30 sitelinks) and macro regions (parts of at least two countries), and `geohistory` Silver turns them into entities.
 - `wikidata` Bronze cultural entities also pull modern countries and cultural regions, and `geohistory` Silver turns them into entities (the most specific kind wins for an item matching several).
 - `musicbrainz` ingests `artist_alias`; Silver `6_artists` gains `sort_name` and `disambiguation` and `11_artist_aliases` is new. Gold `3_artists` rows carry `disambiguation` and `aliases` (alias names and sort names, plus the artist sort name, minus the display name) for grow's artist search. Requires grow-the-music-tree-api with `Artist.disambiguation`/`ArtistAlias` (already deployed); tested.
 - `geohistory` Silver applies three curation lists from grow-api (`entity_exclusions`, `entity_membership_overrides`, `entity_time_span_overrides`), pulled by `curation` and read through the new `CURATION_BRONZE_DIR`; deploy after grow-the-music-tree-api's `feature/geohistory-curation`, otherwise `curation.ingest` raises on the missing lists.

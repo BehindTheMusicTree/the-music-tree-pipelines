@@ -200,6 +200,14 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
         entity("Q2", "cultural_region"),
         entity("Q2", "country"),
         entity("Q3", "cultural_region"),
+        entity("Q4", "macro_region"),
+        entity("Q4", "cultural_region"),
+        entity("Q5", "ethnic_group"),
+        entity("Q5", "cultural_region"),
+        entity("Q6", "civilization"),
+        entity("Q6", "historical_country"),
+        entity("Q7", "historical_region"),
+        entity("Q7", "ethnic_group"),
     ]
     base_bronze(dirs, entities=entities, claims=[])
     bronze, wikidata, silver = dirs
@@ -208,7 +216,15 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
 
     out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
     kinds = dict(out.select("entity_id", "kind").rows())
-    assert kinds == {"Q1": "historical_country", "Q2": "country", "Q3": "cultural_region"}
+    assert kinds == {
+        "Q1": "historical_country",
+        "Q2": "country",
+        "Q3": "cultural_region",
+        "Q4": "cultural_region",
+        "Q5": "ethnic_group",
+        "Q6": "civilization",
+        "Q7": "historical_region",
+    }
 
 
 def test_entity_membership_raises_on_cycle(dirs):
@@ -250,9 +266,11 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
         entity("Q10", "archaeological_culture"),
         entity("Q11", "archaeological_culture"),
         entity("Q12", "archaeological_culture"),
+        entity("Q13", "archaeological_culture"),
         entity("Q1", "has_glottocode", "lang1"),
     ]
     claims = [
+        claim("Q13", "P580", "-2500000000-01-01T00:00:00Z", 1),
         claim("Q10", "P571", "-3500-01-01T00:00:00Z", 7),
         claim("Q10", "P571", "-3000-01-01T00:00:00Z", 7),
         claim("Q10", "P580", "-4000-01-01T00:00:00Z", 9),
@@ -287,6 +305,7 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
     assert (rows["lang1"]["start_year"], rows["lang1"]["start_source"]) == (1800, "glottolog")
     assert (rows["lang1"]["end_year"], rows["lang1"]["end_source"]) == (1900, "glottolog")
     assert rows["Q12"]["start_year"] > rows["Q12"]["end_year"]
+    assert rows["Q13"]["start_year"] is None
     assert rows["fam1"]["start_year"] is None
 
 
@@ -355,6 +374,27 @@ def test_entity_time_span_overrides_win_and_blank_year_keeps_sourced_value(dirs)
     row = pl.read_parquet(path).filter(pl.col("entity_id") == "lang1").to_dicts()[0]
     assert (row["start_year"], row["start_precision"], row["start_source"]) == (-500, None, "curation")
     assert (row["end_year"], row["end_source"]) == (1900, "glottolog")
+
+
+def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
+    entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q2", "country")]
+    base_bronze(dirs, entities=entities, claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "site"), ("Q2", "dup")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    assert dict(out.select("entity_id", "kind").rows()) == {"Q1": "curated", "Q2": "country"}
+
+
+def test_cultural_entity_raises_when_an_addition_is_missing_from_the_bronze(dirs):
+    base_bronze(dirs)
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "gone")])
+
+    with pytest.raises(ValueError, match="Q999"):
+        cultural_entity(bronze, wikidata, silver, curation)
 
 
 def test_read_curation_list_raises_on_unexpected_columns(dirs):

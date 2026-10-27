@@ -45,6 +45,12 @@ def _check_songs(songs: pl.DataFrame) -> None:
     bad_reason = songs.filter(~pl.col("youtube_unplayable_reason").is_in(_UNPLAYABLE_REASONS)).height
     if bad_reason:
         raise ValueError(f"{OUTPUT_DIRNAME}: {bad_reason} row(s) with an unknown youtube_unplayable_reason")
+    bad_view_count = songs.filter(
+        (pl.col("youtube_view_count") < 0)
+        | (pl.col("youtube_view_count").is_not_null() & pl.col("youtube_video_id").is_null())
+    ).height
+    if bad_view_count:
+        raise ValueError(f"{OUTPUT_DIRNAME}: {bad_view_count} row(s) with a negative or video-less youtube_view_count")
 
 
 def _genre_names_by_item_id(wikidata_silver_dir: Path) -> dict[str, str]:
@@ -112,6 +118,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         "artist_musicbrainz_id",
         "youtube_video_id",
         "youtube_unplayable_reason",
+        "youtube_view_count",
         "first_release_year",
         genre_name=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_name")),
     )

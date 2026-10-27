@@ -9,7 +9,17 @@ from geohistory.silver.curation import read_curation_list
 logger = logging.getLogger(__name__)
 
 EXCLUDED_CATEGORIES = ("Bookkeeping", "Sign_Language", "Artificial_Language")
-WIKIDATA_ENTITY_KINDS = ("archaeological_culture", "historical_country", "country", "cultural_region")
+WIKIDATA_ENTITY_KINDS = (
+    "archaeological_culture",
+    "civilization",
+    "historical_country",
+    "country",
+    "historical_region",
+    "ethnic_group",
+    "cultural_region",
+    "macro_region",
+    "curated",
+)
 _NUMBER = r"-?[\d.]+(?:[eE][-+]?\d+)?"
 POINT_PATTERN = rf"^Point\(({_NUMBER}) ({_NUMBER})\)$"
 
@@ -56,6 +66,20 @@ def cultural_entity(
     if unknown.height:
         logger.warning("%d Wikidata Glottocode(s) are absent from Glottolog and left out", unknown.height)
     linked = item_glottocodes.join(glottolog.select(pl.col("entity_id").alias("glottocode")), on="glottocode")
+
+    additions = read_curation_list(curation_dir, "entity_additions")["entity_id"].to_list()
+    unfetched = sorted(set(additions) - set(wikidata["item_id"].to_list()))
+    if unfetched:
+        raise ValueError(
+            f"entity_additions QIDs missing from the Wikidata Bronze (deleted or redirected?): {unfetched}"
+        )
+    redundant = wikidata.filter(pl.col("item_id").is_in(additions) & (pl.col("kind") != "curated"))["item_id"].unique()
+    if redundant.len():
+        logger.warning(
+            "%d entity_additions QID(s) are already covered by a bulk kind: %s",
+            redundant.len(),
+            redundant.sort()[:5].to_list(),
+        )
 
     wikidata_entities = (
         wikidata.filter(pl.col("kind").is_in(WIKIDATA_ENTITY_KINDS))

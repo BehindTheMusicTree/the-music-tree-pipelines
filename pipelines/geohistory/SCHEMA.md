@@ -14,6 +14,9 @@ Data dictionary for `geohistory`. Design rationale is in [DESIGN.md](DESIGN.md).
     - [2.3 2_entity_membership.parquet](#23-2_entity_membershipparquet)
     - [2.4 3_entity_succession.parquet](#24-3_entity_successionparquet)
     - [2.5 4_entity_time_span.parquet](#25-4_entity_time_spanparquet)
+    - [2.6 5_tradition files](#26-5_tradition-files)
+    - [2.7 6_genealogy files](#27-6_genealogy-files)
+    - [2.8 7_lane_order.parquet and 7_band_fragment.parquet](#28-7_lane_orderparquet-and-7_band_fragmentparquet)
 
 ## 1. Bronze
 
@@ -47,8 +50,8 @@ One row per cultural entity. `entity_id` is unique. Profile on the real Bronze: 
 
 | Column            | Type | Meaning                                                                                                     |
 | ----------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
-| entity_id         | str  | Glottocode for `family`/`language`/`dialect`, Wikidata QID for `archaeological_culture`/`historical_country`/`country`/`cultural_region` |
-| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `historical_country`, `country` or `cultural_region`                         |
+| entity_id         | str  | Glottocode for `family`/`language`/`dialect`, Wikidata QID for the Wikidata kinds below |
+| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `civilization`, `historical_country`, `country`, `historical_region`, `ethnic_group`, `cultural_region` or `macro_region` |
 | label             | str  | Glottolog name or Wikidata label                                                                            |
 | latitude          | f64? | Latitude                                                                                                    |
 | longitude         | f64? | Longitude                                                                                                   |
@@ -99,3 +102,41 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | end_year        | i32? | End year; null = no end known (alive)                                           |
 | end_precision   | i8?  | Wikidata time precision of the end; null for Glottolog                          |
 | end_source      | str? | `P576`, `P582`, `period`, `glottolog` or `curation`                            |
+
+### 2.6 5_tradition files
+
+`5_tradition.parquet`: one row per music tradition (genre or "music of X" overview starting by 1950, plus additions).
+
+| Column      | Type | Meaning                                                                              |
+| ----------- | ---- | ------------------------------------------------------------------------------------ |
+| wikidata_id | str  | Wikidata QID                                                                         |
+| label       | str  | Wikidata label                                                                       |
+| start_year  | i32? | Start year                                                                           |
+| end_year    | i32? | End year, capped at 1950                                                             |
+| anchor_id   | str? | `1_cultural_entity.entity_id` the tradition is placed on; null = unplaced            |
+| anchor_rule | str? | `override`, `P2596`, `P1269` or `P495`; null when unplaced                           |
+
+`5_tradition_link.parquet`: `from_wikidata_id` (str), `to_wikidata_id` (str), `kind` (`lineage` or `association`);
+`from` is the earlier or influencing tradition. `5_tradition_unplaced.csv`: `wikidata_id`, `label`, `start_year` of
+traditions without anchor. `5_tradition_report.json`: `{"unplacedTraditionCount": N}`.
+
+### 2.7 6_genealogy files
+
+`6_genealogy_lane.parquet`: one row per lane (an entity anchoring a tradition and having no anchored descendant).
+
+| Column     | Type | Meaning                                                                            |
+| ---------- | ---- | ---------------------------------------------------------------------------------- |
+| entity_id  | str  | `1_cultural_entity.entity_id`                                                      |
+| label      | str  | Entity label                                                                       |
+| column_id  | str  | Column the lane sits in; successive lanes without time overlap share a column      |
+| start_year | i32? | Start year (entity span, else envelope of its traditions)                          |
+| end_year   | i32  | End year, capped at 1950                                                           |
+
+`6_genealogy_band.parquet`: one row per (band, column) with the same columns as the lane file; a band is an ancestor
+covering at least two lanes, or an anchored entity having anchored descendants.
+
+### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
+
+`7_lane_order.parquet`: `column_id` (str), `position` (i32, 0 = west). `7_band_fragment.parquet`: one row per
+contiguous run of a band's columns: `entity_id`, `label`, `fragment` (i32), `start_position`, `end_position` (i32,
+inclusive), `start_year`, `end_year`.

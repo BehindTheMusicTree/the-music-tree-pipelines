@@ -18,13 +18,17 @@ DATE_PROPERTIES = pl.DataFrame(
 PERIOD_PRIORITY = 3
 GLOTTOLOG_PRIORITY = 4
 YEAR_PATTERN = r"^\+?(-?\d+)-"
+# Geological periods (Proterozoic starts at -2.5 billion) overflow Int32 and predate any human tradition.
+MIN_YEAR = -10_000_000
 
 
-def _dated_claims(claims: pl.DataFrame) -> pl.DataFrame:
+def dated_claims(claims: pl.DataFrame) -> pl.DataFrame:
     return (
         claims.join(DATE_PROPERTIES, on="property")
-        .with_columns(pl.col("value").str.extract(YEAR_PATTERN, 1).cast(pl.Int32).alias("year"))
+        .with_columns(pl.col("value").str.extract(YEAR_PATTERN, 1).cast(pl.Int64).alias("year"))
         .drop_nulls("year")
+        .filter(pl.col("year") >= MIN_YEAR)
+        .with_columns(pl.col("year").cast(pl.Int32))
         .select("item_id", "property", "side", "priority", "year", pl.col("time_precision").alias("precision"))
     )
 
@@ -89,7 +93,7 @@ def entity_time_span(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Pa
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet").select("entity_id")
     crosswalk = pl.read_parquet(silver_dir / "1_entity_wikidata_item.parquet")
 
-    dated = _dated_claims(claims)
+    dated = dated_claims(claims)
     own = dated.join(crosswalk, left_on="item_id", right_on="wikidata_id").select(
         "entity_id", "side", "priority", "year", "precision", pl.col("property").alias("source")
     )

@@ -21,6 +21,7 @@ pipeline overview.
     - [2.4 wikidata_genre_descriptions.parquet](#24-wikidata_genre_descriptionsparquet)
     - [2.5 wikidata_cultural_entity.parquet](#25-wikidata_cultural_entityparquet)
     - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
+    - [2.7 wikidata_music_tradition_claims.parquet](#27-wikidata_music_tradition_claimsparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -182,10 +183,10 @@ item can appear under several kinds, and under several Glottocodes (e.g. Limburg
 | ---------- | ---- | ---------------------------------------------------------------------------------------------------- |
 | item_id    | str  | Wikidata QID (e.g. `Q12107`)                                                                         |
 | item_label | str  | English/`mul`-fallback label                                                                         |
-| kind       | str  | `languoid` (has `P1394`), `archaeological_culture` (`P31/P279*` `Q465299`), `historical_country` (`P31/P279*` `Q3024240`), `country` (`P31/P279*` `Q6256`), `cultural_region` (`P31/P279*` `Q3502482`) or `time_period` (the `P2348` targets of the four previous kinds, a date fallback and no entity of its own) |
+| kind       | str  | `languoid` (has `P1394`), `archaeological_culture` (`P31/P279*` `Q465299`), `historical_country` (`P31/P279*` `Q3024240`), `country` (`P31/P279*` `Q6256`), `cultural_region` (`P31/P279*` `Q3502482`), `civilization` (`P31/P279*` `Q8432`), `historical_region` (`P31/P279*` `Q1620908`) or `ethnic_group` (`P31/P279*` `Q41710`), the last two only with at least 30 sitelinks, `macro_region` (an item that at least two countries or historical countries are `P361`/`P706`/`P30` of), `curated` (a QID listed in the `entity_additions` curation list) or `time_period` (the `P2348` targets of the archaeological cultures, civilizations, countries, historical countries and cultural regions, a date fallback and no entity of its own) |
 | glottocode | str? | `P1394` Glottocode for `languoid` rows, null otherwise                                               |
 
-As of this writing: 19,382 rows (languoid 11,925, historical_country 5,026, archaeological_culture 1,325, country 673, cultural_region 323, time_period 110).
+As of this writing: 24,864 rows (languoid 11,925, historical_country 5,026, historical_region 4,202, archaeological_culture 1,325, ethnic_group 987, country 673, cultural_region 323, macro_region 181, time_period 113, civilization 109).
 
 ### 2.6 wikidata_cultural_entity_claim.parquet
 
@@ -200,6 +201,20 @@ property). Deprecated statements are excluded. See `wikidata_client.cultural_ent
 | time_precision | i8?  | `wikibase:timePrecision` for date properties (7 century, 8 decade, 9 year, …), null otherwise                         |
 
 As of this writing: 16,596 rows.
+
+### 2.7 wikidata_music_tradition_claims.parquet
+
+Raw claims of the music-tradition candidates, one row per (item, property, value), unfiltered by date (the ≤ 1950 rule
+is semantic and applied in `geohistory` Silver). Candidates are every `P31` music genre item (`Q188451`), the "music
+of <place>" overviews the genre tree only knows as parents, the `manual_regional_overview_additions.csv` QIDs and the
+`manual_tradition_additions.csv` QIDs. Deduplicated.
+
+| Column         | Type | Meaning                                                                                                                      |
+| -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
+| item_id        | str  | Wikidata QID of the candidate                                                                                                |
+| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
+| value          | str  | Date properties: raw ISO literal as is, BCE years included; `sitelinks`: the count; `label`: the label; others: the QID      |
+| time_precision | i8?  | `wikibase:timePrecision` for date properties, null otherwise                                                                 |
 
 ## 3. Silver
 

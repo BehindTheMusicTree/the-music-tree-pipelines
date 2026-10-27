@@ -1,5 +1,6 @@
 import json
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 import httpx
@@ -115,7 +116,13 @@ SELECT ?item ?countryOfOrigin ?countryOfOriginLabel WHERE {{
 ARCHAEOLOGICAL_CULTURE_QID = "Q465299"
 HISTORICAL_COUNTRY_QID = "Q3024240"
 COUNTRY_QID = "Q6256"
+GREAT_HOMELAND_QID = "Q3115110"
 CULTURAL_REGION_QID = "Q3502482"
+CIVILIZATION_QID = "Q8432"
+ETHNIC_GROUP_QID = "Q41710"
+HISTORICAL_REGION_QID = "Q1620908"
+NOTABLE_SITELINKS = 30
+MACRO_REGION_MIN_MEMBERS = 2
 CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
 
 CULTURAL_ENTITY_QUERY_VARIABLES = ("item", "itemLabel", "glottocode")
@@ -124,19 +131,46 @@ CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 # Which items belong to each cultural-entity kind. An item can match several kinds (a historical
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
 # so ingestion keeps one row per (item, kind, glottocode). time_period items are the P2348 targets of the
-# archaeological cultures, historical and modern countries and cultural regions: they are no entities, only a
-# date fallback, joined by UNION since a VALUES class list makes WDQS time out. Ethnic groups (Q41710, ~80k items)
-# and historical regions (Q1620908, ~113k) are deliberately absent: too broad to pull wholesale, they are added
-# on demand.
+# archaeological cultures, civilizations, historical and modern countries and cultural regions: they are no
+# entities, only a date fallback, joined by UNION since a VALUES class list makes WDQS time out.
+# Great homelands (irredentist projects such as Greater Serbia) are a subclass of country in Wikidata but no countries, so they are filtered out of country.
+# Ethnic groups (~80k items) and historical regions (~113k) are too broad to pull wholesale, so only those with at least NOTABLE_SITELINKS sitelinks are kept. A macro region has no class of its
+# own: it is any item that at least MACRO_REGION_MIN_MEMBERS countries or historical countries are part of
+# (P361), located in (P706) or on the continent of (P30); members are matched on a direct P31 and the
+# optimizer is switched off, as WDQS otherwise starts from the P361 triples and exceeds its timeout.
 CULTURAL_ENTITY_KIND_PATTERNS = {
     "languoid": "?item wdt:P1394 ?glottocode .",
     "archaeological_culture": f"?item wdt:P31/wdt:P279* wd:{ARCHAEOLOGICAL_CULTURE_QID} .",
+    "civilization": f"?item wdt:P31/wdt:P279* wd:{CIVILIZATION_QID} .",
     "historical_country": f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_COUNTRY_QID} .",
-    "country": f"?item wdt:P31/wdt:P279* wd:{COUNTRY_QID} .",
+    "country": (
+        f"?item wdt:P31/wdt:P279* wd:{COUNTRY_QID} . "
+        f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{GREAT_HOMELAND_QID} . }}"
+    ),
+    "historical_region": (
+        f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_REGION_QID} ; wikibase:sitelinks ?sitelinks . "
+        f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"
+    ),
+    "ethnic_group": (
+        f"?item wdt:P31/wdt:P279* wd:{ETHNIC_GROUP_QID} ; wikibase:sitelinks ?sitelinks . "
+        f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"
+    ),
     "cultural_region": f"?item wdt:P31/wdt:P279* wd:{CULTURAL_REGION_QID} .",
+    "macro_region": (
+        "{ SELECT ?item WHERE { hint:Query hint:optimizer 'None' . "
+        f"VALUES ?memberClass {{ wd:{COUNTRY_QID} wd:{HISTORICAL_COUNTRY_QID} }} "
+        "?member wdt:P31 ?memberClass ; wdt:P361|wdt:P706|wdt:P30 ?item . } "
+        f"GROUP BY ?item HAVING (COUNT(DISTINCT ?member) >= {MACRO_REGION_MIN_MEMBERS}) }}"
+    ),
     "time_period": " UNION ".join(
         f"{{ ?source wdt:P31/wdt:P279* wd:{qid} ; wdt:P2348 ?item . }}"
-        for qid in (ARCHAEOLOGICAL_CULTURE_QID, HISTORICAL_COUNTRY_QID, COUNTRY_QID, CULTURAL_REGION_QID)
+        for qid in (
+            ARCHAEOLOGICAL_CULTURE_QID,
+            CIVILIZATION_QID,
+            HISTORICAL_COUNTRY_QID,
+            COUNTRY_QID,
+            CULTURAL_REGION_QID,
+        )
     ),
 }
 
@@ -147,10 +181,29 @@ CULTURAL_CLAIM_DATE_PIDS = ("P571", "P576", "P580", "P582")
 CULTURAL_CLAIM_PIDS = (*CULTURAL_CLAIM_DATE_PIDS, "P2348", "P1365", "P1366", "P361", "P625")
 
 
-def cultural_entity_query(kind: str) -> str:
+CURATED_KIND = "curated"
+QID_PATTERN = re.compile(r"Q[0-9]+")
+
+
+def curated_entity_patterns(qids: Sequence[str]) -> dict[str, str]:
+    """The bulk kind patterns plus, when `qids` is not empty, a `curated` kind selecting exactly those items."""
+    invalid = [qid for qid in qids if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"entity additions must be Wikidata QIDs, got {invalid[:5]}")
+    if len(set(qids)) != len(qids):
+        raise ValueError("entity additions contain duplicate QIDs")
+    if not qids:
+        return CULTURAL_ENTITY_KIND_PATTERNS
+    return {
+        **CULTURAL_ENTITY_KIND_PATTERNS,
+        CURATED_KIND: f"VALUES ?item {{ {' '.join(f'wd:{qid}' for qid in qids)} }}",
+    }
+
+
+def cultural_entity_query(kind: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS) -> str:
     return f"""
 SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
-  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}
+  {patterns[kind]}
   {"" if kind == "languoid" else "OPTIONAL { ?item wdt:P1394 ?glottocode . }"}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
@@ -162,7 +215,9 @@ SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
 # short enough for WDQS's timeout. Dates come from the full-value node, so the raw literal (BCE
 # years such as "-2600-01-01T00:00:00Z" included) and its precision (century, millennium...) are
 # kept; deprecated statements are dropped, every other rank is kept for Silver to arbitrate.
-def cultural_entity_claim_query(kind: str, pid: str) -> str:
+def cultural_entity_claim_query(
+    kind: str, pid: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS
+) -> str:
     if pid in CULTURAL_CLAIM_DATE_PIDS:
         value_pattern = f"""
   ?item p:{pid} ?statement .
@@ -173,9 +228,63 @@ def cultural_entity_claim_query(kind: str, pid: str) -> str:
         value_pattern = f"\n  ?item wdt:{pid} ?value ."
     return f"""
 SELECT DISTINCT ?item ?value ?precision WHERE {{
-  {CULTURAL_ENTITY_KIND_PATTERNS[kind]}{value_pattern}
+  {patterns[kind]}{value_pattern}
 }}
 """
+
+
+MUSIC_GENRE_KIND = "music_genre"
+LABEL_PID = "label"
+SITELINKS_PID = "sitelinks"
+
+# Claim properties that date, anchor or link a music tradition candidate. P2596 = culture, P1269 = facet of,
+# P495 = country of origin, P17 = country, P361 = part of, P155/P156 = follows/followed by, P737 = influenced by.
+# P279 (subclass of) is not listed: the genre tree already carries it. `label` and `sitelinks` are pseudo-properties
+# ingested through the same long table.
+TRADITION_CLAIM_PIDS = (
+    *CULTURAL_CLAIM_DATE_PIDS,
+    "P2596",
+    "P1269",
+    COUNTRY_OF_ORIGIN_PID,
+    "P17",
+    "P361",
+    "P155",
+    "P156",
+    "P737",
+    SITELINKS_PID,
+    LABEL_PID,
+)
+
+
+def tradition_candidate_patterns(extra_qids: Sequence[str]) -> dict[str, str]:
+    """Every P31 music genre item, plus (when `extra_qids` is not empty) exactly the listed items as kind `curated`.
+
+    `extra_qids` are the tradition additions, the regional overview additions and the "music of <place>" overviews
+    that the genre tree only knows as parents: none of them is necessarily a P31 music genre itself.
+    """
+    patterns = {MUSIC_GENRE_KIND: f"?item wdt:P31 wd:{MUSIC_GENRE_QID} ."}
+    if not extra_qids:
+        return patterns
+    curated = curated_entity_patterns(sorted(set(extra_qids)))[CURATED_KIND]
+    return {**patterns, CURATED_KIND: curated}
+
+
+def tradition_claim_query(kind: str, pid: str, patterns: Mapping[str, str]) -> str:
+    if pid == SITELINKS_PID:
+        return f"""
+SELECT DISTINCT ?item ?value ?precision WHERE {{
+  {patterns[kind]}
+  ?item wikibase:sitelinks ?value .
+}}
+"""
+    if pid == LABEL_PID:
+        return f"""
+SELECT DISTINCT ?item (?itemLabel AS ?value) ?precision WHERE {{
+  {patterns[kind]}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+}}
+"""
+    return cultural_entity_claim_query(kind, pid, patterns)
 
 
 @tenacity.retry(
