@@ -32,6 +32,8 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "canonical_genre_pop_side": ("root_genre_name", "pop_child_genre_name", "reason"),
     "genre_alias": ("musicbrainz_genre_name", "wikidata_genre_name", "reason"),
     "genre_precedence": ("item_id", "over_item_id", "reason"),
+    "genre_disambiguation": ("musicbrainz_genre_name", "item_id", "is_default", "reason"),
+    "genre_disambiguation_context": ("musicbrainz_genre_name", "item_id", "context_item_id", "reason"),
     "entity_additions": ("entity_id", "reason"),
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),

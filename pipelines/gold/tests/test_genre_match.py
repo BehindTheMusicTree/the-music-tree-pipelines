@@ -94,6 +94,29 @@ def _write_wikidata_aliases(tmp_path: Path, rows: list[tuple[str, str]] | None =
     return path
 
 
+def _write_disambiguation_csvs(
+    tmp_path: Path, rows: list[tuple[str, str, bool]] | None, context_rows: list[tuple[str, str, str]] | None
+) -> tuple[Path, Path]:
+    path = tmp_path / "manual_genre_disambiguation.csv"
+    pl.DataFrame(
+        [(name, item_id, "true" if is_default else "", "x") for name, item_id, is_default in rows or []],
+        schema={"musicbrainz_genre_name": pl.Utf8, "item_id": pl.Utf8, "is_default": pl.Utf8, "reason": pl.Utf8},
+        orient="row",
+    ).write_csv(path)
+    context_path = tmp_path / "manual_genre_disambiguation_context.csv"
+    pl.DataFrame(
+        [(*row, "x") for row in context_rows or []],
+        schema={
+            "musicbrainz_genre_name": pl.Utf8,
+            "item_id": pl.Utf8,
+            "context_item_id": pl.Utf8,
+            "reason": pl.Utf8,
+        },
+        orient="row",
+    ).write_csv(context_path)
+    return path, context_path
+
+
 def _run_genre_match(
     tmp_path: Path,
     song_rows: list[dict],
@@ -104,6 +127,8 @@ def _run_genre_match(
     secondary_rows: list[dict] | None = None,
     wikidata_alias_rows: list[tuple[str, str]] | None = None,
     output_dir: Path | None = None,
+    disambiguation_rows: list[tuple[str, str, bool]] | None = None,
+    context_rows: list[tuple[str, str, str]] | None = None,
 ) -> Path:
     song_path, song_genre_path = _write_songs(tmp_path, song_rows)
     return genre_match(
@@ -114,6 +139,7 @@ def _run_genre_match(
         _write_alias_csv(tmp_path, alias_rows),
         _write_non_genre_csv(tmp_path, non_genre_rows),
         _write_precedence_csv(tmp_path, precedence_rows),
+        *_write_disambiguation_csvs(tmp_path, disambiguation_rows, context_rows),
         _write_wikidata_aliases(tmp_path, wikidata_alias_rows),
         output_dir or (tmp_path / "gold"),
     )
@@ -543,10 +569,45 @@ def test_genre_match_ignores_wikidata_alias_colliding_with_an_ambiguous_label(tm
     assert _match(result) == (None, "unmatched")
 
 
-def test_genre_match_ignores_ambiguous_wikidata_alias(tmp_path: Path) -> None:
-    result = _run_genre_match(tmp_path, [_song("fusion")], wikidata_alias_rows=[("Q2", "fusion"), ("Q3", "Fusion")])
+def test_genre_match_leaves_ambiguous_wikidata_alias_without_context_unresolved(tmp_path: Path) -> None:
+    output_dir = tmp_path / "gold"
+    result = _run_genre_match(
+        tmp_path,
+        [_song("fusion")],
+        wikidata_alias_rows=[("Q2", "fusion"), ("Q3", "Fusion")],
+        output_dir=output_dir,
+    )
 
-    assert _match(result) == (None, "unmatched")
+    assert _match(result) == (None, "ambiguous")
+    assert pl.read_csv(output_dir / "1_genre_match_unresolved.csv")["genre_name"].to_list() == ["fusion"]
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 1}
+
+
+def test_genre_match_wikidata_alias_on_one_lineage_resolves_to_the_deepest(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [_song("punk")], wikidata_alias_rows=[("Q1", "punk"), ("Q4", "punk")])
+
+    assert _match(result) == ("punk rock", "wikidata_alias")
+
+
+def test_genre_match_disambiguates_wikidata_alias_by_context(tmp_path: Path) -> None:
+    hierarchy = [
+        *HIERARCHY_ROWS,
+        {"item_id": "Q7", "item_label": "jazz fusion", "parent_id": "Q2", "is_umbrella": False},
+    ]
+
+    result = _run_genre_match(
+        tmp_path,
+        [{**_song("x"), "genres": [("fusion", 5), ("jazz", 1)]}],
+        hierarchy_rows=hierarchy,
+        wikidata_alias_rows=[("Q7", "fusion"), ("Q3", "fusion")],
+    )
+
+    row = pl.read_parquet(result).to_dicts()[0]
+    assert (row["wikidata_genre_name"], row["match_method"], row["secondary_genre_item_ids"]) == (
+        "jazz fusion",
+        "disambiguated",
+        [],
+    )
 
 
 def test_genre_match_manual_alias_overrides_wikidata_alias(tmp_path: Path) -> None:
@@ -615,3 +676,128 @@ def test_genre_match_gives_empty_lists_to_a_song_without_tags(tmp_path: Path) ->
 
     row = pl.read_parquet(result).to_dicts()[0]
     assert (row["secondary_genre_item_ids"], row["musicbrainz_genres"]) == ([], [])
+
+
+R_AND_B_HIERARCHY = [
+    {"item_id": "Q10", "item_label": "pop music", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q11", "item_label": "rhythm and blues", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q12", "item_label": "contemporary R&B", "parent_id": "Q10", "is_umbrella": False},
+    {"item_id": "Q13", "item_label": "soul music", "parent_id": "Q11", "is_umbrella": False},
+    {"item_id": "Q14", "item_label": "quiet storm", "parent_id": "Q12", "is_umbrella": False},
+    {"item_id": "Q15", "item_label": "hip-hop", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q16", "item_label": "trap music", "parent_id": "Q15", "is_umbrella": False},
+    {"item_id": "Q17", "item_label": "jazz", "parent_id": None, "is_umbrella": False},
+]
+R_AND_B = [("r&b", "Q11", True), ("R&B", "Q12", False)]
+HIP_HOP_HINT = [("r&b", "Q12", "Q15")]
+
+
+def _disambiguated(genres: list[tuple[str, int]], **kwargs: object) -> dict:
+    tmp_path = kwargs.pop("tmp_path")
+    assert isinstance(tmp_path, Path)
+    result = _run_genre_match(
+        tmp_path,
+        [{**_song("x"), "genres": genres}],
+        hierarchy_rows=kwargs.pop("hierarchy_rows", R_AND_B_HIERARCHY),
+        disambiguation_rows=kwargs.pop("disambiguation_rows", R_AND_B),
+        context_rows=kwargs.pop("context_rows", HIP_HOP_HINT),
+        **kwargs,
+    )
+    return pl.read_parquet(result).to_dicts()[0]
+
+
+@pytest.mark.parametrize(
+    ("genres", "expected_genre", "expected_method"),
+    [
+        ([("r&b", 5), ("pop", 1)], "contemporary R&B", "disambiguated"),
+        ([("r&b", 5), ("hip hop", 1)], "contemporary R&B", "disambiguated"),
+        ([("r&b", 5), ("trap", 1)], "contemporary R&B", "disambiguated"),
+        ([("r&b", 5)], "rhythm and blues", "disambiguated"),
+        ([("r&b", 5), ("jazz", 1)], "rhythm and blues", "disambiguated"),
+        ([("r&b", 5), ("soul", 1)], "soul music", "normalized"),
+        ([("r&b", 5), ("quiet storm", 1)], "quiet storm", "exact"),
+        ([("r&b", 5), ("rhythm and blues", 1)], "rhythm and blues", "exact"),
+    ],
+)
+def test_genre_match_disambiguates_curated_tag_by_the_song_s_other_genres(
+    tmp_path: Path, genres: list[tuple[str, int]], expected_genre: str, expected_method: str
+) -> None:
+    row = _disambiguated(genres, tmp_path=tmp_path)
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == (expected_genre, expected_method)
+
+
+def test_genre_match_ignored_ambiguous_tag_adds_no_weight(tmp_path: Path) -> None:
+    row = _disambiguated([("r&b", 5), ("soul", 1), ("jazz", 3)], tmp_path=tmp_path)
+
+    assert (row["wikidata_genre_name"], row["secondary_genre_item_ids"]) == ("jazz", ["Q13"])
+
+
+def test_genre_match_disambiguation_falls_back_to_default_when_fits_diverge(tmp_path: Path) -> None:
+    hierarchy = [*R_AND_B_HIERARCHY, {"item_id": "Q18", "item_label": "blues", "parent_id": None, "is_umbrella": False}]
+    row = _disambiguated(
+        [("r&b", 5), ("hip hop", 1), ("blues", 1)],
+        tmp_path=tmp_path,
+        hierarchy_rows=hierarchy,
+        context_rows=[*HIP_HOP_HINT, ("r&b", "Q11", "Q18")],
+    )
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == ("rhythm and blues", "disambiguated")
+
+
+def test_genre_match_disambiguation_keeps_the_most_precise_fitting_candidate(tmp_path: Path) -> None:
+    row = _disambiguated(
+        [("r&b", 5), ("hip hop", 1)],
+        tmp_path=tmp_path,
+        disambiguation_rows=[("r&b", "Q10", True), ("r&b", "Q12", False)],
+        context_rows=[("r&b", "Q10", "Q15"), *HIP_HOP_HINT],
+    )
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == ("contemporary R&B", "disambiguated")
+
+
+def test_genre_match_curated_disambiguation_overrides_wikidata_candidates(tmp_path: Path) -> None:
+    row = _disambiguated(
+        [("r&b", 5)], tmp_path=tmp_path, wikidata_alias_rows=[("Q12", "r&b"), ("Q17", "r&b"), ("Q11", "r&b")]
+    )
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == ("rhythm and blues", "disambiguated")
+
+
+def test_genre_match_curated_disambiguation_without_default_leaves_tag_ambiguous(tmp_path: Path) -> None:
+    row = _disambiguated(
+        [("r&b", 5)], tmp_path=tmp_path, disambiguation_rows=[("r&b", "Q11", False), ("r&b", "Q12", False)]
+    )
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == (None, "ambiguous")
+
+
+@pytest.mark.parametrize(
+    ("disambiguation_rows", "context_rows", "message"),
+    [
+        ([("r&b", "Q11", True), ("r&b", "Q99", False)], [], "not found in the canonical hierarchy"),
+        ([("r&b", "Q11", True)], [], "fewer than 2 candidates"),
+        ([("r&b", "Q11", True), ("r&b", "Q12", True)], [], "several defaults"),
+        ([("soul", "Q11", True), ("soul", "Q13", False)], [], "already resolved"),
+        ([("d&b", "Q11", True), ("d&b", "Q12", False)], [], "already resolved"),
+        ([("asmr", "Q11", True), ("asmr", "Q12", False)], [], "already resolved"),
+        (R_AND_B, [("r&b", "Q13", "Q15")], "not in manual_genre_disambiguation.csv"),
+        (R_AND_B, [("r&b", "Q12", "Q99")], "context_item_id"),
+        ([("r n b", "Q11", True), ("R-n-B", "Q11", False), ("r n b", "Q12", False)], [], "twice"),
+    ],
+)
+def test_genre_match_raises_on_invalid_disambiguation(
+    tmp_path: Path,
+    disambiguation_rows: list[tuple[str, str, bool]],
+    context_rows: list[tuple[str, str, str]],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _disambiguated(
+            [("r&b", 1)],
+            tmp_path=tmp_path,
+            disambiguation_rows=disambiguation_rows,
+            context_rows=context_rows,
+            alias_rows=[{"musicbrainz_genre_name": "d&b", "wikidata_genre_name": "jazz", "reason": "x"}],
+            non_genre_rows=[{"musicbrainz_genre_name": "asmr", "reason": "x"}],
+        )

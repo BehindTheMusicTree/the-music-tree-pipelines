@@ -7,6 +7,7 @@ import polars as pl
 from jsonschema import ValidationError, validate
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
+from gold.genre_disambiguation import disambiguate, load_curated_disambiguation, most_precise
 from gold.genre_precedence import apply_precedence, precedence_closure
 from gold.match_method import METHOD_RANK
 
@@ -112,10 +113,13 @@ def _validate_manual_accepted_non_genre_tags(
         )
 
 
-def _wikidata_alias_by_key(aliases: pl.DataFrame, hierarchy: pl.DataFrame) -> dict[str, str]:
-    """Genre key -> canonical label for wikidata's English aliases of canonical items. An alias whose key is any
-    canonical label's key is dropped (the label wins, even one reachable by exact name only), and so is a key
-    shared by aliases of several items, which can't pick one."""
+def _wikidata_alias_by_key(
+    aliases: pl.DataFrame, hierarchy: pl.DataFrame, closure: pl.DataFrame
+) -> tuple[dict[str, str], pl.DataFrame]:
+    """Wikidata's English aliases of canonical items, by genre key. An alias whose key is any canonical label's key
+    is dropped (the label wins, even one reachable by exact name only). A key shared by aliases of several items
+    keeps only the most precise of them: one left is a plain key -> label match, several left (on different
+    lineages) become automatic disambiguation candidates (`key, item_id, is_default`), with no default."""
     labels = hierarchy.select("item_id", "item_label").unique()
     label_keys = labels.select(_genre_key(pl.col("item_label"))).to_series().implode()
     keyed = (
@@ -124,13 +128,16 @@ def _wikidata_alias_by_key(aliases: pl.DataFrame, hierarchy: pl.DataFrame) -> di
         .filter(pl.col("key") != _genre_key(pl.col("item_label")))
         .unique()
     )
-    colliding = keyed.filter(pl.col("key").is_in(label_keys))["key"]
-    candidates = keyed.filter(~pl.col("key").is_in(label_keys))
-    ambiguous = candidates.group_by("key").agg(pl.col("item_id").n_unique()).filter(pl.col("item_id") > 1)["key"]
-    dropped = sorted(set(colliding) | set(ambiguous))
-    if dropped:
-        logger.warning("wikidata aliases colliding with a canonical label or ambiguous, not matched: %s", dropped)
-    return dict(candidates.filter(~pl.col("key").is_in(ambiguous.implode())).select("key", "item_label").iter_rows())
+    colliding = sorted(set(keyed.filter(pl.col("key").is_in(label_keys))["key"]))
+    if colliding:
+        logger.warning("wikidata aliases colliding with a canonical label, not matched: %s", colliding)
+    precise = most_precise(
+        keyed.filter(~pl.col("key").is_in(label_keys)).select("key", "item_id").unique(), ["key"], closure
+    )
+    is_single = pl.len().over("key") == 1
+    single = precise.filter(is_single).join(labels, on="item_id")
+    ambiguous = precise.filter(~is_single).with_columns(is_default=pl.lit(False))
+    return dict(single.select("key", "item_label").iter_rows()), ambiguous
 
 
 def _resolve_tags(
@@ -139,10 +146,12 @@ def _resolve_tags(
     index: _LabelIndex,
     alias_by_key: dict[str, str],
     non_genre_keys: pl.Series,
+    ambiguous_keys: pl.Series,
     wikidata_alias_by_key: dict[str, str],
 ) -> pl.DataFrame:
     """One row per distinct tag name: `(genre_name, item_id, method)`, `method` being the first cascade step
-    that resolves it, else `accepted_non_genre` / `unmatched` (null `item_id`)."""
+    that resolves it, else `accepted_non_genre` / `ambiguous` (picked per song later) / `unmatched` (null
+    `item_id`)."""
     name = pl.col("genre_name")
     return (
         tag_names.with_columns(
@@ -150,6 +159,7 @@ def _resolve_tags(
             normalized_match=index.normalized_match(name),
             alias_match=_genre_key(name).replace_strict(alias_by_key, default=None, return_dtype=pl.Utf8),
             is_non_genre=_genre_key(name).is_in(non_genre_keys.implode()),
+            is_ambiguous=_genre_key(name).is_in(ambiguous_keys.implode()),
             wikidata_alias_match=_genre_key(name).replace_strict(
                 wikidata_alias_by_key, default=None, return_dtype=pl.Utf8
             ),
@@ -159,7 +169,7 @@ def _resolve_tags(
                 "exact_match",
                 "normalized_match",
                 "alias_match",
-                pl.when(~pl.col("is_non_genre")).then(pl.col("wikidata_alias_match")),
+                pl.when(~pl.col("is_non_genre") & ~pl.col("is_ambiguous")).then(pl.col("wikidata_alias_match")),
             ),
             method=pl.when(pl.col("exact_match").is_not_null())
             .then(pl.lit("exact"))
@@ -169,6 +179,8 @@ def _resolve_tags(
             .then(pl.lit("manual_alias"))
             .when(pl.col("is_non_genre"))
             .then(pl.lit("accepted_non_genre"))
+            .when(pl.col("is_ambiguous"))
+            .then(pl.lit("ambiguous"))
             .when(pl.col("wikidata_alias_match").is_not_null())
             .then(pl.lit("wikidata_alias"))
             .otherwise(pl.lit("unmatched")),
@@ -189,6 +201,8 @@ def genre_match(
     manual_genre_alias_path: Path,
     manual_accepted_non_genre_tags_path: Path,
     manual_genre_precedence_path: Path,
+    manual_genre_disambiguation_path: Path,
+    manual_genre_disambiguation_context_path: Path,
     wikidata_aliases_path: Path,
     output_dir: Path,
 ) -> Path:
@@ -227,6 +241,21 @@ def genre_match(
     )
     non_genre_keys = non_genre_df.select(_genre_key(pl.col("musicbrainz_genre_name"))).to_series()
 
+    closure = precedence_closure(hierarchy, secondary_parents_path, manual_genre_precedence_path)
+    label_keys = pl.Series([*canonical_labels]).to_frame("label").select(_genre_key(pl.col("label"))).to_series()
+    curated = load_curated_disambiguation(
+        manual_genre_disambiguation_path,
+        manual_genre_disambiguation_context_path,
+        set(hierarchy["item_id"]),
+        pl.concat([label_keys, alias_keyed["key"], non_genre_keys]),
+        closure,
+        _genre_key,
+    )
+    wikidata_alias_by_key, automatic = _wikidata_alias_by_key(
+        pl.read_parquet(wikidata_aliases_path), hierarchy, closure
+    )
+    disambiguation = curated.with_automatic(automatic)
+
     song_genre = pl.scan_parquet(song_genre_path)
     resolution = _resolve_tags(
         song_genre.select("genre_name").unique().collect(),
@@ -234,17 +263,33 @@ def genre_match(
         index,
         dict(alias_keyed.iter_rows()),
         non_genre_keys,
-        _wikidata_alias_by_key(pl.read_parquet(wikidata_aliases_path), hierarchy),
+        disambiguation.keys,
+        wikidata_alias_by_key,
     )
     tags = song_genre.join(resolution.lazy(), on="genre_name")
 
-    resolved = (
+    tag = ["musicbrainz_recording_id", "genre_name"]
+    ambiguous_tags = tags.filter(pl.col("method") == "ambiguous").with_columns(key=_genre_key(pl.col("genre_name")))
+    context = (
         tags.filter(pl.col("item_id").is_not_null())
+        .select("musicbrainz_recording_id", context_item_id="item_id")
+        .unique()
+    )
+    picks, ignored = disambiguate(ambiguous_tags, context, disambiguation, closure)
+    settled = pl.concat([picks.select(tag), ignored])
+    unpicked = ambiguous_tags.join(settled, on=tag, how="anti")
+
+    resolved = (
+        pl.concat(
+            [
+                tags.filter(pl.col("item_id").is_not_null()).select(*tag, "item_id", "weight", "method"),
+                picks.select(*tag, "item_id", "weight", method=pl.lit("disambiguated")),
+            ]
+        )
         .with_columns(method_rank=pl.col("method").replace_strict(METHOD_RANK, return_dtype=pl.UInt8))
         .group_by("musicbrainz_recording_id", "item_id")
         .agg(pl.col("weight").sum(), pl.col("method_rank").min())
     )
-    closure = precedence_closure(hierarchy, secondary_parents_path, manual_genre_precedence_path)
     # Precedence already drops every genre beaten by another of the song's genres, so the genres left after the
     # first are neither ancestors of the primary nor of each other.
     best = (
@@ -270,6 +315,7 @@ def genre_match(
     )
     leftover = (
         tags.filter(pl.col("item_id").is_null())
+        .join(settled, on=tag, how="anti")
         .sort(["weight", "genre_name"], descending=[True, False])
         .group_by("musicbrainz_recording_id")
         .first()
@@ -309,7 +355,9 @@ def genre_match(
     check_row_count_delta(song_count, pl.scan_parquet(output_path).select(pl.len()).collect().item(), "genre_match")
 
     unresolved = (
-        tags.filter(pl.col("method") == "unmatched")
+        pl.concat(
+            [tags.filter(pl.col("method") == "unmatched").select(*tag, "weight"), unpicked.select(*tag, "weight")]
+        )
         .group_by("genre_name")
         .agg(song_count=pl.len(), weight_sum=pl.col("weight").sum())
         .sort(["song_count", "genre_name"], descending=[True, False])
@@ -317,7 +365,7 @@ def genre_match(
     )
     if not unresolved.is_empty():
         logger.warning(
-            "%d unmatched genre name(s), see 1_genre_match_unresolved.csv: %s",
+            "%d unmatched or ambiguous genre name(s), see 1_genre_match_unresolved.csv: %s",
             unresolved.height,
             unresolved["genre_name"].to_list(),
         )
