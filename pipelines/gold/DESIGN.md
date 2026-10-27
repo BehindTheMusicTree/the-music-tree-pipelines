@@ -84,7 +84,7 @@ noise), same closing-the-loop shape as `wikidata`'s manual-CSV backstops, just n
 
 ## Malformed `youtube_video_id` is cleared, not raised
 
-`genre_match` nulls any `youtube_video_id` (and its `youtube_unplayable_reason`) that isn't exactly 11
+`genre_match` nulls any `youtube_video_id` (and its `youtube_unplayable_reason` and `youtube_view_count`) that isn't exactly 11
 characters, logging a warning rather than raising. `musicbrainz`'s `5_songs` step already extracts only
 11-character ids (see `pipelines/musicbrainz/SCHEMA.md`), so this is a defensive second check against a
 regression there. The song itself is kept, the same as a song with no video. Raising in `song_export`'s

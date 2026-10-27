@@ -18,6 +18,7 @@ OUTPUT_FILENAME = "4_youtube_video_status.parquet"
 _SCHEMA: dict[str, pl.DataType] = {
     "youtube_video_id": pl.Utf8(),
     "youtube_unplayable_reason": pl.Utf8(),
+    "youtube_view_count": pl.Int64(),
     "checked_at": pl.Datetime("us", "UTC"),
 }
 
@@ -41,6 +42,12 @@ def unplayable_reason(item: dict[str, Any] | None) -> str | None:
     return None
 
 
+def view_count(item: dict[str, Any] | None) -> int | None:
+    if item is None or "viewCount" not in item.get("statistics", {}):
+        return None
+    return int(item["statistics"]["viewCount"])
+
+
 def _is_retryable(exception: BaseException) -> bool:
     if isinstance(exception, httpx.HTTPStatusError):
         return exception.response.status_code >= 500
@@ -53,11 +60,13 @@ def _is_retryable(exception: BaseException) -> bool:
     stop=tenacity.stop_after_attempt(5),
     reraise=True,
 )
-def _fetch_batch(client: httpx.Client, api_key: str, video_ids: Sequence[str]) -> dict[str, str | None]:
+def _fetch_batch(
+    client: httpx.Client, api_key: str, video_ids: Sequence[str]
+) -> dict[str, tuple[str | None, int | None]]:
     # Key sent as a header, not a query param, so httpx's request logging never prints it.
     response = client.get(
         VIDEOS_ENDPOINT,
-        params={"part": "status,contentDetails", "id": ",".join(video_ids), "maxResults": BATCH_SIZE},
+        params={"part": "status,contentDetails,statistics", "id": ",".join(video_ids), "maxResults": BATCH_SIZE},
         headers={"X-goog-api-key": api_key},
         timeout=30.0,
     )
@@ -72,7 +81,9 @@ def _fetch_batch(client: httpx.Client, api_key: str, video_ids: Sequence[str]) -
             )
     response.raise_for_status()
     items = {item["id"]: item for item in response.json()["items"]}
-    return {video_id: unplayable_reason(items.get(video_id)) for video_id in video_ids}
+    return {
+        video_id: (unplayable_reason(items.get(video_id)), view_count(items.get(video_id))) for video_id in video_ids
+    }
 
 
 def youtube_video_status(
@@ -89,6 +100,10 @@ def youtube_video_status(
     cached = pl.DataFrame(schema=_SCHEMA)
     if output_path.exists():
         cached = pl.read_parquet(output_path).filter(pl.col("youtube_video_id").is_in(video_ids.implode()))
+        # Parquets written before view counts were fetched lack the column; their rows fill in as the TTL refreshes them.
+        if "youtube_view_count" not in cached.columns:
+            cached = cached.with_columns(youtube_view_count=pl.lit(None, dtype=pl.Int64()))
+        cached = cached.select(list(_SCHEMA))
 
     # Stale rows stay usable until refreshed: the per-run budget can't cover every candidate of the full catalog,
     # so curated (pinned) ids go first, then never-checked ids, then the stalest ones, and whatever's left waits for
@@ -110,9 +125,15 @@ def youtube_video_status(
     # Written in a finally so batches that already spent quota survive a mid-run quota/5xx failure.
     try:
         for start in range(0, len(to_fetch), BATCH_SIZE):
-            for video_id, reason in _fetch_batch(client, api_key, to_fetch[start : start + BATCH_SIZE]).items():
+            batch = _fetch_batch(client, api_key, to_fetch[start : start + BATCH_SIZE])
+            for video_id, (reason, count) in batch.items():
                 fetched_rows.append(
-                    {"youtube_video_id": video_id, "youtube_unplayable_reason": reason, "checked_at": now}
+                    {
+                        "youtube_video_id": video_id,
+                        "youtube_unplayable_reason": reason,
+                        "youtube_view_count": count,
+                        "checked_at": now,
+                    }
                 )
     finally:
         fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
@@ -121,12 +142,13 @@ def youtube_video_status(
         output_dir.mkdir(parents=True, exist_ok=True)
         result.write_parquet(output_path)
     logger.info(
-        "wrote %d rows to %s (%d fetched, %d from cache, %d candidates never checked yet, %d unplayable)",
+        "wrote %d rows to %s (%d fetched, %d from cache, %d candidates never checked yet, %d unplayable, %d with a view count)",
         result.height,
         output_path,
         fetched.height,
         cached.height,
         video_ids.len() - result.height,
         result["youtube_unplayable_reason"].is_not_null().sum(),
+        result["youtube_view_count"].is_not_null().sum(),
     )
     return output_path

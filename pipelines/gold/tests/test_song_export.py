@@ -24,6 +24,7 @@ MATCH_ROWS = [
         "artist": "Artist D",
         "youtube_video_id": "jkl012jkl01",
         "youtube_unplayable_reason": "not_embeddable",
+        "youtube_view_count": 1234,
         "first_release_year": 1977,
         "genre_name": "Jazz",
         "wikidata_genre_name": "jazz",
@@ -67,13 +68,19 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "musicbrainz_recording_id": _mbid(i),
             "artist_musicbrainz_id": _mbid(100 + i),
             "youtube_unplayable_reason": None,
+            "youtube_view_count": None,
             "first_release_year": None,
             **row,
         }
         for i, row in enumerate(rows if rows is not None else MATCH_ROWS)
     ]
     pl.DataFrame(
-        rows, schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16}
+        rows,
+        schema_overrides={
+            "youtube_unplayable_reason": pl.Utf8,
+            "youtube_view_count": pl.Int64,
+            "first_release_year": pl.Int16,
+        },
     ).write_parquet(path)
     return path
 
@@ -129,6 +136,7 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "artist_musicbrainz_id": _mbid(101),
         "youtube_video_id": "jkl012jkl01",
         "youtube_unplayable_reason": "not_embeddable",
+        "youtube_view_count": 1234,
         "first_release_year": 1977,
         "genre_name": "jazz",
     }
@@ -151,6 +159,20 @@ def test_export_songs_splits_parts_and_clears_stale_ones(
         "part-00002.ndjson.gz",
     ]
     assert len(_read_parts(parts_dir)) == len(MATCH_ROWS)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {**MATCH_ROWS[0], "youtube_view_count": -1},
+        {**MATCH_ROWS[4], "youtube_view_count": 10},
+    ],
+)
+def test_export_songs_raises_on_bad_youtube_view_count(tmp_path: Path, curation_dir: Path, row: dict) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[MATCH_ROWS[1], row])
+
+    with pytest.raises(ValueError, match="youtube_view_count"):
+        export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
 
 
 def test_export_songs_raises_on_unknown_youtube_unplayable_reason(tmp_path: Path, curation_dir: Path) -> None:

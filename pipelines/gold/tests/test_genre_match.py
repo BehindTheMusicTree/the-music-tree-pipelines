@@ -27,6 +27,7 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
             "musicbrainz_recording_id": _mbid(i),
             "artist_musicbrainz_id": _mbid(100 + i),
             "youtube_unplayable_reason": None,
+            "youtube_view_count": None,
             "first_release_year": None,
             **row,
         }
@@ -34,7 +35,11 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
     ]
     pl.DataFrame(
         [{k: v for k, v in row.items() if k not in ("genre_name", "genres")} for row in rows],
-        schema_overrides={"youtube_unplayable_reason": pl.Utf8, "first_release_year": pl.Int16},
+        schema_overrides={
+            "youtube_unplayable_reason": pl.Utf8,
+            "youtube_view_count": pl.Int64,
+            "first_release_year": pl.Int16,
+        },
     ).write_parquet(path)
     genre_path = tmp_path / "10_song_genre.parquet"
     tags = [
@@ -119,6 +124,12 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
     assert row["artist_musicbrainz_id"] == _mbid(100)
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
+
+
+def test_genre_match_passes_youtube_view_count_through(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("Rock"), "youtube_view_count": 42}])
+
+    assert pl.read_parquet(result).to_dicts()[0]["youtube_view_count"] == 42
 
 
 def test_genre_match_passes_youtube_unplayable_reason_through(tmp_path: Path) -> None:
@@ -354,20 +365,30 @@ def test_genre_match_clears_malformed_youtube_video_id(tmp_path: Path) -> None:
                 "artist": "Artist",
                 "youtube_video_id": "tooshort",
                 "youtube_unplayable_reason": "not_found",
+                "youtube_view_count": 7,
                 "genre_name": "Rock",
             },
         ],
     )
 
     df = pl.read_parquet(result).sort("title", descending=True)
-    assert df.select("title", "youtube_video_id", "youtube_unplayable_reason", "match_method").to_dicts() == [
+    assert df.select(
+        "title", "youtube_video_id", "youtube_unplayable_reason", "youtube_view_count", "match_method"
+    ).to_dicts() == [
         {
             "title": "Good Song",
             "youtube_video_id": "abc123abc12",
             "youtube_unplayable_reason": None,
+            "youtube_view_count": None,
             "match_method": "exact",
         },
-        {"title": "Bad Song", "youtube_video_id": None, "youtube_unplayable_reason": None, "match_method": "exact"},
+        {
+            "title": "Bad Song",
+            "youtube_video_id": None,
+            "youtube_unplayable_reason": None,
+            "youtube_view_count": None,
+            "match_method": "exact",
+        },
     ]
 
 

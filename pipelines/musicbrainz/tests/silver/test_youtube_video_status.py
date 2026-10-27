@@ -12,7 +12,7 @@ NOW = datetime(2026, 1, 10, tzinfo=UTC)
 
 def _item(video_id: str, **status: object) -> dict:
     base = {"embeddable": True, "privacyStatus": "public", "uploadStatus": "processed"}
-    return {"id": video_id, "status": {**base, **status}, "contentDetails": {}}
+    return {"id": video_id, "status": {**base, **status}, "contentDetails": {}, "statistics": {"viewCount": "1234"}}
 
 
 @pytest.mark.parametrize(
@@ -30,6 +30,14 @@ def _item(video_id: str, **status: object) -> dict:
 )
 def test_unplayable_reason(item: dict | None, expected: str | None) -> None:
     assert yvs.unplayable_reason(item) == expected
+
+
+@pytest.mark.parametrize(
+    ("item", "expected"),
+    [(None, None), ({**_item("a"), "statistics": {}}, None), (_item("a"), 1234)],
+)
+def test_view_count(item: dict | None, expected: int | None) -> None:
+    assert yvs.view_count(item) == expected
 
 
 def _write_candidates(silver_dir: Path, video_ids: list[str], pinned: tuple[str, ...] = ()) -> None:
@@ -79,6 +87,28 @@ def test_fetches_uncached_and_stale_ids_and_reuses_fresh_cache(tmp_path: Path) -
         {"youtube_video_id": "gone", "youtube_unplayable_reason": "not_found"},
         {"youtube_video_id": "new", "youtube_unplayable_reason": None},
         {"youtube_video_id": "stale", "youtube_unplayable_reason": "not_embeddable"},
+    ]
+
+
+def test_stores_view_counts_and_loads_a_cache_written_without_them(tmp_path: Path) -> None:
+    _write_candidates(tmp_path, ["cached", "new"])
+    pl.DataFrame(
+        [{"youtube_video_id": "cached", "youtube_unplayable_reason": None, "checked_at": NOW}],
+        schema={k: v for k, v in yvs._SCHEMA.items() if k != "youtube_view_count"},
+    ).write_parquet(tmp_path / yvs.OUTPUT_FILENAME)
+    parts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        parts.append(request.url.params["part"])
+        return httpx.Response(200, json={"items": [_item("new")]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, MAX_BATCHES)
+
+    assert parts == ["status,contentDetails,statistics"]
+    assert pl.read_parquet(path).select("youtube_video_id", "youtube_view_count").to_dicts() == [
+        {"youtube_video_id": "cached", "youtube_view_count": None},
+        {"youtube_video_id": "new", "youtube_view_count": 1234},
     ]
 
 
