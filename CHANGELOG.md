@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.1.0] - 2026-10-27
+
 ### Added
 
 - gold: `4_genealogy.json` export (columns, bands, successions, traditions, tradition links) built from geohistory Silver, validated against `genealogy.schema.json`; requires `GEOHISTORY_SILVER_DIR`.
