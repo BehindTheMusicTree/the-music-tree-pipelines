@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.1.1] - 2026-10-27
+
+### Fixed
+
+- `wikidata` Bronze tradition label claims were all empty (aliased label-service projection), which crashed `geohistory` Silver; labels are now bound explicitly through `rdfs:label`, and Bronze raises on any null claim value.
+
 ## [8.1.0] - 2026-10-27
 
 ### Added

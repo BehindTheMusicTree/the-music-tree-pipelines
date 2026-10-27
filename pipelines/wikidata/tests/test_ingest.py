@@ -333,7 +333,7 @@ def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_v
             }
         ],
         "wikibase:sitelinks ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "42", "precision": None}],
-        "?itemLabel AS ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "blues", "precision": None}],
+        "?item rdfs:label ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "blues", "precision": None}],
     }
 
     def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
@@ -352,6 +352,16 @@ def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_v
         ("Q1", "label", "blues", None),
         ("Q1", "sitelinks", "42", None),
     ]
+
+
+def test_ingest_music_tradition_claims_raises_on_unbound_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unbound = [{"item": "http://www.wikidata.org/entity/Q1", "value": None, "precision": None}]
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=unbound))
+
+    with pytest.raises(ValueError, match="'value' null rate"):
+        bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
 
 
 def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
