@@ -18,13 +18,17 @@ DATE_PROPERTIES = pl.DataFrame(
 PERIOD_PRIORITY = 3
 GLOTTOLOG_PRIORITY = 4
 YEAR_PATTERN = r"^\+?(-?\d+)-"
+# Geological periods (Proterozoic starts at -2.5 billion) overflow Int32 and predate any human tradition.
+MIN_YEAR = -10_000_000
 
 
 def _dated_claims(claims: pl.DataFrame) -> pl.DataFrame:
     return (
         claims.join(DATE_PROPERTIES, on="property")
-        .with_columns(pl.col("value").str.extract(YEAR_PATTERN, 1).cast(pl.Int32).alias("year"))
+        .with_columns(pl.col("value").str.extract(YEAR_PATTERN, 1).cast(pl.Int64).alias("year"))
         .drop_nulls("year")
+        .filter(pl.col("year") >= MIN_YEAR)
+        .with_columns(pl.col("year").cast(pl.Int32))
         .select("item_id", "property", "side", "priority", "year", pl.col("time_precision").alias("precision"))
     )
 

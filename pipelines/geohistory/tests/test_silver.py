@@ -266,9 +266,11 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
         entity("Q10", "archaeological_culture"),
         entity("Q11", "archaeological_culture"),
         entity("Q12", "archaeological_culture"),
+        entity("Q13", "archaeological_culture"),
         entity("Q1", "has_glottocode", "lang1"),
     ]
     claims = [
+        claim("Q13", "P580", "-2500000000-01-01T00:00:00Z", 1),
         claim("Q10", "P571", "-3500-01-01T00:00:00Z", 7),
         claim("Q10", "P571", "-3000-01-01T00:00:00Z", 7),
         claim("Q10", "P580", "-4000-01-01T00:00:00Z", 9),
@@ -303,6 +305,7 @@ def test_entity_time_span_follows_priorities_and_bce_years(dirs):
     assert (rows["lang1"]["start_year"], rows["lang1"]["start_source"]) == (1800, "glottolog")
     assert (rows["lang1"]["end_year"], rows["lang1"]["end_source"]) == (1900, "glottolog")
     assert rows["Q12"]["start_year"] > rows["Q12"]["end_year"]
+    assert rows["Q13"]["start_year"] is None
     assert rows["fam1"]["start_year"] is None
 
 
