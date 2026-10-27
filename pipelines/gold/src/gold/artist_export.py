@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator
 
 from gold.delta_export import write_delta
 from gold.ndjson_parts import write_ndjson_parts
-from gold.song_export import MBID_PATTERN
+from gold.curation_csv import MBID_PATTERN
 
 logger = logging.getLogger(__name__)
 

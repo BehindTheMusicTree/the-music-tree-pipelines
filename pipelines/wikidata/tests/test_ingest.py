@@ -152,14 +152,14 @@ def test_ingest_descriptions_covers_tree_and_overview_qids(monkeypatch: pytest.M
         ],
     )
     rock = bw.wikidata_client.Description(
-        "genre of popular music", "Rock music", "https://en.wikipedia.org/wiki/Rock_music"
+        "genre of popular music", "Rock music", "https://en.wikipedia.org/wiki/Rock_music", ["rock", "rock & roll"]
     )
     fetch_descriptions = MagicMock(
         return_value={
-            "Q1049": bw.wikidata_client.Description("music of a country", None, None),
+            "Q1049": bw.wikidata_client.Description("music of a country", None, None, []),
             "Q11399": rock,
-            "Q188451": bw.wikidata_client.Description(None, None, None),
-            "Q9": bw.wikidata_client.Description(None, None, None),
+            "Q188451": bw.wikidata_client.Description(None, None, None, []),
+            "Q9": bw.wikidata_client.Description(None, None, None, []),
         }
     )
     monkeypatch.setattr(bw.wikidata_client, "fetch_descriptions", fetch_descriptions)
@@ -180,11 +180,27 @@ def test_ingest_descriptions_covers_tree_and_overview_qids(monkeypatch: pytest.M
         "wikipedia_intro": "Rock is a genre.",
     }
     assert rows["Q9"] == {"item_id": "Q9", "description": None, "wikipedia_url": None, "wikipedia_intro": None}
+    assert pl.read_parquet(tmp_path / "bronze" / "wikidata_genre_aliases.parquet").to_dicts() == [
+        {"item_id": "Q11399", "alias": "rock"},
+        {"item_id": "Q11399", "alias": "rock & roll"},
+    ]
+
+
+def test_ingest_descriptions_raises_when_no_item_has_an_alias(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    tree_path, additions_path = _description_inputs(tmp_path, [])
+    description = bw.wikidata_client.Description(None, None, None, [])
+    monkeypatch.setattr(
+        bw.wikidata_client, "fetch_descriptions", MagicMock(return_value={"Q9": description, "Q11399": description})
+    )
+    monkeypatch.setattr(bw.wikipedia_client, "fetch_intros", MagicMock(return_value={}))
+
+    with pytest.raises(ValueError, match="wikidata_genre_aliases"):
+        bw.ingest_descriptions(tree_path, additions_path, tmp_path / "bronze")
 
 
 def test_ingest_descriptions_raises_on_duplicate_item_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     tree_path, additions_path = _description_inputs(tmp_path, [])
-    description = bw.wikidata_client.Description(None, None, None)
+    description = bw.wikidata_client.Description(None, None, None, [])
     monkeypatch.setattr(
         bw.wikidata_client, "fetch_descriptions", MagicMock(return_value={"Q9": description, "Q11399": description})
     )

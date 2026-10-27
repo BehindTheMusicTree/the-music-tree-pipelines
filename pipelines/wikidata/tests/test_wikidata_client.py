@@ -239,7 +239,9 @@ def test_fetch_entities_raises_on_absent_entity(monkeypatch: pytest.MonkeyPatch)
         wikidata_client.fetch_entities(["Q1"])
 
 
-def test_fetch_descriptions_extracts_english_description_and_enwiki_sitelink(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fetch_descriptions_extracts_english_description_aliases_and_enwiki_sitelink(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(wikidata_client, "WBGETENTITIES_MAX_IDS", 2)
     enwiki = {"site": "enwiki", "title": "Rock music", "url": "https://en.wikipedia.org/wiki/Rock_music"}
     httpx_get = MagicMock(
@@ -248,6 +250,7 @@ def test_fetch_descriptions_extracts_english_description_and_enwiki_sitelink(mon
                 {
                     "Q11399": {
                         "descriptions": {"en": {"value": "genre of popular music"}, "fr": {"value": "genre"}},
+                        "aliases": {"en": [{"value": "rock"}, {"value": "rock & roll"}], "fr": [{"value": "le rock"}]},
                         "sitelinks": {"enwiki": enwiki},
                     },
                     "Q2": {"descriptions": {"fr": {"value": "genre"}}, "sitelinks": {"enwiki": enwiki}},
@@ -261,14 +264,16 @@ def test_fetch_descriptions_extracts_english_description_and_enwiki_sitelink(mon
     result = wikidata_client.fetch_descriptions(["Q11399", "Q2", "Q3"])
 
     assert result == {
-        "Q11399": wikidata_client.Description("genre of popular music", "Rock music", enwiki["url"]),
-        "Q2": wikidata_client.Description(None, "Rock music", enwiki["url"]),
-        "Q3": wikidata_client.Description("music of a region", None, None),
+        "Q11399": wikidata_client.Description(
+            "genre of popular music", "Rock music", enwiki["url"], ["rock", "rock & roll"]
+        ),
+        "Q2": wikidata_client.Description(None, "Rock music", enwiki["url"], []),
+        "Q3": wikidata_client.Description("music of a region", None, None, []),
     }
     params = httpx_get.call_args_list[0].kwargs["params"]
     assert (params["ids"], params["props"], params["sitefilter"]) == (
         "Q11399|Q2",
-        "descriptions|sitelinks/urls",
+        "descriptions|aliases|sitelinks/urls",
         "enwiki",
     )
 

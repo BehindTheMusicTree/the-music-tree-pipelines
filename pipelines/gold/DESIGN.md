@@ -36,7 +36,15 @@ at the first that succeeds:
 4. `accepted_non_genre` — looked up in `manual_accepted_non_genre_tags.csv`, a data expert's curated
    permanent-noise list. Kept in the output (not dropped) with a `null` `wikidata_genre_name`, for
    audit visibility — a reviewer can see it was triaged, not silently missed.
-5. `unmatched` — anything left. **Not a hard failure.**
+5. `wikidata_alias` — genre-key equality against an English Wikidata alias (`skos:altLabel`, wikidata
+   Bronze `wikidata_genre_aliases.parquet`) of a canonical item: IDM, EBM, chillout, psytrance. It runs after
+   both curation lists, so `manual_genre_alias.csv` re-targets a wrong alias and
+   `manual_accepted_non_genre_tags.csv` blocks one. Dropped (one warning lists them): an alias whose key equals
+   its own label's (adds nothing), equals **any** canonical label key (the label always wins — `soft rock` is an
+   alias of sunshine pop and the label of soft rock; a label key shared by two labels is only reachable by
+   exact name, so a differently spelled tag would otherwise fall to the alias), or maps to two or more items
+   (`r&b`, `rap`, `club`: curate those via `manual_genre_alias.csv`).
+6. `unmatched` — anything left. **Not a hard failure.**
 
 The cascade runs per distinct tag name of `10_song_genre`. A song's resolved tags are summed per canonical
 `item_id` (several MusicBrainz tags can resolve to one item), then precedence applies (next section). An
@@ -55,6 +63,13 @@ beat classic rock 330 times, reggae/dub beat ska on all 13 ska recordings). Per 
 - Rules close transitively; every genre beaten by another on the same song is dropped, and each
   surviving winner's weight becomes the max of its own and the beaten genres' weights.
 - The highest weight wins; ties go to the smallest `item_id`.
+
+**Secondary genres**: the other survivors of precedence, by weight, become `secondary_genre_item_ids`. Since
+precedence already dropped every genre beaten by another on the song, none is an ancestor of the chosen genre
+or of another secondary (punk rock + hardcore punk keep only hardcore punk). Unresolved tags are never
+secondaries, but every raw tag stays in `musicbrainz_genres` so it can be curated or linked later. When
+`manual_song_genre.csv` overrides the genre, `song_export` drops that genre and the genres it beats (same
+closure) from the secondaries.
 
 The run fails on a self-pair, a cycle (a manual pair reversing a lineage included), or an id absent from
 the canonical hierarchy.

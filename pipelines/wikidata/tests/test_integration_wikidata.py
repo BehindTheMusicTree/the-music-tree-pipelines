@@ -40,6 +40,7 @@ def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live
     assert rock.description
     assert rock.wikipedia_title == "Rock music"
     assert rock.wikipedia_url == "https://en.wikipedia.org/wiki/Rock_music"
+    assert rock.aliases
 
 
 @pytest.mark.integration
