@@ -4,7 +4,7 @@ from pathlib import Path
 
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
-from common.quality_checks import check_non_empty, check_unique_key
+from common.quality_checks import check_non_empty, check_null_rate, check_unique_key
 
 from wikidata import wikidata_client, wikipedia_client
 from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_PREFIX
@@ -211,6 +211,7 @@ def ingest_music_tradition_claims(output_dir: Path, patterns: Mapping[str, str])
             )
     df = pl.concat(frames).unique().sort("property", "item_id", "value")
     check_non_empty(df, "wikidata_music_tradition_claims")
+    check_null_rate(df, "value", "wikidata_music_tradition_claims")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "wikidata_music_tradition_claims.parquet"

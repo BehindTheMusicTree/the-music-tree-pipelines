@@ -278,10 +278,12 @@ SELECT DISTINCT ?item ?value ?precision WHERE {{
 }}
 """
     if pid == LABEL_PID:
+        # The label service only binds `?xLabel` variables named in the SELECT: aliasing `?itemLabel AS ?value`
+        # leaves `?value` unbound for every row, so the label is bound explicitly through `rdfs:label`.
         return f"""
-SELECT DISTINCT ?item (?itemLabel AS ?value) ?precision WHERE {{
+SELECT DISTINCT ?item ?value ?precision WHERE {{
   {patterns[kind]}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". ?item rdfs:label ?value . }}
 }}
 """
     return cultural_entity_claim_query(kind, pid, patterns)
