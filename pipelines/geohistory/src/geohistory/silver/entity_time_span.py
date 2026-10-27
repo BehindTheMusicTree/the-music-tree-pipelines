@@ -22,7 +22,7 @@ YEAR_PATTERN = r"^\+?(-?\d+)-"
 MIN_YEAR = -10_000_000
 
 
-def _dated_claims(claims: pl.DataFrame) -> pl.DataFrame:
+def dated_claims(claims: pl.DataFrame) -> pl.DataFrame:
     return (
         claims.join(DATE_PROPERTIES, on="property")
         .with_columns(pl.col("value").str.extract(YEAR_PATTERN, 1).cast(pl.Int64).alias("year"))
@@ -93,7 +93,7 @@ def entity_time_span(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Pa
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet").select("entity_id")
     crosswalk = pl.read_parquet(silver_dir / "1_entity_wikidata_item.parquet")
 
-    dated = _dated_claims(claims)
+    dated = dated_claims(claims)
     own = dated.join(crosswalk, left_on="item_id", right_on="wikidata_id").select(
         "entity_id", "side", "priority", "year", "precision", pl.col("property").alias("source")
     )

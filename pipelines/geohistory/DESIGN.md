@@ -64,7 +64,7 @@ for curation.
 
 ## 9. Curation
 
-Four lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
+Eight lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
 Glottocodes or QIDs.
 
 - `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
@@ -78,4 +78,38 @@ Glottocodes or QIDs.
 - `entity_time_span_overrides` wins over every sourced date (`start_source`/`end_source` = `curation`, precision
   null). An empty year keeps the sourced value.
 
+- `tradition_additions` / `tradition_exclusions` add or drop a tradition by QID; a QID in both raises.
+- `tradition_placement_overrides` sets the anchor (entity id or QID) and/or the start and end years of a tradition;
+  an unknown entity or a row with nothing set raises.
+- `tradition_link_overrides` adds or removes a `lineage`/`association` link; self links, unknown kinds or actions, and
+  an `add` toward a non-tradition raise.
+
 Header drift in a list raises. Succession overrides are not curated yet.
+
+## 10. Tradition detection and anchoring
+
+A tradition is a genre (`P31` music genre) or a "music of X" overview whose start is at most 1950, plus the curated
+additions minus the exclusions. An overview also needs an anchor. Genres with neither date nor anchor are dropped
+silently (most of Wikidata's genres), whereas a dated tradition without anchor is kept, logged and written to
+`5_tradition_unplaced.csv` so it never blocks the daily run. The anchor is the first rule yielding an entity of
+`1_cultural_entity`: placement override, `P2596` culture, `P1269` facet of, then `P495` country of origin lifted
+along `3_entity_succession` to the entity valid at the tradition's date (an old genre of "Greece" lands on ancient
+Greece). Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
+
+Links: lineage from `P155`/`P156` and the genre tree's `P279`, association from `P737`, both between two traditions.
+A lineage cycle raises; break it with a `tradition_link_overrides` remove.
+
+## 11. Lanes and bands
+
+Entities anchoring a tradition form E. A lane is an element of E without descendant in E. A band is an ancestor
+(`2_entity_membership`) covering at least two lanes, or an element of E having descendants in E; a non-E ancestor
+with the same lane set as one of its children is dropped as redundant. Spans come from `4_entity_time_span`, else the
+envelope of the entity's traditions, and are cut at 1950. Lanes linked by succession whose spans do not overlap share
+one X column.
+
+## 12. Seriation
+
+Columns are ordered west to east by centroid longitude (a column without coordinates uses its bands'), then
+refined by adjacent swaps while they reduce the sum over bands of (extent - column count), capped at 100 passes. The
+result is deterministic. A band whose columns end up non-contiguous is split into fragments, no column duplicated.
+

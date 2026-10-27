@@ -7,8 +7,13 @@ LISTS: dict[str, tuple[str, ...]] = {
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),
     "entity_time_span_overrides": ("entity_id", "start_year", "end_year", "reason"),
+    "tradition_additions": ("wikidata_id", "reason"),
+    "tradition_exclusions": ("wikidata_id", "reason"),
+    "tradition_placement_overrides": ("wikidata_id", "entity_id", "start_year", "end_year", "reason"),
+    "tradition_link_overrides": ("from_wikidata_id", "to_wikidata_id", "kind", "action", "reason"),
 }
 MEMBERSHIP_ACTIONS = ("add", "remove")
+TRADITION_LINK_KINDS = ("lineage", "association")
 
 
 def read_curation_list(curation_dir: Path, list_name: str) -> pl.DataFrame:
