@@ -343,3 +343,27 @@ def test_curated_entity_patterns_raise_on_invalid_or_duplicate_ids(qids: list[st
 def test_country_query_excludes_great_homelands() -> None:
     query = wikidata_client.cultural_entity_query("country")
     assert f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{wikidata_client.GREAT_HOMELAND_QID} . }}" in query
+
+
+def test_tradition_candidate_patterns_select_music_genres_and_the_listed_extra_items() -> None:
+    patterns = wikidata_client.tradition_candidate_patterns(["Q2", "Q1", "Q2"])
+
+    assert patterns["music_genre"] == "?item wdt:P31 wd:Q188451 ."
+    assert patterns["curated"] == "VALUES ?item { wd:Q1 wd:Q2 }"
+    assert list(wikidata_client.tradition_candidate_patterns([])) == ["music_genre"]
+
+
+def test_tradition_candidate_patterns_raise_on_invalid_ids() -> None:
+    with pytest.raises(ValueError, match="Wikidata QIDs"):
+        wikidata_client.tradition_candidate_patterns(["not-a-qid"])
+
+
+def test_tradition_claim_query_reads_sitelinks_labels_dates_and_plain_claims() -> None:
+    patterns = wikidata_client.tradition_candidate_patterns([])
+
+    assert "?item wikibase:sitelinks ?value" in wikidata_client.tradition_claim_query(
+        "music_genre", "sitelinks", patterns
+    )
+    assert "SERVICE wikibase:label" in wikidata_client.tradition_claim_query("music_genre", "label", patterns)
+    assert "psv:P571" in wikidata_client.tradition_claim_query("music_genre", "P571", patterns)
+    assert "?item wdt:P2596 ?value" in wikidata_client.tradition_claim_query("music_genre", "P2596", patterns)

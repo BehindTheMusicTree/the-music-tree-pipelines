@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `wikidata` Bronze ingests the raw claims of the music-tradition candidates (every `P31` music genre, the "music of <place>" overviews, the tradition additions) into `wikidata_music_tradition_claims.parquet`: dates, culture, facet of, country, follows/followed by, influenced by, sitelinks and label, unfiltered by date. `curation` Bronze pulls the four tradition lists (`tradition_additions`, `tradition_exclusions`, `tradition_placement_overrides`, `tradition_link_overrides`), the first of which `wikidata` Bronze reads.
 - `geohistory` cultural entities can be added on demand: the `entity_additions` curation list (QIDs) makes `wikidata` Bronze ingest those items, with their claims, as kind `curated`, which `geohistory` Silver keeps below every bulk kind and fails on when a listed QID is absent from Bronze. Covers items no bulk class reaches, such as an archaeological site or a historiographical region.
 
 ### Fixed
