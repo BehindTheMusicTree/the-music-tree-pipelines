@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.2.0] - 2026-10-27
+
 ### Added
 
 - `wikidata` Bronze writes the English Wikidata aliases of every tree QID to `wikidata_genre_aliases.parquet` (same `wbgetentities` calls as the descriptions); gold `genre_match` resolves MusicBrainz tags through them as a last cascade step (`wikidata_alias`, after both curation lists), dropping aliases that collide with a canonical label or point to several items.
