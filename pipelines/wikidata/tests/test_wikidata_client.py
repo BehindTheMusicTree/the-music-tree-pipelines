@@ -338,3 +338,8 @@ def test_curated_entity_patterns_without_qids_keep_the_bulk_kinds_only() -> None
 def test_curated_entity_patterns_raise_on_invalid_or_duplicate_ids(qids: list[str]) -> None:
     with pytest.raises(ValueError, match="entity additions"):
         wikidata_client.curated_entity_patterns(qids)
+
+
+def test_country_query_excludes_great_homelands() -> None:
+    query = wikidata_client.cultural_entity_query("country")
+    assert f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{wikidata_client.GREAT_HOMELAND_QID} . }}" in query
