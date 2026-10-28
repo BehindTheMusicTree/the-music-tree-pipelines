@@ -235,3 +235,12 @@ def test_apply_secondary_parent_rules_with_mixed_rules(caplog: pytest.LogCapture
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "main parent" in warnings[0].getMessage()
+
+
+def test_build_genre_tree_sets_scene_on_listed_node_only() -> None:
+    tree = build_genre_tree(_hierarchy(), scenes={"Q4": "commercial"})
+
+    rock = next(node for node in tree["tree"] if node["name"] == "rock")
+    assert next(child for child in rock["children"] if child["name"] == "pop rock")["scene"] == "commercial"
+    assert "scene" not in rock
+    assert "scene" not in next(child for child in rock["children"] if child["name"] == "punk rock")
