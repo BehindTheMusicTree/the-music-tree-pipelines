@@ -193,6 +193,13 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
 
     parts_dir = output_dir / OUTPUT_DIRNAME
     part_count = write_ndjson_parts(artists, parts_dir, ROWS_PER_PART)
-    write_delta(artists, "musicbrainz_artist_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
+    write_delta(
+        artists,
+        "musicbrainz_artist_id",
+        OUTPUT_DIRNAME,
+        output_dir,
+        ROWS_PER_PART,
+        [column for column in artists.columns if column != "musicbrainz_artist_id"],
+    )
     logger.info("wrote %d artists to %s in %d part(s)", artists.height, parts_dir, part_count)
     return parts_dir

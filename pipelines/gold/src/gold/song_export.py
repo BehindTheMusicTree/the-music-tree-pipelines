@@ -29,6 +29,16 @@ _PATTERNS = {
     "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
 }
+_SYNCED_COLUMNS = [
+    "title",
+    "artist",
+    "artist_musicbrainz_id",
+    "youtube_video_id",
+    "youtube_unplayable_reason",
+    "youtube_view_count",
+    "genre_name",
+    "first_release_year",
+]
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
 
@@ -180,13 +190,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         )
     with step("songs.checks"):
         _check_songs(songs)
-    songs = songs.select(
-        pl.exclude("genre_item_id", "secondary_genre_item_ids", "musicbrainz_genres"),
-        secondary_genre_names=pl.col("secondary_genre_item_ids").list.eval(
-            pl.element().replace_strict(names_by_id, return_dtype=pl.Utf8)
-        ),
-        musicbrainz_genres="musicbrainz_genres",
-    )
+    songs = songs.select("musicbrainz_recording_id", *_SYNCED_COLUMNS)
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
 
@@ -194,7 +198,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
     with step("songs.parts"):
         part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
     with step("songs.delta"):
-        write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
+        write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART, _SYNCED_COLUMNS)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,

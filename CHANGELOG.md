@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- gold delta export compares rows by value, per column, against a `<name>_snapshot.parquet` baseline instead of a Polars row hash, and `2_songs` carries only the fields grow stores (`secondary_genre_names`, `musicbrainz_genres` dropped); an unchanged night or a Polars upgrade no longer yields a full-change delta, and the log shows the changed-column counts. Needs the infrastructure run script to promote `_snapshot` instead of `_hashes` (first run after deploy is a full sync).
 - gold `2_songs` delta export no longer runs out of memory when most rows changed: changed rows are found by hash index and written one part at a time instead of semi-joining a second copy of the frame, and `export_songs` builds the frame lazily with a single streaming collect.
 
 ## [8.2.0] - 2026-10-27
