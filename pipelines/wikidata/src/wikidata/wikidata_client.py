@@ -292,7 +292,8 @@ SELECT DISTINCT ?item ?value ?precision WHERE {{
 ARTIST_IMAGE_QUERY_VARIABLES = ("item", "mbid", "image")
 # P434 = MusicBrainz artist ID, P18 = image. Split on the MBID's first hex digit: the ~150k matching artists in one
 # request run past WDQS's 60 s timeout. `wdt:` keeps best-rank statements only, so a preferred image wins.
-# An "unknown value" P18 comes back as a blank node, not a Commons URL, hence the isIRI filter.
+# An "unknown value" P18 comes back as a skolem IRI (`.well-known/genid/`), not a Commons URL, hence the prefix filter.
+COMMONS_FILE_PATH_PREFIX = "http://commons.wikimedia.org/wiki/Special:FilePath/"
 ARTIST_IMAGE_PARTITIONS = "0123456789abcdef"
 
 
@@ -300,7 +301,7 @@ def artist_image_query(partition: str) -> str:
     return f"""
 SELECT ?item ?mbid ?image WHERE {{
   ?item wdt:P434 ?mbid ; wdt:P18 ?image .
-  FILTER(isIRI(?image) && STRSTARTS(LCASE(?mbid), "{partition}"))
+  FILTER(STRSTARTS(STR(?image), "{COMMONS_FILE_PATH_PREFIX}") && STRSTARTS(LCASE(?mbid), "{partition}"))
 }}
 """
 
