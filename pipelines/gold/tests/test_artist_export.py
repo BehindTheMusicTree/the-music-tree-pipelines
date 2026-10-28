@@ -100,6 +100,24 @@ ALIAS_ROWS = [
     {"musicbrainz_artist_id": BAND, "alias": "band"},
     {"musicbrainz_artist_id": STRANGER, "alias": "Out Of Scope"},
 ]
+IMAGE_ROWS = [
+    {
+        "musicbrainz_artist_id": BAND,
+        "thumb_url": "https://upload.wikimedia.org/band.jpg",
+        "page_url": "https://commons.wikimedia.org/wiki/File:Band.jpg",
+        "author": "Jane Doe",
+        "license": "CC BY-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    },
+    {
+        "musicbrainz_artist_id": STRANGER,
+        "thumb_url": "https://upload.wikimedia.org/stranger.jpg",
+        "page_url": "https://commons.wikimedia.org/wiki/File:Stranger.jpg",
+        "author": None,
+        "license": "Public domain",
+        "license_url": None,
+    },
+]
 RELEASE_GROUP_ROWS = [
     {
         "musicbrainz_artist_id": BAND,
@@ -120,7 +138,8 @@ def _write_inputs(
     release_group_rows: list[dict] = RELEASE_GROUP_ROWS,
     alias_rows: list[dict] = ALIAS_ROWS,
     member_rows: list[dict] = MEMBER_ROWS,
-) -> tuple[Path, Path]:
+    image_rows: list[dict] = IMAGE_ROWS,
+) -> tuple[Path, Path, Path]:
     genre_match_path = tmp_path / "1_genre_match.parquet"
     pl.DataFrame({"artist_musicbrainz_id": song_artist_ids}).write_parquet(genre_match_path)
     silver_dir = tmp_path / "silver"
@@ -135,7 +154,12 @@ def _write_inputs(
     pl.DataFrame(link_rows).write_parquet(silver_dir / "8_artist_links.parquet")
     pl.DataFrame(release_group_rows).write_parquet(silver_dir / "9_artist_release_groups.parquet")
     pl.DataFrame(alias_rows).write_parquet(silver_dir / "11_artist_aliases.parquet")
-    return genre_match_path, silver_dir
+    wikidata_silver_dir = tmp_path / "wikidata_silver"
+    wikidata_silver_dir.mkdir()
+    pl.DataFrame(image_rows, schema={column: pl.Utf8 for column in IMAGE_ROWS[0]}).write_parquet(
+        wikidata_silver_dir / "11_artist_images.parquet"
+    )
+    return genre_match_path, silver_dir, wikidata_silver_dir
 
 
 def _read_parts(parts_dir: Path) -> list[dict]:
@@ -183,7 +207,15 @@ def test_export_artists_scopes_song_artists_their_groups_and_members(tmp_path: P
                 "first_release_year": 1992,
             }
         ],
+        "image": {
+            "url": "https://upload.wikimedia.org/band.jpg",
+            "page_url": "https://commons.wikimedia.org/wiki/File:Band.jpg",
+            "author": "Jane Doe",
+            "license": "CC BY-SA 4.0",
+            "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+        },
     }
+    assert artists[SINGER]["image"] is None
     assert artists[SINGER]["country"] == "GB"
     assert artists[NESTED]["members"] == []
     assert artists[SINGER]["aliases"] == []
@@ -311,3 +343,33 @@ def test_export_artists_adds_sort_name_and_disambiguation_but_not_the_display_na
 
     band = next(a for a in _read_parts(result) if a["musicbrainz_artist_id"] == BAND)
     assert (band["disambiguation"], band["aliases"]) == ("UK band", ["Band, The", "The Band"])
+
+
+def test_export_artists_exports_an_unattributed_public_domain_image(tmp_path: Path) -> None:
+    rows = [{**IMAGE_ROWS[1], "musicbrainz_artist_id": SINGER}]
+
+    artists = _read_parts(export_artists(*_write_inputs(tmp_path, image_rows=rows), tmp_path / "gold"))
+
+    singer = next(artist for artist in artists if artist["musicbrainz_artist_id"] == SINGER)
+    assert singer["image"] == {
+        "url": "https://upload.wikimedia.org/stranger.jpg",
+        "page_url": "https://commons.wikimedia.org/wiki/File:Stranger.jpg",
+        "author": None,
+        "license": "Public domain",
+        "license_url": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        ({"thumb_url": "http://upload.wikimedia.org/band.jpg"}, "malformed image url"),
+        ({"page_url": "commons.wikimedia.org/wiki/File:Band.jpg"}, "malformed image page_url"),
+        ({"license": " "}, "malformed image license"),
+        ({"license": None}, "malformed image license"),
+    ],
+)
+def test_export_artists_raises_on_bad_image(tmp_path: Path, override: dict, match: str) -> None:
+    rows = [{**IMAGE_ROWS[0], **override}]
+    with pytest.raises(ValueError, match=match):
+        export_artists(*_write_inputs(tmp_path, image_rows=rows), tmp_path / "gold")
