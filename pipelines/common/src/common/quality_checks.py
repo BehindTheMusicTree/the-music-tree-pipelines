@@ -1,4 +1,8 @@
+import logging
+
 import polars as pl
+
+logger = logging.getLogger(__name__)
 
 # grow-api accepts 0..32767; MusicBrainz dates are real years, so anything outside is corrupt data (the mirror has 20..3036).
 FIRST_RELEASE_YEAR_RANGE = (1000, 2100)
@@ -45,4 +49,16 @@ def check_row_count_delta(before_count: int, after_count: int, name: str, max_de
         raise ValueError(
             f"{name}: row count changed from {before_count} to {after_count} "
             f"({delta_ratio:.1%} exceeds {max_delta_ratio:.1%} threshold)"
+        )
+
+
+def check_reject_rate(rejected: int, total: int, name: str, max_ratio: float) -> None:
+    """External data carries the odd bad row: drop it, but fail when so many are bad that the source itself broke."""
+    if not rejected:
+        return
+    ratio = rejected / total
+    logger.warning("%s: rejected %d of %d row(s) (%.2f%%)", name, rejected, total, ratio * 100)
+    if ratio > max_ratio:
+        raise ValueError(
+            f"{name}: rejected {rejected} of {total} row(s) ({ratio:.1%} exceeds {max_ratio:.1%} threshold)"
         )

@@ -50,10 +50,14 @@ def test_ingest_artist_images_decodes_recorded_commons_files(monkeypatch: pytest
     assert df["musicbrainz_artist_id"].str.contains(ingest.MBID_PATTERN).all()
 
 
-def test_ingest_artist_images_rejects_a_recorded_unknown_value_image(
+def test_ingest_artist_images_drops_a_recorded_unknown_value_image(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _serve(monkeypatch, _recorded_response(with_genid=True))
+    # One genid row in five is far above the production budget: only the drop itself is under test here.
+    monkeypatch.setattr(ingest, "ARTIST_IMAGE_MAX_REJECT_RATIO", 0.5)
 
-    with pytest.raises(ValueError, match="not a Commons file path"):
-        ingest.ingest_artist_images(tmp_path)
+    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path))
+
+    assert df.height == 4
+    assert df["image_file"].str.contains("genid").not_().all()

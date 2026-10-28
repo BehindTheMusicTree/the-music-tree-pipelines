@@ -5,6 +5,7 @@ from common.quality_checks import (
     check_max_length,
     check_non_empty,
     check_null_rate,
+    check_reject_rate,
     check_row_count_delta,
     check_unique_key,
 )
@@ -74,3 +75,16 @@ def test_check_row_count_delta_raises_on_rows_from_empty_input() -> None:
 
 def test_check_row_count_delta_passes_on_zero_to_zero() -> None:
     check_row_count_delta(0, 0, "step")
+
+
+def test_check_reject_rate_passes_without_rejects_even_on_no_rows() -> None:
+    check_reject_rate(0, 0, "df", max_ratio=0.01)
+
+
+def test_check_reject_rate_passes_within_budget() -> None:
+    check_reject_rate(1, 100, "df", max_ratio=0.01)
+
+
+def test_check_reject_rate_raises_above_budget() -> None:
+    with pytest.raises(ValueError, match="rejected 2 of 100"):
+        check_reject_rate(2, 100, "df", max_ratio=0.01)

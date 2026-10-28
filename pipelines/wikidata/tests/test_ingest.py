@@ -398,10 +398,15 @@ def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
 RADIOHEAD = "a74b1b7f-71a5-4011-9441-d0b5e4122711"
 
 
-def test_ingest_artist_images_decodes_files_and_drops_malformed_mbids(
+def _valid_image_rows(count: int) -> list[dict[str, str]]:
+    return [_image_row(f"Q{i}", f"00000000-0000-0000-0000-{i:012d}", f"File{i}.jpg") for i in range(count)]
+
+
+def test_ingest_artist_images_decodes_files_and_drops_bad_rows_within_the_budget(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     rows = [
+        *_valid_image_rows(98),
         _image_row("Q44190", f" {RADIOHEAD.upper()} ", "Radiohead%20%C3%A0%20Paris.jpg"),
         _image_row("Q44190", RADIOHEAD, "Radiohead%20%C3%A0%20Paris.jpg"),
         _image_row("Q1", "not-an-mbid", "Bad.jpg"),
@@ -412,16 +417,33 @@ def test_ingest_artist_images_decodes_files_and_drops_malformed_mbids(
     result = bw.ingest_artist_images(tmp_path / "bronze")
 
     assert run_query.call_count == 16
-    assert pl.read_parquet(result).to_dicts() == [
+    images = pl.read_parquet(result)
+    assert images.height == 99
+    assert images.filter(pl.col("musicbrainz_artist_id") == RADIOHEAD).to_dicts() == [
         {"item_id": "Q44190", "musicbrainz_artist_id": RADIOHEAD, "image_file": "Radiohead à Paris.jpg"}
     ]
 
 
-def test_ingest_artist_images_raises_on_a_non_commons_image(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    row = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "https://example.org/x.jpg"}
-    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[row]))
+def test_ingest_artist_images_drops_a_non_commons_image_within_the_budget(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unknown_value = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "http://www.wikidata.org/.well-known/genid/a"}
+    monkeypatch.setattr(
+        bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(99), unknown_value])
+    )
 
-    with pytest.raises(ValueError, match="not a Commons file path"):
+    images = pl.read_parquet(bw.ingest_artist_images(tmp_path / "bronze"))
+
+    assert RADIOHEAD not in images["musicbrainz_artist_id"].to_list()
+
+
+def test_ingest_artist_images_raises_when_too_many_rows_are_bad(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bad = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "https://example.org/x.jpg"}
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(10), bad]))
+
+    with pytest.raises(ValueError, match="rejected"):
         bw.ingest_artist_images(tmp_path / "bronze")
 
 
