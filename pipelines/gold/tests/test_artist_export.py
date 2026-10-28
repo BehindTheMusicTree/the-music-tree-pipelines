@@ -367,6 +367,10 @@ def test_export_artists_exports_an_unattributed_public_domain_image(tmp_path: Pa
         ({"page_url": "commons.wikimedia.org/wiki/File:Band.jpg"}, "malformed image page_url"),
         ({"license": " "}, "malformed image license"),
         ({"license": None}, "malformed image license"),
+        ({"author": " "}, "malformed image author"),
+        ({"license_url": "creativecommons.org/licenses/by-sa/4.0"}, "malformed image license_url"),
+        ({"license_url": "https://creativecommons.org/" + "é" * 1024}, "malformed image license_url"),
+        ({"thumb_url": "https://upload.wikimedia.org/" + "a" * 2048}, "malformed image url"),
     ],
 )
 def test_export_artists_raises_on_bad_image(tmp_path: Path, override: dict, match: str) -> None:

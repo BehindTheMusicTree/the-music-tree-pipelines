@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Live Wikidata and Commons tests carry a new `live` marker and run in a scheduled, non-blocking `Live contract` workflow (daily before the prod run, plus manual dispatch) that opens or updates a `live-contract` issue on failure; they assert invariants only. PR CI replays recorded real WDQS and Commons responses instead (`tests/fixtures`, `tests/silver/fixtures`), and the `Integration` job runs only the MusicBrainz sample DB tests, without reruns (`pytest-rerunfailures` dropped).
+- `gold` artist export enforces grow's image contract (`license_url` http(s), URLs at most 2048 bytes, non-blank `author`) and `artist.schema.json` mirrors it (URL length in characters; the byte limit is checked in code), so a violation fails Gold instead of a rejected grow import part.
 - `wikidata.ingest` runs its SPARQL queries and its wikidata.org/Wikipedia API calls in two concurrent lanes (serial per host), and `4_youtube_video_status` fetches its batches with 4 workers; the nightly compute critical path drops by about 3.5 minutes with the same request and quota volume.
 
 ### Fixed

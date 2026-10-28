@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ import pytest
 from wikidata.silver import commons_image_metadata as cim
 
 NOW = datetime(2026, 1, 10, tzinfo=UTC)
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def _write_images(bronze_dir: Path, image_files: list[str]) -> None:
@@ -169,14 +171,31 @@ def test_writes_fetched_batches_when_a_later_batch_fails(tmp_path: Path, monkeyp
     assert pl.read_parquet(tmp_path / "silver" / cim.OUTPUT_FILENAME)["image_file"].to_list() == ["a.jpg"]
 
 
-def test_metadata_row_treats_an_empty_list_extmetadata_as_none() -> None:
-    page = {
-        "title": "File:a.jpg",
-        "imageinfo": [{"thumburl": "https://t/a.jpg", "descriptionurl": "https://p/a", "extmetadata": []}],
-    }
+def test_fetch_batch_reads_a_recorded_commons_response() -> None:
+    # Recorded from the live API: a normalized then redirected title, an `extmetadata: []` file, a missing file.
+    response = json.loads((FIXTURES_DIR / "commons_imageinfo_edge_cases.json").read_text())
+    image_files = [
+        "The_Beatles_1964.jpg",
+        "John Nolan.jpg",
+        "TheMusicTree integration test file that does not exist.jpg",
+        "RadioheadO2211125_composite.jpg",
+    ]
 
-    row = cim.metadata_row("a.jpg", page)
+    rows = cim._fetch_batch(_client([response], []), image_files)
 
-    assert row["license"] is None
-    assert row["author"] is None
-    assert row["non_free"] is False
+    beatles, empty_extmetadata, missing, radiohead = rows
+    assert beatles["page_url"] == (
+        "https://commons.wikimedia.org/wiki/File:The_Beatles_members_at_New_York_City_in_1964.jpg"
+    )
+    assert beatles["license"] == "Public domain"
+    assert empty_extmetadata["thumb_url"].endswith("/500px-John_Nolan.jpg")
+    assert (empty_extmetadata["author"], empty_extmetadata["license"], empty_extmetadata["non_free"]) == (
+        None,
+        None,
+        False,
+    )
+    assert missing == {"image_file": "TheMusicTree integration test file that does not exist.jpg"}
+    assert (radiohead["license"], radiohead["license_url"]) == (
+        "CC BY 4.0",
+        "https://creativecommons.org/licenses/by/4.0",
+    )

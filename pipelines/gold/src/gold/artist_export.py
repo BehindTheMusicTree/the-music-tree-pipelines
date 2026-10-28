@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 # Rows are ~800 bytes of NDJSON (nested members, links, release groups) and grow's API workers are memory-capped,
 # so 10k rows keeps each upload around 8 MB.
 ROWS_PER_PART = 10_000
+# Bytes, as grow's artist import counts them.
+IMAGE_URL_LEN_MAX = 2048
 OUTPUT_DIRNAME = "3_artists"
 ARTIST_SCHEMA_PATH = Path(__file__).parent / "schemas" / "artist.schema.json"
 # Rows checked against ARTIST_SCHEMA_PATH: every row shares one Polars schema, so a sample catches shape drift;
@@ -58,6 +60,13 @@ def _scope(song_artist_ids: pl.LazyFrame, members: pl.LazyFrame) -> pl.LazyFrame
         pl.concat([with_groups, their_members])
         .unique()
         .filter(~pl.col("musicbrainz_artist_id").is_in(SPECIAL_PURPOSE_ARTIST_IDS))
+    )
+
+
+def _bad_url(column: str, *schemes: str) -> pl.Expr:
+    url = pl.col(column)
+    return ~pl.any_horizontal(*(url.str.starts_with(scheme) for scheme in schemes)) | (
+        url.str.len_bytes() > IMAGE_URL_LEN_MAX
     )
 
 
@@ -98,11 +107,14 @@ def _check_artists(artists: pl.DataFrame) -> None:
     for column, count in malformed.items():
         if count:
             raise ValueError(f"{OUTPUT_DIRNAME}: {count} row(s) with a malformed {column}")
+    # Mirrors grow's artist import validation (grow/artist/bulk_import/part_loader.py), which rejects the whole part.
     images = artists.select(pl.col("image").struct.unnest()).drop_nulls("url")
     bad_images = {
-        "image url": images.filter(~pl.col("url").str.starts_with("https://")).height,
-        "image page_url": images.filter(~pl.col("page_url").str.starts_with("https://")).height,
+        "image url": images.filter(_bad_url("url", "https://")).height,
+        "image page_url": images.filter(_bad_url("page_url", "https://")).height,
         "image license": images.filter(pl.col("license").str.strip_chars().fill_null("") == "").height,
+        "image author": images.filter(pl.col("author").str.strip_chars() == "").height,
+        "image license_url": images.filter(_bad_url("license_url", "http://", "https://")).height,
     }
     for field, count in bad_images.items():
         if count:
