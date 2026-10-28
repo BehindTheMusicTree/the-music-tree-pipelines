@@ -280,8 +280,8 @@ def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: P
     return output_path
 
 
-def _commons_file(uri: str) -> str:
-    if COMMONS_FILE_PATH_MARKER not in uri:
+def _commons_file(uri: str | None) -> str:
+    if uri is None or COMMONS_FILE_PATH_MARKER not in uri:
         raise ValueError(f"wikidata_artist_images: P18 value is not a Commons file path: {uri}")
     return unquote(uri.rsplit(COMMONS_FILE_PATH_MARKER, 1)[1])
 
