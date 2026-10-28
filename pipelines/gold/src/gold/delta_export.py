@@ -32,8 +32,10 @@ def write_delta(frame: pl.DataFrame, key: str, name: str, output_dir: Path, rows
         return
 
     baseline = pl.read_parquet(baseline_path)
-    changed = hashes.join(baseline, on=[key, "row_hash"], how="anti").select(key)
+    changed = hashes.with_row_index().join(baseline, on=[key, "row_hash"], how="anti")
+    changed_rows = changed.get_column("index").sort()
     deleted = baseline.join(hashes, on=key, how="anti").select(key)
-    write_ndjson_parts(frame.join(changed, on=key, how="semi"), delta_dir, rows_per_part)
+    del baseline, changed
+    write_ndjson_parts(frame, delta_dir, rows_per_part, changed_rows)
     deleted.write_ndjson(delta_dir / DELETED_NAME, compression="gzip")
-    logger.info("%s delta: %d upserted, %d deleted", name, changed.height, deleted.height)
+    logger.info("%s delta: %d upserted, %d deleted", name, changed_rows.len(), deleted.height)
