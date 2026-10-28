@@ -53,3 +53,14 @@ def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
     )
 
     assert [row["value"] for row in rows] == ["rock music"]
+
+
+@pytest.mark.integration
+def test_artist_image_query_returns_a_partition_from_the_live_endpoint() -> None:
+    rows = wikidata_client.run_query(
+        wikidata_client.artist_image_query("0"), variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES, timeout=60.0
+    )
+
+    assert len(rows) > 1000
+    assert all(row["mbid"].lower().startswith("0") for row in rows)
+    assert all("/Special:FilePath/" in row["image"] for row in rows)

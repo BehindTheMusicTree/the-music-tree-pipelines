@@ -19,6 +19,7 @@ All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-
     - [1.2 wikidata_genre_indigenous_to.parquet and wikidata_genre_country_of_origin.parquet](#12-wikidata_genre_indigenous_toparquet-and-wikidata_genre_country_of_originparquet)
       - [1.2.1 Why separate tables, not extra columns on `wikidata_genre_tree.parquet`](#121-why-separate-tables-not-extra-columns-on-wikidata_genre_treeparquet)
     - [1.3 wikidata_genre_descriptions.parquet](#13-wikidata_genre_descriptionsparquet)
+    - [1.4 wikidata_artist_images.parquet](#14-wikidata_artist_imagesparquet)
   - [2. Silver](#2-silver)
     - [2.0 1_item_links — display-label casing](#20-1_item_links--display-label-casing)
     - [2.1 2_non_genre_pruning](#21-2_non_genre_pruning)
@@ -138,6 +139,14 @@ exactly one row; the `item_id` uniqueness check before the write pins that one-r
 for Gold's lookup. The Wikipedia extracts API returns only as many extracts per response
 as fit its size limit and leaves the rest empty with a `continue` token, so `fetch_intros` follows
 `continue` until done instead of reading truncated batches as missing intros.
+
+### 1.4 wikidata_artist_images.parquet
+
+Artist pages in grow show a photo. Wikidata `P18` pointing at Wikimedia Commons is the source: free, no API key, freely
+licensed files only, and already a pipeline dependency. Fanart.tv, Deezer, Last.fm, Spotify and TheAudioDB were
+rejected for keys, terms that forbid storing or redistributing, or unclear licensing. The join key is `P434`, so no
+name matching is involved. Commons licences (CC BY, CC BY-SA, …) make crediting the author a condition of reuse,
+which is why Silver carries the author and the license all the way to Gold (§2.9).
 
 ## 2. Silver
 
@@ -675,3 +684,18 @@ This is deliberately diff-based rather than a blanket check: dropping a broad um
 roots (rock, jazz, pop, ska, …) — that's the intended effect of the drop, not a bug. A check that
 flagged any orphaned child, rather than only on ones absent from the previously-accepted set,
 would fire on that entire pre-existing backlog every run.
+
+### 2.9 10_commons_image_metadata and 11_artist_images
+
+`P18` only names a file. Its thumbnail URL, author and license come from the Commons API, about 2,700 requests of
+50 files for the whole catalog. Like musicbrainz's `4_youtube_video_status`, the step is a cache in its own output
+with a TTL (30 days: licenses and authors rarely change, deleted files are the main thing to catch) and a per-run
+request budget (`COMMONS_METADATA_MAX_BATCHES_PER_RUN`, no default), so the first backfill spreads over several
+nights and a nightly run stays bounded. The thumbnail is 500 px wide, one of Wikimedia's standard steps: other
+widths are rendered on demand and rate limited. `utm_*` tracking parameters are dropped from it so the URL, and
+Gold's delta hash, stay stable. Only the latest file revision is read: the imageinfo `iistart` continuation pages
+through older revisions and isn't followed.
+
+`11_artist_images` drops anything that can't be shown legally: non-free files, files without a license, and files
+whose license requires attribution but have no author. One image per artist; the smallest file name wins when an
+artist has several, which keeps the choice stable from run to run without needing a quality signal.

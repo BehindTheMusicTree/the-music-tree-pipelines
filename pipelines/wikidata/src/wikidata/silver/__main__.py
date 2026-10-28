@@ -1,11 +1,16 @@
 import logging
+from datetime import UTC, datetime
+
+import httpx
 
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import wikidata
+from wikidata.silver.artist_images import artist_images
 from wikidata.silver.canonical_hierarchy import prune_canonical_hierarchy
 from wikidata.silver.canonical_parents import flag_canonical_parents
 from wikidata.silver.canonical_roots import extract_canonical_roots
+from wikidata.silver.commons_image_metadata import commons_image_metadata
 from wikidata.silver.curation_items import write_curation_items
 from wikidata.silver.curation_resolution import resolve_curation_qids
 from wikidata.silver.item_links import add_item_links
@@ -14,12 +19,14 @@ from wikidata.silver.non_genre_pruning import prune_non_genre_items
 from wikidata.silver.regional_classification import classify_regional_genres
 from wikidata.silver.regional_hierarchy import prune_regional_hierarchy
 from wikidata.silver.regional_overview_classification import classify_regional_from_overviews
+from wikidata.wikidata_client import USER_AGENT
 
 logging.basicConfig(level=logging.INFO)
 load_pipeline_env(wikidata.__file__)
 bronze_dir = resolve_pipeline_path(wikidata.__file__, require_env("BRONZE_OUTPUT_DIR"))
 silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
 curation_dir = resolve_pipeline_path(wikidata.__file__, require_env("CURATION_BRONZE_DIR"))
+commons_max_batches = int(require_env("COMMONS_METADATA_MAX_BATCHES_PER_RUN"))
 resolve_curation_qids(
     bronze_dir / "wikidata_genre_tree.parquet",
     bronze_dir / "wikidata_genre_indigenous_to.parquet",
@@ -65,3 +72,6 @@ canonical_hierarchy_path = prune_canonical_hierarchy(
 )
 prune_regional_hierarchy(canonical_parents_path, silver_dir)
 extract_canonical_roots(canonical_hierarchy_path, curation_dir / "manual_accepted_canonical_roots.csv", silver_dir)
+with httpx.Client(headers={"User-Agent": USER_AGENT}) as client:
+    commons_image_metadata(bronze_dir, silver_dir, client, datetime.now(UTC), commons_max_batches)
+artist_images(bronze_dir, silver_dir)

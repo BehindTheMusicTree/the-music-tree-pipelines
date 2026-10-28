@@ -3,7 +3,6 @@ from pathlib import Path
 import polars as pl
 
 ITEM_ID_PATTERN = r"^(Q[1-9][0-9]*|LOCAL:.+)$"
-MBID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
 
 def read_curation_csv(
