@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import httpx
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
+from common.step_timer import step
 
 import musicbrainz
 from musicbrainz.silver.artist_aliases import artist_aliases
@@ -23,20 +24,30 @@ silver_dir = resolve_pipeline_path(musicbrainz.__file__, require_env("SILVER_OUT
 curation_dir = resolve_pipeline_path(musicbrainz.__file__, require_env("CURATION_BRONZE_DIR"))
 youtube_api_key = require_env("YOUTUBE_API_KEY")
 youtube_status_max_batches = int(require_env("YOUTUBE_STATUS_MAX_BATCHES_PER_RUN"))
-recording_link(bronze_dir, silver_dir)
-recording_genre(bronze_dir, silver_dir)
-youtube_candidates(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_recording_youtube_video.csv")
-with httpx.Client() as client:
+with step("1_recording_link"):
+    recording_link(bronze_dir, silver_dir)
+with step("2_recording_genre"):
+    recording_genre(bronze_dir, silver_dir)
+with step("3_youtube_candidates"):
+    youtube_candidates(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_recording_youtube_video.csv")
+with step("4_youtube_video_status"), httpx.Client() as client:
     youtube_video_status(silver_dir, silver_dir, client, youtube_api_key, datetime.now(UTC), youtube_status_max_batches)
-songs(
-    bronze_dir,
-    silver_dir,
-    silver_dir,
-    curation_dir / "manual_recording_youtube_video.csv",
-)
-artists(bronze_dir, silver_dir)
-artist_members(bronze_dir, silver_dir)
-artist_links(bronze_dir, silver_dir)
-artist_release_groups(bronze_dir, silver_dir)
-artist_aliases(bronze_dir, silver_dir)
-song_genre(bronze_dir, silver_dir, silver_dir)
+with step("5_songs"):
+    songs(
+        bronze_dir,
+        silver_dir,
+        silver_dir,
+        curation_dir / "manual_recording_youtube_video.csv",
+    )
+with step("6_artists"):
+    artists(bronze_dir, silver_dir)
+with step("7_artist_members"):
+    artist_members(bronze_dir, silver_dir)
+with step("8_artist_links"):
+    artist_links(bronze_dir, silver_dir)
+with step("9_artist_release_groups"):
+    artist_release_groups(bronze_dir, silver_dir)
+with step("11_artist_aliases"):
+    artist_aliases(bronze_dir, silver_dir)
+with step("10_song_genre"):
+    song_genre(bronze_dir, silver_dir, silver_dir)

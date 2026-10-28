@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
+from common.step_timer import step
 
 from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
@@ -62,42 +63,51 @@ def build_gold(
     curation_exported_on = read_curation_exported_on(curation_dir)
     descriptions_path = wikidata_bronze_dir / "wikidata_genre_descriptions.parquet"
 
-    export_canonical_genre_tree(
-        wikidata_silver_dir,
-        gold_output_dir,
-        curation_dir / "manual_canonical_genre_pop_side.csv",
-        curation_dir,
-        descriptions_path,
-        curation_exported_on,
-    )
-    export_regional_genre_tree(
-        wikidata_silver_dir,
-        gold_output_dir,
-        curation_dir,
-        descriptions_path,
-        curation_exported_on,
-    )
-    genre_match_path = genre_match(
-        musicbrainz_silver_dir / "5_songs.parquet",
-        musicbrainz_silver_dir / "10_song_genre.parquet",
-        wikidata_silver_dir / "7_canonical_hierarchy.parquet",
-        wikidata_silver_dir / "5_secondary_parents.parquet",
-        curation_dir / "manual_genre_alias.csv",
-        curation_dir / "manual_accepted_non_genre_tags.csv",
-        curation_dir / "manual_genre_precedence.csv",
-        curation_dir / "manual_genre_disambiguation.csv",
-        curation_dir / "manual_genre_disambiguation_context.csv",
-        wikidata_bronze_dir / "wikidata_genre_aliases.parquet",
-        gold_output_dir,
-    )
+    with step("canonical_genre_tree"):
+        export_canonical_genre_tree(
+            wikidata_silver_dir,
+            gold_output_dir,
+            curation_dir / "manual_canonical_genre_pop_side.csv",
+            curation_dir,
+            descriptions_path,
+            curation_exported_on,
+        )
+    with step("regional_genre_tree"):
+        export_regional_genre_tree(
+            wikidata_silver_dir,
+            gold_output_dir,
+            curation_dir,
+            descriptions_path,
+            curation_exported_on,
+        )
+    with step("genre_match"):
+        genre_match_path = genre_match(
+            musicbrainz_silver_dir / "5_songs.parquet",
+            musicbrainz_silver_dir / "10_song_genre.parquet",
+            wikidata_silver_dir / "7_canonical_hierarchy.parquet",
+            wikidata_silver_dir / "5_secondary_parents.parquet",
+            curation_dir / "manual_genre_alias.csv",
+            curation_dir / "manual_accepted_non_genre_tags.csv",
+            curation_dir / "manual_genre_precedence.csv",
+            curation_dir / "manual_genre_disambiguation.csv",
+            curation_dir / "manual_genre_disambiguation_context.csv",
+            wikidata_bronze_dir / "wikidata_genre_aliases.parquet",
+            gold_output_dir,
+        )
     essential_songs_csv = "manual_essential_songs.csv"
     check_known_recordings(
         pl.read_csv(curation_dir / essential_songs_csv, columns=["musicbrainz_recording_id"], infer_schema=False),
         pl.read_parquet(genre_match_path, columns=["musicbrainz_recording_id"]),
         essential_songs_csv,
     )
-    export_umbrella_candidates(wikidata_silver_dir / "7_canonical_hierarchy.parquet", genre_match_path, gold_output_dir)
-    export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
-    export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
-    export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
+    with step("umbrella_candidates"):
+        export_umbrella_candidates(
+            wikidata_silver_dir / "7_canonical_hierarchy.parquet", genre_match_path, gold_output_dir
+        )
+    with step("songs"):
+        export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
+    with step("artists"):
+        export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
+    with step("genealogy"):
+        export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

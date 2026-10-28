@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `curation` ingests the `canonical_genre_scene` list; `gold` genre tree nodes carry the optional `scene` (`commercial` | `underground`) from `manual_canonical_genre_scene.csv`, and the playground fixture copies it. Tests cover the builder, the export, bad rows and the fixture.
+- `common.step_timer.step` logs `step=<name> seconds=<n> max_rss_gb=<n>` per step; applied to the musicbrainz Silver run, each gold step (plus songs collect, checks, parts and delta) and the wikidata Bronze ingest.
 
 ### Fixed
 
