@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `wikidata` Silver `10_commons_image_metadata` queries the Commons API with POST: a 50-title GET batch exceeded the URL limit (414) and failed the staging run. Tests read the form body.
 - `wikidata` Bronze artist images skip `P18` "unknown value" statements (WDQS skolem `.well-known/genid/` IRIs) instead of failing the whole ingest; a test pins the query filter.
 - `mypy` passes again on develop: `wikidata` artist images reject a missing `P18` value explicitly, and the `gold` artist export computes its image share from the null count.
 - gold delta export compares rows by value, per column, against a `<name>_snapshot.parquet` baseline instead of a Polars row hash, and `2_songs` carries only the fields grow stores (`secondary_genre_names`, `musicbrainz_genres` dropped); an unchanged night or a Polars upgrade no longer yields a full-change delta, and the log shows the changed-column counts. Needs the infrastructure run script to promote `_snapshot` instead of `_hashes` (first run after deploy is a full sync).

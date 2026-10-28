@@ -92,7 +92,8 @@ def _is_retryable(exception: BaseException) -> bool:
     reraise=True,
 )
 def _get_page(client: httpx.Client, params: dict[str, Any]) -> dict[str, Any]:
-    response = client.get(COMMONS_API_ENDPOINT, params=params, timeout=60.0)
+    # POST: a batch of 50 titles overflows the GET URL limit (414).
+    response = client.post(COMMONS_API_ENDPOINT, data=params, timeout=60.0)
     response.raise_for_status()
     body = response.json()
     if "error" in body:
