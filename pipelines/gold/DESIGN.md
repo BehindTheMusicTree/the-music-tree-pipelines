@@ -181,6 +181,7 @@ grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in
   (`musicbrainz_recording_id`) is checked against `1_genre_match.parquet` before the songs and artists are
   exported, so an essential song missing from the songs fails the build.
 - `manual_summary_overrides.csv`: a genre's `summary`.
+- `manual_canonical_genre_scene.csv`: a genre's `scene` (`commercial` | `underground`), which the front uses to render the branch specially.
 - `manual_song_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
   pre-override so the match report reflects the computed cascade.
 - `manual_recording_youtube_video.csv` is not applied here: musicbrainz Silver pins it as a rank-0

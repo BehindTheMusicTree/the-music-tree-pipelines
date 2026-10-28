@@ -425,6 +425,20 @@ def test_export_canonical_genre_tree_blank_summary_override_suppresses_summary(
     assert "summarySourceUrl" not in _rock_child(tree, "pop rock")
 
 
+def test_export_canonical_genre_tree_emits_scene(
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+) -> None:
+    write_curation("canonical_genre_scene", [{"item_id": "Q4", "scene": "underground", "reason": "x"}])
+
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+    assert _rock_child(tree, "pop rock")["scene"] == "underground"
+    assert "scene" not in _rock_child(tree, "punk rock")
+
+
 @pytest.mark.parametrize(
     ("name", "row", "match"),
     [
@@ -440,6 +454,9 @@ def test_export_canonical_genre_tree_blank_summary_override_suppresses_summary(
         ),
         ("summary_overrides", {"item_id": "Q404", "summary": "s", "reason": "x"}, "not found in either"),
         ("summary_overrides", {"item_id": "Q4", "summary": "s"}, "null/blank 'reason'"),
+        ("canonical_genre_scene", {"item_id": "Q404", "scene": "commercial", "reason": "x"}, "not found in either"),
+        ("canonical_genre_scene", {"item_id": "Q4", "scene": "mainstream", "reason": "x"}, "malformed 'scene'"),
+        ("canonical_genre_scene", {"item_id": "Q4", "scene": "commercial"}, "null/blank 'reason'"),
     ],
 )
 def test_export_canonical_genre_tree_raises_on_bad_curation_row(

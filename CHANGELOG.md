@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `curation` ingests the `canonical_genre_scene` list; `gold` genre tree nodes carry the optional `scene` (`commercial` | `underground`) from `manual_canonical_genre_scene.csv`, and the playground fixture copies it. Tests cover the builder, the export, bad rows and the fixture.
+
 ### Fixed
 
 - gold `2_songs` delta export no longer runs out of memory when most rows changed: changed rows are found by hash index and written one part at a time instead of semi-joining a second copy of the frame, and `export_songs` builds the frame lazily with a single streaming collect.
