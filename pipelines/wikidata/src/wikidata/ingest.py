@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
 COMMONS_FILE_PATH_MARKER = "/Special:FilePath/"
+NATURAL_EARTH_ADMIN_FILE = "natural_earth_admin.parquet"
 
 
 def _qid(uri: str | None) -> str | None:
@@ -164,6 +165,84 @@ def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str])
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "wikidata_cultural_entity_claim.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
+def ingest_cultural_entity_aliases(output_dir: Path, patterns: Mapping[str, str]) -> Path:
+    frames = []
+    for kind in patterns:
+        logger.info("querying Wikidata for English aliases of %s entities", kind)
+        rows = wikidata_client.run_query(
+            wikidata_client.cultural_entity_alias_query(kind, patterns),
+            variables=wikidata_client.CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES,
+            timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+        )
+        frames.append(
+            pl.DataFrame(
+                {"item_id": [_qid(row["item"]) for row in rows], "alias": [row["alias"] for row in rows]},
+                schema={"item_id": pl.String, "alias": pl.String},
+            )
+        )
+    df = pl.concat(frames).unique().sort("item_id", "alias")
+    check_non_empty(df, "wikidata_cultural_entity_alias")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_cultural_entity_alias.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
+def read_natural_earth_qids(geohistory_dir: Path) -> list[str]:
+    path = geohistory_dir / NATURAL_EARTH_ADMIN_FILE
+    if not path.exists():
+        raise FileNotFoundError(f"{path} is missing: run geohistory Bronze before wikidata Bronze")
+    qids = pl.read_parquet(path, columns=["wikidata_id"])["wikidata_id"].drop_nulls().unique().sort().to_list()
+    if not qids:
+        raise ValueError(f"{path} has no Wikidata QID")
+    return qids
+
+
+def ingest_admin_hierarchy(output_dir: Path, seed_qids: list[str]) -> Path:
+    queries = wikidata_client.admin_hierarchy_queries(seed_qids)
+    logger.info(
+        "querying Wikidata for the P131 chains of %d admin unit(s) in %d chunk(s)", len(seed_qids), len(queries)
+    )
+    rows = [
+        row
+        for query in queries
+        for row in wikidata_client.run_query(
+            query,
+            variables=wikidata_client.ADMIN_HIERARCHY_QUERY_VARIABLES,
+            timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+        )
+    ]
+    df = (
+        pl.DataFrame(
+            {
+                "item_id": [_qid(row["item"]) for row in rows],
+                "property": [row["property"] for row in rows],
+                "value": [_qid(row["value"]) for row in rows],
+                "label": [row["itemLabel"] for row in rows],
+            },
+            schema=dict.fromkeys(("item_id", "property", "value", "label"), pl.String),
+        )
+        .unique()
+        .sort("item_id", "property", "value")
+    )
+    check_non_empty(df, "wikidata_admin_hierarchy")
+    check_unique_key(
+        df.select(pl.concat_str("item_id", "property", "value", separator="|").alias("key")),
+        "key",
+        "wikidata_admin_hierarchy",
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_admin_hierarchy.parquet"
     df.write_parquet(output_path)
     logger.info("wrote %d rows to %s", df.height, output_path)
 
@@ -319,7 +398,9 @@ def ingest_artist_images(output_dir: Path) -> Path:
     return output_path
 
 
-def _ingest_sparql_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
+def _ingest_sparql_lane(
+    output_dir: Path, curation_dir: Path, genre_tree_path: Path, admin_seed_qids: list[str]
+) -> None:
     with step("indigenous_to"):
         ingest_indigenous_to(output_dir)
     with step("country_of_origin"):
@@ -331,6 +412,10 @@ def _ingest_sparql_lane(output_dir: Path, curation_dir: Path, genre_tree_path: P
         ingest_cultural_entities(output_dir, entity_patterns)
     with step("cultural_entity_claims"):
         ingest_cultural_entity_claims(output_dir, entity_patterns)
+    with step("admin_hierarchy"):
+        ingest_admin_hierarchy(output_dir, admin_seed_qids)
+    with step("cultural_entity_aliases"):
+        ingest_cultural_entity_aliases(output_dir, entity_patterns)
     with step("music_tradition_claims"):
         ingest_music_tradition_claims(
             output_dir,
@@ -356,13 +441,15 @@ if __name__ == "__main__":
     load_pipeline_env(__file__)
     output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     curation_dir = resolve_pipeline_path(__file__, require_env("CURATION_BRONZE_DIR"))
+    geohistory_dir = resolve_pipeline_path(__file__, require_env("GEOHISTORY_BRONZE_DIR"))
+    admin_seed_qids = read_natural_earth_qids(geohistory_dir)
     with step("genre_tree"):
         genre_tree_path = ingest_genre_tree(output_dir)
     # One lane per host (WDQS; wikidata.org + Wikipedia APIs), each serial, so no endpoint sees concurrent requests.
     with ThreadPoolExecutor(max_workers=2) as pool:
         lanes = [
-            pool.submit(lane, output_dir, curation_dir, genre_tree_path)
-            for lane in (_ingest_sparql_lane, _ingest_api_lane)
+            pool.submit(_ingest_sparql_lane, output_dir, curation_dir, genre_tree_path, admin_seed_qids),
+            pool.submit(_ingest_api_lane, output_dir, curation_dir, genre_tree_path),
         ]
         for lane in lanes:
             lane.result()

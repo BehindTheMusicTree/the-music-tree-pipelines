@@ -375,3 +375,36 @@ def test_tradition_claim_query_reads_sitelinks_labels_dates_and_plain_claims() -
     assert "AS ?value" not in label_query
     assert "psv:P571" in wikidata_client.tradition_claim_query("music_genre", "P571", patterns)
     assert "?item wdt:P2596 ?value" in wikidata_client.tradition_claim_query("music_genre", "P2596", patterns)
+
+
+def test_cultural_entity_alias_query_reads_english_alt_labels_of_the_kind() -> None:
+    query = wikidata_client.cultural_entity_alias_query("country")
+
+    assert wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS["country"] in query
+    assert "?item skos:altLabel ?alias ." in query
+    assert 'FILTER(LANG(?alias) = "en")' in query
+
+
+def test_admin_hierarchy_query_walks_p131_chains_from_the_seeds() -> None:
+    query = wikidata_client.admin_hierarchy_query(["Q12642", "Q90"])
+
+    assert "VALUES ?seed { wd:Q12642 wd:Q90 }" in query
+    assert "?seed wdt:P131* ?item ." in query
+    assert '{ ?item wdt:P131 ?value . BIND("P131" AS ?property) }' in query
+    assert '{ ?item wdt:P361 ?value . BIND("P361" AS ?property) }' in query
+    assert 'hint:Query hint:optimizer "None"' in query
+
+
+def test_admin_hierarchy_queries_chunk_the_sorted_distinct_seeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client, "ADMIN_SEED_CHUNK", 2)
+
+    queries = wikidata_client.admin_hierarchy_queries(["Q3", "Q1", "Q2", "Q1"])
+
+    assert len(queries) == 2
+    assert "VALUES ?seed { wd:Q1 wd:Q2 }" in queries[0]
+    assert "VALUES ?seed { wd:Q3 }" in queries[1]
+
+
+def test_admin_hierarchy_query_raises_on_invalid_seeds() -> None:
+    with pytest.raises(ValueError, match="admin hierarchy seeds"):
+        wikidata_client.admin_hierarchy_query(["ne:FRA-1"])

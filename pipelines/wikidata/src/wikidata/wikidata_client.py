@@ -176,9 +176,10 @@ CULTURAL_ENTITY_KIND_PATTERNS = {
 
 # Claim properties that date, locate, or relate a cultural entity. P571/P576 = inception/dissolution,
 # P580/P582 = start/end time (the ones archaeological cultures actually carry), P2348 = time period,
-# P1365/P1366 = replaces/replaced by, P361 = part of, P625 = coordinate location.
+# P1365/P1366 = replaces/replaced by, P361 = part of, P625 = coordinate location, P30/P706 = continent /
+# located in terrain feature (how countries attach to macro regions).
 CULTURAL_CLAIM_DATE_PIDS = ("P571", "P576", "P580", "P582")
-CULTURAL_CLAIM_PIDS = (*CULTURAL_CLAIM_DATE_PIDS, "P2348", "P1365", "P1366", "P361", "P625")
+CULTURAL_CLAIM_PIDS = (*CULTURAL_CLAIM_DATE_PIDS, "P2348", "P1365", "P1366", "P361", "P625", "P30", "P706")
 
 
 CURATED_KIND = "curated"
@@ -233,12 +234,61 @@ SELECT DISTINCT ?item ?value ?precision WHERE {{
 """
 
 
+CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES = ("item", "alias")
+
+
+def cultural_entity_alias_query(kind: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS) -> str:
+    return f"""
+SELECT DISTINCT ?item ?alias WHERE {{
+  {patterns[kind]}
+  ?item skos:altLabel ?alias .
+  FILTER(LANG(?alias) = "en")
+}}
+"""
+
+
+ADMIN_HIERARCHY_QUERY_VARIABLES = ("item", "property", "value", "itemLabel")
+ADMIN_HIERARCHY_PIDS = ("P131", "P361")
+ADMIN_SEED_CHUNK = 400
+
+
+# P131 = located in the administrative territorial entity. Every item on a seed's P131 chain (the seed included) with
+# its P131 and P361 values, so Silver can climb from a Natural Earth unit to its country through the intermediates NE
+# lacks (Morbihan → Bretagne → metropolitan France → France) and on to cultural regions (Bretagne P361 Brittany). The
+# optimizer is switched off: WDQS otherwise starts from the P131/P361 triples and exceeds its timeout.
+def admin_hierarchy_query(seed_qids: Sequence[str]) -> str:
+    invalid = [qid for qid in seed_qids if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"admin hierarchy seeds must be Wikidata QIDs, got {invalid[:5]}")
+    claims = " UNION ".join(
+        f'{{ ?item wdt:{pid} ?value . BIND("{pid}" AS ?property) }}' for pid in ADMIN_HIERARCHY_PIDS
+    )
+    return f"""
+SELECT DISTINCT ?item ?property ?value ?itemLabel WHERE {{
+  hint:Query hint:optimizer "None" .
+  VALUES ?seed {{ {" ".join(f"wd:{qid}" for qid in seed_qids)} }}
+  ?seed wdt:P131* ?item .
+  {claims}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
+}}
+"""
+
+
+def admin_hierarchy_queries(seed_qids: Sequence[str]) -> list[str]:
+    seeds = sorted(set(seed_qids))
+    return [
+        admin_hierarchy_query(seeds[start : start + ADMIN_SEED_CHUNK])
+        for start in range(0, len(seeds), ADMIN_SEED_CHUNK)
+    ]
+
+
 MUSIC_GENRE_KIND = "music_genre"
 LABEL_PID = "label"
 SITELINKS_PID = "sitelinks"
 
 # Claim properties that date, anchor or link a music tradition candidate. P2596 = culture, P1269 = facet of,
-# P495 = country of origin, P17 = country, P361 = part of, P155/P156 = follows/followed by, P737 = influenced by.
+# P495 = country of origin, P17 = country, P276 = location, P921 = main subject (where a "music of <place>" overview
+# names its place), P361 = part of, P155/P156 = follows/followed by, P737 = influenced by.
 # P279 (subclass of) is not listed: the genre tree already carries it. `label` and `sitelinks` are pseudo-properties
 # ingested through the same long table.
 TRADITION_CLAIM_PIDS = (
@@ -247,6 +297,8 @@ TRADITION_CLAIM_PIDS = (
     "P1269",
     COUNTRY_OF_ORIGIN_PID,
     "P17",
+    "P276",
+    "P921",
     "P361",
     "P155",
     "P156",
