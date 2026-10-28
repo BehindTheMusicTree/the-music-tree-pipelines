@@ -8,6 +8,7 @@ Data dictionary for `geohistory`. Design rationale is in [DESIGN.md](DESIGN.md).
   - [Table of Contents](#table-of-contents)
   - [1. Bronze](#1-bronze)
     - [1.1 glottolog_languoid.parquet](#11-glottolog_languoidparquet)
+    - [1.2 natural_earth_admin.parquet](#12-natural_earth_adminparquet)
   - [2. Silver](#2-silver)
     - [2.1 1_cultural_entity.parquet](#21-1_cultural_entityparquet)
     - [2.2 1_entity_wikidata_item.parquet](#22-1_entity_wikidata_itemparquet)
@@ -41,6 +42,24 @@ families, 8,582 languages, 13,705 dialects).
 | first_year_of_documentation | str? | First year of documentation, as published                                                    |
 | last_year_of_documentation  | str? | Last year of documentation, as published                                                     |
 | glottolog_version           | str  | Release the row comes from (e.g. `v5.3`)                                                     |
+
+### 1.2 natural_earth_admin.parquet
+
+One row per Natural Earth 1:10m admin-0 country (`ne_10m_admin_0_countries`) or admin-1 unit
+(`ne_10m_admin_1_states_provinces`) of the pinned release (`NATURAL_EARTH_VERSION`). `ne_id` is unique, and every
+admin-1 `adm0_a3` exists at level 0 (both checked before the write). Release v5.1.2: 4,854 rows (258 admin-0,
+4,596 admin-1, 264 of them without `wikidata_id`; 28 admin-1 QIDs are shared by several units).
+
+| Column       | Type | Meaning                                                                                 |
+| ------------ | ---- | --------------------------------------------------------------------------------------- |
+| ne_id        | str  | `ADM0_A3` for admin-0, `adm1_code` for admin-1 (e.g. `FRA`, `FRA-5327`)                 |
+| level        | i8   | `0` (country) or `1` (first-level subdivision)                                          |
+| wikidata_id  | str? | Wikidata QID as published (`WIKIDATAID` / `wikidataid`)                                 |
+| adm0_a3      | str  | Country the unit belongs to; equals `ne_id` at level 0                                  |
+| name         | str  | Natural Earth name (e.g. `Morbihan`)                                                    |
+| iso_code     | str  | `ISO_A2_EH` (`-99` when none) for admin-0, `iso_3166_2` for admin-1                     |
+| ne_type      | str? | `TYPE` (e.g. `Sovereign country`, `Dependency`) for admin-0, `type_en` for admin-1      |
+| geometry_wkb | bin  | Full-resolution `Polygon` or `MultiPolygon`, WKB, WGS 84                                |
 
 ## 2. Silver
 
