@@ -147,6 +147,12 @@ def test_wdqs_wait_honours_retry_after_on_a_429() -> None:
     assert wikidata_client._wdqs_wait(state) == 37
 
 
+def test_wdqs_wait_never_busy_loops_on_a_zero_retry_after() -> None:
+    state = _retry_state(_http_response(429, headers={"Retry-After": "0"}))
+
+    assert wikidata_client._wdqs_wait(state) >= 1
+
+
 def test_wdqs_wait_is_jittered_and_capped_otherwise() -> None:
     state = _retry_state(_http_response(503))
 

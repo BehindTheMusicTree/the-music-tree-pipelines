@@ -387,7 +387,7 @@ def _wdqs_wait(retry_state: tenacity.RetryCallState) -> float:
     if isinstance(exception, httpx.HTTPStatusError) and exception.response.status_code == 429:
         retry_after = exception.response.headers.get("Retry-After", "")
         if retry_after.isdigit():
-            return float(retry_after)
+            return max(float(retry_after), 1.0)
     return _jittered_backoff(retry_state)
 
 
