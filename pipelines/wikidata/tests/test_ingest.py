@@ -527,3 +527,9 @@ def test_ingest_admin_hierarchy_raises_when_an_item_has_two_labels(
 
     with pytest.raises(ValueError, match="wikidata_admin_hierarchy"):
         bw.ingest_admin_hierarchy(tmp_path, ["Q12130"])
+
+
+def test_artist_image_query_skips_unknown_value_images() -> None:
+    assert 'STRSTARTS(STR(?image), "http://commons.wikimedia.org/wiki/Special:FilePath/")' in (
+        bw.wikidata_client.artist_image_query("0")
+    )

@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from urllib.parse import parse_qs
+
 import httpx
 import polars as pl
 import pytest
@@ -39,6 +41,11 @@ def _page(title: str, artist: str = '<a href="//commons.wikimedia.org/wiki/User:
             }
         ],
     }
+
+
+def _form(request: httpx.Request) -> dict[str, str]:
+    assert request.method == "POST"
+    return {key: values[0] for key, values in parse_qs(request.content.decode()).items()}
 
 
 def _client(responses: list[dict[str, Any]], requests: list[httpx.Request]) -> httpx.Client:
@@ -101,10 +108,10 @@ def test_fetch_batch_follows_normalization_redirects_and_continue() -> None:
 
     rows = cim._fetch_batch(_client(responses, requests), ["a_b.jpg", "Gone.jpg"])
 
-    assert requests[0].url.params["titles"] == "File:a_b.jpg|File:Gone.jpg"
-    assert requests[0].url.params["iiurlwidth"] == "500"
+    assert _form(requests[0])["titles"] == "File:a_b.jpg|File:Gone.jpg"
+    assert _form(requests[0])["iiurlwidth"] == "500"
     assert len(requests) == 2
-    assert requests[1].url.params["iicontinue"] == "x"
+    assert _form(requests[1])["iicontinue"] == "x"
     assert rows[0]["image_file"] == "a_b.jpg"
     assert rows[0]["author"] == "Jane Doe"
     assert rows[0]["thumb_url"] == "https://thumb.wikimedia.org/thumb/Target.jpg/500px-Target.jpg"
@@ -143,7 +150,7 @@ def test_fetches_unchecked_then_stalest_files_within_the_budget(
 
     result = pl.read_parquet(cim.commons_image_metadata(tmp_path / "bronze", silver_dir, client, NOW, max_batches=1))
 
-    assert [r.url.params["titles"] for r in requests] == ["File:new.jpg|File:staler.jpg"]
+    assert [_form(r)["titles"] for r in requests] == ["File:new.jpg|File:staler.jpg"]
     checked = dict(zip(result["image_file"], result["checked_at"], strict=True))
     assert sorted(checked) == ["fresh.jpg", "new.jpg", "stale.jpg", "staler.jpg"]
     assert checked["new.jpg"] == checked["staler.jpg"] == NOW
