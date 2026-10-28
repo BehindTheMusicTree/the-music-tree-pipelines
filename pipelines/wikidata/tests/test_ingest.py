@@ -430,3 +430,7 @@ def test_ingest_artist_images_raises_on_empty_results(monkeypatch: pytest.Monkey
 
     with pytest.raises(ValueError):
         bw.ingest_artist_images(tmp_path / "bronze")
+
+
+def test_artist_image_query_skips_unknown_value_images() -> None:
+    assert "isIRI(?image)" in bw.wikidata_client.artist_image_query("0")
