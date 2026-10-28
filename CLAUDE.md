@@ -27,7 +27,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 ## Commands
 
 - **Run a pipeline (Bronze):** `uv run --package musicbrainz python -m musicbrainz.ingest` / `uv run --package wikidata python -m wikidata.ingest`
-- **Run geohistory (Bronze):** `uv run --package geohistory python -m geohistory.ingest` (needs `GLOTTOLOG_CLDF_VERSION`, `BRONZE_OUTPUT_DIR`)
+- **Run geohistory (Bronze):** `uv run --package geohistory python -m geohistory.ingest` (needs `GLOTTOLOG_CLDF_VERSION`, `NATURAL_EARTH_VERSION`, `BRONZE_OUTPUT_DIR`)
 - **Run geohistory Silver (after wikidata Bronze):** `uv run --package geohistory python -m geohistory.silver` (needs `BRONZE_OUTPUT_DIR`, `WIKIDATA_BRONZE_DIR`, `SILVER_OUTPUT_DIR`, `CURATION_BRONZE_DIR` — run curation first)
 - **Run curation (Bronze, before wikidata Bronze, wikidata/musicbrainz Silver and gold):** `uv run --package curation python -m curation.ingest` (needs `GROW_API_BASE_URL`, `GROW_API_KEY`, `BRONZE_OUTPUT_DIR`)
 - **Run wikidata Silver:** `uv run --package wikidata python -m wikidata.silver` — see `pipelines/wikidata/CLAUDE.md` for the full step-by-step breakdown
