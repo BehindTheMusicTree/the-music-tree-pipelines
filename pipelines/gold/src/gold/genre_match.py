@@ -146,12 +146,14 @@ def _resolve_tags(
     index: _LabelIndex,
     alias_by_key: dict[str, str],
     non_genre_keys: pl.Series,
+    curated_keys: pl.Series,
     ambiguous_keys: pl.Series,
     wikidata_alias_by_key: dict[str, str],
 ) -> pl.DataFrame:
     """One row per distinct tag name: `(genre_name, item_id, method)`, `method` being the first cascade step
     that resolves it, else `accepted_non_genre` / `ambiguous` (picked per song later) / `unmatched` (null
-    `item_id`)."""
+    `item_id`). A curated disambiguation key outranks the `normalized` step, an automatic one comes after
+    `accepted_non_genre`."""
     name = pl.col("genre_name")
     return (
         tag_names.with_columns(
@@ -159,6 +161,7 @@ def _resolve_tags(
             normalized_match=index.normalized_match(name),
             alias_match=_genre_key(name).replace_strict(alias_by_key, default=None, return_dtype=pl.Utf8),
             is_non_genre=_genre_key(name).is_in(non_genre_keys.implode()),
+            is_curated=_genre_key(name).is_in(curated_keys.implode()),
             is_ambiguous=_genre_key(name).is_in(ambiguous_keys.implode()),
             wikidata_alias_match=_genre_key(name).replace_strict(
                 wikidata_alias_by_key, default=None, return_dtype=pl.Utf8
@@ -167,12 +170,14 @@ def _resolve_tags(
         .with_columns(
             label=pl.coalesce(
                 "exact_match",
-                "normalized_match",
+                pl.when(~pl.col("is_curated")).then(pl.col("normalized_match")),
                 "alias_match",
                 pl.when(~pl.col("is_non_genre") & ~pl.col("is_ambiguous")).then(pl.col("wikidata_alias_match")),
             ),
             method=pl.when(pl.col("exact_match").is_not_null())
             .then(pl.lit("exact"))
+            .when(pl.col("is_curated"))
+            .then(pl.lit("ambiguous"))
             .when(pl.col("normalized_match").is_not_null())
             .then(pl.lit("normalized"))
             .when(pl.col("alias_match").is_not_null())
@@ -242,12 +247,12 @@ def genre_match(
     non_genre_keys = non_genre_df.select(_genre_key(pl.col("musicbrainz_genre_name"))).to_series()
 
     closure = precedence_closure(hierarchy, secondary_parents_path, manual_genre_precedence_path)
-    label_keys = pl.Series([*canonical_labels]).to_frame("label").select(_genre_key(pl.col("label"))).to_series()
+    exact_labels = pl.Series([label.lower() for label in canonical_labels])
     curated = load_curated_disambiguation(
         manual_genre_disambiguation_path,
         manual_genre_disambiguation_context_path,
         set(hierarchy["item_id"]),
-        pl.concat([label_keys, alias_keyed["key"], non_genre_keys]),
+        pl.concat([exact_labels, alias_keyed["key"], non_genre_keys]),
         closure,
         _genre_key,
     )
@@ -263,6 +268,7 @@ def genre_match(
         index,
         dict(alias_keyed.iter_rows()),
         non_genre_keys,
+        curated.keys,
         disambiguation.keys,
         wikidata_alias_by_key,
     )

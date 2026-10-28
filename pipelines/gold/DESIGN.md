@@ -27,7 +27,8 @@ at the first that succeeds:
 0. `no_genre` — the song has no tag in `10_song_genre` (none of its recordings carries a genre tag). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
-2. `normalized` — equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
+2. `normalized` — (skipped for a key curated in `manual_genre_disambiguation.csv`, which resolves as `ambiguous`
+   instead: `trap` is `trap music` by key, yet means EDM trap on an EDM song) equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
    whitespace collapsed to one space, trailing `" music"` dropped. Covers the bulk of the naming-convention
    gap in both directions: musicbrainz `rock`/`hip hop`/`jazz music` meet wikidata `rock music`/`hip-hop`/
    `jazz`. When two canonical labels share a key (`dance`/`dance music`, `bass`/`bass music` are distinct
