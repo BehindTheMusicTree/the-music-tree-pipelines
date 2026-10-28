@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The `live-contract` issue closes itself when the next live run passes and reopens on a new failure.
 - The artist-image chain (Bronze, Silver Commons metadata, Silver `11_artist_images`) drops rows with bad external data (an unknown-value image, unparseable Commons metadata, a row breaking grow's image contract) instead of failing the run, and fails only when more than 1% of rows are rejected (`check_reject_rate`). Gold stays strict. Skipped Commons files are not cached, so they are retried next run.
 
 ### Added
