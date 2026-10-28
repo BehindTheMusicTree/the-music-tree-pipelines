@@ -24,6 +24,8 @@ pipeline overview.
     - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
     - [2.7 wikidata_music_tradition_claims.parquet](#27-wikidata_music_tradition_claimsparquet)
     - [2.8 wikidata_artist_images.parquet](#28-wikidata_artist_imagesparquet)
+    - [2.9 wikidata_admin_hierarchy.parquet](#29-wikidata_admin_hierarchyparquet)
+    - [2.10 wikidata_cultural_entity_alias.parquet](#210-wikidata_cultural_entity_aliasparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -212,7 +214,7 @@ property). Deprecated statements are excluded. See `wikidata_client.cultural_ent
 | Column         | Type | Meaning                                                                                                               |
 | -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
 | item_id        | str  | Wikidata QID of the cultural entity                                                                                   |
-| property       | str  | One of `P571` inception, `P576` dissolved, `P580` start time, `P582` end time, `P2348` time period, `P1365` replaces, `P1366` replaced by, `P361` part of, `P625` coordinate location |
+| property       | str  | One of `P571` inception, `P576` dissolved, `P580` start time, `P582` end time, `P2348` time period, `P1365` replaces, `P1366` replaced by, `P361` part of, `P30` continent, `P706` located in/on physical feature, `P625` coordinate location |
 | value          | str  | Date properties: raw ISO literal kept as is, BCE years included (e.g. `-3500-01-01T00:00:00Z`); other properties: the QID (or the coordinate literal for `P625`) |
 | time_precision | i8?  | `wikibase:timePrecision` for date properties (7 century, 8 decade, 9 year, …), null otherwise                         |
 
@@ -228,7 +230,7 @@ of <place>" overviews the genre tree only knows as parents, the `manual_regional
 | Column         | Type | Meaning                                                                                                                      |
 | -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
 | item_id        | str  | Wikidata QID of the candidate                                                                                                |
-| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
+| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P276` location, `P921` main subject, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
 | value          | str  | Date properties: raw ISO literal as is, BCE years included; `sitelinks`: the count; `label`: the label; others: the QID      |
 | time_precision | i8?  | `wikibase:timePrecision` for date properties, null otherwise                                                                 |
 
@@ -246,6 +248,34 @@ enforce `P434`'s format). Deduplicated.
 | image_file            | str  | `P18` Commons file name, URL-decoded from its `Special:FilePath/` URI, without `File:` |
 
 As of this writing: about 8,400 rows in partition `0`, so about 135,000 in total.
+
+### 2.9 wikidata_admin_hierarchy.parquet
+
+The administrative ancestry of the Natural Earth admin-0/admin-1 units: one row per (item, property, value) claim of
+every item on a seed's `P131*` chain, seeds being the distinct `wikidata_id`s of `geohistory` Bronze's
+`natural_earth_admin.parquet` (`GEOHISTORY_BRONZE_DIR`), queried in chunks of 400. See
+`wikidata_client.admin_hierarchy_query`.
+
+| Column   | Type | Meaning                                                                  |
+| -------- | ---- | ------------------------------------------------------------------------ |
+| item_id  | str  | Wikidata QID of a seed or one of its `P131` ancestors (e.g. `Q12642`)    |
+| property | str  | `P131` located in the administrative territorial entity or `P361` part of |
+| value    | str  | QID of the parent (e.g. `Q12130`)                                        |
+| label    | str  | English/`mul`-fallback label of `item_id`                                |
+
+As of this writing: 6,292 rows (P131 5,001, P361 1,291).
+
+### 2.10 wikidata_cultural_entity_alias.parquet
+
+One row per (item, alias): the English Wikidata aliases (`skos:altLabel`) of every cultural entity of
+`wikidata_cultural_entity.parquet`, one query per kind. See `wikidata_client.cultural_entity_alias_query`.
+
+| Column  | Type | Meaning                                       |
+| ------- | ---- | --------------------------------------------- |
+| item_id | str  | Wikidata QID of the cultural entity           |
+| alias   | str  | One English alias of that item                |
+
+As of this writing: 32,737 rows.
 
 ## 3. Silver
 

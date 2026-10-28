@@ -432,6 +432,103 @@ def test_ingest_artist_images_raises_on_empty_results(monkeypatch: pytest.Monkey
         bw.ingest_artist_images(tmp_path / "bronze")
 
 
+def test_ingest_cultural_entity_aliases_keeps_one_row_per_item_and_alias(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    alias = {"item": "http://www.wikidata.org/entity/Q12130", "alias": "Bretagne"}
+    run_query = MagicMock(return_value=[alias])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1", "cultural_region": "p2"})
+
+    assert run_query.call_count == 2
+    assert pl.read_parquet(result).rows() == [("Q12130", "Bretagne")]
+
+
+def test_ingest_cultural_entity_aliases_raises_on_empty_results(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1"})
+
+
+def _write_natural_earth(path: Path, wikidata_ids: list[str | None]) -> None:
+    pl.DataFrame({"wikidata_id": wikidata_ids}, schema={"wikidata_id": pl.String}).write_parquet(
+        path / bw.NATURAL_EARTH_ADMIN_FILE
+    )
+
+
+def test_read_natural_earth_qids_returns_the_sorted_distinct_qids(tmp_path: Path) -> None:
+    _write_natural_earth(tmp_path, ["Q12642", None, "Q142", "Q12642"])
+
+    assert bw.read_natural_earth_qids(tmp_path) == ["Q12642", "Q142"]
+
+
+def test_read_natural_earth_qids_raises_when_the_file_is_missing(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="run geohistory Bronze"):
+        bw.read_natural_earth_qids(tmp_path)
+
+
+def test_read_natural_earth_qids_raises_without_any_qid(tmp_path: Path) -> None:
+    _write_natural_earth(tmp_path, [None])
+
+    with pytest.raises(ValueError, match="no Wikidata QID"):
+        bw.read_natural_earth_qids(tmp_path)
+
+
+def _admin_row(item: str, prop: str, value: str, label: str) -> dict[str, str | None]:
+    entity = "http://www.wikidata.org/entity/"
+    return {"item": entity + item, "property": prop, "value": entity + value, "itemLabel": label}
+
+
+def test_ingest_admin_hierarchy_merges_the_chunks_and_drops_shared_ancestors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "ADMIN_SEED_CHUNK", 1)
+    chunks = {
+        "wd:Q12642": [
+            _admin_row("Q12642", "P131", "Q12130", "Morbihan"),
+            _admin_row("Q12130", "P361", "Q327", "Brittany"),
+        ],
+        "wd:Q12639": [
+            _admin_row("Q12639", "P131", "Q12130", "Finistère"),
+            _admin_row("Q12130", "P361", "Q327", "Brittany"),
+        ],
+    }
+
+    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
+        return next(rows for seed, rows in chunks.items() if f"{{ {seed} }}" in query)
+
+    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
+
+    result = bw.ingest_admin_hierarchy(tmp_path, ["Q12642", "Q12639"])
+
+    assert pl.read_parquet(result).rows() == [
+        ("Q12130", "P361", "Q327", "Brittany"),
+        ("Q12639", "P131", "Q12130", "Finistère"),
+        ("Q12642", "P131", "Q12130", "Morbihan"),
+    ]
+
+
+def test_ingest_admin_hierarchy_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_admin_hierarchy(tmp_path, ["Q12642"])
+
+
+def test_ingest_admin_hierarchy_raises_when_an_item_has_two_labels(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows = [_admin_row("Q12130", "P361", "Q327", "Brittany"), _admin_row("Q12130", "P361", "Q327", "Bretagne")]
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=rows))
+
+    with pytest.raises(ValueError, match="wikidata_admin_hierarchy"):
+        bw.ingest_admin_hierarchy(tmp_path, ["Q12130"])
+
+
 def test_artist_image_query_skips_unknown_value_images() -> None:
     assert 'STRSTARTS(STR(?image), "http://commons.wikimedia.org/wiki/Special:FilePath/")' in (
         bw.wikidata_client.artist_image_query("0")
