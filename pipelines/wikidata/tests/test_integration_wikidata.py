@@ -1,6 +1,3 @@
-from pathlib import Path
-
-import polars as pl
 import pytest
 
 from wikidata import ingest, wikidata_client
@@ -56,9 +53,15 @@ def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
     assert [row["value"] for row in rows] == ["rock music"]
 
 
-def test_ingest_artist_images_reads_every_partition_from_the_live_endpoint(tmp_path: Path) -> None:
-    # Every partition, not a sample: a single bad P18 value (e.g. an "unknown value" skolem IRI) fails the whole run.
-    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path))
+def test_artist_image_query_returns_well_formed_rows_from_the_live_endpoint() -> None:
+    # The response shape is the contract; whether the full extract is available is the nightly run's concern.
+    rows = wikidata_client.run_query(
+        wikidata_client.artist_image_query("0") + "\nLIMIT 500",
+        variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES,
+        timeout=60.0,
+    )
 
-    assert df.height > 100_000
-    assert set(df["musicbrainz_artist_id"].str.slice(0, 1).unique()) == set(wikidata_client.ARTIST_IMAGE_PARTITIONS)
+    assert rows
+    assert all(set(row) == set(wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES) for row in rows)
+    rejected = [row for row in rows if not ingest._commons_file(row["image"])]
+    assert len(rejected) <= len(rows) * ingest.ARTIST_IMAGE_MAX_REJECT_RATIO

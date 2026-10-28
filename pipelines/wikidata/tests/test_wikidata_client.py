@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock
 
 import httpx
@@ -11,6 +10,7 @@ from wikidata import wikidata_client
 @pytest.fixture(autouse=True)
 def _fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(wikidata_client.run_query.retry, "wait", tenacity.wait_none())
+    monkeypatch.setattr(wikidata_client.run_query.retry, "stop", tenacity.stop_after_attempt(3))
 
 
 def _mock_response(bindings: list[dict]) -> MagicMock:
@@ -84,10 +84,15 @@ def test_run_query_parses_bindings_and_defaults_unbound_optional_fields_to_none(
     ]
 
 
-def test_run_query_retries_transient_errors_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
-    truncated_response = MagicMock()
-    truncated_response.json.side_effect = json.JSONDecodeError("Unterminated string", "", 0)
-    httpx_get = MagicMock(side_effect=[truncated_response, _mock_response([])])
+TRUNCATED_BODY = b'{"results": {"bindings": [{"item": {"type": "uri", "val\njava.util.concurrent.TimeoutException: Idle timeout expired: 60000/60000 ms\n'
+
+
+def _http_response(status: int = 200, content: bytes = b"", headers: dict[str, str] | None = None) -> httpx.Response:
+    return httpx.Response(status, content=content, headers=headers, request=httpx.Request("GET", "https://wdqs"))
+
+
+def test_run_query_retries_a_truncated_body_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    httpx_get = MagicMock(side_effect=[_http_response(content=TRUNCATED_BODY), _mock_response([])])
     monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
 
     result = wikidata_client.run_query("SELECT * WHERE {}")
@@ -96,16 +101,59 @@ def test_run_query_retries_transient_errors_then_succeeds(monkeypatch: pytest.Mo
     assert httpx_get.call_count == 2
 
 
-def test_run_query_reraises_after_exhausting_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    response = MagicMock()
-    response.json.side_effect = json.JSONDecodeError("Unterminated string", "", 0)
-    httpx_get = MagicMock(return_value=response)
+def test_run_query_reports_a_truncated_body_as_a_wdqs_timeout_after_exhausting_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    httpx_get = MagicMock(side_effect=lambda *_, **__: _http_response(content=TRUNCATED_BODY))
     monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
 
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(wikidata_client.WdqsTimeout, match="Idle timeout expired"):
         wikidata_client.run_query("SELECT * WHERE {}")
 
-    assert httpx_get.call_count == wikidata_client.run_query.retry.stop.max_attempt_number
+    assert httpx_get.call_count == 3
+
+
+def test_run_query_does_not_retry_a_rejected_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    httpx_get = MagicMock(return_value=_http_response(400, b"MalformedQueryException"))
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        wikidata_client.run_query("SELECT")
+
+    assert httpx_get.call_count == 1
+
+
+def test_run_query_retries_a_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    httpx_get = MagicMock(side_effect=[_http_response(503), _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+
+    assert wikidata_client.run_query("SELECT * WHERE {}") == []
+    assert httpx_get.call_count == 2
+
+
+def _retry_state(response: httpx.Response) -> tenacity.RetryCallState:
+    state = tenacity.RetryCallState(retry_object=MagicMock(), fn=None, args=(), kwargs={})
+    state.attempt_number = 3
+    error = httpx.HTTPStatusError("error", request=response.request, response=response)
+    future: tenacity.Future = tenacity.Future(3)
+    future.set_exception(error)
+    state.outcome = future
+    return state
+
+
+def test_wdqs_wait_honours_retry_after_on_a_429() -> None:
+    state = _retry_state(_http_response(429, headers={"Retry-After": "37"}))
+
+    assert wikidata_client._wdqs_wait(state) == 37
+
+
+def test_wdqs_wait_is_jittered_and_capped_otherwise() -> None:
+    state = _retry_state(_http_response(503))
+
+    waits = {wikidata_client._wdqs_wait(state) for _ in range(20)}
+
+    assert len(waits) > 1
+    assert max(waits) <= wikidata_client.WDQS_BACKOFF_MAX_SECONDS
 
 
 def test_run_query_uses_given_variables_to_extract_bindings(monkeypatch: pytest.MonkeyPatch) -> None:

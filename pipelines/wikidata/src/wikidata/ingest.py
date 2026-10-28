@@ -1,9 +1,11 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
 
+import httpx
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import (
@@ -23,6 +25,9 @@ logger = logging.getLogger(__name__)
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
 COMMONS_FILE_PATH_MARKER = "/Special:FilePath/"
 ARTIST_IMAGE_MAX_REJECT_RATIO = 0.01
+# How long a partition's rows may be reused when WDQS can't answer: past it the run fails instead of serving stale images.
+ARTIST_IMAGE_MAX_STALENESS_DAYS = 7
+ARTIST_IMAGE_FILENAME = "wikidata_artist_images.parquet"
 NATURAL_EARTH_ADMIN_FILE = "natural_earth_admin.parquet"
 
 
@@ -373,32 +378,80 @@ def _commons_file(uri: str | None) -> str | None:
     return unquote(uri.rsplit(COMMONS_FILE_PATH_MARKER, 1)[1])
 
 
-def ingest_artist_images(output_dir: Path) -> Path:
+_ARTIST_IMAGE_SCHEMA: dict[str, pl.DataType] = {
+    "item_id": pl.Utf8(),
+    "musicbrainz_artist_id": pl.Utf8(),
+    "image_file": pl.Utf8(),
+    "fetched_at": pl.Datetime("us", "UTC"),
+}
+
+
+def _previous_partition_rows(previous: pl.DataFrame | None, partition: str, now: datetime) -> pl.DataFrame | None:
+    """The partition's rows from the last run, or None when they are missing or older than the staleness limit."""
+    if previous is None or "fetched_at" not in previous.columns:
+        return None
+    rows = previous.filter(pl.col("musicbrainz_artist_id").str.starts_with(partition))
+    if rows.is_empty() or rows.select(pl.col("fetched_at").min()).item() < now - timedelta(
+        days=ARTIST_IMAGE_MAX_STALENESS_DAYS
+    ):
+        return None
+    return rows
+
+
+def ingest_artist_images(output_dir: Path, now: datetime) -> Path:
+    """Artist images are an optional enrichment: when WDQS can't answer a partition, that partition's rows from the
+    previous run are kept (for up to ARTIST_IMAGE_MAX_STALENESS_DAYS) instead of failing the whole nightly run."""
     logger.info("querying Wikidata for artist images")
-    rows = [
-        row
-        for partition in wikidata_client.ARTIST_IMAGE_PARTITIONS
-        for row in wikidata_client.run_query(
-            wikidata_client.artist_image_query(partition), variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES
+    output_path = output_dir / ARTIST_IMAGE_FILENAME
+    previous = pl.read_parquet(output_path) if output_path.exists() else None
+
+    rows: list[dict[str, str | None]] = []
+    reused: list[pl.DataFrame] = []
+    wdqs_error: Exception | None = None
+    for partition in wikidata_client.ARTIST_IMAGE_PARTITIONS:
+        # Once a partition has used up its retry budget, WDQS is down: the rest go straight to the previous rows.
+        if wdqs_error is None:
+            try:
+                rows.extend(
+                    wikidata_client.run_query(
+                        wikidata_client.artist_image_query(partition),
+                        variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES,
+                    )
+                )
+                continue
+            except (httpx.HTTPError, wikidata_client.WdqsTimeout) as error:
+                # A 4xx other than 429 means the query itself is wrong: stale images must not hide that.
+                if not wikidata_client.is_transient_error(error):
+                    raise
+                wdqs_error = error
+        previous_rows = _previous_partition_rows(previous, partition, now)
+        if previous_rows is None:
+            raise wdqs_error
+        logger.warning(
+            "WDQS unavailable for artist image partition %s (%s): reusing %d rows from %s",
+            partition,
+            wdqs_error,
+            previous_rows.height,
+            previous_rows["fetched_at"].min(),
         )
-    ]
+        reused.append(previous_rows)
 
     df = pl.DataFrame(
         {
             "item_id": [_qid(row["item"]) for row in rows],
             "musicbrainz_artist_id": [(row["mbid"] or "").strip().lower() for row in rows],
             "image_file": [_commons_file(row["image"]) for row in rows],
+            "fetched_at": [now] * len(rows),
         },
-        schema={"item_id": pl.Utf8, "musicbrainz_artist_id": pl.Utf8, "image_file": pl.Utf8},
+        schema=_ARTIST_IMAGE_SCHEMA,
     )
     # Wikidata's P434 format constraint isn't enforced, so a malformed MBID is a data error there, not a pipeline bug.
     valid = pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN) & pl.col("image_file").is_not_null()
     check_reject_rate(df.filter(~valid).height, df.height, "wikidata_artist_images", ARTIST_IMAGE_MAX_REJECT_RATIO)
-    df = df.filter(valid).unique().sort(df.columns)
+    df = pl.concat([df.filter(valid), *reused]).unique().sort(df.columns)
     check_non_empty(df, "wikidata_artist_images")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "wikidata_artist_images.parquet"
     df.write_parquet(output_path)
     logger.info("wrote %d rows to %s", df.height, output_path)
 
@@ -431,7 +484,7 @@ def _ingest_sparql_lane(
             ),
         )
     with step("artist_images"):
-        ingest_artist_images(output_dir)
+        ingest_artist_images(output_dir, datetime.now(UTC))
     with step("admin_hierarchy"):
         ingest_admin_hierarchy(output_dir, admin_seed_qids)
     with step("cultural_entity_aliases"):

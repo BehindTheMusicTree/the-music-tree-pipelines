@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -10,6 +11,12 @@ SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 API_ENDPOINT = "https://www.wikidata.org/w/api.php"
 WBGETENTITIES_MAX_IDS = 50
 USER_AGENT = "the-music-tree-pipelines (https://github.com/BehindTheMusicTree/the-music-tree-pipelines)"
+# One query's whole retry window: WDQS brownouts last minutes, and a nightly run can't wait on one query for longer.
+WDQS_RETRY_BUDGET_SECONDS = 300
+WDQS_BACKOFF_MAX_SECONDS = 60
+WDQS_TIMEOUT_TAIL_CHARS = 200
+
+logger = logging.getLogger(__name__)
 
 MUSIC_GENRE_QID = "Q188451"
 INDIGENOUS_TO_PID = "P2341"
@@ -360,18 +367,42 @@ SELECT ?item ?mbid ?image WHERE {{
 """
 
 
+class WdqsTimeout(Exception):
+    """WDQS answered 200 with a body that isn't JSON: it hit its 60 s query limit mid-stream."""
+
+
+def is_transient_error(exception: BaseException) -> bool:
+    """A WDQS failure that a later attempt can recover from; any other 4xx is a bug in the query."""
+    if isinstance(exception, httpx.HTTPStatusError):
+        return exception.response.status_code == 429 or exception.response.status_code >= 500
+    return isinstance(exception, (httpx.TransportError, WdqsTimeout))
+
+
+_jittered_backoff = tenacity.wait_exponential_jitter(initial=2, max=WDQS_BACKOFF_MAX_SECONDS)
+
+
+def _wdqs_wait(retry_state: tenacity.RetryCallState) -> float:
+    # The WDQS usage policy escalates a client that ignores Retry-After to a ban.
+    exception = retry_state.outcome.exception() if retry_state.outcome else None
+    if isinstance(exception, httpx.HTTPStatusError) and exception.response.status_code == 429:
+        retry_after = exception.response.headers.get("Retry-After", "")
+        if retry_after.isdigit():
+            return float(retry_after)
+    return _jittered_backoff(retry_state)
+
+
 @tenacity.retry(
-    retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
-    wait=tenacity.wait_exponential(multiplier=1, max=30),
-    stop=tenacity.stop_after_attempt(8),
+    retry=tenacity.retry_if_exception(is_transient_error),
+    wait=_wdqs_wait,
+    stop=tenacity.stop_before_delay(WDQS_RETRY_BUDGET_SECONDS),
+    before_sleep=tenacity.before_sleep_log(logger, logging.INFO),
     reraise=True,
 )
 def run_query(
     query: str, variables: Sequence[str] = GENRE_TREE_QUERY_VARIABLES, timeout: float = 60.0
 ) -> list[dict[str, str | None]]:
-    # WDQS (or a caching layer in front of it) has been observed serving a truncated,
-    # non-JSON-parseable body under load; Cache-Control: no-cache keeps a retry after
-    # such a truncation from being served the same cached bad response again.
+    # Under load WDQS stops a query at its 60 s limit mid-stream, behind an HTTP 200: the JSON is truncated and a Java
+    # stack trace is appended. Cache-Control: no-cache keeps a retry from being served the same cached bad response.
     response = httpx.get(
         SPARQL_ENDPOINT,
         params={"query": query},
@@ -383,7 +414,14 @@ def run_query(
         timeout=timeout,
     )
     response.raise_for_status()
-    bindings = response.json()["results"]["bindings"]
+    try:
+        bindings = response.json()["results"]["bindings"]
+    except json.JSONDecodeError as error:
+        last_line = next((line for line in reversed(response.text[-4000:].splitlines()) if line.strip()), "")
+        raise WdqsTimeout(
+            f"WDQS returned a body that isn't JSON ({len(response.content)} bytes, cut by its 60 s query limit): "
+            f"{last_line.strip()[-WDQS_TIMEOUT_TAIL_CHARS:]}"
+        ) from error
     return [{key: binding.get(key, {}).get("value") for key in variables} for binding in bindings]
 
 

@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -8,6 +9,7 @@ import pytest
 from wikidata import ingest, wikidata_client
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+NOW = datetime(2026, 10, 28, 3, 0, tzinfo=UTC)
 GENID_IMAGE = "http://www.wikidata.org/.well-known/genid/4d48a18cd830fb0fe30ac52c4ad5f68b"
 
 
@@ -43,7 +45,7 @@ def test_run_query_reads_a_recorded_wdqs_response(monkeypatch: pytest.MonkeyPatc
 def test_ingest_artist_images_decodes_recorded_commons_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _serve(monkeypatch, _recorded_response(with_genid=False))
 
-    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path))
+    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path, NOW))
 
     assert df.height == 4
     assert "Cocteau Twins, The Moon and the Melodies 1986 (cropped) (cropped).jpg" in df["image_file"].to_list()
@@ -57,7 +59,7 @@ def test_ingest_artist_images_drops_a_recorded_unknown_value_image(
     # One genid row in five is far above the production budget: only the drop itself is under test here.
     monkeypatch.setattr(ingest, "ARTIST_IMAGE_MAX_REJECT_RATIO", 0.5)
 
-    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path))
+    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path, NOW))
 
     assert df.height == 4
     assert df["image_file"].str.contains("genid").not_().all()

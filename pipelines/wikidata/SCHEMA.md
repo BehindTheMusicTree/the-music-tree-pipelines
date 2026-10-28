@@ -241,11 +241,18 @@ Every Wikidata item with both a `P434` MusicBrainz artist ID and a `P18` image, 
 60 s timeout. Rows whose MBID isn't a lowercase UUID after lowercasing are dropped with a WARNING (Wikidata doesn't
 enforce `P434`'s format). Deduplicated.
 
+Artist images are an optional enrichment, so a WDQS brownout doesn't fail the run: when a partition's query exhausts its
+retries, that partition's rows from the previous file are kept as they were (`fetched_at` included) and a WARNING is
+logged. The remaining partitions then skip WDQS. The run still fails when there is no previous file, it has no
+`fetched_at` column, the partition has no previous rows, or its oldest `fetched_at` is more than 7 days old
+(`ARTIST_IMAGE_MAX_STALENESS_DAYS`). A query WDQS rejects (4xx other than 429) always fails the run.
+
 | Column                | Type | Meaning                                                                               |
 | --------------------- | ---- | ------------------------------------------------------------------------------------- |
 | item_id               | str  | Wikidata QID of the artist item                                                       |
 | musicbrainz_artist_id | str  | `P434`, lowercased                                                                    |
 | image_file            | str  | `P18` Commons file name, URL-decoded from its `Special:FilePath/` URI, without `File:` |
+| fetched_at            | datetime (UTC) | When WDQS last answered for this row's partition; kept when the row is reused      |
 
 As of this writing: about 8,400 rows in partition `0`, so about 135,000 in total.
 
