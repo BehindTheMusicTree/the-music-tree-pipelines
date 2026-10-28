@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `wikidata` Silver `10_commons_image_metadata` no longer crashes on a Commons file whose `extmetadata` comes back as `[]` (no extended metadata); it yields a row with no license or author. Test added.
 - `wikidata` Silver `10_commons_image_metadata` queries the Commons API with POST: a 50-title GET batch exceeded the URL limit (414) and failed the staging run. Tests read the form body.
 - `wikidata` Bronze artist images skip `P18` "unknown value" statements (WDQS skolem `.well-known/genid/` IRIs) instead of failing the whole ingest; a test pins the query filter.
 - `mypy` passes again on develop: `wikidata` artist images reject a missing `P18` value explicitly, and the `gold` artist export computes its image share from the null count.

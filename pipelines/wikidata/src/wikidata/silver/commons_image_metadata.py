@@ -64,7 +64,8 @@ def metadata_row(image_file: str, page: dict[str, Any] | None) -> dict[str, Any]
     if page is None or page.get("missing") or not page.get("imageinfo"):
         return {"image_file": image_file}
     info = page["imageinfo"][0]
-    extmetadata = info.get("extmetadata", {})
+    # Commons serializes a file with no extended metadata as `[]`, not `{}`.
+    extmetadata = info.get("extmetadata") or {}
     attribution_required = _metadata_value(extmetadata, "AttributionRequired")
     return {
         "image_file": image_file,
