@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- gold `2_songs` delta export no longer runs out of memory when most rows changed: changed rows are found by hash index and written one part at a time instead of semi-joining a second copy of the frame, and `export_songs` builds the frame lazily with a single streaming collect.
+
 ## [8.2.0] - 2026-10-27
 
 ### Added
