@@ -114,6 +114,7 @@ def export_canonical_genre_tree(
             umbrella_ids=set(hierarchy.filter(pl.col("is_umbrella")).get_column("item_id")),
             essential_songs=curation.essential_songs,
             summaries=curation.summaries,
+            scenes=curation.scenes,
             descriptions=load_descriptions(descriptions_path),
         ),
     }

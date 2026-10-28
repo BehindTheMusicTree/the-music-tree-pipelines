@@ -196,3 +196,24 @@ def test_export_playground_fixture_raises_on_slug_collision(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="both slugify to id"):
         export_playground_fixture(tree_path, genre_match_path, tmp_path / "genre-tree.json")
+
+
+def test_export_playground_fixture_copies_scene(tmp_path: Path) -> None:
+    tree = {
+        **TREE,
+        "tree": [
+            {
+                "id": "Q1",
+                "name": "Electronic",
+                "children": [{"id": "Q2", "name": "Techno", "scene": "underground", "children": []}],
+            }
+        ],
+    }
+    tree_path = _write_tree(tmp_path, tree)
+    genre_match_path = _write_genre_match(tmp_path, rows=[])
+
+    result = export_playground_fixture(tree_path, genre_match_path, tmp_path / "genre-tree.json")
+
+    fixture = {node["id"]: node for node in json.loads(result.read_text())}
+    assert fixture["techno"]["scene"] == "underground"
+    assert "scene" not in fixture["electronic"]

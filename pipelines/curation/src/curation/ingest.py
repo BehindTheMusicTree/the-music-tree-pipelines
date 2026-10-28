@@ -47,6 +47,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "secondary_parents": ("item_id", "parent_id", "action", "reason"),
     "essential_songs": ("item_id", "musicbrainz_recording_id", "position", "reason"),
     "summary_overrides": ("item_id", "summary", "reason"),
+    "canonical_genre_scene": ("item_id", "scene", "reason"),
 }
 
 

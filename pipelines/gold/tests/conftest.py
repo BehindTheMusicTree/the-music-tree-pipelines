@@ -8,6 +8,7 @@ CURATION_COLUMNS = {
     "secondary_parents": ("item_id", "parent_id", "action", "reason"),
     "essential_songs": ("item_id", "musicbrainz_recording_id", "position", "reason"),
     "summary_overrides": ("item_id", "summary", "reason"),
+    "canonical_genre_scene": ("item_id", "scene", "reason"),
     "song_genre": ("musicbrainz_recording_id", "genre_item_id", "reason"),
     "genre_precedence": ("item_id", "over_item_id", "reason"),
     "genre_disambiguation": ("musicbrainz_genre_name", "item_id", "is_default", "reason"),

@@ -39,6 +39,7 @@ class TreeCuration:
     secondary_parent_rules: pl.DataFrame
     essential_songs: dict[str, list[str]]
     summaries: dict[str, str | None]
+    scenes: dict[str, str]
 
 
 def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids: set[str]) -> TreeCuration:
@@ -64,11 +65,18 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN},
     )
+    scenes = read_curation_csv(
+        curation_dir / "manual_canonical_genre_scene.csv",
+        required=("item_id", "scene", "reason"),
+        key=("item_id",),
+        patterns={"item_id": ITEM_ID_PATTERN, "scene": r"^(commercial|underground)$"},
+    )
 
     for name, df in (
         ("manual_secondary_parents.csv", secondary_parents),
         ("manual_essential_songs.csv", essential_songs),
         ("manual_summary_overrides.csv", summaries),
+        ("manual_canonical_genre_scene.csv", scenes),
     ):
         unknown = sorted(set(df.get_column("item_id")) - all_item_ids)
         if unknown:
@@ -87,6 +95,7 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
         secondary_parent_rules=in_tree(secondary_parents).select("item_id", "parent_id", "action"),
         essential_songs=songs_by_item,
         summaries=dict(in_tree(summaries).select("item_id", "summary").iter_rows()),
+        scenes=dict(in_tree(scenes).select("item_id", "scene").iter_rows()),
     )
 
 
@@ -167,6 +176,7 @@ def build_genre_tree(
     essential_songs: dict[str, list[str]] | None = None,
     summaries: dict[str, str | None] | None = None,
     descriptions: dict[str, dict[str, str | None]] | None = None,
+    scenes: dict[str, str] | None = None,
 ) -> dict:
     check_non_empty(hierarchy, "hierarchy")
     check_null_rate(hierarchy, "item_id", "hierarchy")
@@ -208,6 +218,7 @@ def build_genre_tree(
     songs_by_item = essential_songs or {}
     summary_by_item = summaries or {}
     description_by_item = descriptions or {}
+    scene_by_item = scenes or {}
 
     umbrellas = umbrella_ids or set()
     childless_umbrellas = sorted(item_id for item_id in umbrellas if not children_by_parent.get(item_id))
@@ -224,6 +235,8 @@ def build_genre_tree(
         }
         if item_id in umbrellas:
             node["isUmbrella"] = True
+        if item_id in scene_by_item:
+            node["scene"] = scene_by_item[item_id]
         for key, parents_by_item in extra_parents.items():
             if item_id in parents_by_item:
                 node[key] = parents_by_item[item_id]

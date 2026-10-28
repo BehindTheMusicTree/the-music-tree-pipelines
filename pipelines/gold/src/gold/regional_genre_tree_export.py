@@ -52,6 +52,7 @@ def export_regional_genre_tree(
             external_ids=canonical_ids,
             essential_songs=curation.essential_songs,
             summaries=curation.summaries,
+            scenes=curation.scenes,
             descriptions=load_descriptions(descriptions_path),
         ),
     }
