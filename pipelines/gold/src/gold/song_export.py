@@ -77,19 +77,19 @@ def check_known_recordings(overrides: pl.DataFrame, songs: pl.DataFrame, csv_nam
         raise ValueError(f"{csv_name} references unknown musicbrainz_recording_id(s): {unknown.to_list()[:3]}")
 
 
-def _drop_beaten_secondaries(songs: pl.DataFrame, closure: pl.DataFrame) -> pl.DataFrame:
+def _drop_beaten_secondaries(songs: pl.LazyFrame, closure: pl.DataFrame) -> pl.LazyFrame:
     """For songs whose genre was overridden, the secondary genres the new genre is or beats."""
     kept = (
         songs.filter(pl.col("override_item_id").is_not_null())
         .select("musicbrainz_recording_id", "override_item_id", item_id="secondary_genre_item_ids")
         .explode("item_id", empty_as_null=False)
         .filter(pl.col("item_id") != pl.col("override_item_id"))
-        .join(closure, left_on=["override_item_id", "item_id"], right_on=["winner", "loser"], how="anti")
+        .join(closure.lazy(), left_on=["override_item_id", "item_id"], right_on=["winner", "loser"], how="anti")
         .group_by("musicbrainz_recording_id", maintain_order=True)
         .agg(kept_item_ids="item_id")
     )
     return (
-        songs.join(kept, on="musicbrainz_recording_id", how="left")
+        songs.join(kept, on="musicbrainz_recording_id", how="left", maintain_order="left")
         .with_columns(
             secondary_genre_item_ids=pl.when(pl.col("override_item_id").is_not_null())
             .then(pl.col("kept_item_ids").fill_null([]))
@@ -100,8 +100,8 @@ def _drop_beaten_secondaries(songs: pl.DataFrame, closure: pl.DataFrame) -> pl.D
 
 
 def _apply_recording_overrides(
-    songs: pl.DataFrame, names_by_id: dict[str, str], wikidata_silver_dir: Path, curation_dir: Path
-) -> pl.DataFrame:
+    songs: pl.LazyFrame, names_by_id: dict[str, str], wikidata_silver_dir: Path, curation_dir: Path
+) -> pl.LazyFrame:
     genre_csv = "manual_song_genre.csv"
     genres = read_curation_csv(
         curation_dir / genre_csv,
@@ -109,7 +109,12 @@ def _apply_recording_overrides(
         key=("musicbrainz_recording_id",),
         patterns={"musicbrainz_recording_id": MBID_PATTERN, "genre_item_id": ITEM_ID_PATTERN},
     )
-    check_known_recordings(genres, songs, genre_csv)
+    known = (
+        songs.select("musicbrainz_recording_id")
+        .filter(pl.col("musicbrainz_recording_id").is_in(genres.get_column("musicbrainz_recording_id").implode()))
+        .collect()
+    )
+    check_known_recordings(genres, known, genre_csv)
     hierarchy = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
     umbrella_ids = set(hierarchy.filter(pl.col("is_umbrella")).get_column("item_id"))
     umbrella_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & umbrella_ids)
@@ -128,7 +133,10 @@ def _apply_recording_overrides(
         hierarchy, wikidata_silver_dir / "5_secondary_parents.parquet", curation_dir / PRECEDENCE_CSV
     )
     return (
-        _drop_beaten_secondaries(songs.join(genre_overrides, on="musicbrainz_recording_id", how="left"), closure)
+        _drop_beaten_secondaries(
+            songs.join(genre_overrides.lazy(), on="musicbrainz_recording_id", how="left", maintain_order="left"),
+            closure,
+        )
         .with_columns(
             genre_item_id=pl.when(pl.col("has_genre_override"))
             .then(pl.col("override_item_id"))
@@ -141,7 +149,7 @@ def _apply_recording_overrides(
 
 def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: Path, curation_dir: Path) -> Path:
     logger.info("exporting songs from %s", genre_match_path)
-    songs = pl.read_parquet(genre_match_path).select(
+    songs = pl.scan_parquet(genre_match_path).select(
         "musicbrainz_recording_id",
         "title",
         "artist",
@@ -155,7 +163,9 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),
     )
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
-    songs = _apply_recording_overrides(songs, names_by_id, wikidata_silver_dir, curation_dir)
+    songs = _apply_recording_overrides(songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
+        engine="streaming"
+    )
     out_of_range = songs.filter(~pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).height
     if out_of_range:
         logger.warning(
