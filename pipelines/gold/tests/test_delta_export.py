@@ -50,3 +50,22 @@ def test_write_delta_is_empty_when_nothing_changed_and_clears_stale_delta(tmp_pa
 
     assert sorted(path.name for path in (tmp_path / "songs_delta").iterdir()) == [DELETED_NAME]
     assert _read(tmp_path / "songs_delta" / DELETED_NAME) == []
+
+
+def test_write_delta_re_emits_every_row_when_a_column_is_added(tmp_path: Path) -> None:
+    rows = {str(n): f"t{n}" for n in range(5)}
+    write_delta(_frame(rows), "id", "songs", tmp_path, 2)
+    _promote(tmp_path)
+
+    write_delta(_frame(rows).with_columns(genres=pl.lit(["rock"])), "id", "songs", tmp_path, 2)
+
+    delta_dir = tmp_path / "songs_delta"
+    assert sorted(path.name for path in delta_dir.iterdir()) == [
+        DELETED_NAME,
+        "part-00000.ndjson.gz",
+        "part-00001.ndjson.gz",
+        "part-00002.ndjson.gz",
+    ]
+    upserts = [row for index in range(3) for row in _read(delta_dir / f"part-{index:05d}.ndjson.gz")]
+    assert [row["id"] for row in upserts] == list(rows)
+    assert all(row["genres"] == ["rock"] for row in upserts)
