@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -277,19 +278,11 @@ def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: P
     return output_path
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    load_pipeline_env(__file__)
-    output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
-    curation_dir = resolve_pipeline_path(__file__, require_env("CURATION_BRONZE_DIR"))
-    with step("genre_tree"):
-        genre_tree_path = ingest_genre_tree(output_dir)
+def _ingest_sparql_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
     with step("indigenous_to"):
         ingest_indigenous_to(output_dir)
     with step("country_of_origin"):
         ingest_country_of_origin(output_dir)
-    with step("descriptions"):
-        ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
     entity_patterns = wikidata_client.curated_entity_patterns(
         read_entity_additions(curation_dir / "manual_entity_additions.csv")
     )
@@ -308,3 +301,25 @@ if __name__ == "__main__":
                 )
             ),
         )
+
+
+def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
+    with step("descriptions"):
+        ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    load_pipeline_env(__file__)
+    output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
+    curation_dir = resolve_pipeline_path(__file__, require_env("CURATION_BRONZE_DIR"))
+    with step("genre_tree"):
+        genre_tree_path = ingest_genre_tree(output_dir)
+    # One lane per host (WDQS; wikidata.org + Wikipedia APIs), each serial, so no endpoint sees concurrent requests.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        lanes = [
+            pool.submit(lane, output_dir, curation_dir, genre_tree_path)
+            for lane in (_ingest_sparql_lane, _ingest_api_lane)
+        ]
+        for lane in lanes:
+            lane.result()
