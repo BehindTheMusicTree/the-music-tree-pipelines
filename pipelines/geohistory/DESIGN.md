@@ -91,10 +91,17 @@ Header drift in a list raises. Succession overrides are not curated yet.
 A tradition is a genre (`P31` music genre) or a "music of X" overview whose start is at most 1950, plus the curated
 additions minus the exclusions. An overview also needs an anchor. Genres with neither date nor anchor are dropped
 silently (most of Wikidata's genres), whereas a dated tradition without anchor is kept, logged and written to
-`5_tradition_unplaced.csv` so it never blocks the daily run. The anchor is the first rule yielding an entity of
-`1_cultural_entity`: placement override, `P2596` culture, `P1269` facet of, then `P495` country of origin lifted
-along `3_entity_succession` to the entity valid at the tradition's date (an old genre of "Greece" lands on ancient
-Greece). Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
+`5_tradition_unplaced.csv` so it never blocks the daily run. Anchoring itself is `5_music_anchor` (genres, overviews and curated additions), which `5_tradition`
+only filters by date.
+
+The anchor is the placement override when set; otherwise it is picked among every candidate entity: `P2596` culture, `P1269` facet of, `P495`
+country of origin lifted along `3_entity_succession` to the entity valid at the tradition's date (an old genre of
+"Greece" lands on ancient Greece), `P17`/`P276`/`P921`/`P361` when the value is a place entity, and for an overview the
+label ("music of X" against entity labels and `wikidata_cultural_entity_alias`). A candidate that is a membership
+ancestor of another candidate is dropped, so the most specific place wins (Morbihan over Bretagne over France) whatever
+the property; among the remaining ones the first rule in the order above wins. A label matching several entities is
+ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
+Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 
 Links: lineage from `P155`/`P156` and the genre tree's `P279`, association from `P737`, both between two traditions.
 A lineage cycle raises; break it with a `tradition_link_overrides` remove.

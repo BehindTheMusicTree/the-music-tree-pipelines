@@ -122,6 +122,21 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | end_precision   | i8?  | Wikidata time precision of the end; null for Glottolog                          |
 | end_source      | str? | `P576`, `P582`, `period`, `glottolog` or `curation`                            |
 
+### 2.5.1 5_music_anchor files
+
+`5_music_anchor.parquet`: one row per music genre or "music of X" overview that resolved to a place or culture entity,
+dated or not.
+
+| Column      | Type | Meaning                                                                                              |
+| ----------- | ---- | ---------------------------------------------------------------------------------------------------- |
+| wikidata_id | str  | Wikidata QID                                                                                         |
+| anchor_id   | str  | `1_cultural_entity.entity_id` the item is placed on                                                  |
+| rule        | str  | `override`, `P2596`, `P1269`, `P495`, `P17`, `P276`, `P921`, `P361` or `label`                       |
+| is_overview | bool | The label starts with "music of "                                                                    |
+
+`5_music_anchor_unplaced.csv`: `wikidata_id`, `label`, `candidate_ids` (the `|`-joined entities an ambiguous label
+matched, empty when none) of the overviews without anchor.
+
 ### 2.6 5_tradition files
 
 `5_tradition.parquet`: one row per music tradition (genre or "music of X" overview starting by 1950, plus additions).
@@ -133,7 +148,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | start_year  | i32? | Start year                                                                           |
 | end_year    | i32? | End year, capped at 1950                                                             |
 | anchor_id   | str? | `1_cultural_entity.entity_id` the tradition is placed on; null = unplaced            |
-| anchor_rule | str? | `override`, `P2596`, `P1269` or `P495`; null when unplaced                           |
+| anchor_rule | str? | `5_music_anchor.rule` of the anchor (see 2.5.1); null when unplaced                   |
 
 `5_tradition_link.parquet`: `from_wikidata_id` (str), `to_wikidata_id` (str), `kind` (`lineage` or `association`);
 `from` is the earlier or influencing tradition. `5_tradition_unplaced.csv`: `wikidata_id`, `label`, `start_year` of
