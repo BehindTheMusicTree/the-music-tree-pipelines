@@ -4,7 +4,7 @@ name: Live contract
 # outage or edit must not turn an unrelated PR red. A failure opens (or updates) a `live-contract` issue.
 on:
   schedule:
-    - cron: "0 19 * * *" # 20:00 CET, before the 00:00 prod run
+    - cron: "0 19 * * *" # evening in Europe, before the 00:00 prod run
   workflow_dispatch:
 
 permissions:
@@ -27,10 +27,11 @@ jobs:
         run: uv sync --frozen --all-packages
 
       - name: Run live contract tests
+        id: live
         run: uv run pytest -m live --no-cov -q
 
       - name: Open or update the live-contract issue
-        if: failure()
+        if: failure() && steps.live.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
