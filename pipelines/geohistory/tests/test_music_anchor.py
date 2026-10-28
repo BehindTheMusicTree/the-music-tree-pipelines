@@ -6,11 +6,11 @@ from geohistory.silver.music_anchor import music_anchor
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
 ENTITIES = [
     ("fr", "country", "France"),
-    ("bre", "admin_unit", "Bretagne"),
-    ("mor", "admin_unit", "Morbihan"),
+    ("bre", "historical_region", "Bretagne"),
+    ("mor", "historical_region", "Morbihan"),
     ("us", "country", "United States"),
     ("ge", "country", "Georgia"),
-    ("gaus", "admin_unit", "Georgia"),
+    ("gaus", "historical_region", "Georgia"),
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
 ]
@@ -25,12 +25,15 @@ def label(item_id, text):
     return claim(item_id, "label", text)
 
 
-def run(tmp_path, claims, membership=(("mor", "bre"), ("bre", "fr")), aliases=(), placements=()):
+def run(tmp_path, claims, membership=(("mor", "bre"), ("bre", "fr")), aliases=(), placements=(), additions=()):
     wikidata, silver, curation = tmp_path / "wikidata", tmp_path / "silver", tmp_path / "curation"
     for directory in (wikidata, silver, curation):
         directory.mkdir()
     for list_name, columns in LISTS.items():
-        rows = placements if list_name == "tradition_placement_overrides" else ()
+        rows = {
+            "tradition_placement_overrides": placements,
+            "tradition_additions": [(q, "r") for q in additions],
+        }.get(list_name, ())
         lines = [",".join(columns), *(",".join(row) for row in rows)]
         (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
     pl.DataFrame(
@@ -95,10 +98,15 @@ def test_override_sets_the_anchor(tmp_path):
     assert anchors["Q1"]["anchor_id"] == "fr"
 
 
-def test_ancestor_override_loses_to_a_more_specific_candidate(tmp_path):
+def test_override_wins_over_a_more_specific_candidate(tmp_path):
     claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q12130")]
     anchors, _ = run(tmp_path, claims, placements=[("Q1", "fr", "", "", "r")])
-    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "P495")
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("fr", "override")
+
+
+def test_curated_addition_that_is_not_a_genre_is_anchored(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q9", "Not a genre"), claim("Q9", "P495", "Q884")], additions=["Q9"])
+    assert anchors["Q9"]["anchor_id"] == "kr"
 
 
 def test_overview_label_matches_labels_and_aliases(tmp_path):

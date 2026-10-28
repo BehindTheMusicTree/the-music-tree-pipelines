@@ -14,7 +14,7 @@ OVERVIEW_PREFIX = "music of "
 CULTURE_PROPERTIES = ("P2596", "P1269")
 COUNTRY_OF_ORIGIN = "P495"
 PLACE_PROPERTIES = ("P17", "P276", "P921", "P361")
-PLACE_KINDS = ("country", "historical_country", "historical_region", "cultural_region", "macro_region", "admin_unit")
+PLACE_KINDS = ("country", "historical_country", "historical_region", "cultural_region", "macro_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
 ANCHOR_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "rule": pl.String, "is_overview": pl.Boolean}
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "candidate_ids": pl.String}
@@ -87,6 +87,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         .rows()
     )
     genres = set(tree["item_id"])
+    additions = set(read_curation_list(curation_dir, "tradition_additions")["wikidata_id"])
     placements = _placement_overrides(
         read_curation_list(curation_dir, "tradition_placement_overrides"), entity_ids, item_entity
     )
@@ -95,7 +96,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     anchors, unplaced = [], []
     for qid, label in sorted(labels.items()):
         is_overview = label.startswith(OVERVIEW_PREFIX)
-        if qid not in genres and not is_overview:
+        if qid not in genres and not is_overview and qid not in additions:
             continue
         override_entity, override_start, _ = placements.get(qid, (None, None, None))
         known_start = override_start if override_start is not None else claim_start.get(qid)
@@ -128,7 +129,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
             if len(label_matches) == 1:
                 add(next(iter(label_matches)), "label")
 
-        picked = _pick(candidates, parents)
+        picked = (override_entity, "override") if override_entity else _pick(candidates, parents)
         if picked is None:
             if is_overview:
                 unplaced.append((qid, label, "|".join(sorted(set(candidates) | label_matches))))
