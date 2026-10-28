@@ -256,6 +256,7 @@ ADMIN_SEED_CHUNK = 400
 # its P131 and P361 values, so Silver can climb from a Natural Earth unit to its country through the intermediates NE
 # lacks (Morbihan → Bretagne → metropolitan France → France) and on to cultural regions (Bretagne P361 Brittany). The
 # optimizer is switched off: WDQS otherwise starts from the P131/P361 triples and exceeds its timeout.
+# "Unknown value" claims come back as skolem IRIs (`.well-known/genid/`), hence the entity-prefix filter.
 def admin_hierarchy_query(seed_qids: Sequence[str]) -> str:
     invalid = [qid for qid in seed_qids if not QID_PATTERN.fullmatch(qid)]
     if invalid:
@@ -269,6 +270,7 @@ SELECT DISTINCT ?item ?property ?value ?itemLabel WHERE {{
   VALUES ?seed {{ {" ".join(f"wd:{qid}" for qid in seed_qids)} }}
   ?seed wdt:P131* ?item .
   {claims}
+  FILTER(STRSTARTS(STR(?value), "http://www.wikidata.org/entity/Q"))
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
 """

@@ -412,10 +412,6 @@ def _ingest_sparql_lane(
         ingest_cultural_entities(output_dir, entity_patterns)
     with step("cultural_entity_claims"):
         ingest_cultural_entity_claims(output_dir, entity_patterns)
-    with step("admin_hierarchy"):
-        ingest_admin_hierarchy(output_dir, admin_seed_qids)
-    with step("cultural_entity_aliases"):
-        ingest_cultural_entity_aliases(output_dir, entity_patterns)
     with step("music_tradition_claims"):
         ingest_music_tradition_claims(
             output_dir,
@@ -429,6 +425,10 @@ def _ingest_sparql_lane(
         )
     with step("artist_images"):
         ingest_artist_images(output_dir)
+    with step("admin_hierarchy"):
+        ingest_admin_hierarchy(output_dir, admin_seed_qids)
+    with step("cultural_entity_aliases"):
+        ingest_cultural_entity_aliases(output_dir, entity_patterns)
 
 
 def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:

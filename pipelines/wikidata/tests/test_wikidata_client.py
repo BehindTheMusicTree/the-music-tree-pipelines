@@ -393,6 +393,7 @@ def test_admin_hierarchy_query_walks_p131_chains_from_the_seeds() -> None:
     assert '{ ?item wdt:P131 ?value . BIND("P131" AS ?property) }' in query
     assert '{ ?item wdt:P361 ?value . BIND("P361" AS ?property) }' in query
     assert 'hint:Query hint:optimizer "None"' in query
+    assert 'FILTER(STRSTARTS(STR(?value), "http://www.wikidata.org/entity/Q"))' in query
 
 
 def test_admin_hierarchy_queries_chunk_the_sorted_distinct_seeds(monkeypatch: pytest.MonkeyPatch) -> None:
