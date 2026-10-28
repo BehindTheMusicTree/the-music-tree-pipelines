@@ -36,7 +36,8 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 - **Run gold:** `uv run --package gold python -m gold` — see `pipelines/gold/CLAUDE.md`
 - **Lint (matches CI):** `ruff check .` / format: `ruff format .` (line-length 120)
 - **Unit tests only:** `pytest -m "not integration"`
-- **Integration tests** (needs live Postgres sample DB / live Wikidata SPARQL): `pytest -m integration`
+- **Integration tests** (needs the local Postgres sample DB): `pytest -m "integration and not live"`
+- **Live contract tests** (public WDQS/Wikidata/Commons, invariants only; scheduled in CI, never a PR gate): `pytest -m live`
 - **Coverage** (combined unit+integration, gate is `fail_under = 90`, see `pyproject.toml`): run both suites with `--cov`, then `coverage combine && coverage report`
 - **Pre-commit:** `pre-commit install` once, then `pre-commit run --all-files`
 
@@ -58,7 +59,7 @@ Requires `uv` (no manual venv management — `uv sync` creates/updates `.venv` f
 
 **Testing taxonomy** is documented per-pipeline in `TESTING.md` (currently only in `pipelines/musicbrainz/`) — an 8-category framework (unit, integration, data quality, regression, E2E/pipeline, performance, freshness, business conformance); only unit/integration/E2E have concrete implementations today.
 
-**CI** (`.github/workflows/ci.yml`): `lint` (ruff + actionlint) → `test` (`pytest -m "not integration"`) and `integration` (loads the MusicBrainz sample DB into a disposable Postgres via Docker, `pytest -m integration`) in parallel → `coverage` (combines both runs' coverage data, enforces `fail_under=90`). Runs on push/PR to `develop`/`main`.
+**CI** (`.github/workflows/ci.yml`): `lint` (ruff + actionlint) → `test` (`pytest -m "not integration"`) and `integration` (loads the MusicBrainz sample DB into a disposable Postgres via Docker, `pytest -m "integration and not live"`) in parallel → `coverage` (combines both runs' coverage data, enforces `fail_under=90`). Runs on push/PR to `develop`/`main`.
 
 ### Production deployment (cross-repo)
 

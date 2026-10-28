@@ -1,9 +1,14 @@
+from pathlib import Path
+
+import polars as pl
 import pytest
 
-from wikidata import wikidata_client
+from wikidata import ingest, wikidata_client
+
+# Hits the public WDQS/Wikidata endpoints: run by the Live contract workflow, never by PR CI.
+pytestmark = [pytest.mark.integration, pytest.mark.live]
 
 
-@pytest.mark.integration
 def test_genre_tree_query_returns_rows_from_the_live_endpoint() -> None:
     rows = wikidata_client.run_query(wikidata_client.GENRE_TREE_QUERY, timeout=60.0)
 
@@ -11,7 +16,6 @@ def test_genre_tree_query_returns_rows_from_the_live_endpoint() -> None:
     assert any(row["item"] == "http://www.wikidata.org/entity/Q11399" for row in rows)  # rock music
 
 
-@pytest.mark.integration
 def test_indigenous_to_query_returns_rows_from_the_live_endpoint() -> None:
     rows = wikidata_client.run_query(
         wikidata_client.INDIGENOUS_TO_QUERY, variables=wikidata_client.INDIGENOUS_TO_QUERY_VARIABLES, timeout=60.0
@@ -21,7 +25,6 @@ def test_indigenous_to_query_returns_rows_from_the_live_endpoint() -> None:
     assert any(row["item"] == "http://www.wikidata.org/entity/Q10376827" for row in rows)  # Han Chinese music
 
 
-@pytest.mark.integration
 def test_country_of_origin_query_returns_rows_from_the_live_endpoint() -> None:
     rows = wikidata_client.run_query(
         wikidata_client.COUNTRY_OF_ORIGIN_QUERY,
@@ -33,7 +36,6 @@ def test_country_of_origin_query_returns_rows_from_the_live_endpoint() -> None:
     assert any(row["item"] == "http://www.wikidata.org/entity/Q185676" for row in rows)  # fado
 
 
-@pytest.mark.integration
 def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live_api() -> None:
     rock = wikidata_client.fetch_descriptions(["Q11399"])["Q11399"]
 
@@ -43,7 +45,6 @@ def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live
     assert rock.aliases
 
 
-@pytest.mark.integration
 def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
     patterns = {"music_genre": "VALUES ?item { wd:Q11399 }"}
     rows = wikidata_client.run_query(
@@ -55,12 +56,9 @@ def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
     assert [row["value"] for row in rows] == ["rock music"]
 
 
-@pytest.mark.integration
-def test_artist_image_query_returns_a_partition_from_the_live_endpoint() -> None:
-    rows = wikidata_client.run_query(
-        wikidata_client.artist_image_query("0"), variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES, timeout=60.0
-    )
+def test_ingest_artist_images_reads_every_partition_from_the_live_endpoint(tmp_path: Path) -> None:
+    # Every partition, not a sample: a single bad P18 value (e.g. an "unknown value" skolem IRI) fails the whole run.
+    df = pl.read_parquet(ingest.ingest_artist_images(tmp_path))
 
-    assert len(rows) > 1000
-    assert all(row["mbid"].lower().startswith("0") for row in rows)
-    assert all("/Special:FilePath/" in row["image"] for row in rows)
+    assert df.height > 100_000
+    assert set(df["musicbrainz_artist_id"].str.slice(0, 1).unique()) == set(wikidata_client.ARTIST_IMAGE_PARTITIONS)

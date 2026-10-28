@@ -132,11 +132,11 @@ uv run --group notebook jupyter lab pipelines/wikidata/notebooks/
 
 ## Testing
 
-Unit tests (`tests/test_wikidata_client.py`, `tests/test_ingest.py`, `tests/test_silver.py`) mock the HTTP layer — no network needed. `tests/test_integration_wikidata.py` is marked `@pytest.mark.integration` and calls the live Wikidata endpoint.
+Unit tests (`tests/test_wikidata_client.py`, `tests/test_ingest.py`, `tests/test_silver.py`) mock the HTTP layer — no network needed. Real WDQS and Commons responses are recorded under `tests/fixtures/` and `tests/silver/fixtures/` and replayed offline: that is what gates a PR. `tests/test_integration_wikidata.py` and `tests/test_integration_commons.py` are marked `live` (and `integration`): they call the public endpoints, assert invariants only, and run in the scheduled Live contract workflow, never in PR CI. When one fails, the external API drifted: re-record the fixture and fix the code.
 
 ```bash
 uv run pytest -m "not integration"   # unit tests, no network needed
-uv run pytest -m integration         # hits the live Wikidata endpoint
+uv run pytest -m live                # hits the live Wikidata and Commons endpoints (~6 min)
 ```
 
 ## Contributing

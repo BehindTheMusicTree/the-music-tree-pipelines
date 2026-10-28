@@ -1,0 +1,46 @@
+name: Live contract
+
+# Checks that the recorded WDQS/Commons fixtures still match what the public APIs return. Never a PR gate: an external
+# outage or edit must not turn an unrelated PR red. A failure opens (or updates) a `live-contract` issue.
+on:
+  schedule:
+    - cron: "0 19 * * *" # 20:00 CET, before the 00:00 prod run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  live:
+    name: Live contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run live contract tests
+        run: uv run pytest -m live --no-cov -q
+
+      - name: Open or update the live-contract issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "Live contract tests failing";
+            const body = `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nA public API (WDQS, Wikidata or Commons) no longer matches what the recorded fixtures assume, or was unreachable. Re-record the fixture and fix the code, or ignore a transient outage.`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: "open", labels: "live-contract",
+            });
+            if (open.length) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ["live-contract"] });
+            }
