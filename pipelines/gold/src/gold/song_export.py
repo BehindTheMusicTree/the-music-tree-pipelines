@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.step_timer import step
 from common.quality_checks import (
     ARTIST_NAME_LEN_MAX,
     FIRST_RELEASE_YEAR_RANGE,
@@ -163,9 +164,10 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),
     )
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
-    songs = _apply_recording_overrides(lazy_songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
-        engine="streaming"
-    )
+    with step("songs.collect"):
+        songs = _apply_recording_overrides(lazy_songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
+            engine="streaming"
+        )
     out_of_range = songs.filter(~pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).height
     if out_of_range:
         logger.warning(
@@ -176,7 +178,8 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
                 pl.col("first_release_year")
             )
         )
-    _check_songs(songs)
+    with step("songs.checks"):
+        _check_songs(songs)
     songs = songs.select(
         pl.exclude("genre_item_id", "secondary_genre_item_ids", "musicbrainz_genres"),
         secondary_genre_names=pl.col("secondary_genre_item_ids").list.eval(
@@ -188,8 +191,10 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
 
     parts_dir = output_dir / OUTPUT_DIRNAME
-    part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
-    write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
+    with step("songs.parts"):
+        part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
+    with step("songs.delta"):
+        write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,
