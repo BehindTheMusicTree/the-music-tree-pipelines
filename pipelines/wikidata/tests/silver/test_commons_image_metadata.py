@@ -167,3 +167,16 @@ def test_writes_fetched_batches_when_a_later_batch_fails(tmp_path: Path, monkeyp
         cim.commons_image_metadata(tmp_path / "bronze", tmp_path / "silver", client, NOW, max_batches=2)
 
     assert pl.read_parquet(tmp_path / "silver" / cim.OUTPUT_FILENAME)["image_file"].to_list() == ["a.jpg"]
+
+
+def test_metadata_row_treats_an_empty_list_extmetadata_as_none() -> None:
+    page = {
+        "title": "File:a.jpg",
+        "imageinfo": [{"thumburl": "https://t/a.jpg", "descriptionurl": "https://p/a", "extmetadata": []}],
+    }
+
+    row = cim.metadata_row("a.jpg", page)
+
+    assert row["license"] is None
+    assert row["author"] is None
+    assert row["non_free"] is False
