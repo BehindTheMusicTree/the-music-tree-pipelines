@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import check_non_empty, check_null_rate, check_unique_key
+from common.step_timer import step
 
 from wikidata import wikidata_client, wikipedia_client
 from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_PREFIX
@@ -281,22 +282,29 @@ if __name__ == "__main__":
     load_pipeline_env(__file__)
     output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     curation_dir = resolve_pipeline_path(__file__, require_env("CURATION_BRONZE_DIR"))
-    genre_tree_path = ingest_genre_tree(output_dir)
-    ingest_indigenous_to(output_dir)
-    ingest_country_of_origin(output_dir)
-    ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
+    with step("genre_tree"):
+        genre_tree_path = ingest_genre_tree(output_dir)
+    with step("indigenous_to"):
+        ingest_indigenous_to(output_dir)
+    with step("country_of_origin"):
+        ingest_country_of_origin(output_dir)
+    with step("descriptions"):
+        ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
     entity_patterns = wikidata_client.curated_entity_patterns(
         read_entity_additions(curation_dir / "manual_entity_additions.csv")
     )
-    ingest_cultural_entities(output_dir, entity_patterns)
-    ingest_cultural_entity_claims(output_dir, entity_patterns)
-    ingest_music_tradition_claims(
-        output_dir,
-        wikidata_client.tradition_candidate_patterns(
-            tradition_extra_qids(
-                genre_tree_path,
-                curation_dir / "manual_regional_overview_additions.csv",
-                read_tradition_additions(curation_dir / "manual_tradition_additions.csv"),
-            )
-        ),
-    )
+    with step("cultural_entities"):
+        ingest_cultural_entities(output_dir, entity_patterns)
+    with step("cultural_entity_claims"):
+        ingest_cultural_entity_claims(output_dir, entity_patterns)
+    with step("music_tradition_claims"):
+        ingest_music_tradition_claims(
+            output_dir,
+            wikidata_client.tradition_candidate_patterns(
+                tradition_extra_qids(
+                    genre_tree_path,
+                    curation_dir / "manual_regional_overview_additions.csv",
+                    read_tradition_additions(curation_dir / "manual_tradition_additions.csv"),
+                )
+            ),
+        )
