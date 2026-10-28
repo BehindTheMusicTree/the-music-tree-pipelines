@@ -1,6 +1,9 @@
+import logging
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import polars as pl
 import pytest
 
@@ -396,6 +399,7 @@ def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
 
 
 RADIOHEAD = "a74b1b7f-71a5-4011-9441-d0b5e4122711"
+NOW = datetime(2026, 10, 28, 3, 0, tzinfo=UTC)
 
 
 def _valid_image_rows(count: int) -> list[dict[str, str]]:
@@ -414,13 +418,18 @@ def test_ingest_artist_images_decodes_files_and_drops_bad_rows_within_the_budget
     run_query = MagicMock(side_effect=lambda query, **_: rows if 'STRSTARTS(LCASE(?mbid), "a")' in query else [])
     monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
 
-    result = bw.ingest_artist_images(tmp_path / "bronze")
+    result = bw.ingest_artist_images(tmp_path / "bronze", NOW)
 
     assert run_query.call_count == 16
     images = pl.read_parquet(result)
     assert images.height == 99
     assert images.filter(pl.col("musicbrainz_artist_id") == RADIOHEAD).to_dicts() == [
-        {"item_id": "Q44190", "musicbrainz_artist_id": RADIOHEAD, "image_file": "Radiohead à Paris.jpg"}
+        {
+            "item_id": "Q44190",
+            "musicbrainz_artist_id": RADIOHEAD,
+            "image_file": "Radiohead à Paris.jpg",
+            "fetched_at": NOW,
+        }
     ]
 
 
@@ -432,7 +441,7 @@ def test_ingest_artist_images_drops_a_non_commons_image_within_the_budget(
         bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(99), unknown_value])
     )
 
-    images = pl.read_parquet(bw.ingest_artist_images(tmp_path / "bronze"))
+    images = pl.read_parquet(bw.ingest_artist_images(tmp_path / "bronze", NOW))
 
     assert RADIOHEAD not in images["musicbrainz_artist_id"].to_list()
 
@@ -444,14 +453,103 @@ def test_ingest_artist_images_raises_when_too_many_rows_are_bad(
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(10), bad]))
 
     with pytest.raises(ValueError, match="rejected"):
-        bw.ingest_artist_images(tmp_path / "bronze")
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
 
 
 def test_ingest_artist_images_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError):
-        bw.ingest_artist_images(tmp_path / "bronze")
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+
+def _write_previous_images(output_dir: Path, fetched_at: datetime) -> list[str]:
+    # One artist in each partition a..f: the partitions that fall back once WDQS is down from 'a'.
+    mbids = [f"{digit}0000000-0000-0000-0000-000000000001" for digit in "abcdef"]
+    output_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "item_id": [f"Q{i}" for i in range(len(mbids))],
+            "musicbrainz_artist_id": mbids,
+            "image_file": [f"Old{i}.jpg" for i in range(len(mbids))],
+            "fetched_at": [fetched_at] * len(mbids),
+        },
+        schema=bw._ARTIST_IMAGE_SCHEMA,
+    ).write_parquet(output_dir / bw.ARTIST_IMAGE_FILENAME)
+    return mbids
+
+
+def _wdqs_down_from(partition: str, fresh_rows: list[dict[str, str]]) -> MagicMock:
+    def run_query(query: str, **_: object) -> list[dict[str, str]]:
+        if f'STRSTARTS(LCASE(?mbid), "{partition}")' in query:
+            raise httpx.ConnectError("WDQS down")
+        return fresh_rows if 'STRSTARTS(LCASE(?mbid), "0")' in query else []
+
+    return MagicMock(side_effect=run_query)
+
+
+def test_ingest_artist_images_reuses_previous_rows_when_wdqs_is_down(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    output_dir = tmp_path / "bronze"
+    previous_at = NOW - timedelta(days=2)
+    old_mbids = _write_previous_images(output_dir, previous_at)
+    fresh = [_image_row("Q9", "00000000-0000-0000-0000-000000000009", "Fresh.jpg")]
+    run_query = _wdqs_down_from("a", fresh)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    with caplog.at_level(logging.WARNING):
+        images = pl.read_parquet(bw.ingest_artist_images(output_dir, NOW))
+
+    assert images.sort("musicbrainz_artist_id").select("musicbrainz_artist_id", "fetched_at").to_dicts() == [
+        {"musicbrainz_artist_id": "00000000-0000-0000-0000-000000000009", "fetched_at": NOW},
+        *({"musicbrainz_artist_id": mbid, "fetched_at": previous_at} for mbid in old_mbids),
+    ]
+    assert [r.levelno for r in caplog.records if "WDQS unavailable" in r.message] == [logging.WARNING] * len(old_mbids)
+
+
+def test_ingest_artist_images_stops_querying_wdqs_after_the_first_failed_partition(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=1))
+    fresh = [_image_row("Q9", "00000000-0000-0000-0000-000000000009", "Fresh.jpg")]
+    run_query = _wdqs_down_from("a", fresh)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    bw.ingest_artist_images(output_dir, NOW)
+
+    assert run_query.call_count == bw.wikidata_client.ARTIST_IMAGE_PARTITIONS.index("a") + 1
+
+
+def test_ingest_artist_images_raises_when_the_previous_rows_are_too_old(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=bw.ARTIST_IMAGE_MAX_STALENESS_DAYS, seconds=1))
+    monkeypatch.setattr(bw.wikidata_client, "run_query", _wdqs_down_from("a", []))
+
+    with pytest.raises(httpx.ConnectError):
+        bw.ingest_artist_images(output_dir, NOW)
+
+
+def test_ingest_artist_images_raises_without_a_previous_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", _wdqs_down_from("0", []))
+
+    with pytest.raises(httpx.ConnectError):
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+
+def test_ingest_artist_images_does_not_hide_a_rejected_query_behind_previous_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=1))
+    bad_query = httpx.HTTPStatusError("400", request=httpx.Request("GET", "https://wdqs"), response=httpx.Response(400))
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(side_effect=bad_query))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        bw.ingest_artist_images(output_dir, NOW)
 
 
 def test_ingest_cultural_entity_aliases_keeps_one_row_per_item_and_alias(
