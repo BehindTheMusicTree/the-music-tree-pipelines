@@ -4,6 +4,7 @@ from pathlib import Path
 import polars as pl
 from common.step_timer import step
 from common.quality_checks import (
+    MBID_PATTERN,
     ARTIST_NAME_LEN_MAX,
     FIRST_RELEASE_YEAR_RANGE,
     SONG_TITLE_LEN_MAX,
@@ -13,7 +14,7 @@ from common.quality_checks import (
     check_unique_key,
 )
 
-from gold.curation_csv import ITEM_ID_PATTERN, MBID_PATTERN, read_curation_csv
+from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
 from gold.delta_export import write_delta
 from gold.genre_precedence import PRECEDENCE_CSV, precedence_closure
 from gold.match_method import RESOLVED_METHODS

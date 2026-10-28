@@ -385,3 +385,48 @@ def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pyte
 
     with pytest.raises(ValueError, match="is empty"):
         bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+
+
+def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
+    return {
+        "item": f"http://www.wikidata.org/entity/{qid}",
+        "mbid": mbid,
+        "image": f"http://commons.wikimedia.org/wiki/Special:FilePath/{image}",
+    }
+
+
+RADIOHEAD = "a74b1b7f-71a5-4011-9441-d0b5e4122711"
+
+
+def test_ingest_artist_images_decodes_files_and_drops_malformed_mbids(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows = [
+        _image_row("Q44190", f" {RADIOHEAD.upper()} ", "Radiohead%20%C3%A0%20Paris.jpg"),
+        _image_row("Q44190", RADIOHEAD, "Radiohead%20%C3%A0%20Paris.jpg"),
+        _image_row("Q1", "not-an-mbid", "Bad.jpg"),
+    ]
+    run_query = MagicMock(side_effect=lambda query, **_: rows if 'STRSTARTS(LCASE(?mbid), "a")' in query else [])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_artist_images(tmp_path / "bronze")
+
+    assert run_query.call_count == 16
+    assert pl.read_parquet(result).to_dicts() == [
+        {"item_id": "Q44190", "musicbrainz_artist_id": RADIOHEAD, "image_file": "Radiohead à Paris.jpg"}
+    ]
+
+
+def test_ingest_artist_images_raises_on_a_non_commons_image(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    row = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "https://example.org/x.jpg"}
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[row]))
+
+    with pytest.raises(ValueError, match="not a Commons file path"):
+        bw.ingest_artist_images(tmp_path / "bronze")
+
+
+def test_ingest_artist_images_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError):
+        bw.ingest_artist_images(tmp_path / "bronze")

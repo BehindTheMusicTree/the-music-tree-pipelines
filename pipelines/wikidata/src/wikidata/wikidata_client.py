@@ -289,6 +289,21 @@ SELECT DISTINCT ?item ?value ?precision WHERE {{
     return cultural_entity_claim_query(kind, pid, patterns)
 
 
+ARTIST_IMAGE_QUERY_VARIABLES = ("item", "mbid", "image")
+# P434 = MusicBrainz artist ID, P18 = image. Split on the MBID's first hex digit: the ~150k matching artists in one
+# request run past WDQS's 60 s timeout. `wdt:` keeps best-rank statements only, so a preferred image wins.
+ARTIST_IMAGE_PARTITIONS = "0123456789abcdef"
+
+
+def artist_image_query(partition: str) -> str:
+    return f"""
+SELECT ?item ?mbid ?image WHERE {{
+  ?item wdt:P434 ?mbid ; wdt:P18 ?image .
+  FILTER(STRSTARTS(LCASE(?mbid), "{partition}"))
+}}
+"""
+
+
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError, json.JSONDecodeError)),
     wait=tenacity.wait_exponential(multiplier=1, max=30),

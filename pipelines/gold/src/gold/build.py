@@ -107,7 +107,7 @@ def build_gold(
     with step("songs"):
         export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     with step("artists"):
-        export_artists(genre_match_path, musicbrainz_silver_dir, gold_output_dir)
+        export_artists(genre_match_path, musicbrainz_silver_dir, wikidata_silver_dir, gold_output_dir)
     with step("genealogy"):
         export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

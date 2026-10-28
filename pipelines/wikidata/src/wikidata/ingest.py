@@ -2,10 +2,11 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping
 from pathlib import Path
+from urllib.parse import unquote
 
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
-from common.quality_checks import check_non_empty, check_null_rate, check_unique_key
+from common.quality_checks import MBID_PATTERN, check_non_empty, check_null_rate, check_unique_key
 from common.step_timer import step
 
 from wikidata import wikidata_client, wikipedia_client
@@ -14,6 +15,7 @@ from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_P
 logger = logging.getLogger(__name__)
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
+COMMONS_FILE_PATH_MARKER = "/Special:FilePath/"
 
 
 def _qid(uri: str | None) -> str | None:
@@ -278,6 +280,45 @@ def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: P
     return output_path
 
 
+def _commons_file(uri: str) -> str:
+    if COMMONS_FILE_PATH_MARKER not in uri:
+        raise ValueError(f"wikidata_artist_images: P18 value is not a Commons file path: {uri}")
+    return unquote(uri.rsplit(COMMONS_FILE_PATH_MARKER, 1)[1])
+
+
+def ingest_artist_images(output_dir: Path) -> Path:
+    logger.info("querying Wikidata for artist images")
+    rows = [
+        row
+        for partition in wikidata_client.ARTIST_IMAGE_PARTITIONS
+        for row in wikidata_client.run_query(
+            wikidata_client.artist_image_query(partition), variables=wikidata_client.ARTIST_IMAGE_QUERY_VARIABLES
+        )
+    ]
+
+    df = pl.DataFrame(
+        {
+            "item_id": [_qid(row["item"]) for row in rows],
+            "musicbrainz_artist_id": [(row["mbid"] or "").strip().lower() for row in rows],
+            "image_file": [_commons_file(row["image"]) for row in rows],
+        },
+        schema={"item_id": pl.Utf8, "musicbrainz_artist_id": pl.Utf8, "image_file": pl.Utf8},
+    )
+    # Wikidata's P434 format constraint isn't enforced, so a malformed MBID is a data error there, not a pipeline bug.
+    malformed = df.filter(~pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN))
+    if malformed.height:
+        logger.warning("wikidata_artist_images: dropping %d row(s) with a malformed MBID", malformed.height)
+    df = df.filter(pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN)).unique().sort(df.columns)
+    check_non_empty(df, "wikidata_artist_images")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_artist_images.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
 def _ingest_sparql_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
     with step("indigenous_to"):
         ingest_indigenous_to(output_dir)
@@ -301,6 +342,8 @@ def _ingest_sparql_lane(output_dir: Path, curation_dir: Path, genre_tree_path: P
                 )
             ),
         )
+    with step("artist_images"):
+        ingest_artist_images(output_dir)
 
 
 def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:

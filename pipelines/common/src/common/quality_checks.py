@@ -6,6 +6,7 @@ FIRST_RELEASE_YEAR_RANGE = (1000, 2100)
 ARTIST_NAME_LEN_MAX = 2048
 RELEASE_GROUP_TITLE_LEN_MAX = 2048
 SONG_TITLE_LEN_MAX = 2048
+MBID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
 
 def check_non_empty(df: pl.DataFrame, name: str) -> None:
