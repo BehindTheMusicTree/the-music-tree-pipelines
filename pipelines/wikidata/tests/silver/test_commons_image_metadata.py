@@ -199,3 +199,25 @@ def test_fetch_batch_reads_a_recorded_commons_response() -> None:
         "CC BY 4.0",
         "https://creativecommons.org/licenses/by/4.0",
     )
+
+
+def test_fetch_batch_skips_a_file_with_unparseable_metadata() -> None:
+    broken = _page("File:Broken.jpg")
+    broken["imageinfo"][0]["extmetadata"] = {"Artist": "not-a-dict"}
+    response = {"query": {"pages": [broken, _page("File:Fine.jpg")]}}
+
+    rows = cim._fetch_batch(_client([response], []), ["Broken.jpg", "Fine.jpg"])
+
+    assert [row["image_file"] for row in rows] == ["Fine.jpg"]
+
+
+def test_unparseable_files_are_not_cached_and_fail_the_run_above_the_budget(tmp_path: Path) -> None:
+    _write_images(tmp_path / "bronze", ["Broken.jpg", "Fine.jpg"])
+    broken = _page("File:Broken.jpg")
+    broken["imageinfo"][0]["extmetadata"] = {"Artist": "not-a-dict"}
+    client = _client([{"query": {"pages": [broken, _page("File:Fine.jpg")]}}], [])
+
+    with pytest.raises(ValueError, match="rejected 1 of 2"):
+        cim.commons_image_metadata(tmp_path / "bronze", tmp_path / "silver", client, NOW, max_batches=1)
+
+    assert pl.read_parquet(tmp_path / "silver" / cim.OUTPUT_FILENAME)["image_file"].to_list() == ["Fine.jpg"]

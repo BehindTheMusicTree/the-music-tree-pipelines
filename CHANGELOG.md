@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The artist-image chain (Bronze, Silver Commons metadata, Silver `11_artist_images`) drops rows with bad external data (an unknown-value image, unparseable Commons metadata, a row breaking grow's image contract) instead of failing the run, and fails only when more than 1% of rows are rejected (`check_reject_rate`). Gold stays strict. Skipped Commons files are not cached, so they are retried next run.
+
 ### Added
 
 - `geohistory` Bronze downloads the pinned Natural Earth 1:10m admin-0 and admin-1 GeoJSON (`NATURAL_EARTH_VERSION`, required) and writes `natural_earth_admin.parquet` (one row per country or first-level unit, Wikidata QID, full-resolution WKB geometry), the base map of the regional genres map. Tests cover the download URL, both levels, orphan admin-1 units, missing geometries and duplicate ids.

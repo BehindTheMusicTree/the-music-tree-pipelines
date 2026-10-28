@@ -6,7 +6,13 @@ from urllib.parse import unquote
 
 import polars as pl
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
-from common.quality_checks import MBID_PATTERN, check_non_empty, check_null_rate, check_unique_key
+from common.quality_checks import (
+    MBID_PATTERN,
+    check_non_empty,
+    check_null_rate,
+    check_reject_rate,
+    check_unique_key,
+)
 from common.step_timer import step
 
 from wikidata import wikidata_client, wikipedia_client
@@ -16,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
 COMMONS_FILE_PATH_MARKER = "/Special:FilePath/"
+ARTIST_IMAGE_MAX_REJECT_RATIO = 0.01
 NATURAL_EARTH_ADMIN_FILE = "natural_earth_admin.parquet"
 
 
@@ -359,9 +366,10 @@ def ingest_descriptions(genre_tree_path: Path, manual_overview_additions_path: P
     return output_path
 
 
-def _commons_file(uri: str | None) -> str:
+def _commons_file(uri: str | None) -> str | None:
+    # An "unknown value" P18 is a genid IRI, not a file path.
     if uri is None or COMMONS_FILE_PATH_MARKER not in uri:
-        raise ValueError(f"wikidata_artist_images: P18 value is not a Commons file path: {uri}")
+        return None
     return unquote(uri.rsplit(COMMONS_FILE_PATH_MARKER, 1)[1])
 
 
@@ -384,10 +392,9 @@ def ingest_artist_images(output_dir: Path) -> Path:
         schema={"item_id": pl.Utf8, "musicbrainz_artist_id": pl.Utf8, "image_file": pl.Utf8},
     )
     # Wikidata's P434 format constraint isn't enforced, so a malformed MBID is a data error there, not a pipeline bug.
-    malformed = df.filter(~pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN))
-    if malformed.height:
-        logger.warning("wikidata_artist_images: dropping %d row(s) with a malformed MBID", malformed.height)
-    df = df.filter(pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN)).unique().sort(df.columns)
+    valid = pl.col("musicbrainz_artist_id").str.contains(MBID_PATTERN) & pl.col("image_file").is_not_null()
+    check_reject_rate(df.filter(~valid).height, df.height, "wikidata_artist_images", ARTIST_IMAGE_MAX_REJECT_RATIO)
+    df = df.filter(valid).unique().sort(df.columns)
     check_non_empty(df, "wikidata_artist_images")
 
     output_dir.mkdir(parents=True, exist_ok=True)

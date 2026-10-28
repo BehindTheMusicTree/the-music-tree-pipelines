@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import polars as pl
 import tenacity
+from common.quality_checks import check_reject_rate
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ BATCH_SIZE = 50
 THUMB_WIDTH = 500
 COMMONS_IMAGE_TTL_DAYS = 30
 OUTPUT_FILENAME = "10_commons_image_metadata.parquet"
+MAX_REJECT_RATIO = 0.01
 FILE_PREFIX = "File:"
 
 _SCHEMA: dict[str, pl.DataType] = {
@@ -137,7 +139,11 @@ def _fetch_batch(client: httpx.Client, image_files: Sequence[str]) -> list[dict[
         # Normalization maps the requested title to its canonical form, then a redirect maps that on.
         for _ in range(2):
             title = renamed.get(title, title)
-        rows.append(metadata_row(image_file, pages.get(title)))
+        try:
+            rows.append(metadata_row(image_file, pages.get(title)))
+        except (AttributeError, IndexError, KeyError, TypeError):
+            # A file with unparseable metadata is skipped and, not being cached, retried on the next run.
+            logger.warning("skipping %s: unparseable Commons metadata", image_file, exc_info=True)
     return rows
 
 
@@ -164,17 +170,21 @@ def commons_image_metadata(
         .to_list()
     )
     fetched_rows: list[dict[str, Any]] = []
+    rejected = 0
     # Written in a finally so batches already fetched survive a mid-run failure.
     try:
         for start in range(0, len(to_fetch), BATCH_SIZE):
-            for row in _fetch_batch(client, to_fetch[start : start + BATCH_SIZE]):
-                fetched_rows.append({**row, "checked_at": now})
+            batch = to_fetch[start : start + BATCH_SIZE]
+            batch_rows = _fetch_batch(client, batch)
+            rejected += len(batch) - len(batch_rows)
+            fetched_rows.extend({**row, "checked_at": now} for row in batch_rows)
     finally:
         fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
         cached = cached.join(fetched, on="image_file", how="anti")
         result = pl.concat([cached, fetched]).sort("image_file")
         output_dir.mkdir(parents=True, exist_ok=True)
         result.write_parquet(output_path)
+    check_reject_rate(rejected, len(to_fetch), OUTPUT_FILENAME, MAX_REJECT_RATIO)
     logger.info(
         "wrote %d rows to %s (%d fetched, %d from cache, %d files never checked yet, %d missing on Commons)",
         result.height,

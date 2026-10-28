@@ -9,6 +9,7 @@ from wikidata.silver import commons_image_metadata as cim
 
 ARTIST_A = "00000000-0000-0000-0000-000000000001"
 ARTIST_B = "00000000-0000-0000-0000-000000000002"
+BAD_ARTIST = "ffffffff-0000-0000-0000-000000000000"
 
 
 def _metadata(image_file: str, **overrides: object) -> dict:
@@ -81,8 +82,32 @@ def test_keeps_the_smallest_usable_file_per_artist(tmp_path: Path) -> None:
     ]
 
 
-def test_raises_on_a_thumbnail_off_the_commons_host(tmp_path: Path) -> None:
+def _many_artists(count: int) -> tuple[list[tuple[str, str]], list[dict]]:
+    images = [(f"00000000-0000-0000-0000-{i:012d}", f"f{i}.jpg") for i in range(count)]
+    return images, [_metadata(file) for _, file in images]
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"thumb_url": "https://example.org/a.jpg"},
+        {"page_url": "http://commons.wikimedia.org/wiki/File:a.jpg"},
+        {"license_url": "ftp://example.org/licence"},
+        {"thumb_url": "https://upload.wikimedia.org/" + "é" * 1025},
+    ],
+)
+def test_drops_a_row_that_breaks_the_grow_contract_within_the_budget(tmp_path: Path, override: dict) -> None:
+    images, metadata = _many_artists(99)
+    inputs = _write(tmp_path, [*images, (BAD_ARTIST, "a.jpg")], [*metadata, _metadata("a.jpg", **override)])
+
+    result = pl.read_parquet(ai.artist_images(*inputs))
+
+    assert result.height == 99
+    assert BAD_ARTIST not in result["musicbrainz_artist_id"].to_list()
+
+
+def test_raises_when_too_many_rows_break_the_grow_contract(tmp_path: Path) -> None:
     inputs = _write(tmp_path, [(ARTIST_A, "a.jpg")], [_metadata("a.jpg", thumb_url="https://example.org/a.jpg")])
 
-    with pytest.raises(ValueError, match="thumb_url not matching"):
+    with pytest.raises(ValueError, match="rejected 1 of 1"):
         ai.artist_images(*inputs)
