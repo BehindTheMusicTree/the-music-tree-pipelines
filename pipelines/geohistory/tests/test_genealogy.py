@@ -6,6 +6,7 @@ import pytest
 from geohistory.silver.curation import LISTS
 from geohistory.silver.genealogy_lane import genealogy_lane
 from geohistory.silver.lane_order import lane_order
+from geohistory.silver.music_anchor import music_anchor
 from geohistory.silver.tradition import tradition
 
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
@@ -31,6 +32,11 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
         lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
         (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
     return curation
+
+
+def build_tradition(wikidata, silver, curation):
+    music_anchor(wikidata, silver, curation)
+    return tradition(wikidata, silver, curation)
 
 
 def label(item_id, text):
@@ -81,6 +87,9 @@ def paths(tmp_path: Path):
         schema=TREE_SCHEMA,
         orient="row",
     ).write_parquet(wikidata / "wikidata_genre_tree.parquet")
+    pl.DataFrame(schema={"item_id": pl.String, "alias": pl.String}).write_parquet(
+        wikidata / "wikidata_cultural_entity_alias.parquet"
+    )
     return wikidata, silver, curation
 
 
@@ -92,7 +101,7 @@ def curation_with(paths, **rows):
 
 def test_tradition_anchors_dates_and_links(paths):
     wikidata, silver, curation = paths
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
 
     rows = {r["wikidata_id"]: r for r in pl.read_parquet(silver / "5_tradition.parquet").to_dicts()}
     assert set(rows) == {"Q100", "Q101", "Q103", "Q104"}
@@ -118,7 +127,7 @@ def test_tradition_curation_overrides(paths):
             ("Q103", "Q104", "lineage", "add", "x"),
         ],
     )
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
 
     rows = {r["wikidata_id"]: r for r in pl.read_parquet(silver / "5_tradition.parquet").to_dicts()}
     assert "Q100" not in rows
@@ -143,12 +152,12 @@ def test_tradition_curation_overrides(paths):
 def test_tradition_fails_fast(paths, lists, message):
     wikidata, silver, curation = curation_with(paths, **lists)
     with pytest.raises(ValueError, match=message):
-        tradition(wikidata, silver, curation)
+        build_tradition(wikidata, silver, curation)
 
 
 def test_genealogy_lane_and_order(paths):
     wikidata, silver, curation = paths
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
     genealogy_lane(silver)
     lane_order(silver)
 
