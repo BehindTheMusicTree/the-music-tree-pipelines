@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `curation` ingests the `canonical_genre_scene` list; `gold` genre tree nodes carry the optional `scene` (`commercial` | `underground`) from `manual_canonical_genre_scene.csv`, and the playground fixture copies it. Tests cover the builder, the export, bad rows and the fixture.
 - `common.step_timer.step` logs `step=<name> seconds=<n> max_rss_gb=<n>` per step; applied to the musicbrainz Silver run, each gold step (plus songs collect, checks, parts and delta) and the wikidata Bronze ingest.
 
+### Changed
+
+- `wikidata.ingest` runs its SPARQL queries and its wikidata.org/Wikipedia API calls in two concurrent lanes (serial per host), and `4_youtube_video_status` fetches its batches with 4 workers; the nightly compute critical path drops by about 3.5 minutes with the same request and quota volume.
+
 ### Fixed
 
 - gold delta export compares rows by value, per column, against a `<name>_snapshot.parquet` baseline instead of a Polars row hash, and `2_songs` carries only the fields grow stores (`secondary_genre_names`, `musicbrainz_genres` dropped); an unchanged night or a Polars upgrade no longer yields a full-change delta, and the log shows the changed-column counts. Needs the infrastructure run script to promote `_snapshot` instead of `_hashes` (first run after deploy is a full sync).

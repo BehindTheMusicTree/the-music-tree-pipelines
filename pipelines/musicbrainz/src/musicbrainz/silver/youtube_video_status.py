@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 VIDEOS_ENDPOINT = "https://www.googleapis.com/youtube/v3/videos"
 BATCH_SIZE = 50
+FETCH_WORKERS = 4
 YOUTUBE_STATUS_TTL_DAYS = 7
 OUTPUT_FILENAME = "4_youtube_video_status.parquet"
 
@@ -124,17 +126,26 @@ def youtube_video_status(
     fetched_rows = []
     # Written in a finally so batches that already spent quota survive a mid-run quota/5xx failure.
     try:
-        for start in range(0, len(to_fetch), BATCH_SIZE):
-            batch = _fetch_batch(client, api_key, to_fetch[start : start + BATCH_SIZE])
-            for video_id, (reason, count) in batch.items():
-                fetched_rows.append(
-                    {
-                        "youtube_video_id": video_id,
-                        "youtube_unplayable_reason": reason,
-                        "youtube_view_count": count,
-                        "checked_at": now,
-                    }
-                )
+        with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:
+            futures = [
+                pool.submit(_fetch_batch, client, api_key, to_fetch[start : start + BATCH_SIZE])
+                for start in range(0, len(to_fetch), BATCH_SIZE)
+            ]
+            try:
+                for future in as_completed(futures):
+                    for video_id, (reason, count) in future.result().items():
+                        fetched_rows.append(
+                            {
+                                "youtube_video_id": video_id,
+                                "youtube_unplayable_reason": reason,
+                                "youtube_view_count": count,
+                                "checked_at": now,
+                            }
+                        )
+            except BaseException:
+                for future in futures:
+                    future.cancel()
+                raise
     finally:
         fetched = pl.DataFrame(fetched_rows, schema=_SCHEMA)
         cached = cached.join(fetched, on="youtube_video_id", how="anti")
