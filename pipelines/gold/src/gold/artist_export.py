@@ -224,6 +224,6 @@ def export_artists(
         artists.height,
         parts_dir,
         part_count,
-        100 * artists["image"].is_not_null().mean(),
+        100 * (1 - artists["image"].null_count() / artists.height),
     )
     return parts_dir
