@@ -149,7 +149,7 @@ def _apply_recording_overrides(
 
 def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: Path, curation_dir: Path) -> Path:
     logger.info("exporting songs from %s", genre_match_path)
-    songs = pl.scan_parquet(genre_match_path).select(
+    lazy_songs = pl.scan_parquet(genre_match_path).select(
         "musicbrainz_recording_id",
         "title",
         "artist",
@@ -163,7 +163,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),
     )
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
-    songs = _apply_recording_overrides(songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
+    songs = _apply_recording_overrides(lazy_songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
         engine="streaming"
     )
     out_of_range = songs.filter(~pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).height
