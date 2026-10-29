@@ -33,6 +33,12 @@ def build(tmp_path, footprint, containment=()):
     pl.DataFrame(
         footprint, schema={"entity_id": pl.String, "admin_id": pl.String, "rule": pl.String}, orient="row"
     ).write_parquet(silver / "8_entity_footprint.parquet")
+    entities = {entity for entity, *_ in footprint} | {entity for _, _, entity, _ in NE}
+    pl.DataFrame(
+        [(entity, "language" if entity == "lang" else "admin_unit") for entity in sorted(entities)],
+        schema={"entity_id": pl.String, "kind": pl.String},
+        orient="row",
+    ).write_parquet(silver / "1_cultural_entity.parquet")
     entity_geometry(bronze, silver)
     return {r["entity_id"]: r for r in pl.read_parquet(silver / "8_entity_geometry.parquet").to_dicts()}
 
@@ -86,3 +92,9 @@ def test_self_intersecting_source_polygon_is_repaired(tmp_path):
 def test_footprint_without_any_polygon_raises(tmp_path):
     with pytest.raises(ValueError, match="none of its admin units has a polygon"):
         build(tmp_path, [("reg", "ghost", "cover")])
+
+
+def test_only_drawn_kinds_get_a_geometry(tmp_path):
+    rows = build(tmp_path, [("a", "a", "self"), ("lang", "a", "point")])
+    assert "a" in rows
+    assert "lang" not in rows

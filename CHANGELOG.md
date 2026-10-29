@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `geohistory` Point footprints match the admin polygon that intersects the coordinates (border points no longer drop), and `8_entity_geometry` is only built for entities Gold can draw.
+- `gold` Genres anchored to an ethnic group, language or other non-place entity with an admin footprint now land on each footprint region (relation `tradition`); `civilization` and `curated` anchors stay unplaced, and unplaced reasons read "no footprint" / "no geometry".
+
 ## [8.3.0] - 2026-10-29
 
 ### Added
