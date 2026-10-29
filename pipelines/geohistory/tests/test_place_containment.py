@@ -92,7 +92,7 @@ def test_containment_sources_priority_and_p131_chain(tmp_path):
     assert ("fr", "lang") not in rows and ("fr", "q327") in rows
 
 
-def test_mutual_claims_lose_to_the_higher_priority_source_and_ties_drop_both(tmp_path):
+def test_mutual_claims_lose_to_the_higher_priority_source_and_ties_drop_one(tmp_path):
     silver = build(
         tmp_path,
         hierarchy=[
@@ -104,7 +104,7 @@ def test_mutual_claims_lose_to_the_higher_priority_source_and_ties_drop_both(tmp
     )
     found = edges(silver)
     assert ("pen", "kr", "p361") in found and ("kr", "pen", "p706") not in found
-    assert not {("es", "cat", "p131"), ("cat", "es", "p131")} & found
+    assert ("cat", "es", "p131") in found and ("es", "cat", "p131") not in found
 
 
 def test_natural_earth_fallback_adds_missing_country_links_only(tmp_path):
@@ -125,16 +125,34 @@ def test_membership_override_removes_a_hierarchy_p361_edge(tmp_path):
     assert edges(silver) == set()
 
 
-def test_longer_containment_cycle_raises_naming_the_edges(tmp_path):
-    with pytest.raises(ValueError, match="2_place_containment.*fr.*bre"):
-        build(
-            tmp_path,
-            hierarchy=[
-                hierarchy_row("Qbre", "P131", "Qfr"),
-                hierarchy_row("Qmor", "P131", "Qbre"),
-                hierarchy_row("Qfr", "P131", "Qmor"),
-            ],
-        )
+def test_longer_cycle_drops_its_lowest_priority_edge_and_names_it(tmp_path, caplog):
+    silver = build(
+        tmp_path,
+        hierarchy=[
+            hierarchy_row("Qbre", "P131", "Qfr"),
+            hierarchy_row("Qmor", "P131", "Qbre"),
+            hierarchy_row("Qfr", "P361", "Qmor"),
+        ],
+    )
+    assert edges(silver) == {("fr", "bre", "p131"), ("bre", "mor", "p131")}
+    assert "('mor', 'fr', 'p361')" in caplog.text
+
+
+def test_cycle_tie_drops_only_the_greatest_edge(tmp_path):
+    silver = build(
+        tmp_path,
+        hierarchy=[hierarchy_row("Qes", "P131", "Qcat"), hierarchy_row("Qcat", "P131", "Qes")],
+    )
+    assert edges(silver) == {("cat", "es", "p131")}
+
+
+def test_union_cycle_with_membership_drops_the_containment_edge(tmp_path):
+    silver = build(
+        tmp_path,
+        hierarchy=[hierarchy_row("Qbre", "P131", "Qfr")],
+        membership=[("fr", "bre", "wikidata_p361")],
+    )
+    assert edges(silver) == {("bre", "fr", "p361")}
 
 
 def test_assert_acyclic_names_the_offending_edges():

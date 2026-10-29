@@ -67,8 +67,10 @@ for curation.
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
 one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
-claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
-a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
+claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
+greater `(parent, child)` edge. Any longer cycle, including one that crosses `2_entity_membership`, drops its
+lowest-priority containment edge (membership edges are pinned) with a warning, so the union of membership and
+containment is acyclic and consumers (anchoring, lanes) can walk it without cycle handling. A membership override remove also removes the matching containment edge.
 The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
 its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
 Wikidata P625, first admin polygon in `ne_id` order that intersects the point, so a point on a border still matches).

@@ -43,8 +43,6 @@ def _pick(candidates: dict[str, str], parents: dict[str, list[str]]) -> tuple[st
     dominated = set().union(*(_ancestors(entity, parents) for entity in candidates)) if candidates else set()
     remaining = [(entity, rule) for entity, rule in candidates.items() if entity not in dominated]
     if not remaining:
-        if candidates:
-            raise ValueError(f"anchor candidates {sorted(candidates)} dominate each other (containment cycle)")
         return None
     return min(remaining, key=lambda pair: (RULE_PRIORITY.index(pair[1]), pair[0]))
 
