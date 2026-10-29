@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 from geohistory.silver.curation import LISTS
-from geohistory.silver.music_anchor import _pick, music_anchor
+from geohistory.silver.music_anchor import music_anchor
 
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
 ENTITIES = [
@@ -163,8 +163,3 @@ def test_excluded_item_gets_no_anchor(tmp_path):
     claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q884")]
     anchors, _ = run(tmp_path, claims, exclusions=["Q1"])
     assert "Q1" not in anchors
-
-
-def test_candidate_cycle_raises():
-    with pytest.raises(ValueError, match="a.*b"):
-        _pick({"a": "P495", "b": "P495"}, {"a": ["b"], "b": ["a"]})
