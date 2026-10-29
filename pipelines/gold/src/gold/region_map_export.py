@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 import json
 import logging
 import shutil
@@ -19,7 +21,8 @@ ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "mac
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
 SIZE_WARNING_RATIO = 0.9
-BUNDLE_LIMIT_BYTES = 20 * 1024 * 1024
+FILES_PER_PART = 25
+INDEX_PATH = "index.json"
 NESTED_COUNTRY_MIN_OVERLAP = 0.9
 MAINLAND_MIN_SHARE = 0.5
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
@@ -92,7 +95,12 @@ def _rounded(geometry: shapely.Geometry, region_id: str) -> shapely.Geometry:
     return geometry
 
 
-def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[bytes, float]:
+def _canonical_bytes(document: dict) -> bytes:
+    """The serialization grow hashes and serves, so a file's sha256 here is its URL there."""
+    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[dict, bytes, float]:
     geometries = [geometry for _, _, geometry in features]
     for tolerance in SIMPLIFY_TOLERANCES:
         rounded = [
@@ -118,10 +126,23 @@ def _feature_collection(features: list[tuple[str, str, object]], name: str) -> t
                 for (feature_id, label, _), g in zip(features, rounded, strict=True)
             ],
         }
-        encoded = json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode()
+        encoded = _canonical_bytes(document)
         if len(encoded) <= SIZE_LIMIT_BYTES:
-            return encoded, tolerance
+            return document, encoded, tolerance
     raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
+
+
+def _write_parts(lines: list[dict], parts_dir: Path) -> int:
+    """grow's import-run parts, one file per line as a JSON object (not a string) so grow can re-hash it."""
+    parts_dir.mkdir()
+    starts = range(0, len(lines), FILES_PER_PART)
+    for index, start in enumerate(starts):
+        with gzip.open(parts_dir / f"part-{index:05d}.ndjson.gz", "wt", encoding="utf-8") as part:
+            part.writelines(
+                json.dumps(line, separators=(",", ":"), ensure_ascii=False) + "\n"
+                for line in lines[start : start + FILES_PER_PART]
+            )
+    return len(starts)
 
 
 def export_region_map(
@@ -342,16 +363,9 @@ def export_region_map(
                 "genreCount": len(relevant),
             }
         )
-    document = {"regions": entries}
-
+    document: dict = {"regions": entries}
     if not entries:
         raise ValueError("region map has no region")
-    try:
-        validate(document, json.loads(REGION_MAP_SCHEMA_PATH.read_text()))
-    except ValidationError as e:
-        raise ValueError(
-            f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}) at {e.json_path}: {e.message}"
-        ) from e
 
     geometry_dir = output_dir / "5_region_map"
     if geometry_dir.exists():
@@ -360,14 +374,14 @@ def export_region_map(
     (geometry_dir / "zones").mkdir()
 
     files: list[tuple[str, int, float]] = []
-    encoded_files: dict[str, bytes] = {}
+    lines: list[dict] = []
 
     def write_collection(path: Path, features: list[tuple[str, str, object]], name: str) -> None:
-        encoded, tolerance = _feature_collection(features, name)
+        collection, encoded, tolerance = _feature_collection(features, name)
         path.write_bytes(encoded)
         relative = str(path.relative_to(geometry_dir))
         files.append((relative, len(encoded), tolerance))
-        encoded_files[relative] = encoded
+        lines.append({"path": relative, "sha256": hashlib.sha256(encoded).hexdigest(), "document": collection})
         if len(encoded) > SIZE_LIMIT_BYTES * SIZE_WARNING_RATIO:
             logger.warning(
                 "%s is %d bytes, above %d%% of the %d cap",
@@ -391,24 +405,19 @@ def export_region_map(
             )
     for zone in zones:
         write_collection(geometry_dir / "zones" / f"{zone}.geojson", [(zone, labels[zone], load(zone))], zone)
-    (geometry_dir / "index.json").write_text(json.dumps(document, indent=2, ensure_ascii=False))
-    bundle = (
-        b'{"index":'
-        + json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode()
-        + b',"files":{'
-        + b",".join(json.dumps(path).encode() + b":" + encoded for path, encoded in sorted(encoded_files.items()))
-        + b"}}"
+
+    document["files"] = {line["path"]: line["sha256"] for line in lines}
+    try:
+        validate(document, json.loads(REGION_MAP_SCHEMA_PATH.read_text()))
+    except ValidationError as e:
+        raise ValueError(
+            f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}) at {e.json_path}: {e.message}"
+        ) from e
+    (geometry_dir / INDEX_PATH).write_text(json.dumps(document, indent=2, ensure_ascii=False))
+    lines.append(
+        {"path": INDEX_PATH, "sha256": hashlib.sha256(_canonical_bytes(document)).hexdigest(), "document": document}
     )
-    if len(bundle) > BUNDLE_LIMIT_BYTES:
-        raise ValueError(f"region map bundle is {len(bundle)} bytes, above the {BUNDLE_LIMIT_BYTES} cap")
-    if len(bundle) > BUNDLE_LIMIT_BYTES * SIZE_WARNING_RATIO:
-        logger.warning(
-            "5_region_map.json is %d bytes, above %d%% of the %d cap",
-            len(bundle),
-            SIZE_WARNING_RATIO * 100,
-            BUNDLE_LIMIT_BYTES,
-        )
-    (output_dir / "5_region_map.json").write_bytes(bundle)
+    part_count = _write_parts(lines, geometry_dir / "parts")
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
@@ -419,5 +428,11 @@ def export_region_map(
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
     if unplaced_frame.height:
         logger.warning("%d genre(s) have no region on the map, see 5_region_map_unplaced.csv", unplaced_frame.height)
-    logger.info("wrote %d region(s) and %d zone(s) to %s", len(admin_regions), len(zones), geometry_dir)
-    return geometry_dir / "index.json"
+    logger.info(
+        "wrote %d region(s) and %d zone(s) to %s, in %d import part(s)",
+        len(admin_regions),
+        len(zones),
+        geometry_dir,
+        part_count,
+    )
+    return geometry_dir / INDEX_PATH

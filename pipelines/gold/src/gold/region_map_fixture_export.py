@@ -76,8 +76,13 @@ def export_region_map_fixture(
         region["zoneIds"] = [z for z in region["zoneIds"] if z in kept_zones]
         cut.append(region)
     cut.extend(regions[z] for z in sorted(kept_zones))
-    document = {"regions": cut}
 
+    wanted = [
+        "geometry/world.geojson",
+        *(f"geometry/{r}.geojson" for r in sorted(drillable)),
+        *(f"zones/{z}.geojson" for z in sorted(kept_zones)),
+    ]
+    document = {"regions": cut, "files": {relative: index["files"][relative] for relative in wanted}}
     try:
         validate(document, json.loads(REGION_MAP_SCHEMA_PATH.read_text()))
     except ValidationError as e:
@@ -85,11 +90,6 @@ def export_region_map_fixture(
 
     (output_dir / "geometry").mkdir(parents=True, exist_ok=True)
     (output_dir / "zones").mkdir(exist_ok=True)
-    wanted = [
-        "geometry/world.geojson",
-        *(f"geometry/{r}.geojson" for r in sorted(drillable)),
-        *(f"zones/{z}.geojson" for z in sorted(kept_zones)),
-    ]
     for relative in wanted:
         shutil.copyfile(region_map_dir / relative, output_dir / relative)
     (output_dir / "index.json").write_text(json.dumps(document, indent=2, ensure_ascii=False))

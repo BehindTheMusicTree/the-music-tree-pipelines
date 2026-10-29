@@ -39,7 +39,10 @@ def _export(tmp_path: Path) -> Path:
     source = tmp_path / "5_region_map"
     for directory in ("geometry", "zones"):
         (source / directory).mkdir(parents=True)
-    (source / "index.json").write_text(json.dumps({"regions": regions}))
+    files = [f"geometry/{r}.geojson" for r in ("world", "FR", "NR", "SP")] + [
+        f"zones/{z}.geojson" for z in ("CE", "OT")
+    ]
+    (source / "index.json").write_text(json.dumps({"regions": regions, "files": {f: "0" * 64 for f in files}}))
     for relative in ("world", "FR", "NR", "SP"):
         (source / "geometry" / f"{relative}.geojson").write_text("{}")
     for zone in ("CE", "OT"):
@@ -53,8 +56,10 @@ def test_fixture_is_a_referentially_intact_subset(tmp_path: Path) -> None:
 
     export_region_map_fixture(source, out, ("BR",), ("CE",))
 
-    regions = {r["id"]: r for r in json.loads((out / "index.json").read_text())["regions"]}
+    index = json.loads((out / "index.json").read_text())
+    regions = {r["id"]: r for r in index["regions"]}
     assert set(regions) == {"FR", "BR", "NR", "DE", "SP", "CE"}
+    assert set(index["files"]) == {"geometry/world.geojson", "geometry/FR.geojson", "zones/CE.geojson"}
     assert regions["FR"]["drillable"] and regions["FR"]["childIds"] == ["BR", "NR"]
     assert not regions["SP"]["drillable"] and regions["SP"]["childIds"] == []
     assert not regions["NR"]["drillable"] and "CA" not in regions and "AN" not in regions

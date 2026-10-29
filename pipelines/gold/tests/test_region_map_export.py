@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 import json
 from pathlib import Path
 
@@ -136,23 +138,43 @@ def test_export_region_map_writes_index_and_geometry(tmp_path: Path) -> None:
     assert all(p.stat().st_size <= region_map_export.SIZE_LIMIT_BYTES for p in geometry_dir.rglob("*.geojson"))
 
 
-def test_export_region_map_writes_a_bundle_of_the_index_and_every_file(tmp_path: Path) -> None:
+def _part_lines(output: Path) -> list[dict]:
+    parts = sorted((output / "5_region_map" / "parts").glob("part-*.ndjson.gz"))
+    return [json.loads(line) for part in parts for line in gzip.decompress(part.read_bytes()).splitlines()]
+
+
+def _sha256(document: dict) -> str:
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def test_export_region_map_writes_every_file_and_the_index_as_hashed_import_lines(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
 
     index_path = export_region_map(geohistory, wikidata, match, output)
 
-    bundle = json.loads((output / "5_region_map.json").read_text())
-    assert bundle["index"] == json.loads(index_path.read_text())
-    assert set(bundle["files"]) == {"geometry/world.geojson", "geometry/FR.geojson", "zones/CE.geojson"}
-    assert bundle["files"]["zones/CE.geojson"] == json.loads((output / "5_region_map/zones/CE.geojson").read_text())
+    lines = {line["path"]: line for line in _part_lines(output)}
+    index = json.loads(index_path.read_text())
+    assert set(lines) == {"index.json", "geometry/world.geojson", "geometry/FR.geojson", "zones/CE.geojson"}
+    assert all(line["sha256"] == _sha256(line["document"]) for line in lines.values())
+    assert lines["index.json"]["document"] == index
+    assert index["files"] == {path: line["sha256"] for path, line in lines.items() if path != "index.json"}
+    assert lines["zones/CE.geojson"]["document"] == json.loads((output / "5_region_map/zones/CE.geojson").read_text())
+    assert (
+        hashlib.sha256((output / "5_region_map/zones/CE.geojson").read_bytes()).hexdigest()
+        == index["files"]["zones/CE.geojson"]
+    )
 
 
-def test_export_region_map_raises_on_oversized_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_export_region_map_splits_import_lines_into_parts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
-    monkeypatch.setattr(region_map_export, "BUNDLE_LIMIT_BYTES", 10)
+    monkeypatch.setattr(region_map_export, "FILES_PER_PART", 3)
 
-    with pytest.raises(ValueError, match="bundle"):
-        export_region_map(geohistory, wikidata, match, output)
+    export_region_map(geohistory, wikidata, match, output)
+
+    parts = sorted(p.name for p in (output / "5_region_map" / "parts").iterdir())
+    assert parts == ["part-00000.ndjson.gz", "part-00001.ndjson.gz"]
+    assert len(_part_lines(output)) == 4
 
 
 def test_export_region_map_lifts_an_orphan_behind_a_zone_parent(tmp_path: Path) -> None:
@@ -404,7 +426,7 @@ def test_feature_collection_raises_on_emptied_geometry() -> None:
 
 
 def test_feature_collection_keeps_the_largest_part_of_a_speck_only_feature() -> None:
-    encoded, tolerance = region_map_export._feature_collection(
+    _, encoded, tolerance = region_map_export._feature_collection(
         [("A", "A", shapely.union_all([box(0, 0, 0.001, 0.001), box(5, 5, 5.0005, 5.0005)]))], "n"
     )
 
@@ -441,28 +463,3 @@ def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
     speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
 
     assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept]), "R").equals(kept)
-
-
-def test_export_region_map_warns_when_the_bundle_nears_its_cap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    geohistory, wikidata, match, output = _write(tmp_path)
-    export_region_map(geohistory, wikidata, match, output)
-    size = (output / "5_region_map.json").stat().st_size
-    monkeypatch.setattr(region_map_export, "BUNDLE_LIMIT_BYTES", int(size / 0.95))
-
-    with caplog.at_level("WARNING"):
-        export_region_map(geohistory, wikidata, match, output)
-
-    assert "5_region_map.json is" in caplog.text
-
-
-def test_export_region_map_does_not_warn_well_under_the_bundle_cap(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    geohistory, wikidata, match, output = _write(tmp_path)
-
-    with caplog.at_level("WARNING"):
-        export_region_map(geohistory, wikidata, match, output)
-
-    assert "5_region_map.json is" not in caplog.text

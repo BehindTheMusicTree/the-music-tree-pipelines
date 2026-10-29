@@ -50,16 +50,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `gold` Region map coordinate rounding flattens nested geometry collections (zones such as Africa had lost most of their polygons; the bundle grows by about 1.8 MB), warns naming the region when it keeps an unrounded geometry whose parts all collapse, and fails the export loudly when that geometry is also invalid
+- `gold` Region map coordinate rounding flattens nested geometry collections (zones such as Africa had lost most of their polygons; the export grows by about 1.8 MB), warns naming the region when it keeps an unrounded geometry whose parts all collapse, and fails the export loudly when that geometry is also invalid
 - `gold` Region map genres whose anchor cannot be placed now inherit the region of their nearest placed regional parent and leave the unplaced report
-- `gold` The `5_region_map.json` cap matches grow-api's 20 MiB request body limit (was 15 MiB, which the staging region map exceeds at 17 MiB) and warns from 90%
 - `gold` Region map mainland dissolve is order-independent: deepest parents first, repeated until stable, one mainland (the largest claimant) per parent, and a country is only dissolved into a country
 - `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
 
 ### Added
 
 - `gold` `gold.region_map_fixture_export`, an on-demand cut of `5_region_map/` into a small, schema-valid, referentially intact fixture (demo path by default).
-- `gold` `5_region_map.json`, a bundle of the region map index and every geojson file (at most 20 MiB) for `grow-the-music-tree-api` to import atomically.
+- `gold` The region map index maps every geojson path to the sha256 of its canonical bytes (`files`), and `5_region_map/parts/part-NNNNN.ndjson.gz` carries every file plus the index as `{path, sha256, document}` lines (25 per part) for `grow-the-music-tree-api`'s chunked import run, which stores files by hash and swaps the snapshot atomically. No size cap on the map as a whole.
 
 ### Changed
 
