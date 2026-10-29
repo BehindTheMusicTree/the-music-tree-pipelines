@@ -170,7 +170,8 @@ def export_region_map(
             reason = "anchor has no geometry" if anchor_id in shapes else "anchor has no footprint"
             unplaced.append((item_id, anchor_id, reason))
 
-    for item_id in sorted((canonical_ids | regional_ids) - set(anchors["wikidata_id"])):
+    inherited = set()
+    for item_id in sorted((canonical_ids | regional_ids) - set(placed)):
         ancestor, seen = regional_parent.get(item_id), {item_id}
         while ancestor is not None and ancestor not in placed and ancestor not in seen:
             seen.add(ancestor)
@@ -179,6 +180,8 @@ def export_region_map(
             relation = "canonical" if item_id in canonical_ids else "regional"
             for region in placed[ancestor]:
                 genres_by_region[region].append({"itemId": item_id, "rule": "regional_parent", "relation": relation})
+            inherited.add(item_id)
+    unplaced = [row for row in unplaced if row[0] not in inherited]
 
     song_counts = dict(
         pl.read_parquet(genre_match_path, columns=["wikidata_genre_item_id"])
