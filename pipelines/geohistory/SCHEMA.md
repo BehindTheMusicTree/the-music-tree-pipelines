@@ -15,6 +15,7 @@ Data dictionary for `geohistory`. Design rationale is in [DESIGN.md](DESIGN.md).
     - [2.3 2_entity_membership.parquet](#23-2_entity_membershipparquet)
     - [2.4 3_entity_succession.parquet](#24-3_entity_successionparquet)
     - [2.5 4_entity_time_span.parquet](#25-4_entity_time_spanparquet)
+    - [2.5.2 2_place_containment, 1_entity_ne_admin and 8_entity_footprint](#252-2_place_containment-1_entity_ne_admin-and-8_entity_footprint)
     - [2.6 5_tradition files](#26-5_tradition-files)
     - [2.7 6_genealogy files](#27-6_genealogy-files)
     - [2.8 7_lane_order.parquet and 7_band_fragment.parquet](#28-7_lane_orderparquet-and-7_band_fragmentparquet)
@@ -70,7 +71,7 @@ One row per cultural entity. `entity_id` is unique. Profile on the real Bronze: 
 | Column            | Type | Meaning                                                                                                     |
 | ----------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
 | entity_id         | str  | Glottocode for `family`/`language`/`dialect`, Wikidata QID for the Wikidata kinds below |
-| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `civilization`, `historical_country`, `country`, `historical_region`, `ethnic_group`, `cultural_region` or `macro_region` |
+| kind              | str  | `family`, `language`, `dialect`, `archaeological_culture`, `civilization`, `historical_country`, `country`, `historical_region`, `ethnic_group`, `cultural_region`, `macro_region` or `admin_unit` |
 | label             | str  | Glottolog name or Wikidata label                                                                            |
 | latitude          | f64? | Latitude                                                                                                    |
 | longitude         | f64? | Longitude                                                                                                   |
@@ -121,6 +122,33 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | end_year        | i32? | End year; null = no end known (alive)                                           |
 | end_precision   | i8?  | Wikidata time precision of the end; null for Glottolog                          |
 | end_source      | str? | `P576`, `P582`, `period`, `glottolog` or `curation`                            |
+
+### 2.5.2 2_place_containment, 1_entity_ne_admin and 8_entity_footprint
+
+`1_entity_ne_admin.parquet`: one row per Natural Earth polygon, `ne_id` unique.
+
+| Column            | Type | Meaning                                                                    |
+| ----------------- | ---- | -------------------------------------------------------------------------- |
+| ne_id             | str  | `natural_earth_admin.ne_id`                                                |
+| level             | i8   | 0 country, 1 admin-1                                                       |
+| entity_id         | str? | Entity the polygon stands for; null when none (excluded or unnamed)        |
+| country_entity_id | str? | Entity of the polygon's country                                            |
+
+`2_place_containment.parquet`: direct container edges between place entities, `(parent_id, child_id)` unique.
+
+| Column    | Type | Meaning                                                  |
+| --------- | ---- | -------------------------------------------------------- |
+| parent_id | str  | `1_cultural_entity.entity_id`                            |
+| child_id  | str  | `1_cultural_entity.entity_id`                            |
+| source    | str  | `p131`, `p361`, `p30`, `p706` or `natural_earth`         |
+
+`8_entity_footprint.parquet`: the admin units each entity covers, `(entity_id, admin_id)` unique.
+
+| Column    | Type | Meaning                                                                       |
+| --------- | ---- | ----------------------------------------------------------------------------- |
+| entity_id | str  | `1_cultural_entity.entity_id`                                                 |
+| admin_id  | str  | `1_cultural_entity.entity_id` of kind `admin_unit`                            |
+| rule      | str  | `self`, `cover` (contained admin units) or `succession` (a successor's units) |
 
 ### 2.5.1 5_music_anchor files
 

@@ -14,7 +14,14 @@ OVERVIEW_PREFIX = "music of "
 CULTURE_PROPERTIES = ("P2596", "P1269")
 COUNTRY_OF_ORIGIN = "P495"
 PLACE_PROPERTIES = ("P17", "P276", "P921", "P361")
-PLACE_KINDS = ("country", "historical_country", "historical_region", "cultural_region", "macro_region")
+PLACE_KINDS = (
+    "country",
+    "historical_country",
+    "historical_region",
+    "cultural_region",
+    "macro_region",
+    "admin_unit",
+)
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
 ANCHOR_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "rule": pl.String, "is_overview": pl.Boolean}
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "candidate_ids": pl.String}
@@ -62,6 +69,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     succession = pl.read_parquet(silver_dir / "3_entity_succession.parquet").sort("predecessor_id", "successor_id")
     time_span = pl.read_parquet(silver_dir / "4_entity_time_span.parquet")
     membership = pl.read_parquet(silver_dir / "2_entity_membership.parquet")
+    containment = pl.read_parquet(silver_dir / "2_place_containment.parquet")
 
     entity_ids = set(entities["entity_id"])
     place_ids = set(entities.filter(pl.col("kind").is_in(PLACE_KINDS))["entity_id"])
@@ -74,6 +82,8 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         successors[predecessor].append(successor)
     parents: dict[str, list[str]] = defaultdict(list)
     for child, parent in membership.select("child_id", "parent_id").rows():
+        parents[child].append(parent)
+    for child, parent in containment.select("child_id", "parent_id").rows():
         parents[child].append(parent)
     values: dict[tuple[str, str], list[str]] = defaultdict(list)
     for item, prop, value in claims.filter(pl.col("value").is_not_null()).select("item_id", "property", "value").rows():

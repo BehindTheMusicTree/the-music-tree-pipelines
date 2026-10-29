@@ -25,7 +25,15 @@ def label(item_id, text):
     return claim(item_id, "label", text)
 
 
-def run(tmp_path, claims, membership=(("mor", "bre"), ("bre", "fr")), aliases=(), placements=(), additions=()):
+def run(
+    tmp_path,
+    claims,
+    membership=(("mor", "bre"), ("bre", "fr")),
+    containment=(),
+    aliases=(),
+    placements=(),
+    additions=(),
+):
     wikidata, silver, curation = tmp_path / "wikidata", tmp_path / "silver", tmp_path / "curation"
     for directory in (wikidata, silver, curation):
         directory.mkdir()
@@ -46,6 +54,9 @@ def run(tmp_path, claims, membership=(("mor", "bre"), ("bre", "fr")), aliases=()
     ).write_parquet(silver / "1_entity_wikidata_item.parquet")
     pl.DataFrame(list(membership), schema=["child_id", "parent_id"], orient="row").write_parquet(
         silver / "2_entity_membership.parquet"
+    )
+    pl.DataFrame(list(containment), schema=["child_id", "parent_id"], orient="row").write_parquet(
+        silver / "2_place_containment.parquet"
     )
     pl.DataFrame(schema={"predecessor_id": pl.String, "successor_id": pl.String}).write_parquet(
         silver / "3_entity_succession.parquet"
@@ -138,3 +149,9 @@ def test_genre_without_candidate_is_not_listed_unplaced(tmp_path):
 def test_unknown_override_entity_raises(tmp_path):
     with pytest.raises(ValueError, match="unknown entity"):
         run(tmp_path, [label("Q1", "Folk")], placements=[("Q1", "nope", "", "", "r")])
+
+
+def test_containment_makes_the_contained_place_more_specific(tmp_path):
+    claims = [label("Q1", "Breton folk"), claim("Q1", "P17", "Q142"), claim("Q1", "P276", "Q12130")]
+    anchors, _ = run(tmp_path, claims, membership=(), containment=(("bre", "fr"),))
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "P276")

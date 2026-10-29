@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 
+from geohistory.silver.cultural_entity import ADMIN_KIND
 from geohistory.silver.tradition import CUTOFF_YEAR
 
 logger = logging.getLogger(__name__)
@@ -76,12 +77,38 @@ def _columns(lanes: list[str], spans: dict[str, Span], successions: list[tuple[s
     return {lane: min(members[root]) for lane, root in owner.items()}
 
 
+def _lift_admin_anchors(traditions: pl.DataFrame, entities: pl.DataFrame, containment: pl.DataFrame) -> pl.DataFrame:
+    """Lanes stay at country level: an admin-unit anchor stands in as its nearest non-admin containing place."""
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    parents: dict[str, list[str]] = defaultdict(list)
+    for child, parent in containment.sort("child_id", "parent_id").select("child_id", "parent_id").rows():
+        parents[child].append(parent)
+
+    def lifted(anchor: str) -> str:
+        level, seen = [anchor], {anchor}
+        while level:
+            found = sorted(node for node in level if kinds.get(node) != ADMIN_KIND)
+            if found:
+                return found[0]
+            upper = sorted({p for node in level for p in parents.get(node, ())} - seen)
+            seen.update(upper)
+            level = upper
+        return anchor
+
+    return traditions.with_columns(pl.col("anchor_id").map_elements(lifted, return_dtype=pl.String))
+
+
 def genealogy_lane(silver_dir: Path) -> tuple[Path, Path]:
-    traditions = pl.read_parquet(silver_dir / "5_tradition.parquet").drop_nulls("anchor_id")
+    entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet")
+    traditions = _lift_admin_anchors(
+        pl.read_parquet(silver_dir / "5_tradition.parquet").drop_nulls("anchor_id"),
+        entities,
+        pl.read_parquet(silver_dir / "2_place_containment.parquet"),
+    )
     membership = pl.read_parquet(silver_dir / "2_entity_membership.parquet")
     succession = pl.read_parquet(silver_dir / "3_entity_succession.parquet")
     time_span = pl.read_parquet(silver_dir / "4_entity_time_span.parquet")
-    labels = dict(pl.read_parquet(silver_dir / "1_cultural_entity.parquet").select("entity_id", "label").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
 
     anchored = set(traditions["anchor_id"])
     parents: dict[str, list[str]] = defaultdict(list)
