@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 from geohistory.silver.curation import LISTS
-from geohistory.silver.music_anchor import music_anchor
+from geohistory.silver.music_anchor import _pick, music_anchor
 
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
 ENTITIES = [
@@ -33,6 +33,7 @@ def run(
     aliases=(),
     placements=(),
     additions=(),
+    exclusions=(),
 ):
     wikidata, silver, curation = tmp_path / "wikidata", tmp_path / "silver", tmp_path / "curation"
     for directory in (wikidata, silver, curation):
@@ -41,6 +42,7 @@ def run(
         rows = {
             "tradition_placement_overrides": placements,
             "tradition_additions": [(q, "r") for q in additions],
+            "tradition_exclusions": [(q, "r") for q in exclusions],
         }.get(list_name, ())
         lines = [",".join(columns), *(",".join(row) for row in rows)]
         (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
@@ -155,3 +157,14 @@ def test_containment_makes_the_contained_place_more_specific(tmp_path):
     claims = [label("Q1", "Breton folk"), claim("Q1", "P17", "Q142"), claim("Q1", "P276", "Q12130")]
     anchors, _ = run(tmp_path, claims, membership=(), containment=(("bre", "fr"),))
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "P276")
+
+
+def test_excluded_item_gets_no_anchor(tmp_path):
+    claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q884")]
+    anchors, _ = run(tmp_path, claims, exclusions=["Q1"])
+    assert "Q1" not in anchors
+
+
+def test_candidate_cycle_raises():
+    with pytest.raises(ValueError, match="a.*b"):
+        _pick({"a": "P495", "b": "P495"}, {"a": ["b"], "b": ["a"]})

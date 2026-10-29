@@ -43,6 +43,8 @@ def _pick(candidates: dict[str, str], parents: dict[str, list[str]]) -> tuple[st
     dominated = set().union(*(_ancestors(entity, parents) for entity in candidates)) if candidates else set()
     remaining = [(entity, rule) for entity, rule in candidates.items() if entity not in dominated]
     if not remaining:
+        if candidates:
+            raise ValueError(f"anchor candidates {sorted(candidates)} dominate each other (containment cycle)")
         return None
     return min(remaining, key=lambda pair: (RULE_PRIORITY.index(pair[1]), pair[0]))
 
@@ -98,6 +100,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     )
     genres = set(tree["item_id"])
     additions = set(read_curation_list(curation_dir, "tradition_additions")["wikidata_id"])
+    exclusions = set(read_curation_list(curation_dir, "tradition_exclusions")["wikidata_id"])
     placements = _placement_overrides(
         read_curation_list(curation_dir, "tradition_placement_overrides"), entity_ids, item_entity
     )
@@ -106,7 +109,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     anchors, unplaced = [], []
     for qid, label in sorted(labels.items()):
         is_overview = label.startswith(OVERVIEW_PREFIX)
-        if qid not in genres and not is_overview and qid not in additions:
+        if qid in exclusions or (qid not in genres and not is_overview and qid not in additions):
             continue
         override_entity, override_start, _ = placements.get(qid, (None, None, None))
         known_start = override_start if override_start is not None else claim_start.get(qid)
