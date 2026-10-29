@@ -48,8 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gold` `5_region_map.json`, a bundle of the region map index and every geojson file (at most 15 MiB) for `grow-the-music-tree-api` to import atomically.
+
 ### Changed
 
+- `gold` Region map hierarchy: a region's parent is its nearest admin ancestor, Natural Earth countries nest only when at least 90% inside their parent, a mainland intermediate holding at least half of its parent is dissolved into it, genres without an anchor inherit their regional parent's region (`regional_parent`), genre-less admin children of a listed region are listed at count 0, and admin `songCount`/`genreCount` roll up over descendants.
+- `geohistory` Music anchors collapse an overview label matching one admin unit and zones whose footprint is exactly that admin to the admin, so "music of Brittany" anchors on Brittany; `music_anchor` now reads `8_entity_footprint.parquet`.
 - `geohistory` Point footprints match the admin polygon that intersects the coordinates (border points no longer drop), and `8_entity_geometry` is only built for entities Gold can draw.
 - `gold` Genres anchored to an ethnic group, language or other non-place entity with an admin footprint now land on each footprint region (relation `tradition`); `civilization` and `curated` anchors stay unplaced, and unplaced reasons read "no footprint" / "no geometry".
 - `geohistory` `2_place_containment` breaks containment cycles of any length, including ones crossing membership, by dropping the lowest-priority edge with a warning; a mutual-claim tie now drops one edge, not both.
