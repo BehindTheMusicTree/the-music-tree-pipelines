@@ -18,6 +18,7 @@ ADMIN_KINDS = ("country", "admin_unit")
 ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "macro_region")
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
+SIZE_WARNING_RATIO = 0.9
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
 COORDINATE_DECIMALS = 2
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "reason": pl.String}
@@ -70,7 +71,7 @@ def _rounded(geometry):
     return shapely.union_all(polygons) if polygons else geometry
 
 
-def _feature_collection(features: list[tuple[str, str, object]], name: str) -> bytes:
+def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[bytes, float]:
     geometries = [geometry for _, _, geometry in features]
     for tolerance in SIMPLIFY_TOLERANCES:
         rounded = [_rounded(_without_specks(geometry, tolerance)) for geometry in _simplified(geometries, tolerance)]
@@ -95,7 +96,7 @@ def _feature_collection(features: list[tuple[str, str, object]], name: str) -> b
         }
         encoded = json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode()
         if len(encoded) <= SIZE_LIMIT_BYTES:
-            return encoded
+            return encoded, tolerance
     raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
 
 
@@ -219,7 +220,9 @@ def export_region_map(
     try:
         validate(document, json.loads(REGION_MAP_SCHEMA_PATH.read_text()))
     except ValidationError as e:
-        raise ValueError(f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}): {e.message}")
+        raise ValueError(
+            f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}) at {e.json_path}: {e.message}"
+        ) from e
 
     def load(region: str):
         return shapely.from_wkb(shapes[region]["geometry_wkb"])
@@ -230,24 +233,38 @@ def export_region_map(
     (geometry_dir / "geometry").mkdir(parents=True)
     (geometry_dir / "zones").mkdir()
 
+    files = []
+
+    def write_collection(path: Path, features: list[tuple[str, str, object]], name: str) -> None:
+        encoded, tolerance = _feature_collection(features, name)
+        path.write_bytes(encoded)
+        files.append({"path": str(path.relative_to(geometry_dir)), "bytes": len(encoded), "tolerance": tolerance})
+        if len(encoded) > SIZE_LIMIT_BYTES * SIZE_WARNING_RATIO:
+            logger.warning(
+                "%s is %d bytes, above %d%% of the %d cap",
+                path.name,
+                len(encoded),
+                SIZE_WARNING_RATIO * 100,
+                SIZE_LIMIT_BYTES,
+            )
+
     countries = children.get(WORLD_ID, [])
-    (geometry_dir / "geometry" / "world.geojson").write_bytes(
-        _feature_collection([(r, labels[r], load(r)) for r in countries], "world")
-    )
+    write_collection(geometry_dir / "geometry" / "world.geojson", [(r, labels[r], load(r)) for r in countries], "world")
     for region in admin_regions:
         if children.get(region):
-            (geometry_dir / "geometry" / f"{region}.geojson").write_bytes(
-                _feature_collection([(r, labels[r], load(r)) for r in children[region]], region)
+            write_collection(
+                geometry_dir / "geometry" / f"{region}.geojson",
+                [(r, labels[r], load(r)) for r in children[region]],
+                region,
             )
     for zone in zones:
-        (geometry_dir / "zones" / f"{zone}.geojson").write_bytes(
-            _feature_collection([(zone, labels[zone], load(zone))], zone)
-        )
+        write_collection(geometry_dir / "zones" / f"{zone}.geojson", [(zone, labels[zone], load(zone))], zone)
     (geometry_dir / "index.json").write_text(json.dumps(document, indent=2, ensure_ascii=False))
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
-    (output_dir / "5_region_map_report.json").write_text(f'{{"unplacedGenreCount": {unplaced_frame.height}}}\n')
+    report = {"unplacedGenreCount": unplaced_frame.height, "files": sorted(files, key=lambda f: f["path"])}
+    (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
     if unplaced_frame.height:
         logger.warning("%d genre(s) have no region on the map, see 5_region_map_unplaced.csv", unplaced_frame.height)
     logger.info("wrote %d region(s) and %d zone(s) to %s", len(admin_regions), len(zones), geometry_dir)

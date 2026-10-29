@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gold` Genres anchored to an ethnic group, language or other non-place entity with an admin footprint now land on each footprint region (relation `tradition`); `civilization` and `curated` anchors stay unplaced, and unplaced reasons read "no footprint" / "no geometry".
 - `geohistory` `2_place_containment` breaks containment cycles of any length, including ones crossing membership, by dropping the lowest-priority edge with a warning; a mutual-claim tie now drops one edge, not both.
 
+- `gold` `5_region_map_report.json` lists each geojson with its size and simplification tolerance, a file above 90% of the 300 KB cap logs a warning, and a schema failure names the offending JSON path.
+
 ### Fixed
 
 - `geohistory` Music anchors honour `tradition_exclusions`.
