@@ -119,6 +119,7 @@ def place_containment(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir:
         )
         .sort("rank", "parent_id", "child_id")
         .unique(["parent_id", "child_id"], keep="first", maintain_order=True)
+        .join(removals, on=["parent_id", "child_id"], how="anti")
     )
     reverse = ranked.select(
         pl.col("parent_id").alias("child_id"), pl.col("child_id").alias("parent_id"), pl.col("rank").alias("other_rank")

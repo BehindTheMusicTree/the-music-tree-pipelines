@@ -69,7 +69,7 @@ one) plus P131 intermediates holding more than one known child. Containment edge
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
 a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
-The footprint of an entity is itself if an admin unit (`self`), else every admin unit it contains (`cover`), else
+The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
 its successors' footprint (`succession`). Anchoring drops a candidate that contains another candidate, and a
 tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
 lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
