@@ -213,6 +213,76 @@ def test_export_region_map_dissolves_a_mainland_intermediate(tmp_path: Path) -> 
     assert regions["BIG"]["genreCount"] == 2
 
 
+def _chained_mainland_regions(tmp_path: Path, big: str, main: str, sub: str) -> dict[str, dict]:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            big: ("country", box(100, 0, 120, 10), "natural_earth"),
+            main: ("admin_unit", box(100, 0, 116, 10), "x"),
+            "ISL": ("admin_unit", box(118, 0, 120, 2), "x"),
+            sub: ("admin_unit", box(100, 0, 114, 10), "x"),
+            "ISL2": ("admin_unit", box(115, 0, 116, 1), "x"),
+        },
+        containment=[(big, main), (big, "ISL"), (main, sub), (main, "ISL2")],
+        anchors=[("Q20", main), ("Q21", sub), ("Q22", "ISL"), ("Q23", "ISL2")],
+    )
+    return _regions(export_region_map(geohistory, wikidata, match, output))
+
+
+def test_export_region_map_dissolves_a_chained_mainland_whichever_id_sorts_first(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    first = _chained_mainland_regions(tmp_path / "a", big="AAA", main="BBB", sub="CCC")
+    last = _chained_mainland_regions(tmp_path / "b", big="CCC", main="BBB", sub="AAA")
+
+    assert set(first) - {"FR", "BR", "NR", "DE", "CE"} == {"AAA", "ISL", "ISL2"}
+    assert first["AAA"]["childIds"] == ["ISL", "ISL2"]
+    assert {g["itemId"] for g in first["AAA"]["genres"]} == {"Q20", "Q21"}
+    assert set(last) - {"FR", "BR", "NR", "DE", "CE"} == {"CCC", "ISL", "ISL2"}
+    assert last["CCC"]["childIds"] == ["ISL", "ISL2"]
+    assert {g["itemId"] for g in last["CCC"]["genres"]} == {"Q20", "Q21"}
+
+
+def test_export_region_map_does_not_dissolve_a_country_into_an_admin_unit(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "ADM": ("admin_unit", box(100, 0, 120, 10), "x"),
+            "CTY": ("country", box(100, 0, 118, 10), "natural_earth"),
+            "SML": ("admin_unit", box(119, 0, 120, 1), "x"),
+        },
+        containment=[("ADM", "CTY"), ("ADM", "SML")],
+        anchors=[("Q20", "CTY"), ("Q21", "SML")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert regions["ADM"]["childIds"] == ["CTY", "SML"]
+
+
+def test_export_region_map_dissolves_only_the_largest_mainland_claimant(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "PAR": ("country", box(100, 0, 104, 10), "natural_earth"),
+            "AAA": ("admin_unit", box(100, 0, 103, 10), "x"),
+            "ZZZ": ("admin_unit", box(100, 0, 104, 10), "x"),
+        },
+        containment=[("PAR", "AAA"), ("PAR", "ZZZ")],
+        anchors=[("Q20", "AAA"), ("Q21", "ZZZ")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "ZZZ" not in regions and "AAA" in regions["PAR"]["childIds"]
+
+
 def test_export_region_map_keeps_a_mainland_with_a_small_share(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
 

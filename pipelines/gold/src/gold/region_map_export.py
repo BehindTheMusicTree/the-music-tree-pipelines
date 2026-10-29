@@ -215,18 +215,39 @@ def export_region_map(
             continue
         parents[child] = parent
 
-    admin_children: dict[str, list[str]] = defaultdict(list)
-    for child, parent in parents.items():
-        admin_children[parent].append(child)
+    areas: dict[str, float] = {}
+
+    def area(region: str) -> float:
+        if region not in areas:
+            areas[region] = load(region).area
+        return areas[region]
+
+    def depth(region: str) -> int:
+        level = 0
+        while region in parents:
+            region = parents[region]
+            level += 1
+        return level
+
+    def dissolvable(child: str, parent: str) -> bool:
+        return kinds[child] == "admin_unit" or kinds[parent] == "country"
+
+    def next_dissolution() -> tuple[str, str] | None:
+        siblings: dict[str, list[str]] = defaultdict(list)
+        for child, parent in parents.items():
+            siblings[parent].append(child)
+        candidates = (p for p in siblings if len(siblings[p]) >= 2 and p not in dissolved.values())
+        for parent in sorted(candidates, key=lambda p: (-depth(p), p)):
+            claimants = [
+                c for c in siblings[parent] if area(c) >= MAINLAND_MIN_SHARE * area(parent) and dissolvable(c, parent)
+            ]
+            if claimants:
+                return min(claimants, key=lambda c: (-area(c), c)), parent
+        return None
+
     dissolved: dict[str, str] = {}
-    for parent in sorted(admin_children):
-        siblings = sorted(admin_children[parent])
-        if len(siblings) < 2:
-            continue
-        parent_area = load(parent).area
-        mainland = next((c for c in siblings if load(c).area >= MAINLAND_MIN_SHARE * parent_area), None)
-        if mainland is None or parents.get(mainland) != parent:
-            continue
+    while (dissolution := next_dissolution()) is not None:
+        mainland, parent = dissolution
         for grandchild in [g for g, p in parents.items() if p == mainland]:
             parents[grandchild] = parent
         del parents[mainland]
@@ -241,7 +262,7 @@ def export_region_map(
             len(dissolved),
             ", ".join(f"{labels[c]} ({c}) -> {p}" for c, p in dissolved.items()),
         )
-    admin_children = defaultdict(list)
+    admin_children: dict[str, list[str]] = defaultdict(list)
     for child, parent in parents.items():
         admin_children[parent].append(child)
 
