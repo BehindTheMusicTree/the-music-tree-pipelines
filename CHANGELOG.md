@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
+
 ### Added
 
 - `gold` `gold.region_map_fixture_export`, an on-demand cut of `5_region_map/` into a small, schema-valid, referentially intact fixture (demo path by default).

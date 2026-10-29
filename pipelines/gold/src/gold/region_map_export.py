@@ -75,7 +75,12 @@ def _without_specks(geometry, tolerance: float):
 
 def _rounded(geometry):
     rounded = shapely.transform(geometry, lambda coordinates: np.round(coordinates, COORDINATE_DECIMALS))
-    polygons = [p for p in shapely.get_parts(shapely.make_valid(rounded)) if p.geom_type == "Polygon"]
+    polygons = [
+        polygon
+        for part in shapely.get_parts(rounded)
+        for polygon in shapely.get_parts(shapely.make_valid(part))
+        if polygon.geom_type == "Polygon"
+    ]
     return shapely.union_all(polygons) if polygons else geometry
 
 

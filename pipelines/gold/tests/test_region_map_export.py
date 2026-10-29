@@ -327,3 +327,11 @@ def test_feature_collection_keeps_the_largest_part_of_a_speck_only_feature() -> 
     )
 
     assert tolerance == 0.0 and json.loads(encoded)["features"][0]["geometry"]["coordinates"]
+
+
+def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
+    kept = box(1.13, 1.26, 1.43, 1.56)
+    collapsed = shapely.Polygon([(0.77, 2.29), (0.77, 2.29), (0.77, 3.29), (0.77, 3.29)])
+    speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
+
+    assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept])).equals(kept)
