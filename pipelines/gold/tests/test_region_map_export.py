@@ -310,6 +310,18 @@ def test_export_region_map_inherits_the_region_of_the_nearest_anchored_regional_
     assert regions["DE"]["genres"][-1] == {"itemId": "Q33", "rule": "P495", "relation": "regional"}
 
 
+def test_export_region_map_lets_an_unplaced_anchor_genre_inherit_its_regional_parent(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(geohistory, wikidata, regional=[("Q4", "Q2")])
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert {"itemId": "Q4", "rule": "regional_parent", "relation": "regional"} in regions["CE"]["genres"]
+    unplaced = pl.read_csv(output / "5_region_map_unplaced.csv")
+    assert unplaced["wikidata_id"].to_list() == ["Q5"]
+    assert json.loads((output / "5_region_map_report.json").read_text())["unplacedGenreCount"] == 1
+
+
 def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
 

@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `gold` Region map genres whose anchor cannot be placed now inherit the region of their nearest placed regional parent and leave the unplaced report
 - `gold` The `5_region_map.json` cap matches grow-api's 20 MiB request body limit (was 15 MiB, which the staging region map exceeds at 17 MiB) and warns from 90%
 - `gold` Region map mainland dissolve is order-independent: deepest parents first, repeated until stable, one mainland (the largest claimant) per parent, and a country is only dissolved into a country
 - `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
