@@ -14,6 +14,7 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
     traditions = pl.read_parquet(geohistory_silver_dir / "5_tradition.parquet")
     links = pl.read_parquet(geohistory_silver_dir / "5_tradition_link.parquet")
     lanes = pl.read_parquet(geohistory_silver_dir / "6_genealogy_lane.parquet")
+    tradition_lane = dict(pl.read_parquet(geohistory_silver_dir / "6_genealogy_tradition_lane.parquet").rows())
     bands = pl.read_parquet(geohistory_silver_dir / "7_band_fragment.parquet")
     order = pl.read_parquet(geohistory_silver_dir / "7_lane_order.parquet")
     succession = pl.read_parquet(geohistory_silver_dir / "3_entity_succession.parquet")
@@ -63,7 +64,7 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
                 "label": row["label"],
                 "start": row["start_year"],
                 "end": row["end_year"],
-                "anchorId": row["anchor_id"],
+                "anchorId": tradition_lane.get(row["wikidata_id"]),
                 "inCanonicalTree": row["wikidata_id"] in canonical_ids,
             }
             for row in traditions.sort("wikidata_id").to_dicts()
@@ -79,6 +80,18 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
     empty = [column["id"] for column in columns if not column["lanes"]]
     if empty:
         raise ValueError(f"genealogy columns without lanes (order and lane files disagree): {empty[:5]}")
+
+    unlaned = sorted(
+        row["wikidata_id"]
+        for row in traditions.to_dicts()
+        if row["anchor_id"] and row["wikidata_id"] not in tradition_lane
+    )
+    if unlaned:
+        raise ValueError(f"genealogy traditions anchored but missing from the tradition-lane file: {unlaned[:5]}")
+
+    unshown = sorted({t["anchorId"] for t in document["traditions"] if t["anchorId"] not in (None, *shown_ids)})
+    if unshown:
+        raise ValueError(f"genealogy tradition anchors outside the lanes and bands: {unshown[:5]}")
 
     try:
         validate(document, json.loads(GENEALOGY_SCHEMA_PATH.read_text()))

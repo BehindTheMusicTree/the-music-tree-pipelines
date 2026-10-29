@@ -35,6 +35,9 @@ def _write_silver(tmp_path: Path) -> tuple[Path, Path]:
         },
         schema_overrides={"start_year": pl.Int32, "end_year": pl.Int32},
     ).write_parquet(geohistory_dir / "6_genealogy_lane.parquet")
+    pl.DataFrame({"wikidata_id": ["Q2"], "lane_id": ["aaaa1234"]}).write_parquet(
+        geohistory_dir / "6_genealogy_tradition_lane.parquet"
+    )
     pl.DataFrame(
         {
             "entity_id": ["root0000"],
@@ -120,6 +123,40 @@ def test_export_genealogy_raises_on_schema_violation(tmp_path: Path) -> None:
     pl.read_parquet(geohistory_dir / "5_tradition.parquet").with_columns(
         pl.lit("not-a-qid").alias("wikidata_id")
     ).write_parquet(geohistory_dir / "5_tradition.parquet")
+    pl.DataFrame({"wikidata_id": ["not-a-qid"], "lane_id": ["aaaa1234"]}).write_parquet(
+        geohistory_dir / "6_genealogy_tradition_lane.parquet"
+    )
 
     with pytest.raises(ValueError, match="failed schema validation"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
+def test_export_genealogy_anchors_on_the_lifted_lane(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.DataFrame({"wikidata_id": ["Q2"], "lane_id": ["bbbb1234"]}).write_parquet(
+        geohistory_dir / "6_genealogy_tradition_lane.parquet"
+    )
+
+    document = json.loads(export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold").read_text())
+
+    assert {t["wikidataId"]: t["anchorId"] for t in document["traditions"]} == {"Q1": None, "Q2": "bbbb1234"}
+
+
+def test_export_genealogy_raises_when_an_anchor_is_not_a_lane(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.DataFrame({"wikidata_id": ["Q2"], "lane_id": ["admin000"]}).write_parquet(
+        geohistory_dir / "6_genealogy_tradition_lane.parquet"
+    )
+
+    with pytest.raises(ValueError, match="admin000"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
+def test_export_genealogy_raises_when_an_anchored_tradition_has_no_lane_row(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.DataFrame(schema={"wikidata_id": pl.String, "lane_id": pl.String}).write_parquet(
+        geohistory_dir / "6_genealogy_tradition_lane.parquet"
+    )
+
+    with pytest.raises(ValueError, match="Q2"):
         export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")

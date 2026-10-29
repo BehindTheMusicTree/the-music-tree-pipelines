@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `geohistory`/`gold` Genealogy `anchorId` is the lifted lane id (new `6_genealogy_tradition_lane.parquet`) instead of the raw admin-unit anchor, and the export raises if an anchor is not a lane or band. Lifting an admin unit with no non-admin ancestor now raises.
 - `wikidata` A WDQS brownout no longer fails the nightly run: artist images reuse each partition's last good rows for up to 7 days. WDQS retries now run on a time budget with jitter, honour `Retry-After`, stop on non-retryable 4xx, and report a WDQS timeout as such. The live contract test checks the response shape on a sample instead of running the full extract.
 
 ### Changed

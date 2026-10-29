@@ -208,6 +208,9 @@ traditions without anchor. `5_tradition_report.json`: `{"unplacedTraditionCount"
 `6_genealogy_band.parquet`: one row per (band, column) with the same columns as the lane file; a band is an ancestor
 covering at least two lanes, or an anchored entity having anchored descendants.
 
+`6_genealogy_tradition_lane.parquet`: `wikidata_id` (str), `lane_id` (str) — one row per anchored tradition, `lane_id`
+being its anchor lifted to a non-admin place (an `entity_id` of the lane or band files); `gold` uses it as `anchorId`.
+
 ### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
 
 `7_lane_order.parquet`: `column_id` (str), `position` (i32, 0 = west). `7_band_fragment.parquet`: one row per
