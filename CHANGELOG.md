@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.3.0] - 2026-10-29
+
 ### Added
 
 - `geohistory` Admin units (Natural Earth admin-1 plus P131 intermediates) become `admin_unit` entities, with a place containment graph (`2_place_containment`) and per-entity admin footprints (`8_entity_footprint`). Anchoring and tradition start years now follow containment, so more overviews and traditions are placed.
