@@ -244,6 +244,14 @@ The nightly import into grow is a full snapshot (grow deletes whatever a run omi
 
 **Admin versus zone.** Countries from Natural Earth and admin-1 units form the drill-down tree (`world` → country → admin unit, parents from `2_place_containment`); an anchored admin unit pulls its admin ancestors onto the map even when they carry no genre. Historical countries, historical and cultural regions and macro-regions are zones: they overlap the admin tree rather than nest in it, so they ship as standalone files and each admin region lists the zones whose footprint reaches it (`zoneIds`, propagated up the admin ancestors).
 
+**Region map hierarchy.** The drill-down tree is built from `2_place_containment`, then corrected so a click path matches how people think of places:
+
+- _Nearest admin ancestor._ A region's parent is the nearest admin region reached through containment, going through non-admin nodes (a country with no Natural Earth shape, a historical region) — Anglesey sits under the UK via Wales. Ties take the first parent in `(parent_id, child_id)` order.
+- _Nested countries._ A Natural Earth country keeps its admin parent only when at least `NESTED_COUNTRY_MIN_OVERLAP` (0.9) of its area lies inside the parent's geometry; otherwise it is a world child (Algeria is not "in" France through a historical `P361`, Gujarat is in India).
+- _Mainland intermediates._ An admin child holding at least `MAINLAND_MIN_SHARE` (0.5) of its admin parent's area, with at least one sibling, is dissolved: its children and genres move to the parent (metropolitan France into France). The dissolved regions are logged once at info.
+- _Regional-parent inheritance._ A canonical or regional genre with no anchor takes the region(s) of its nearest anchored ancestor in `8_regional_hierarchy` (rule `regional_parent`); an existing anchor always wins.
+- _Coverage and roll-up._ Once an admin region is on the map, all its admin children with a shape are too (count 0 when genre-less) so the choropleth has no holes. An admin region's counts roll up over its admin descendants' genres; zones count their own.
+
 **Size cap.** Every GeoJSON file must fit in 300 KB so the front can fetch a level in one request. `_feature_collection` tries a ladder of tolerances (exact first, then `coverage_simplify` so shared borders stay shared, falling back to per-geometry simplification when GEOS rejects the coverage), drops parts smaller than the tolerance squared (keeping the largest part when all are smaller), rounds to 2 decimals and raises when the coarsest step still overflows, rather than shipping a file the front cannot load.
 
 **Footprint anchors.** A genre anchored to an entity that is not itself a region (an ethnic group, a language) but has an admin footprint is listed on each footprint admin region with relation `tradition`. `civilization` and `curated` anchors are never placed this way; they go through curation.

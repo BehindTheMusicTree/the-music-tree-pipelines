@@ -19,6 +19,9 @@ ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "mac
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
 SIZE_WARNING_RATIO = 0.9
+BUNDLE_LIMIT_BYTES = 15 * 1024 * 1024
+NESTED_COUNTRY_MIN_OVERLAP = 0.9
+MAINLAND_MIN_SHARE = 0.5
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
 COORDINATE_DECIMALS = 2
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "reason": pl.String}
@@ -42,6 +45,11 @@ def _canonical_descendants(hierarchy: pl.DataFrame) -> dict[str, set[str]]:
                 pending.extend(children.get(node, ()))
         descendants[root] = seen
     return descendants
+
+
+def _share_within(child, parent) -> float:
+    child, parent = shapely.make_valid(child), shapely.make_valid(parent)
+    return child.intersection(parent).area / child.area if child.area else 0.0
 
 
 def _simplified(geometries: list, tolerance: float) -> list:
@@ -111,7 +119,9 @@ def export_region_map(
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
     canonical = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
-    regional_ids = set(pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet")["item_id"])
+    regional = pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet")
+    regional_ids = set(regional["item_id"])
+    regional_parent = dict(regional.select("item_id", "parent_id").rows())
     canonical_ids = set(canonical["item_id"])
     descendants = _canonical_descendants(canonical)
 
@@ -136,11 +146,13 @@ def export_region_map(
             footprint_admins[entity_id].append(admin_id)
 
     genres_by_region: dict[str, list[dict]] = defaultdict(list)
+    placed: dict[str, list[str]] = defaultdict(list)
     unplaced = []
     for item_id, anchor_id, rule in anchors.select("wikidata_id", "anchor_id", "rule").rows():
         relation = "canonical" if item_id in canonical_ids else "regional" if item_id in regional_ids else "tradition"
         if anchor_id in admin_ids or anchor_id in zone_candidates:
             genres_by_region[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
+            placed[item_id].append(anchor_id)
         elif kinds.get(anchor_id) in UNFOOTPRINTED_KINDS:
             unplaced.append((item_id, anchor_id, "anchor is not a place"))
         elif footprint_admins.get(anchor_id):
@@ -148,9 +160,20 @@ def export_region_map(
                 if any(g["itemId"] == item_id for g in genres_by_region[admin_id]):
                     continue
                 genres_by_region[admin_id].append({"itemId": item_id, "rule": rule, "relation": "tradition"})
+                placed[item_id].append(admin_id)
         else:
             reason = "anchor has no geometry" if anchor_id in shapes else "anchor has no footprint"
             unplaced.append((item_id, anchor_id, reason))
+
+    for item_id in sorted((canonical_ids | regional_ids) - set(anchors["wikidata_id"])):
+        ancestor, seen = regional_parent.get(item_id), {item_id}
+        while ancestor is not None and ancestor not in placed and ancestor not in seen:
+            seen.add(ancestor)
+            ancestor = regional_parent.get(ancestor)
+        if ancestor in placed:
+            relation = "canonical" if item_id in canonical_ids else "regional"
+            for region in placed[ancestor]:
+                genres_by_region[region].append({"itemId": item_id, "rule": "regional_parent", "relation": relation})
 
     song_counts = dict(
         pl.read_parquet(genre_match_path, columns=["wikidata_genre_item_id"])
@@ -160,17 +183,71 @@ def export_region_map(
         .rows()
     )
 
-    parents: dict[str, str] = {}
+    containment_parents: dict[str, list[str]] = defaultdict(list)
     for parent, child in containment.select("parent_id", "child_id").rows():
-        if parent in admin_ids and child in admin_ids:
-            parents.setdefault(child, parent)
+        containment_parents[child].append(parent)
 
-    included = set(genres_by_region)
+    def nearest_admin_parent(child: str) -> str | None:
+        seen = {child}
+        level = list(dict.fromkeys(containment_parents.get(child, ())))
+        while level:
+            admins = [node for node in level if node in admin_ids]
+            if admins:
+                return admins[0]
+            seen.update(level)
+            level = list(dict.fromkeys(g for node in level for g in containment_parents.get(node, ()) if g not in seen))
+        return None
+
+    def load(region: str):
+        return shapely.from_wkb(shapes[region]["geometry_wkb"])
+
+    parents: dict[str, str] = {}
+    for child in sorted(admin_ids):
+        parent = nearest_admin_parent(child)
+        if parent is None:
+            continue
+        if kinds[child] == "country" and _share_within(load(child), load(parent)) < NESTED_COUNTRY_MIN_OVERLAP:
+            continue
+        parents[child] = parent
+
+    admin_children: dict[str, list[str]] = defaultdict(list)
+    for child, parent in parents.items():
+        admin_children[parent].append(child)
+    dissolved: dict[str, str] = {}
+    for parent in sorted(admin_children):
+        siblings = sorted(admin_children[parent])
+        if len(siblings) < 2:
+            continue
+        parent_area = load(parent).area
+        mainland = next((c for c in siblings if load(c).area >= MAINLAND_MIN_SHARE * parent_area), None)
+        if mainland is None or parents.get(mainland) != parent:
+            continue
+        for grandchild in [g for g, p in parents.items() if p == mainland]:
+            parents[grandchild] = parent
+        del parents[mainland]
+        dissolved[mainland] = parent
+        owned = genres_by_region.pop(mainland, [])
+        known = {g["itemId"] for g in genres_by_region.get(parent, ())}
+        genres_by_region[parent].extend(g for g in owned if g["itemId"] not in known)
+        admin_ids.discard(mainland)
+    if dissolved:
+        logger.info(
+            "dissolved %d mainland region(s) into their parent: %s",
+            len(dissolved),
+            ", ".join(f"{labels[c]} ({c}) -> {p}" for c, p in dissolved.items()),
+        )
+    admin_children = defaultdict(list)
+    for child, parent in parents.items():
+        admin_children[parent].append(child)
+
+    included = {region for region, genres in genres_by_region.items() if genres}
     for region in list(included):
         node = region
         while node in parents and parents[node] not in included:
             node = parents[node]
             included.add(node)
+    for region in list(included):
+        included.update(admin_children.get(region, ()))
     admin_regions = sorted(r for r in included if r in admin_ids)
     zones = sorted(r for r in included if r in zone_candidates)
 
@@ -184,16 +261,28 @@ def export_region_map(
             chain.append(parents[chain[-1]])
         return chain
 
+    def own_items(region: str) -> set[str]:
+        return {g["itemId"] for g in genres_by_region.get(region, ())}
+
+    def rolled_up_items(region: str) -> set[str]:
+        items, pending = set(), [region]
+        while pending:
+            node = pending.pop()
+            items |= own_items(node)
+            pending.extend(admin_children.get(node, ()))
+        return items
+
     zone_ids_by_region: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
     for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
+        admin_id = dissolved.get(admin_id, admin_id)
         if entity_id in zone_set and admin_id in shapes:
             for ancestor in admin_ancestors(admin_id):
                 zone_ids_by_region[ancestor].add(entity_id)
 
     entries = []
     for region in [*admin_regions, *zones]:
-        own = {g["itemId"] for g in genres_by_region.get(region, ())}
+        own = own_items(region) if region in zone_set else rolled_up_items(region)
         relevant = own.union(*(descendants.get(item, set()) for item in own))
         shape = shapes[region]
         entries.append(
@@ -224,9 +313,6 @@ def export_region_map(
             f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}) at {e.json_path}: {e.message}"
         ) from e
 
-    def load(region: str):
-        return shapely.from_wkb(shapes[region]["geometry_wkb"])
-
     geometry_dir = output_dir / "5_region_map"
     if geometry_dir.exists():
         shutil.rmtree(geometry_dir)
@@ -234,11 +320,14 @@ def export_region_map(
     (geometry_dir / "zones").mkdir()
 
     files: list[tuple[str, int, float]] = []
+    encoded_files: dict[str, bytes] = {}
 
     def write_collection(path: Path, features: list[tuple[str, str, object]], name: str) -> None:
         encoded, tolerance = _feature_collection(features, name)
         path.write_bytes(encoded)
-        files.append((str(path.relative_to(geometry_dir)), len(encoded), tolerance))
+        relative = str(path.relative_to(geometry_dir))
+        files.append((relative, len(encoded), tolerance))
+        encoded_files[relative] = encoded
         if len(encoded) > SIZE_LIMIT_BYTES * SIZE_WARNING_RATIO:
             logger.warning(
                 "%s is %d bytes, above %d%% of the %d cap",
@@ -248,8 +337,11 @@ def export_region_map(
                 SIZE_LIMIT_BYTES,
             )
 
-    countries = children.get(WORLD_ID, [])
-    write_collection(geometry_dir / "geometry" / "world.geojson", [(r, labels[r], load(r)) for r in countries], "world")
+    write_collection(
+        geometry_dir / "geometry" / "world.geojson",
+        [(r, labels[r], load(r)) for r in children.get(WORLD_ID, [])],
+        "world",
+    )
     for region in admin_regions:
         if children.get(region):
             write_collection(
@@ -260,6 +352,16 @@ def export_region_map(
     for zone in zones:
         write_collection(geometry_dir / "zones" / f"{zone}.geojson", [(zone, labels[zone], load(zone))], zone)
     (geometry_dir / "index.json").write_text(json.dumps(document, indent=2, ensure_ascii=False))
+    bundle = (
+        b'{"index":'
+        + json.dumps(document, separators=(",", ":"), ensure_ascii=False).encode()
+        + b',"files":{'
+        + b",".join(json.dumps(path).encode() + b":" + encoded for path, encoded in sorted(encoded_files.items()))
+        + b"}}"
+    )
+    if len(bundle) > BUNDLE_LIMIT_BYTES:
+        raise ValueError(f"region map bundle is {len(bundle)} bytes, above the {BUNDLE_LIMIT_BYTES} cap")
+    (output_dir / "5_region_map.json").write_bytes(bundle)
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")

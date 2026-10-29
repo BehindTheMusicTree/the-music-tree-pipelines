@@ -10,6 +10,36 @@ from gold import region_map_export
 from gold.region_map_export import export_region_map
 
 
+REGIONAL_SCHEMA = {"item_id": pl.String, "parent_id": pl.String}
+
+
+def _append(path: Path, rows: list[tuple]) -> None:
+    frame = pl.read_parquet(path)
+    pl.concat([frame, pl.DataFrame(rows, schema=frame.schema, orient="row")]).write_parquet(path)
+
+
+def _extend(
+    geohistory: Path,
+    wikidata: Path,
+    entities: dict[str, tuple[str, object, str]] = {},
+    containment: list[tuple[str, str]] = [],
+    anchors: list[tuple[str, str]] = [],
+    regional: list[tuple[str, str | None]] = [],
+) -> None:
+    _append(geohistory / "1_cultural_entity.parquet", [(e, kind, e) for e, (kind, _, _) in entities.items()])
+    _append(
+        geohistory / "8_entity_geometry.parquet",
+        [tuple(_geometry_row(e, shape, source).values()) for e, (_, shape, source) in entities.items()],
+    )
+    _append(geohistory / "2_place_containment.parquet", [(parent, child, "p") for parent, child in containment])
+    _append(geohistory / "5_music_anchor.parquet", [(item, anchor, "P495") for item, anchor in anchors])
+    _append(wikidata / "8_regional_hierarchy.parquet", regional)
+
+
+def _regions(index_path: Path) -> dict[str, dict]:
+    return {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
+
+
 def _geometry_row(entity_id: str, shape, source: str = "natural_earth") -> dict:
     minx, miny, maxx, maxy = shape.bounds
     centroid = shape.centroid
@@ -70,7 +100,9 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     pl.DataFrame(
         [("Q1", None), ("Q11", "Q1"), ("Q12", "Q11")], schema=["item_id", "parent_id"], orient="row"
     ).write_parquet(wikidata / "7_canonical_hierarchy.parquet")
-    pl.DataFrame({"item_id": ["Q2"]}).write_parquet(wikidata / "8_regional_hierarchy.parquet")
+    pl.DataFrame({"item_id": ["Q2"], "parent_id": [None]}, schema=REGIONAL_SCHEMA).write_parquet(
+        wikidata / "8_regional_hierarchy.parquet"
+    )
     match = tmp_path / "match.parquet"
     pl.DataFrame({"wikidata_genre_item_id": ["Q1", "Q1", "Q11", "Q12", "Q3", None]}).write_parquet(match)
     return geohistory, wikidata, match, output
@@ -82,20 +114,130 @@ def test_export_region_map_writes_index_and_geometry(tmp_path: Path) -> None:
     index_path = export_region_map(geohistory, wikidata, match, output)
 
     regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
-    assert set(regions) == {"FR", "BR", "DE", "CE"}
-    assert regions["FR"]["childIds"] == ["BR"] and regions["FR"]["drillable"]
+    assert set(regions) == {"FR", "BR", "NR", "DE", "CE"}
+    assert regions["FR"]["childIds"] == ["BR", "NR"] and regions["FR"]["drillable"]
     assert regions["FR"]["parentId"] == "world" and regions["BR"]["parentId"] == "FR"
     assert regions["BR"]["genres"] == [{"itemId": "Q1", "rule": "P495", "relation": "canonical"}]
     assert (regions["BR"]["songCount"], regions["BR"]["genreCount"]) == (4, 3)
+    assert (regions["FR"]["songCount"], regions["FR"]["genreCount"]) == (4, 3)
+    assert (regions["NR"]["songCount"], regions["NR"]["genreCount"]) == (0, 0)
     assert regions["CE"]["kind"] == "zone" and regions["CE"]["genres"][0]["relation"] == "regional"
     assert regions["BR"]["zoneIds"] == ["CE"] and regions["FR"]["zoneIds"] == ["CE"]
+    assert regions["NR"]["zoneIds"] == []
     geometry_dir = output / "5_region_map"
     world = json.loads((geometry_dir / "geometry" / "world.geojson").read_text())
     assert {f["id"] for f in world["features"]} == {"FR", "DE"}
-    assert (geometry_dir / "geometry" / "FR.geojson").exists()
+    assert {f["id"] for f in json.loads((geometry_dir / "geometry" / "FR.geojson").read_text())["features"]} == {
+        "BR",
+        "NR",
+    }
     assert not (geometry_dir / "geometry" / "BR.geojson").exists()
     assert (geometry_dir / "zones" / "CE.geojson").exists()
     assert all(p.stat().st_size <= region_map_export.SIZE_LIMIT_BYTES for p in geometry_dir.rglob("*.geojson"))
+
+
+def test_export_region_map_writes_a_bundle_of_the_index_and_every_file(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    bundle = json.loads((output / "5_region_map.json").read_text())
+    assert bundle["index"] == json.loads(index_path.read_text())
+    assert set(bundle["files"]) == {"geometry/world.geojson", "geometry/FR.geojson", "zones/CE.geojson"}
+    assert bundle["files"]["zones/CE.geojson"] == json.loads((output / "5_region_map/zones/CE.geojson").read_text())
+
+
+def test_export_region_map_raises_on_oversized_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    monkeypatch.setattr(region_map_export, "BUNDLE_LIMIT_BYTES", 10)
+
+    with pytest.raises(ValueError, match="bundle"):
+        export_region_map(geohistory, wikidata, match, output)
+
+
+def test_export_region_map_lifts_an_orphan_behind_a_zone_parent(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={"WL": ("country", box(0, 6, 3, 9), "wikidata"), "AN": ("admin_unit", box(1, 7, 2, 8), "x")},
+        containment=[("FR", "WL"), ("WL", "AN")],
+        anchors=[("Q8", "AN")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert regions["AN"]["parentId"] == "FR" and "AN" in regions["FR"]["childIds"]
+
+
+def test_export_region_map_nests_a_country_only_when_it_lies_inside_its_parent(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "OUT": ("country", box(40, 0, 45, 5), "natural_earth"),
+            "IN": ("country", box(1, 6, 3, 8), "natural_earth"),
+        },
+        containment=[("FR", "OUT"), ("FR", "IN")],
+        anchors=[("Q8", "OUT"), ("Q9", "IN")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert regions["OUT"]["parentId"] == "world" and "OUT" not in regions["FR"]["childIds"]
+    assert regions["IN"]["parentId"] == "FR"
+
+
+def test_export_region_map_dissolves_a_mainland_intermediate(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "BIG": ("country", box(100, 0, 120, 10), "natural_earth"),
+            "MAIN": ("admin_unit", box(100, 0, 116, 10), "x"),
+            "ISL": ("admin_unit", box(118, 0, 120, 2), "x"),
+            "SUB": ("admin_unit", box(101, 1, 103, 3), "x"),
+        },
+        containment=[("BIG", "MAIN"), ("BIG", "ISL"), ("MAIN", "SUB")],
+        anchors=[("Q20", "MAIN"), ("Q21", "SUB")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "MAIN" not in regions
+    assert regions["BIG"]["childIds"] == ["ISL", "SUB"] and regions["SUB"]["parentId"] == "BIG"
+    assert {g["itemId"] for g in regions["BIG"]["genres"]} == {"Q20"}
+    assert (regions["ISL"]["songCount"], regions["ISL"]["genreCount"]) == (0, 0)
+    assert regions["BIG"]["genreCount"] == 2
+
+
+def test_export_region_map_keeps_a_mainland_with_a_small_share(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "BR" in regions["FR"]["childIds"] and regions["BR"]["parentId"] == "FR"
+
+
+def test_export_region_map_inherits_the_region_of_the_nearest_anchored_regional_parent(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        anchors=[("Q33", "DE")],
+        regional=[("Q31", "Q2"), ("Q32", "Q31"), ("Q33", "Q2")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    inherited = [g for g in regions["CE"]["genres"] if g["rule"] == "regional_parent"]
+    assert inherited == [
+        {"itemId": "Q31", "rule": "regional_parent", "relation": "regional"},
+        {"itemId": "Q32", "rule": "regional_parent", "relation": "regional"},
+    ]
+    assert regions["DE"]["genres"][-1] == {"itemId": "Q33", "rule": "P495", "relation": "regional"}
 
 
 def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:

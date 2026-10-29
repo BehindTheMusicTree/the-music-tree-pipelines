@@ -6,13 +6,14 @@ from geohistory.silver.music_anchor import music_anchor
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
 ENTITIES = [
     ("fr", "country", "France"),
-    ("bre", "historical_region", "Bretagne"),
+    ("bre", "admin_unit", "Brittany"),
     ("mor", "historical_region", "Morbihan"),
     ("us", "country", "United States"),
     ("ge", "country", "Georgia"),
     ("gaus", "historical_region", "Georgia"),
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
+    ("bre_z", "historical_country", "Brittany"),
 ]
 CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
 
@@ -34,6 +35,7 @@ def run(
     placements=(),
     additions=(),
     exclusions=(),
+    footprint=(),
 ):
     wikidata, silver, curation = tmp_path / "wikidata", tmp_path / "silver", tmp_path / "curation"
     for directory in (wikidata, silver, curation):
@@ -59,6 +61,9 @@ def run(
     )
     pl.DataFrame(list(containment), schema=["child_id", "parent_id"], orient="row").write_parquet(
         silver / "2_place_containment.parquet"
+    )
+    pl.DataFrame(list(footprint), schema=["entity_id", "admin_id", "rule"], orient="row").write_parquet(
+        silver / "8_entity_footprint.parquet"
     )
     pl.DataFrame(schema={"predecessor_id": pl.String, "successor_id": pl.String}).write_parquet(
         silver / "3_entity_succession.parquet"
@@ -135,6 +140,18 @@ def test_ambiguous_overview_label_is_unplaced(tmp_path):
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia")])
     assert "Q1" not in anchors
     assert unplaced.rows() == [("Q1", "music of Georgia", "gaus|ge")]
+
+
+def test_overview_label_matching_an_admin_and_its_exact_zone_anchors_on_the_admin(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=[("bre_z", "bre", "cover")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "label")
+    assert unplaced.height == 0
+
+
+def test_overview_label_matching_a_zone_with_a_wider_footprint_stays_ambiguous(tmp_path):
+    footprint = [("bre_z", "bre", "cover"), ("bre_z", "fr", "cover")]
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
+    assert "Q1" not in anchors and unplaced.height == 1
 
 
 def test_ambiguous_label_does_not_override_a_real_candidate(tmp_path):

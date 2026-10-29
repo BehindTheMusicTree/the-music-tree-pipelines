@@ -60,6 +60,17 @@ def _label_index(entities: pl.DataFrame, crosswalk: pl.DataFrame, aliases: pl.Da
     return index
 
 
+def _collapse_equivalent(matches: set[str], kinds: dict[str, str], footprint_admins: dict[str, set[str]]) -> set[str]:
+    """One admin_unit plus zones whose footprint is exactly that admin are the same place: keep the admin."""
+    admins = [entity for entity in matches if kinds.get(entity) == "admin_unit"]
+    if len(matches) < 2 or len(admins) != 1:
+        return matches
+    admin = admins[0]
+    if all(footprint_admins.get(entity) == {admin} for entity in matches if entity != admin):
+        return {admin}
+    return matches
+
+
 def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_music_tradition_claims.parquet")
     tree = pl.read_parquet(wikidata_bronze_dir / "wikidata_genre_tree.parquet")
@@ -70,6 +81,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     time_span = pl.read_parquet(silver_dir / "4_entity_time_span.parquet")
     membership = pl.read_parquet(silver_dir / "2_entity_membership.parquet")
     containment = pl.read_parquet(silver_dir / "2_place_containment.parquet")
+    footprint = pl.read_parquet(silver_dir / "8_entity_footprint.parquet")
 
     entity_ids = set(entities["entity_id"])
     place_ids = set(entities.filter(pl.col("kind").is_in(PLACE_KINDS))["entity_id"])
@@ -102,6 +114,10 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
     placements = _placement_overrides(
         read_curation_list(curation_dir, "tradition_placement_overrides"), entity_ids, item_entity
     )
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    footprint_admins: dict[str, set[str]] = defaultdict(set)
+    for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
+        footprint_admins[entity_id].add(admin_id)
     label_index = _label_index(entities, crosswalk, aliases)
 
     anchors, unplaced = [], []
@@ -136,7 +152,11 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
                     add(entity, prop)
         label_matches: set[str] = set()
         if is_overview:
-            label_matches = label_index.get(label.removeprefix(OVERVIEW_PREFIX).removeprefix("the ").casefold(), set())
+            label_matches = _collapse_equivalent(
+                label_index.get(label.removeprefix(OVERVIEW_PREFIX).removeprefix("the ").casefold(), set()),
+                kinds,
+                footprint_admins,
+            )
             if len(label_matches) == 1:
                 add(next(iter(label_matches)), "label")
 
