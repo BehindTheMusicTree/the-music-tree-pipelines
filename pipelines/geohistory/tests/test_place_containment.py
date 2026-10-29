@@ -1,4 +1,5 @@
 import polars as pl
+import shapely
 import pytest
 from geohistory.silver.curation import LISTS
 from geohistory.silver.entity_footprint import entity_footprint
@@ -141,12 +142,26 @@ def test_assert_acyclic_names_the_offending_edges():
         _assert_acyclic(pl.DataFrame({"parent_id": ["x", "y"], "child_id": ["y", "x"]}), "demo")
 
 
-def footprint(tmp_path, containment, ne_ids, succession=()):
+def footprint(tmp_path, containment, ne_ids, succession=(), points=None):
     silver = tmp_path / "fp"
     silver.mkdir()
+    points = points or {}
     pl.DataFrame(
-        [(e, k, n) for e, k, n in ENTITIES], schema=["entity_id", "kind", "label"], orient="row"
+        [(e, k, n, points.get(e, (None, None))[1], points.get(e, (None, None))[0]) for e, k, n in ENTITIES],
+        schema={
+            "entity_id": pl.String,
+            "kind": pl.String,
+            "label": pl.String,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+        },
+        orient="row",
     ).write_parquet(silver / "1_cultural_entity.parquet")
+    pl.DataFrame(
+        [(f"ne{i}", 1, shapely.box(i * 10, 0, i * 10 + 5, 5).wkb) for i, _ in enumerate(ne_ids)],
+        schema={"ne_id": pl.String, "level": pl.Int8, "geometry_wkb": pl.Binary},
+        orient="row",
+    ).write_parquet(tmp_path / "natural_earth_admin.parquet")
     pl.DataFrame(
         [(f"ne{i}", 1, e, "fr") for i, e in enumerate(ne_ids)],
         schema={"ne_id": pl.String, "level": pl.Int8, "entity_id": pl.String, "country_entity_id": pl.String},
@@ -158,7 +173,7 @@ def footprint(tmp_path, containment, ne_ids, succession=()):
     pl.DataFrame(list(succession), schema=["predecessor_id", "successor_id", "source"], orient="row").write_parquet(
         silver / "3_entity_succession.parquet"
     )
-    entity_footprint(silver)
+    entity_footprint(tmp_path, silver)
     return {(e, a): r for e, a, r in pl.read_parquet(silver / "8_entity_footprint.parquet").rows()}
 
 
@@ -174,6 +189,17 @@ def test_footprint_self_cover_and_succession(tmp_path):
     assert found[("fr", "bre")] == "cover"
     assert found[("old", "bre")] == "succession"
     assert not any(entity == "cat" for entity, _ in found)
+
+
+def test_footprint_places_a_point_entity_in_the_admin_polygon_containing_it(tmp_path):
+    found = footprint(
+        tmp_path,
+        containment=[],
+        ne_ids=["bre", "loi"],
+        points={"cat": (12.0, 2.0), "old": (50.0, 50.0)},
+    )
+    assert found[("cat", "loi")] == "point"
+    assert not any(entity == "old" for entity, _ in found)
 
 
 def test_footprint_collapses_non_ne_admin_when_all_children_are_covered(tmp_path):

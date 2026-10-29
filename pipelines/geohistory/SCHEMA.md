@@ -148,7 +148,18 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | ----------------------------------------------------------------------------- |
 | entity_id | str  | `1_cultural_entity.entity_id`                                                 |
 | admin_id  | str  | `1_cultural_entity.entity_id` of kind `admin_unit`                            |
-| rule      | str  | `self`, `cover` (contained admin units) or `succession` (a successor's units) |
+| rule      | str  | `self`, `cover` (contained admin units), `succession` (a successor's units) or `point` (admin unit containing its coordinates) |
+
+`8_entity_geometry.parquet`: the map geometry of every entity with a footprint, `entity_id` unique.
+
+| Column       | Type      | Meaning                                                                          |
+| ------------ | --------- | -------------------------------------------------------------------------------- |
+| entity_id    | str       | `1_cultural_entity.entity_id`                                                    |
+| geometry_wkb | binary    | WGS 84 (Multi)Polygon, full Natural Earth resolution                             |
+| source       | str       | `natural_earth` (its own polygon) or `footprint` (union of its admin units)      |
+| bbox         | list[f64] | `[minx, miny, maxx, maxy]` of the whole geometry                                 |
+| main_bbox    | list[f64] | Same for the largest polygon part (mainland, without remote islands)             |
+| centroid     | list[f64] | `[x, y]` centroid of the largest polygon part                                    |
 
 ### 2.5.1 5_music_anchor files
 
