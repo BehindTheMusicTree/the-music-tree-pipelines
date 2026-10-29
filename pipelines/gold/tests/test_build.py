@@ -52,12 +52,22 @@ def test_build_gold_writes_manifest_last(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "export_artists", lambda *_: calls.append("artists"))
     monkeypatch.setattr(build, "export_genealogy", lambda *_: calls.append("genealogy"))
+    monkeypatch.setattr(build, "export_region_map", lambda *_: calls.append("region_map"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 
     path = build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, gold_dir)
     (gold_dir / "m.parquet").unlink()
 
-    assert calls == ["canonical", "regional", "match", "umbrella_candidates", "songs", "artists", "genealogy"]
+    assert calls == [
+        "canonical",
+        "regional",
+        "match",
+        "umbrella_candidates",
+        "songs",
+        "artists",
+        "genealogy",
+        "region_map",
+    ]
     manifest = json.loads(path.read_text())
     assert path == gold_dir / "_manifest.json"
     assert manifest["curationExportedOn"] == EXPORTED_ON

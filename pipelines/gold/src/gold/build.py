@@ -12,6 +12,7 @@ from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
 from gold.genealogy_export import export_genealogy
 from gold.genre_match import genre_match
+from gold.region_map_export import export_region_map
 from gold.regional_genre_tree_export import export_regional_genre_tree
 from gold.song_export import check_known_recordings, export_songs
 from gold.umbrella_candidates import export_umbrella_candidates
@@ -110,4 +111,6 @@ def build_gold(
         export_artists(genre_match_path, musicbrainz_silver_dir, wikidata_silver_dir, gold_output_dir)
     with step("genealogy"):
         export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
+    with step("region_map"):
+        export_region_map(geohistory_silver_dir, wikidata_silver_dir, genre_match_path, gold_output_dir)
     return write_manifest(gold_output_dir, curation_exported_on, commit)

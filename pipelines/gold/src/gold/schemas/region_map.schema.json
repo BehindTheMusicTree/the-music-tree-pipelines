@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["regions"],
+  "definitions": {
+    "box": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+    "ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "properties": {
+    "regions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "genres", "songCount", "genreCount"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["country", "admin_unit", "zone"]},
+          "parentId": {"type": ["string", "null"]},
+          "childIds": {"$ref": "#/definitions/ids"},
+          "zoneIds": {"$ref": "#/definitions/ids"},
+          "bbox": {"$ref": "#/definitions/box"},
+          "mainBbox": {"$ref": "#/definitions/box"},
+          "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+          "drillable": {"type": "boolean"},
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["itemId", "rule", "relation"],
+              "properties": {
+                "itemId": {"type": "string", "minLength": 1},
+                "rule": {"type": "string", "minLength": 1},
+                "relation": {"enum": ["canonical", "regional", "tradition"]}
+              }
+            }
+          },
+          "songCount": {"type": "integer", "minimum": 0},
+          "genreCount": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

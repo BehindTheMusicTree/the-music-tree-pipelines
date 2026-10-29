@@ -237,3 +237,13 @@ worth it here.
 ## Delta export, baseline owned by the sync
 
 The nightly import into grow is a full snapshot (grow deletes whatever a run omits), yet almost no song or artist changes day to day. Gold therefore also writes `<name>_delta/` — rows whose stored columns differ, by value, from the last *successfully synced* run, plus the keys that disappeared — so a delta import can send only those. Gold never moves the baseline: `infrastructure` promotes `<name>_snapshot.parquet` into `_synced/` only after grow's merge task reports success, so a failed or skipped sync leaves the baseline behind and the next run re-sends everything it missed. The comparison is exact and per column (no hash, so a Polars upgrade or a dtype change cannot flip every row), and only the columns grow stores are exported, so a column grow ignores never causes a sync. Absent or reshaped baseline means no delta, i.e. a full sync, which is also the fallback after any data loss.
+
+## Region map
+
+**Song ↔ region contract.** A region's songs are the songs whose primary genre (`1_genre_match.parquet`'s `wikidata_genre_item_id`, before any curated override) is in the region's relevant genre set: the items anchored to the region by `5_music_anchor`, plus every canonical descendant of those. `songCount` sums the song counts over that set and `genreCount` is its size, so a region's counts include its sub-genres but never its sub-regions' own anchored genres.
+
+**Admin versus zone.** Countries from Natural Earth and admin-1 units form the drill-down tree (`world` → country → admin unit, parents from `2_place_containment`); an anchored admin unit pulls its admin ancestors onto the map even when they carry no genre. Historical countries, historical and cultural regions and macro-regions are zones: they overlap the admin tree rather than nest in it, so they ship as standalone files and each admin region lists the zones whose footprint reaches it (`zoneIds`, propagated up the admin ancestors).
+
+**Size cap.** Every GeoJSON file must fit in 300 KB so the front can fetch a level in one request. `_feature_collection` tries a ladder of tolerances (exact first, then `coverage_simplify` so shared borders stay shared, falling back to per-geometry simplification when GEOS rejects the coverage), drops parts smaller than the tolerance squared (keeping the largest part when all are smaller), rounds to 2 decimals and raises when the coarsest step still overflows, rather than shipping a file the front cannot load.
+
+**Unplaced genres.** A genre anchored to an entity that is not a place or has no geometry is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.

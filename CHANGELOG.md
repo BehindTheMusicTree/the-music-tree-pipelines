@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `geohistory` Admin units (Natural Earth admin-1 plus P131 intermediates) become `admin_unit` entities, with a place containment graph (`2_place_containment`) and per-entity admin footprints (`8_entity_footprint`). Anchoring and tradition start years now follow containment, so more overviews and traditions are placed.
 - `geohistory` Entities with coordinates but no polygon get an admin footprint from the admin unit containing their point, and every footprint is unioned into a map geometry with bounding boxes and centroid (`8_entity_geometry`).
+- `gold` The region map: `5_region_map/index.json` (admin regions and zones with their genres, song and genre counts), simplified `geometry/<id>.geojson` per drill level and `zones/<id>.geojson`, each under 300 KB, plus an `5_region_map_unplaced.csv` triage report for genres whose anchor has no map geometry.
 
 ### Fixed
 
