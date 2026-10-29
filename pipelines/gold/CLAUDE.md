@@ -6,6 +6,7 @@ Supplements the root `CLAUDE.md` when working inside this pipeline. See the root
 
 - **Run:** `uv run --package gold python -m gold` (reads `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR`/`WIKIDATA_BRONZE_DIR` (needs `wikidata.ingest` to have written `wikidata_genre_descriptions.parquet` and `wikidata_genre_aliases.parquet`), writes `GOLD_OUTPUT_DIR/1_canonical_genre_tree.json`, `1_regional_genre_tree.json`, `1_genre_match.parquet`, `1_genre_match_unresolved.csv`, `2_songs/part-NNNNN.ndjson.gz`, `3_artists/part-NNNNN.ndjson.gz`, `1_genre_match_report.json`)
 - **Flatten the canonical tree for genre-tree-view's playground (on-demand):** `uv run --package gold python -m gold.playground_fixture_export <canonical_tree.json> <genre_match.parquet> <output.json>`
+- **Cut a small region map fixture for the front (on-demand):** `uv run --package gold python -m gold.region_map_fixture_export <5_region_map dir> <out dir> [--region Q142 --region Q12130 --zone Q236626]` (defaults are the demo path; the cut is schema-validated and referentially intact)
 
 ## Architecture
 
