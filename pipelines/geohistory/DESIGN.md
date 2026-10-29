@@ -71,7 +71,8 @@ claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority sou
 a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
 The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
 its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
-Wikidata P625, first match in `ne_id` order). Anchoring drops a candidate that contains another candidate, and a
+Wikidata P625, first admin polygon in `ne_id` order that intersects the point, so a point on a border still matches).
+`8_entity_geometry` is only materialized for entities Gold can draw (countries, admin units and the four zone kinds). Anchoring drops a candidate that contains another candidate, and a
 tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
 lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
 

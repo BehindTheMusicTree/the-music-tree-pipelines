@@ -16,6 +16,7 @@ REGION_MAP_SCHEMA_PATH = Path(__file__).parent / "schemas" / "region_map.schema.
 WORLD_ID = "world"
 ADMIN_KINDS = ("country", "admin_unit")
 ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "macro_region")
+UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
 COORDINATE_DECIMALS = 2
@@ -128,21 +129,25 @@ def export_region_map(
         if entity_id in shapes and entity_id not in admin_ids and kind in ZONE_KINDS + ("country",)
     }
 
+    footprint_admins: dict[str, list[str]] = defaultdict(list)
+    for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
+        if admin_id in admin_ids:
+            footprint_admins[entity_id].append(admin_id)
+
     genres_by_region: dict[str, list[dict]] = defaultdict(list)
     unplaced = []
     for item_id, anchor_id, rule in anchors.select("wikidata_id", "anchor_id", "rule").rows():
-        if anchor_id not in admin_ids and anchor_id not in zone_candidates:
-            reason = (
-                "anchor has no geometry"
-                if kinds.get(anchor_id) in ADMIN_KINDS + ZONE_KINDS
-                else "anchor is not a place"
-            )
-            unplaced.append((item_id, anchor_id, reason))
-        else:
-            relation = (
-                "canonical" if item_id in canonical_ids else "regional" if item_id in regional_ids else "tradition"
-            )
+        relation = "canonical" if item_id in canonical_ids else "regional" if item_id in regional_ids else "tradition"
+        if anchor_id in admin_ids or anchor_id in zone_candidates:
             genres_by_region[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
+        elif kinds.get(anchor_id) in UNFOOTPRINTED_KINDS:
+            unplaced.append((item_id, anchor_id, "anchor is not a place"))
+        elif footprint_admins.get(anchor_id):
+            for admin_id in footprint_admins[anchor_id]:
+                genres_by_region[admin_id].append({"itemId": item_id, "rule": rule, "relation": "tradition"})
+        else:
+            reason = "anchor has no geometry" if anchor_id in shapes else "anchor has no footprint"
+            unplaced.append((item_id, anchor_id, reason))
 
     song_counts = dict(
         pl.read_parquet(genre_match_path, columns=["wikidata_genre_item_id"])

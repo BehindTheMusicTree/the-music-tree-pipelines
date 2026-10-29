@@ -105,10 +105,41 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
 
     unplaced = pl.read_csv(output / "5_region_map_unplaced.csv").sort("wikidata_id")
     assert unplaced.select("wikidata_id", "reason").rows() == [
-        ("Q4", "anchor is not a place"),
-        ("Q5", "anchor is not a place"),
+        ("Q4", "anchor has no footprint"),
+        ("Q5", "anchor has no footprint"),
     ]
     assert json.loads((output / "5_region_map_report.json").read_text()) == {"unplacedGenreCount": 2}
+
+
+def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    entities = pl.read_parquet(geohistory / "1_cultural_entity.parquet")
+    pl.concat(
+        [
+            entities,
+            pl.DataFrame(
+                [("EG", "ethnic_group", "Javanese"), ("CV", "civilization", "Rome")],
+                schema=entities.schema,
+                orient="row",
+            ),
+        ]
+    ).write_parquet(geohistory / "1_cultural_entity.parquet")
+    footprint = pl.read_parquet(geohistory / "8_entity_footprint.parquet")
+    pl.concat(
+        [footprint, pl.DataFrame([("EG", "NR", "point"), ("CV", "NR", "point")], schema=footprint.schema, orient="row")]
+    ).write_parquet(geohistory / "8_entity_footprint.parquet")
+    anchors = pl.read_parquet(geohistory / "5_music_anchor.parquet")
+    pl.concat(
+        [anchors, pl.DataFrame([("Q6", "EG", "P495"), ("Q7", "CV", "P495")], schema=anchors.schema, orient="row")]
+    ).write_parquet(geohistory / "5_music_anchor.parquet")
+
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
+    genres = regions["NR"]["genres"]
+    assert genres == [{"itemId": "Q6", "rule": "P495", "relation": "tradition"}]
+    unplaced = pl.read_csv(output / "5_region_map_unplaced.csv")
+    assert ("Q7", "anchor is not a place") in unplaced.select("wikidata_id", "reason").rows()
 
 
 def test_export_region_map_raises_on_oversized_geometry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

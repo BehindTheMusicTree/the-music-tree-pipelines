@@ -148,9 +148,9 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | ----------------------------------------------------------------------------- |
 | entity_id | str  | `1_cultural_entity.entity_id`                                                 |
 | admin_id  | str  | `1_cultural_entity.entity_id` of kind `admin_unit`                            |
-| rule      | str  | `self`, `cover` (contained admin units), `succession` (a successor's units) or `point` (admin unit containing its coordinates) |
+| rule      | str  | `self`, `cover` (contained admin units), `succession` (a successor's units) or `point` (admin unit intersecting its coordinates) |
 
-`8_entity_geometry.parquet`: the map geometry of every entity with a footprint, `entity_id` unique.
+`8_entity_geometry.parquet`: the map geometry of every country, admin unit and zone-kind entity with a footprint, `entity_id` unique.
 
 | Column       | Type      | Meaning                                                                          |
 | ------------ | --------- | -------------------------------------------------------------------------------- |

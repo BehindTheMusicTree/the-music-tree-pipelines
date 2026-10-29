@@ -24,7 +24,7 @@ def _point_footprints(bronze_dir: Path, ne_map: pl.DataFrame, points: pl.DataFra
     admin_of = polygons["entity_id"].to_list()
     point_ids = points["entity_id"].to_list()
     hits_point, hits_polygon = tree.query(
-        shapely.points(points["longitude"].to_numpy(), points["latitude"].to_numpy()), predicate="within"
+        shapely.points(points["longitude"].to_numpy(), points["latitude"].to_numpy()), predicate="intersects"
     )
     found: dict[str, str] = {}
     for point, polygon in sorted(zip(hits_point.tolist(), hits_polygon.tolist(), strict=True)):
@@ -91,9 +91,12 @@ def entity_footprint(bronze_dir: Path, silver_dir: Path) -> Path:
     rows.extend((entity_id, admin, "point") for entity_id, admin in _point_footprints(bronze_dir, ne_map, points))
 
     frame = pl.DataFrame(rows, schema=FOOTPRINT_SCHEMA, orient="row").sort("entity_id", "admin_id")
-    unplaced = len(place_ids - set(frame["entity_id"]))
+    with_coordinates = set(
+        entities.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())["entity_id"]
+    )
+    unplaced = len((place_ids | with_coordinates) - set(frame["entity_id"]))
     if unplaced:
-        logger.info("%d place entit(ies) have no admin footprint", unplaced)
+        logger.info("%d entit(ies) have no admin footprint", unplaced)
     output_path = silver_dir / "8_entity_footprint.parquet"
     frame.write_parquet(output_path)
     logger.info("wrote %d rows to %s", frame.height, output_path)

@@ -246,4 +246,6 @@ The nightly import into grow is a full snapshot (grow deletes whatever a run omi
 
 **Size cap.** Every GeoJSON file must fit in 300 KB so the front can fetch a level in one request. `_feature_collection` tries a ladder of tolerances (exact first, then `coverage_simplify` so shared borders stay shared, falling back to per-geometry simplification when GEOS rejects the coverage), drops parts smaller than the tolerance squared (keeping the largest part when all are smaller), rounds to 2 decimals and raises when the coarsest step still overflows, rather than shipping a file the front cannot load.
 
-**Unplaced genres.** A genre anchored to an entity that is not a place or has no geometry is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.
+**Footprint anchors.** A genre anchored to an entity that is not itself a region (an ethnic group, a language) but has an admin footprint is listed on each footprint admin region with relation `tradition`. `civilization` and `curated` anchors are never placed this way; they go through curation.
+
+**Unplaced genres.** A genre anchored to a `civilization`/`curated` entity, or to an entity with no footprint or no geometry, is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.
