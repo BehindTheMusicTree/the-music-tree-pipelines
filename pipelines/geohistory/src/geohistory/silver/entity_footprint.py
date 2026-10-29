@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import polars as pl
+import shapely
 
 from geohistory.silver.music_anchor import PLACE_KINDS
 
@@ -11,7 +12,27 @@ logger = logging.getLogger(__name__)
 FOOTPRINT_SCHEMA = {"entity_id": pl.String, "admin_id": pl.String, "rule": pl.String}
 
 
-def entity_footprint(silver_dir: Path) -> Path:
+def _point_footprints(bronze_dir: Path, ne_map: pl.DataFrame, points: pl.DataFrame) -> list[tuple[str, str]]:
+    """(entity_id, admin_id) for each point falling inside an admin-1 polygon mapped to an entity."""
+    polygons = (
+        pl.read_parquet(bronze_dir / "natural_earth_admin.parquet", columns=["ne_id", "level", "geometry_wkb"])
+        .filter(pl.col("level") == 1)
+        .join(ne_map.select("ne_id", "entity_id").drop_nulls(), on="ne_id")
+        .sort("ne_id")
+    )
+    tree = shapely.STRtree(shapely.make_valid(shapely.from_wkb(polygons["geometry_wkb"].to_list())))
+    admin_of = polygons["entity_id"].to_list()
+    point_ids = points["entity_id"].to_list()
+    hits_point, hits_polygon = tree.query(
+        shapely.points(points["longitude"].to_numpy(), points["latitude"].to_numpy()), predicate="within"
+    )
+    found: dict[str, str] = {}
+    for point, polygon in sorted(zip(hits_point.tolist(), hits_polygon.tolist(), strict=True)):
+        found.setdefault(point_ids[point], admin_of[polygon])
+    return sorted(found.items())
+
+
+def entity_footprint(bronze_dir: Path, silver_dir: Path) -> Path:
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet")
     ne_map = pl.read_parquet(silver_dir / "1_entity_ne_admin.parquet")
     containment = pl.read_parquet(silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
@@ -63,8 +84,14 @@ def entity_footprint(silver_dir: Path) -> Path:
                 rows.extend((entity_id, admin, "succession") for admin in sorted(ids))
                 break
 
+    covered = {entity_id for entity_id, _, _ in rows}
+    points = entities.filter(
+        pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null() & ~pl.col("entity_id").is_in(covered)
+    ).sort("entity_id")
+    rows.extend((entity_id, admin, "point") for entity_id, admin in _point_footprints(bronze_dir, ne_map, points))
+
     frame = pl.DataFrame(rows, schema=FOOTPRINT_SCHEMA, orient="row").sort("entity_id", "admin_id")
-    unplaced = len(place_ids) - frame["entity_id"].n_unique()
+    unplaced = len(place_ids - set(frame["entity_id"]))
     if unplaced:
         logger.info("%d place entit(ies) have no admin footprint", unplaced)
     output_path = silver_dir / "8_entity_footprint.parquet"

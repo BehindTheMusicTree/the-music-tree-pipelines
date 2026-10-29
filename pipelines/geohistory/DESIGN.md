@@ -70,9 +70,17 @@ P706 between place entities, with the Natural Earth country as fallback for admi
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
 a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
 The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
-its successors' footprint (`succession`). Anchoring drops a candidate that contains another candidate, and a
+its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
+Wikidata P625, first match in `ne_id` order). Anchoring drops a candidate that contains another candidate, and a
 tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
 lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
+
+`8_entity_geometry` unions the polygons of an entity's footprint, dropping admin units already contained in another
+one of the same footprint so a country and its province are not counted twice. An admin unit without a Natural
+Earth polygon is tiled by its contained units' polygons. The union is `shapely.union_all` rather than
+`coverage_union`, which rejects Natural Earth's not exactly noded neighbours; source polygons are repaired with
+`make_valid` first (e.g. BRA-1294 self-intersects). An entity whose footprint has no polygon raises. Measured on the
+staging Silver: about 43 s and 3 GB peak memory for 36k entities, so no optimisation.
 
 ## 9. Curation
 

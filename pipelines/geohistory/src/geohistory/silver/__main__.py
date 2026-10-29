@@ -4,6 +4,7 @@ from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import geohistory
 from geohistory.silver.cultural_entity import cultural_entity
+from geohistory.silver.entity_geometry import entity_geometry
 from geohistory.silver.entity_footprint import entity_footprint
 from geohistory.silver.entity_membership import entity_membership
 from geohistory.silver.entity_succession import entity_succession
@@ -25,7 +26,8 @@ entity_membership(bronze_dir, wikidata_bronze_dir, silver_dir, curation_dir)
 entity_succession(wikidata_bronze_dir, silver_dir)
 entity_time_span(bronze_dir, wikidata_bronze_dir, silver_dir, curation_dir)
 place_containment(wikidata_bronze_dir, silver_dir, curation_dir)
-entity_footprint(silver_dir)
+entity_footprint(bronze_dir, silver_dir)
+entity_geometry(bronze_dir, silver_dir)
 music_anchor(wikidata_bronze_dir, silver_dir, curation_dir)
 tradition(wikidata_bronze_dir, silver_dir, curation_dir)
 genealogy_lane(silver_dir)
