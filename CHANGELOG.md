@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `gold` `gold.region_map_fixture_export`, an on-demand cut of `5_region_map/` into a small, schema-valid, referentially intact fixture (demo path by default).
 - `gold` `5_region_map.json`, a bundle of the region map index and every geojson file (at most 15 MiB) for `grow-the-music-tree-api` to import atomically.
 
 ### Changed
