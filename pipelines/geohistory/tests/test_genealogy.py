@@ -60,6 +60,9 @@ def paths(tmp_path: Path):
     pl.DataFrame(
         [("A", "C", "x"), ("B", "C", "x")], schema=["child_id", "parent_id", "source"], orient="row"
     ).write_parquet(silver / "2_entity_membership.parquet")
+    pl.DataFrame(schema={"child_id": pl.String, "parent_id": pl.String, "source": pl.String}).write_parquet(
+        silver / "2_place_containment.parquet"
+    )
     pl.DataFrame(
         [("A", "D", "P1366")], schema=["predecessor_id", "successor_id", "source"], orient="row"
     ).write_parquet(silver / "3_entity_succession.parquet")

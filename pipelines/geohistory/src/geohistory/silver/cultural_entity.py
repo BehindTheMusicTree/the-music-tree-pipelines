@@ -20,6 +20,8 @@ WIKIDATA_ENTITY_KINDS = (
     "macro_region",
     "curated",
 )
+ADMIN_KIND = "admin_unit"
+_NE_COLUMNS = ["ne_id", "level", "wikidata_id", "adm0_a3", "name"]
 _NUMBER = r"-?[\d.]+(?:[eE][-+]?\d+)?"
 POINT_PATTERN = rf"^Point\(({_NUMBER}) ({_NUMBER})\)$"
 
@@ -53,12 +55,83 @@ def _glottolog_entities(languoids: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _admin_entities(
+    natural_earth: pl.DataFrame, hierarchy: pl.DataFrame, crosswalk: pl.DataFrame
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Admin-1 units and P131 intermediates as `admin_unit` entities, plus the NE polygon → entity map."""
+    item_entity = dict(crosswalk.sort("entity_id", descending=True).select("wikidata_id", "entity_id").rows())
+    countries = natural_earth.filter(pl.col("level") == 0)
+    country_entity = {
+        adm0: item_entity.get(qid) for adm0, qid in countries.select("adm0_a3", "wikidata_id").rows() if qid
+    }
+    country_qids = set(countries["wikidata_id"].drop_nulls())
+
+    labels = dict(
+        hierarchy.filter(pl.col("label").is_not_null())
+        .sort("item_id", "label")
+        .unique("item_id", keep="first")
+        .select("item_id", "label")
+        .rows()
+    )
+    units: dict[str, str] = {}
+    ne_rows = []
+    for ne_id, adm0, qid, name in (
+        natural_earth.filter(pl.col("level") == 1)
+        .sort("ne_id")
+        .select("ne_id", "adm0_a3", "wikidata_id", "name")
+        .rows()
+    ):
+        if qid in country_qids:
+            entity_id = item_entity.get(qid)
+        elif qid in item_entity:
+            entity_id = item_entity[qid]
+        elif (label := name or labels.get(qid)) is None:
+            entity_id = None
+        else:
+            entity_id = qid or f"ne:{ne_id}"
+            units.setdefault(entity_id, label)
+        ne_rows.append((ne_id, 1, entity_id, country_entity.get(adm0)))
+    for ne_id, adm0, qid in countries.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id").rows():
+        ne_rows.append((ne_id, 0, item_entity.get(qid), country_entity.get(adm0)))
+
+    known = set(item_entity) | {qid for qid in natural_earth["wikidata_id"].drop_nulls()} | set(units)
+    parents = hierarchy.filter(pl.col("property") == "P131").select("item_id", "value")
+    intermediates = set(parents["value"]) - known
+    child_count = (
+        parents.filter(pl.col("value").is_in(intermediates) & pl.col("item_id").is_in(known | intermediates))
+        .group_by("value")
+        .len()
+    )
+    for qid in child_count.filter(pl.col("len") > 1)["value"].sort().to_list():
+        if qid in labels:
+            units.setdefault(qid, labels[qid])
+
+    entities = pl.DataFrame(
+        [(entity_id, ADMIN_KIND, label) for entity_id, label in sorted(units.items())],
+        schema={"entity_id": pl.String, "kind": pl.String, "label": pl.String},
+        orient="row",
+    )
+    admin_crosswalk = pl.DataFrame(
+        [(entity_id, entity_id) for entity_id in sorted(units) if not entity_id.startswith("ne:")],
+        schema={"entity_id": pl.String, "wikidata_id": pl.String},
+        orient="row",
+    )
+    ne_map = pl.DataFrame(
+        ne_rows,
+        schema={"ne_id": pl.String, "level": pl.Int8, "entity_id": pl.String, "country_entity_id": pl.String},
+        orient="row",
+    ).sort("ne_id")
+    return entities, admin_crosswalk, ne_map
+
+
 def cultural_entity(
     bronze_dir: Path, wikidata_bronze_dir: Path, output_dir: Path, curation_dir: Path
 ) -> tuple[Path, Path]:
     languoids = pl.read_parquet(bronze_dir / "glottolog_languoid.parquet")
     wikidata = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity.parquet")
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity_claim.parquet")
+    natural_earth = pl.read_parquet(bronze_dir / "natural_earth_admin.parquet", columns=_NE_COLUMNS)
+    hierarchy = pl.read_parquet(wikidata_bronze_dir / "wikidata_admin_hierarchy.parquet")
 
     glottolog = _glottolog_entities(languoids)
     item_glottocodes = wikidata.filter(pl.col("glottocode").is_not_null()).select("item_id", "glottocode").unique()
@@ -104,6 +177,9 @@ def cultural_entity(
         ]
     ).sort("entity_id", "wikidata_id")
 
+    admin_entities, admin_crosswalk, ne_map = _admin_entities(natural_earth, hierarchy, crosswalk)
+    crosswalk = pl.concat([crosswalk, admin_crosswalk]).sort("entity_id", "wikidata_id")
+
     entity_points = (
         crosswalk.join(wikidata_points(claims), on="wikidata_id")
         .sort("entity_id", "wikidata_id")
@@ -114,6 +190,9 @@ def cultural_entity(
         pl.concat(
             [
                 glottolog,
+                admin_entities.with_columns(
+                    pl.lit(None, pl.Float64).alias(c) for c in ("latitude", "longitude")
+                ).with_columns(pl.lit(None, pl.String).alias("macroarea")),
                 wikidata_entities.with_columns(
                     pl.lit(None, pl.Float64).alias(c) for c in ("latitude", "longitude")
                 ).with_columns(pl.lit(None, pl.String).alias("macroarea")),
@@ -146,6 +225,12 @@ def cultural_entity(
         logger.warning("%d excluded entity id(s) are not in scope: %s", len(unknown_exclusions), unknown_exclusions[:5])
     entities = entities.filter(~pl.col("entity_id").is_in(excluded))
     crosswalk = crosswalk.filter(~pl.col("entity_id").is_in(excluded))
+    ne_map = ne_map.with_columns(
+        *(
+            pl.when(pl.col(c).is_in(excluded)).then(None).otherwise(pl.col(c)).alias(c)
+            for c in ("entity_id", "country_entity_id")
+        )
+    )
     check_non_empty(entities, "1_cultural_entity")
     check_unique_key(entities, "entity_id", "1_cultural_entity")
 
@@ -154,5 +239,6 @@ def cultural_entity(
     crosswalk_path = output_dir / "1_entity_wikidata_item.parquet"
     entities.write_parquet(entity_path)
     crosswalk.write_parquet(crosswalk_path)
+    ne_map.write_parquet(output_dir / "1_entity_ne_admin.parquet")
     logger.info("wrote %d rows to %s and %d rows to %s", entities.height, entity_path, crosswalk.height, crosswalk_path)
     return entity_path, crosswalk_path

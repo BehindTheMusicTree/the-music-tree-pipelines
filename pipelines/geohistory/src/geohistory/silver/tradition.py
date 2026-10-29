@@ -45,6 +45,21 @@ def _lift_to_date(entity: str, year: int, spans: dict[str, tuple[int | None, int
         seen.add(entity)
 
 
+def _inherited_start(entity: str | None, spans: dict, parents: dict[str, list[str]]) -> int | None:
+    """Own start year, else the earliest start among the nearest containing places that have one."""
+    if entity is None:
+        return None
+    level, seen = [entity], {entity}
+    while level:
+        starts = [start for node in level if (start := spans.get(node, (None, None))[0]) is not None]
+        if starts:
+            return min(starts)
+        upper = sorted({p for node in level for p in parents.get(node, ())} - seen)
+        seen.update(upper)
+        level = upper
+    return None
+
+
 def _placement_overrides(overrides: pl.DataFrame, entity_ids: set[str], item_entity: dict[str, str]) -> dict:
     resolved = {}
     for qid, entity_id, start, end in overrides.select("wikidata_id", "entity_id", "start_year", "end_year").rows():
@@ -120,6 +135,10 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
     for entity_id, wikidata_id in crosswalk.select("entity_id", "wikidata_id").rows():
         item_entity.setdefault(wikidata_id, entity_id)
     spans = {e: (s, t) for e, s, t in time_span.select("entity_id", "start_year", "end_year").rows()}
+    parents: dict[str, list[str]] = defaultdict(list)
+    containment = pl.read_parquet(silver_dir / "2_place_containment.parquet").sort("child_id", "parent_id")
+    for child, parent in containment.select("child_id", "parent_id").rows():
+        parents[child].append(parent)
     anchored = {q: (a, r) for q, a, r in music_anchor.select("wikidata_id", "anchor_id", "rule").rows()}
     values: dict[tuple[str, str], list[str]] = defaultdict(list)
     for item, prop, value in claims.filter(pl.col("value").is_not_null()).select("item_id", "property", "value").rows():
@@ -149,7 +168,7 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
 
         anchor, rule = anchored.get(qid, (None, None))
 
-        start = known_start if known_start is not None else spans.get(anchor, (None, None))[0]
+        start = known_start if known_start is not None else _inherited_start(anchor, spans, parents)
         end = override_end if override_end is not None else claim_end.get(qid)
         is_overview = label.startswith(OVERVIEW_PREFIX)
         if qid not in additions:

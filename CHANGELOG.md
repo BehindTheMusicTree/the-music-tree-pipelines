@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `geohistory` Admin units (Natural Earth admin-1 plus P131 intermediates) become `admin_unit` entities, with a place containment graph (`2_place_containment`) and per-entity admin footprints (`8_entity_footprint`). Anchoring and tradition start years now follow containment, so more overviews and traditions are placed.
+
 ### Fixed
 
 - `wikidata` A WDQS brownout no longer fails the nightly run: artist images reuse each partition's last good rows for up to 7 days. WDQS retries now run on a time budget with jitter, honour `Retry-After`, stop on non-retryable 4xx, and report a WDQS timeout as such. The live contract test checks the response shape on a sample instead of running the full extract.

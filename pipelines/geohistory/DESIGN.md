@@ -62,6 +62,18 @@ documentation. End mirrors it with max `P576`/`P582` and the last year of docume
 A null end means alive; the 1950 ceiling is applied in Gold. An entity starting after it ends is logged and kept
 for curation.
 
+## 8.1 Admin units, containment and footprints
+
+Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
+one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
+P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
+claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
+a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
+The footprint of an entity is itself if an admin unit (`self`), else every admin unit it contains (`cover`), else
+its successors' footprint (`succession`). Anchoring drops a candidate that contains another candidate, and a
+tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
+lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
+
 ## 9. Curation
 
 Eight lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
