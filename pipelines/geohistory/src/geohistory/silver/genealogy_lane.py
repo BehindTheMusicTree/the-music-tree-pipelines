@@ -93,7 +93,7 @@ def _lift_admin_anchors(traditions: pl.DataFrame, entities: pl.DataFrame, contai
             upper = sorted({p for node in level for p in parents.get(node, ())} - seen)
             seen.update(upper)
             level = upper
-        return anchor
+        raise ValueError(f"admin unit {anchor} has no non-admin containing place to lift to")
 
     return traditions.with_columns(pl.col("anchor_id").map_elements(lifted, return_dtype=pl.String))
 
@@ -159,6 +159,9 @@ def genealogy_lane(silver_dir: Path) -> tuple[Path, Path]:
         )
 
     lane_path, band_path = silver_dir / "6_genealogy_lane.parquet", silver_dir / "6_genealogy_band.parquet"
+    traditions.select("wikidata_id", pl.col("anchor_id").alias("lane_id")).sort("wikidata_id").write_parquet(
+        silver_dir / "6_genealogy_tradition_lane.parquet"
+    )
     pl.DataFrame(lane_rows, schema=LANE_SCHEMA, orient="row").write_parquet(lane_path)
     pl.DataFrame(band_rows, schema=BAND_SCHEMA, orient="row").write_parquet(band_path)
     logger.info("wrote %d lanes and %d bands to %s", len(lanes), len(bands), silver_dir)

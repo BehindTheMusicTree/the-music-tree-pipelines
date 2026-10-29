@@ -16,7 +16,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 - `wikidata`'s Bronze `wikidata_genre_descriptions.parquet` (`WIKIDATA_BRONZE_DIR`): the source of the tree nodes' `description` and Wikipedia `summary` — see `pipelines/wikidata/SCHEMA.md`.
 - `musicbrainz`'s `6_artists.parquet`, `7_artist_members.parquet`, `8_artist_links.parquet`, `9_artist_release_groups.parquet`, `11_artist_aliases.parquet` — see `pipelines/musicbrainz/SCHEMA.md`.
 - `musicbrainz`'s `5_songs.parquet`: `musicbrainz_recording_id, title, artist, artist_musicbrainz_id, youtube_video_id, youtube_unplayable_reason, youtube_view_count, genre_name, first_release_year` — see `pipelines/musicbrainz/SCHEMA.md`.
-- `geohistory`'s `3_entity_succession.parquet`, `5_tradition.parquet`, `5_tradition_link.parquet`, `6_genealogy_lane.parquet`, `7_lane_order.parquet`, `7_band_fragment.parquet`, plus `1_cultural_entity.parquet`, `2_place_containment.parquet`, `5_music_anchor.parquet`, `8_entity_geometry.parquet`, `8_entity_footprint.parquet` for the region map (`GEOHISTORY_SILVER_DIR`) — see `pipelines/geohistory/SCHEMA.md`.
+- `geohistory`'s `3_entity_succession.parquet`, `5_tradition.parquet`, `5_tradition_link.parquet`, `6_genealogy_lane.parquet`, `6_genealogy_tradition_lane.parquet`, `7_lane_order.parquet`, `7_band_fragment.parquet`, plus `1_cultural_entity.parquet`, `2_place_containment.parquet`, `5_music_anchor.parquet`, `8_entity_geometry.parquet`, `8_entity_footprint.parquet` for the region map (`GEOHISTORY_SILVER_DIR`) — see `pipelines/geohistory/SCHEMA.md`.
 
 ## 2. Outputs
 

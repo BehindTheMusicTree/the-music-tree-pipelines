@@ -1,6 +1,6 @@
 import polars as pl
-import shapely
 import pytest
+import shapely
 from geohistory.silver.curation import LISTS
 from geohistory.silver.entity_footprint import entity_footprint
 from geohistory.silver.entity_membership import _assert_acyclic
@@ -214,10 +214,19 @@ def test_footprint_collapses_non_ne_admin_when_all_children_are_covered(tmp_path
 def test_lift_admin_anchors_stand_in_as_their_nearest_non_admin_place():
     entities = pl.DataFrame([(e, k) for e, k, _ in ENTITIES], schema=["entity_id", "kind"], orient="row")
     containment = pl.DataFrame(
-        [("bre", "mor", "p131"), ("fr", "bre", "p131")], schema=["parent_id", "child_id", "source"], orient="row"
+        [("bre", "mor", "p131"), ("fr", "bre", "p131"), ("es", "cat", "p131")],
+        schema=["parent_id", "child_id", "source"],
+        orient="row",
     )
     traditions = pl.DataFrame({"anchor_id": ["mor", "es", "cat"]})
-    assert _lift_admin_anchors(traditions, entities, containment)["anchor_id"].to_list() == ["fr", "es", "cat"]
+    assert _lift_admin_anchors(traditions, entities, containment)["anchor_id"].to_list() == ["fr", "es", "es"]
+
+
+def test_lift_admin_anchors_raises_on_an_admin_unit_without_a_non_admin_ancestor():
+    entities = pl.DataFrame([(e, k) for e, k, _ in ENTITIES], schema=["entity_id", "kind"], orient="row")
+    containment = pl.DataFrame(schema={"parent_id": pl.String, "child_id": pl.String, "source": pl.String})
+    with pytest.raises(ValueError, match="cat"):
+        _lift_admin_anchors(pl.DataFrame({"anchor_id": ["cat"]}), entities, containment)
 
 
 def test_inherited_start_takes_the_nearest_dated_container():
