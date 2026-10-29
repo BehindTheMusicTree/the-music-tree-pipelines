@@ -65,16 +65,21 @@ def _without_specks(geometry, tolerance: float):
 
 def _rounded(geometry):
     rounded = shapely.transform(geometry, lambda coordinates: np.round(coordinates, COORDINATE_DECIMALS))
-    return shapely.make_valid(rounded)
+    polygons = [p for p in shapely.get_parts(shapely.make_valid(rounded)) if p.geom_type == "Polygon"]
+    return shapely.union_all(polygons) if polygons else geometry
 
 
 def _feature_collection(features: list[tuple[str, str, object]], name: str) -> bytes:
     geometries = [geometry for _, _, geometry in features]
     for tolerance in SIMPLIFY_TOLERANCES:
         rounded = [_rounded(_without_specks(geometry, tolerance)) for geometry in _simplified(geometries, tolerance)]
-        empty = [features[i][0] for i, geometry in enumerate(rounded) if geometry.is_empty]
-        if empty:
-            raise ValueError(f"{name}: simplification emptied the geometry of {empty[:5]}")
+        degenerate = [
+            features[i][0]
+            for i, geometry in enumerate(rounded)
+            if geometry.is_empty or geometry.geom_type not in ("Polygon", "MultiPolygon")
+        ]
+        if degenerate:
+            raise ValueError(f"{name}: simplification emptied or degraded the geometry of {degenerate[:5]}")
         document = {
             "type": "FeatureCollection",
             "features": [

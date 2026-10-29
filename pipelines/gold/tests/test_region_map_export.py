@@ -137,5 +137,5 @@ def test_without_specks_keeps_the_largest_part_and_drops_islets() -> None:
 
 
 def test_feature_collection_raises_on_emptied_geometry() -> None:
-    with pytest.raises(ValueError, match="emptied"):
+    with pytest.raises(ValueError, match="emptied or degraded"):
         region_map_export._feature_collection([("P", "P", Point(1, 1).buffer(0))], "n")
