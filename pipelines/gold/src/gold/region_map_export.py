@@ -233,12 +233,12 @@ def export_region_map(
     (geometry_dir / "geometry").mkdir(parents=True)
     (geometry_dir / "zones").mkdir()
 
-    files = []
+    files: list[tuple[str, int, float]] = []
 
     def write_collection(path: Path, features: list[tuple[str, str, object]], name: str) -> None:
         encoded, tolerance = _feature_collection(features, name)
         path.write_bytes(encoded)
-        files.append({"path": str(path.relative_to(geometry_dir)), "bytes": len(encoded), "tolerance": tolerance})
+        files.append((str(path.relative_to(geometry_dir)), len(encoded), tolerance))
         if len(encoded) > SIZE_LIMIT_BYTES * SIZE_WARNING_RATIO:
             logger.warning(
                 "%s is %d bytes, above %d%% of the %d cap",
@@ -263,7 +263,10 @@ def export_region_map(
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
-    report = {"unplacedGenreCount": unplaced_frame.height, "files": sorted(files, key=lambda f: f["path"])}
+    report = {
+        "unplacedGenreCount": unplaced_frame.height,
+        "files": [{"path": p, "bytes": b, "tolerance": t} for p, b, t in sorted(files)],
+    }
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
     if unplaced_frame.height:
         logger.warning("%d genre(s) have no region on the map, see 5_region_map_unplaced.csv", unplaced_frame.height)
