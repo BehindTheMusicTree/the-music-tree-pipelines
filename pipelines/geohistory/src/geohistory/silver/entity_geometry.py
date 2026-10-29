@@ -73,10 +73,12 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
         admins_by_entity[entity_id].add(admin_id)
 
     rows = []
+    missing = 0
     for entity_id in sorted(admins_by_entity):
         admins = admins_by_entity[entity_id]
         nested = set().union(*(_descendants(admin, children) for admin in admins)) & admins
         tiles = [geometry for admin in sorted(admins - nested) if (geometry := tile(admin)) is not None]
+        missing += len(admins - nested) - len(tiles)
         if not tiles:
             raise ValueError(f"{entity_id} has a footprint but none of its admin units has a polygon")
         geometry = tiles[0] if len(tiles) == 1 else shapely.union_all(tiles)
@@ -96,6 +98,8 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
             )
         )
 
+    if missing:
+        logger.warning("%d footprint admin unit(s) have no polygon and are left out of their geometry", missing)
     frame = pl.DataFrame(rows, schema=GEOMETRY_SCHEMA, orient="row").sort("entity_id")
     output_path = silver_dir / "8_entity_geometry.parquet"
     frame.write_parquet(output_path)

@@ -20,7 +20,7 @@ def _point_footprints(bronze_dir: Path, ne_map: pl.DataFrame, points: pl.DataFra
         .join(ne_map.select("ne_id", "entity_id").drop_nulls(), on="ne_id")
         .sort("ne_id")
     )
-    tree = shapely.STRtree(shapely.from_wkb(polygons["geometry_wkb"].to_list()))
+    tree = shapely.STRtree(shapely.make_valid(shapely.from_wkb(polygons["geometry_wkb"].to_list())))
     admin_of = polygons["entity_id"].to_list()
     point_ids = points["entity_id"].to_list()
     hits_point, hits_polygon = tree.query(
