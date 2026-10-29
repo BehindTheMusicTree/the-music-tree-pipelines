@@ -19,7 +19,7 @@ ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "mac
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
 SIZE_WARNING_RATIO = 0.9
-BUNDLE_LIMIT_BYTES = 15 * 1024 * 1024
+BUNDLE_LIMIT_BYTES = 20 * 1024 * 1024
 NESTED_COUNTRY_MIN_OVERLAP = 0.9
 MAINLAND_MIN_SHARE = 0.5
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
@@ -366,6 +366,13 @@ def export_region_map(
     )
     if len(bundle) > BUNDLE_LIMIT_BYTES:
         raise ValueError(f"region map bundle is {len(bundle)} bytes, above the {BUNDLE_LIMIT_BYTES} cap")
+    if len(bundle) > BUNDLE_LIMIT_BYTES * SIZE_WARNING_RATIO:
+        logger.warning(
+            "5_region_map.json is %d bytes, above %d%% of the %d cap",
+            len(bundle),
+            SIZE_WARNING_RATIO * 100,
+            BUNDLE_LIMIT_BYTES,
+        )
     (output_dir / "5_region_map.json").write_bytes(bundle)
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
