@@ -6,6 +6,7 @@ import pytest
 from geohistory.silver.curation import LISTS
 from geohistory.silver.genealogy_lane import genealogy_lane
 from geohistory.silver.lane_order import lane_order
+from geohistory.silver.music_anchor import music_anchor
 from geohistory.silver.tradition import tradition
 
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
@@ -33,6 +34,11 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     return curation
 
 
+def build_tradition(wikidata, silver, curation):
+    music_anchor(wikidata, silver, curation)
+    return tradition(wikidata, silver, curation)
+
+
 def label(item_id, text):
     return claim(item_id, "label", text)
 
@@ -54,6 +60,9 @@ def paths(tmp_path: Path):
     pl.DataFrame(
         [("A", "C", "x"), ("B", "C", "x")], schema=["child_id", "parent_id", "source"], orient="row"
     ).write_parquet(silver / "2_entity_membership.parquet")
+    pl.DataFrame(schema={"child_id": pl.String, "parent_id": pl.String, "source": pl.String}).write_parquet(
+        silver / "2_place_containment.parquet"
+    )
     pl.DataFrame(
         [("A", "D", "P1366")], schema=["predecessor_id", "successor_id", "source"], orient="row"
     ).write_parquet(silver / "3_entity_succession.parquet")
@@ -81,6 +90,9 @@ def paths(tmp_path: Path):
         schema=TREE_SCHEMA,
         orient="row",
     ).write_parquet(wikidata / "wikidata_genre_tree.parquet")
+    pl.DataFrame(schema={"item_id": pl.String, "alias": pl.String}).write_parquet(
+        wikidata / "wikidata_cultural_entity_alias.parquet"
+    )
     return wikidata, silver, curation
 
 
@@ -92,7 +104,7 @@ def curation_with(paths, **rows):
 
 def test_tradition_anchors_dates_and_links(paths):
     wikidata, silver, curation = paths
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
 
     rows = {r["wikidata_id"]: r for r in pl.read_parquet(silver / "5_tradition.parquet").to_dicts()}
     assert set(rows) == {"Q100", "Q101", "Q103", "Q104"}
@@ -118,7 +130,7 @@ def test_tradition_curation_overrides(paths):
             ("Q103", "Q104", "lineage", "add", "x"),
         ],
     )
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
 
     rows = {r["wikidata_id"]: r for r in pl.read_parquet(silver / "5_tradition.parquet").to_dicts()}
     assert "Q100" not in rows
@@ -143,12 +155,12 @@ def test_tradition_curation_overrides(paths):
 def test_tradition_fails_fast(paths, lists, message):
     wikidata, silver, curation = curation_with(paths, **lists)
     with pytest.raises(ValueError, match=message):
-        tradition(wikidata, silver, curation)
+        build_tradition(wikidata, silver, curation)
 
 
 def test_genealogy_lane_and_order(paths):
     wikidata, silver, curation = paths
-    tradition(wikidata, silver, curation)
+    build_tradition(wikidata, silver, curation)
     genealogy_lane(silver)
     lane_order(silver)
 
@@ -156,6 +168,10 @@ def test_genealogy_lane_and_order(paths):
     assert set(lanes) == {"A", "B", "D"}
     assert lanes["A"]["column_id"] == lanes["D"]["column_id"] == "A"
     assert lanes["B"]["column_id"] == "B"
+    tradition_lane = pl.read_parquet(silver / "6_genealogy_tradition_lane.parquet")
+    anchored = pl.read_parquet(silver / "5_tradition.parquet").drop_nulls("anchor_id")
+    assert tradition_lane.height == anchored.height
+    assert set(tradition_lane["lane_id"]) <= set(lanes) | {"C"}
     bands = pl.read_parquet(silver / "6_genealogy_band.parquet").sort("column_id")
     assert bands.select("entity_id", "column_id").rows() == [("C", "A"), ("C", "B")]
     assert pl.read_parquet(silver / "7_lane_order.parquet").sort("position").rows() == [("A", 0), ("B", 1)]

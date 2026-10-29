@@ -23,6 +23,9 @@ pipeline overview.
     - [2.5 wikidata_cultural_entity.parquet](#25-wikidata_cultural_entityparquet)
     - [2.6 wikidata_cultural_entity_claim.parquet](#26-wikidata_cultural_entity_claimparquet)
     - [2.7 wikidata_music_tradition_claims.parquet](#27-wikidata_music_tradition_claimsparquet)
+    - [2.8 wikidata_artist_images.parquet](#28-wikidata_artist_imagesparquet)
+    - [2.9 wikidata_admin_hierarchy.parquet](#29-wikidata_admin_hierarchyparquet)
+    - [2.10 wikidata_cultural_entity_alias.parquet](#210-wikidata_cultural_entity_aliasparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -34,6 +37,8 @@ pipeline overview.
     - [3.8 7_canonical_hierarchy](#38-7_canonical_hierarchy)
     - [3.9 8_regional_hierarchy](#39-8_regional_hierarchy)
     - [3.10 9_canonical_roots](#310-9_canonical_roots)
+    - [3.11 10_commons_image_metadata](#311-10_commons_image_metadata)
+    - [3.12 11_artist_images](#312-11_artist_images)
 
 ## 1. Wikidata properties used
 
@@ -209,7 +214,7 @@ property). Deprecated statements are excluded. See `wikidata_client.cultural_ent
 | Column         | Type | Meaning                                                                                                               |
 | -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
 | item_id        | str  | Wikidata QID of the cultural entity                                                                                   |
-| property       | str  | One of `P571` inception, `P576` dissolved, `P580` start time, `P582` end time, `P2348` time period, `P1365` replaces, `P1366` replaced by, `P361` part of, `P625` coordinate location |
+| property       | str  | One of `P571` inception, `P576` dissolved, `P580` start time, `P582` end time, `P2348` time period, `P1365` replaces, `P1366` replaced by, `P361` part of, `P30` continent, `P706` located in/on physical feature, `P625` coordinate location |
 | value          | str  | Date properties: raw ISO literal kept as is, BCE years included (e.g. `-3500-01-01T00:00:00Z`); other properties: the QID (or the coordinate literal for `P625`) |
 | time_precision | i8?  | `wikibase:timePrecision` for date properties (7 century, 8 decade, 9 year, …), null otherwise                         |
 
@@ -225,13 +230,63 @@ of <place>" overviews the genre tree only knows as parents, the `manual_regional
 | Column         | Type | Meaning                                                                                                                      |
 | -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
 | item_id        | str  | Wikidata QID of the candidate                                                                                                |
-| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
+| property       | str  | `P571` inception, `P580` start time, `P582` end time, `P576` dissolved, `P2596` culture, `P1269` facet of, `P495` country of origin, `P17` country, `P276` location, `P921` main subject, `P361` part of, `P155` follows, `P156` followed by, `P737` influenced by, or the pseudo-properties `sitelinks` and `label` |
 | value          | str  | Date properties: raw ISO literal as is, BCE years included; `sitelinks`: the count; `label`: the label; others: the QID      |
 | time_precision | i8?  | `wikibase:timePrecision` for date properties, null otherwise                                                                 |
 
+### 2.8 wikidata_artist_images.parquet
+
+Every Wikidata item with both a `P434` MusicBrainz artist ID and a `P18` image, one row per (item, MBID, image).
+`wdt:` keeps best-rank statements only. Queried in 16 partitions on the MBID's first hex digit to stay under WDQS's
+60 s timeout. Rows whose MBID isn't a lowercase UUID after lowercasing are dropped with a WARNING (Wikidata doesn't
+enforce `P434`'s format). Deduplicated.
+
+Artist images are an optional enrichment, so a WDQS brownout doesn't fail the run: when a partition's query exhausts its
+retries, that partition's rows from the previous file are kept as they were (`fetched_at` included) and a WARNING is
+logged. The remaining partitions then skip WDQS. The run still fails when there is no previous file, it has no
+`fetched_at` column, the partition has no previous rows, or its oldest `fetched_at` is more than 7 days old
+(`ARTIST_IMAGE_MAX_STALENESS_DAYS`). A query WDQS rejects (4xx other than 429) always fails the run.
+
+| Column                | Type | Meaning                                                                               |
+| --------------------- | ---- | ------------------------------------------------------------------------------------- |
+| item_id               | str  | Wikidata QID of the artist item                                                       |
+| musicbrainz_artist_id | str  | `P434`, lowercased                                                                    |
+| image_file            | str  | `P18` Commons file name, URL-decoded from its `Special:FilePath/` URI, without `File:` |
+| fetched_at            | datetime (UTC) | When WDQS last answered for this row's partition; kept when the row is reused      |
+
+As of this writing: about 8,400 rows in partition `0`, so about 135,000 in total.
+
+### 2.9 wikidata_admin_hierarchy.parquet
+
+The administrative ancestry of the Natural Earth admin-0/admin-1 units: one row per (item, property, value) claim of
+every item on a seed's `P131*` chain, seeds being the distinct `wikidata_id`s of `geohistory` Bronze's
+`natural_earth_admin.parquet` (`GEOHISTORY_BRONZE_DIR`), queried in chunks of 400. See
+`wikidata_client.admin_hierarchy_query`.
+
+| Column   | Type | Meaning                                                                  |
+| -------- | ---- | ------------------------------------------------------------------------ |
+| item_id  | str  | Wikidata QID of a seed or one of its `P131` ancestors (e.g. `Q12642`)    |
+| property | str  | `P131` located in the administrative territorial entity or `P361` part of |
+| value    | str  | QID of the parent (e.g. `Q12130`)                                        |
+| label    | str  | English/`mul`-fallback label of `item_id`                                |
+
+As of this writing: 6,292 rows (P131 5,001, P361 1,291).
+
+### 2.10 wikidata_cultural_entity_alias.parquet
+
+One row per (item, alias): the English Wikidata aliases (`skos:altLabel`) of every cultural entity of
+`wikidata_cultural_entity.parquet`, one query per kind. See `wikidata_client.cultural_entity_alias_query`.
+
+| Column  | Type | Meaning                                       |
+| ------- | ---- | --------------------------------------------- |
+| item_id | str  | Wikidata QID of the cultural entity           |
+| alias   | str  | One English alias of that item                |
+
+As of this writing: 32,737 rows.
+
 ## 3. Silver
 
-All nine steps below are produced by `wikidata.silver`. `1_item_links` preserves the Bronze
+All nine genre steps below are produced by `wikidata.silver`, followed by the two artist image steps (§3.11, §3.12). `1_item_links` preserves the Bronze
 edge-list grain 1:1 (`item_id` still not unique) — it doesn't drop rows; downstream consumers
 filter on the added columns themselves. `2_non_genre_pruning` is the step that drops rows, via
 manual CSV backstops (theme/technique/out-of-scope items — see
@@ -513,3 +568,41 @@ Gold's `canonical_genre_tree_export.py`, which marks roots with `is_accepted = f
 See [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count) for
 context on why this count is expected to shrink as the lowest-QID main-parent heuristic and
 regional classification rules mature.
+
+### 3.11 10_commons_image_metadata
+
+`10_commons_image_metadata.parquet`: one row per distinct `image_file` of Bronze `wikidata_artist_images.parquet`,
+from the Commons API (`prop=imageinfo`, 50 titles per request, normalizations and redirects followed). A cache: rows
+are kept for `COMMONS_IMAGE_TTL_DAYS` (30) days, at most `COMMONS_METADATA_MAX_BATCHES_PER_RUN` requests are spent per
+run (never-checked files first, then the stalest), and files no longer in Bronze are dropped. Written in a `finally`,
+so batches fetched before a failure are kept. A file missing on Commons keeps a row with only `image_file` and
+`checked_at` set, so it isn't fetched again before the TTL expires.
+
+| Column               | Type      | Meaning                                                                                          |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| image_file           | str       | Commons file name, as in Bronze                                                                  |
+| thumb_url            | str?      | 500 px wide thumbnail (`upload.wikimedia.org` or `thumb.wikimedia.org`), `utm_*` query dropped   |
+| page_url             | str?      | The file's Commons description page                                                              |
+| author               | str?      | extmetadata `Artist`, else `Credit`, HTML stripped and whitespace collapsed                      |
+| license              | str?      | extmetadata `LicenseShortName` (e.g. `CC BY-SA 4.0`, `Public domain`)                             |
+| license_url          | str?      | extmetadata `LicenseUrl`                                                                         |
+| attribution_required | bool?     | extmetadata `AttributionRequired`                                                                |
+| non_free             | bool?     | extmetadata `NonFree` is `true`                                                                  |
+| checked_at           | datetime  | UTC time of the fetch                                                                            |
+
+### 3.12 11_artist_images
+
+`11_artist_images.parquet`: one image per MusicBrainz artist, from Bronze `wikidata_artist_images.parquet` joined with
+`10_commons_image_metadata.parquet`. Drops files not checked yet, missing on Commons, non-free, without a license, or
+without an author when attribution is required. When several images remain (several QIDs or several best-rank `P18`
+values), keeps the smallest `image_file`. Checked: unique MBID, non-null `thumb_url`/`page_url`/`license`, `thumb_url`
+on `upload.wikimedia.org` or `thumb.wikimedia.org`. Read by Gold's `artist_export.py`.
+
+| Column                | Type | Meaning                                              |
+| --------------------- | ---- | ---------------------------------------------------- |
+| musicbrainz_artist_id | str  | MusicBrainz artist MBID                              |
+| thumb_url             | str  | As in `10_commons_image_metadata`                    |
+| page_url              | str  | As in `10_commons_image_metadata`                    |
+| author                | str? | Null only when the license doesn't require attribution |
+| license               | str  | As in `10_commons_image_metadata`                    |
+| license_url           | str? | As in `10_commons_image_metadata`                    |

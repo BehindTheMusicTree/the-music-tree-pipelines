@@ -8,7 +8,6 @@ dev = [
     "pytest==9.1.1",
     "pre-commit==4.6.0",
     "pytest-cov==7.1.0",
-    "pytest-rerunfailures==16.1",
 ]
 notebook = [
     "ipykernel==7.3.0",
@@ -29,7 +28,8 @@ exclude = ["/tests/"]
 testpaths = ["pipelines"]
 addopts = "--ignore-glob=*/vendor/* --import-mode=importlib"
 markers = [
-    "integration: requires a live external dependency (a local Postgres loaded from the MusicBrainz sample dataset, or the live Wikidata SPARQL endpoint — see the relevant pipeline's TESTING.md/README.md)",
+    "integration: requires a live external dependency (a local Postgres loaded from the MusicBrainz sample dataset, or a public API — see the relevant pipeline's TESTING.md/README.md)",
+    "live: hits a public external API (WDQS, Wikidata, Commons); run by the Live contract workflow, not by PR CI",
 ]
 
 [tool.coverage.run]

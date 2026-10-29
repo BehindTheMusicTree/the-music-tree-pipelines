@@ -778,7 +778,7 @@ def test_genre_match_curated_disambiguation_without_default_leaves_tag_ambiguous
         ([("r&b", "Q11", True), ("r&b", "Q99", False)], [], "not found in the canonical hierarchy"),
         ([("r&b", "Q11", True)], [], "fewer than 2 candidates"),
         ([("r&b", "Q11", True), ("r&b", "Q12", True)], [], "several defaults"),
-        ([("soul", "Q11", True), ("soul", "Q13", False)], [], "already resolved"),
+        ([("jazz", "Q11", True), ("jazz", "Q13", False)], [], "already resolved"),
         ([("d&b", "Q11", True), ("d&b", "Q12", False)], [], "already resolved"),
         ([("asmr", "Q11", True), ("asmr", "Q12", False)], [], "already resolved"),
         (R_AND_B, [("r&b", "Q13", "Q15")], "not in manual_genre_disambiguation.csv"),
@@ -801,3 +801,31 @@ def test_genre_match_raises_on_invalid_disambiguation(
             alias_rows=[{"musicbrainz_genre_name": "d&b", "wikidata_genre_name": "jazz", "reason": "x"}],
             non_genre_rows=[{"musicbrainz_genre_name": "asmr", "reason": "x"}],
         )
+
+
+TRAP_HIERARCHY = [
+    *R_AND_B_HIERARCHY,
+    {"item_id": "Q18", "item_label": "electronic dance music", "parent_id": None, "is_umbrella": False},
+    {"item_id": "Q19", "item_label": "EDM trap music", "parent_id": "Q18", "is_umbrella": False},
+]
+TRAP = [("trap", "Q16", True), ("trap", "Q19", False)]
+EDM_HINT = [("trap", "Q19", "Q18")]
+
+
+@pytest.mark.parametrize(
+    ("genres", "expected_genre", "expected_method"),
+    [
+        ([("trap", 5)], "trap music", "disambiguated"),
+        ([("trap", 5), ("hip hop", 1)], "trap music", "disambiguated"),
+        ([("trap", 5), ("electronic dance music", 1)], "EDM trap music", "disambiguated"),
+        ([("trap music", 5), ("electronic dance music", 1)], "trap music", "exact"),
+    ],
+)
+def test_genre_match_curated_disambiguation_outranks_a_normalized_label_match(
+    tmp_path: Path, genres: list[tuple[str, int]], expected_genre: str, expected_method: str
+) -> None:
+    row = _disambiguated(
+        genres, tmp_path=tmp_path, hierarchy_rows=TRAP_HIERARCHY, disambiguation_rows=TRAP, context_rows=EDM_HINT
+    )
+
+    assert (row["wikidata_genre_name"], row["match_method"]) == (expected_genre, expected_method)

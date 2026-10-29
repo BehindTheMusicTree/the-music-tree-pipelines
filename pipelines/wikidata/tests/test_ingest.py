@@ -1,6 +1,9 @@
+import logging
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import polars as pl
 import pytest
 
@@ -385,3 +388,268 @@ def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pyte
 
     with pytest.raises(ValueError, match="is empty"):
         bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+
+
+def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
+    return {
+        "item": f"http://www.wikidata.org/entity/{qid}",
+        "mbid": mbid,
+        "image": f"http://commons.wikimedia.org/wiki/Special:FilePath/{image}",
+    }
+
+
+RADIOHEAD = "a74b1b7f-71a5-4011-9441-d0b5e4122711"
+NOW = datetime(2026, 10, 28, 3, 0, tzinfo=UTC)
+
+
+def _valid_image_rows(count: int) -> list[dict[str, str]]:
+    return [_image_row(f"Q{i}", f"00000000-0000-0000-0000-{i:012d}", f"File{i}.jpg") for i in range(count)]
+
+
+def test_ingest_artist_images_decodes_files_and_drops_bad_rows_within_the_budget(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows = [
+        *_valid_image_rows(98),
+        _image_row("Q44190", f" {RADIOHEAD.upper()} ", "Radiohead%20%C3%A0%20Paris.jpg"),
+        _image_row("Q44190", RADIOHEAD, "Radiohead%20%C3%A0%20Paris.jpg"),
+        _image_row("Q1", "not-an-mbid", "Bad.jpg"),
+    ]
+    run_query = MagicMock(side_effect=lambda query, **_: rows if 'STRSTARTS(LCASE(?mbid), "a")' in query else [])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+    assert run_query.call_count == 16
+    images = pl.read_parquet(result)
+    assert images.height == 99
+    assert images.filter(pl.col("musicbrainz_artist_id") == RADIOHEAD).to_dicts() == [
+        {
+            "item_id": "Q44190",
+            "musicbrainz_artist_id": RADIOHEAD,
+            "image_file": "Radiohead à Paris.jpg",
+            "fetched_at": NOW,
+        }
+    ]
+
+
+def test_ingest_artist_images_drops_a_non_commons_image_within_the_budget(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unknown_value = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "http://www.wikidata.org/.well-known/genid/a"}
+    monkeypatch.setattr(
+        bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(99), unknown_value])
+    )
+
+    images = pl.read_parquet(bw.ingest_artist_images(tmp_path / "bronze", NOW))
+
+    assert RADIOHEAD not in images["musicbrainz_artist_id"].to_list()
+
+
+def test_ingest_artist_images_raises_when_too_many_rows_are_bad(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bad = {**_image_row("Q44190", RADIOHEAD, "x.jpg"), "image": "https://example.org/x.jpg"}
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[*_valid_image_rows(10), bad]))
+
+    with pytest.raises(ValueError, match="rejected"):
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+
+def test_ingest_artist_images_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError):
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+
+def _write_previous_images(output_dir: Path, fetched_at: datetime) -> list[str]:
+    # One artist in each partition a..f: the partitions that fall back once WDQS is down from 'a'.
+    mbids = [f"{digit}0000000-0000-0000-0000-000000000001" for digit in "abcdef"]
+    output_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "item_id": [f"Q{i}" for i in range(len(mbids))],
+            "musicbrainz_artist_id": mbids,
+            "image_file": [f"Old{i}.jpg" for i in range(len(mbids))],
+            "fetched_at": [fetched_at] * len(mbids),
+        },
+        schema=bw._ARTIST_IMAGE_SCHEMA,
+    ).write_parquet(output_dir / bw.ARTIST_IMAGE_FILENAME)
+    return mbids
+
+
+def _wdqs_down_from(partition: str, fresh_rows: list[dict[str, str]]) -> MagicMock:
+    def run_query(query: str, **_: object) -> list[dict[str, str]]:
+        if f'STRSTARTS(LCASE(?mbid), "{partition}")' in query:
+            raise httpx.ConnectError("WDQS down")
+        return fresh_rows if 'STRSTARTS(LCASE(?mbid), "0")' in query else []
+
+    return MagicMock(side_effect=run_query)
+
+
+def test_ingest_artist_images_reuses_previous_rows_when_wdqs_is_down(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    output_dir = tmp_path / "bronze"
+    previous_at = NOW - timedelta(days=2)
+    old_mbids = _write_previous_images(output_dir, previous_at)
+    fresh = [_image_row("Q9", "00000000-0000-0000-0000-000000000009", "Fresh.jpg")]
+    run_query = _wdqs_down_from("a", fresh)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    with caplog.at_level(logging.WARNING):
+        images = pl.read_parquet(bw.ingest_artist_images(output_dir, NOW))
+
+    assert images.sort("musicbrainz_artist_id").select("musicbrainz_artist_id", "fetched_at").to_dicts() == [
+        {"musicbrainz_artist_id": "00000000-0000-0000-0000-000000000009", "fetched_at": NOW},
+        *({"musicbrainz_artist_id": mbid, "fetched_at": previous_at} for mbid in old_mbids),
+    ]
+    assert [r.levelno for r in caplog.records if "WDQS unavailable" in r.message] == [logging.WARNING] * len(old_mbids)
+
+
+def test_ingest_artist_images_stops_querying_wdqs_after_the_first_failed_partition(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=1))
+    fresh = [_image_row("Q9", "00000000-0000-0000-0000-000000000009", "Fresh.jpg")]
+    run_query = _wdqs_down_from("a", fresh)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    bw.ingest_artist_images(output_dir, NOW)
+
+    assert run_query.call_count == bw.wikidata_client.ARTIST_IMAGE_PARTITIONS.index("a") + 1
+
+
+def test_ingest_artist_images_raises_when_the_previous_rows_are_too_old(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=bw.ARTIST_IMAGE_MAX_STALENESS_DAYS, seconds=1))
+    monkeypatch.setattr(bw.wikidata_client, "run_query", _wdqs_down_from("a", []))
+
+    with pytest.raises(httpx.ConnectError):
+        bw.ingest_artist_images(output_dir, NOW)
+
+
+def test_ingest_artist_images_raises_without_a_previous_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", _wdqs_down_from("0", []))
+
+    with pytest.raises(httpx.ConnectError):
+        bw.ingest_artist_images(tmp_path / "bronze", NOW)
+
+
+def test_ingest_artist_images_does_not_hide_a_rejected_query_behind_previous_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "bronze"
+    _write_previous_images(output_dir, NOW - timedelta(days=1))
+    bad_query = httpx.HTTPStatusError("400", request=httpx.Request("GET", "https://wdqs"), response=httpx.Response(400))
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(side_effect=bad_query))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        bw.ingest_artist_images(output_dir, NOW)
+
+
+def test_ingest_cultural_entity_aliases_keeps_one_row_per_item_and_alias(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    alias = {"item": "http://www.wikidata.org/entity/Q12130", "alias": "Bretagne"}
+    run_query = MagicMock(return_value=[alias])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1", "cultural_region": "p2"})
+
+    assert run_query.call_count == 2
+    assert pl.read_parquet(result).rows() == [("Q12130", "Bretagne")]
+
+
+def test_ingest_cultural_entity_aliases_raises_on_empty_results(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1"})
+
+
+def _write_natural_earth(path: Path, wikidata_ids: list[str | None]) -> None:
+    pl.DataFrame({"wikidata_id": wikidata_ids}, schema={"wikidata_id": pl.String}).write_parquet(
+        path / bw.NATURAL_EARTH_ADMIN_FILE
+    )
+
+
+def test_read_natural_earth_qids_returns_the_sorted_distinct_qids(tmp_path: Path) -> None:
+    _write_natural_earth(tmp_path, ["Q12642", None, "Q142", "Q12642"])
+
+    assert bw.read_natural_earth_qids(tmp_path) == ["Q12642", "Q142"]
+
+
+def test_read_natural_earth_qids_raises_when_the_file_is_missing(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="run geohistory Bronze"):
+        bw.read_natural_earth_qids(tmp_path)
+
+
+def test_read_natural_earth_qids_raises_without_any_qid(tmp_path: Path) -> None:
+    _write_natural_earth(tmp_path, [None])
+
+    with pytest.raises(ValueError, match="no Wikidata QID"):
+        bw.read_natural_earth_qids(tmp_path)
+
+
+def _admin_row(item: str, prop: str, value: str, label: str) -> dict[str, str | None]:
+    entity = "http://www.wikidata.org/entity/"
+    return {"item": entity + item, "property": prop, "value": entity + value, "itemLabel": label}
+
+
+def test_ingest_admin_hierarchy_merges_the_chunks_and_drops_shared_ancestors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "ADMIN_SEED_CHUNK", 1)
+    chunks = {
+        "wd:Q12642": [
+            _admin_row("Q12642", "P131", "Q12130", "Morbihan"),
+            _admin_row("Q12130", "P361", "Q327", "Brittany"),
+        ],
+        "wd:Q12639": [
+            _admin_row("Q12639", "P131", "Q12130", "Finistère"),
+            _admin_row("Q12130", "P361", "Q327", "Brittany"),
+        ],
+    }
+
+    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
+        return next(rows for seed, rows in chunks.items() if f"{{ {seed} }}" in query)
+
+    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
+
+    result = bw.ingest_admin_hierarchy(tmp_path, ["Q12642", "Q12639"])
+
+    assert pl.read_parquet(result).rows() == [
+        ("Q12130", "P361", "Q327", "Brittany"),
+        ("Q12639", "P131", "Q12130", "Finistère"),
+        ("Q12642", "P131", "Q12130", "Morbihan"),
+    ]
+
+
+def test_ingest_admin_hierarchy_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
+
+    with pytest.raises(ValueError, match="is empty"):
+        bw.ingest_admin_hierarchy(tmp_path, ["Q12642"])
+
+
+def test_ingest_admin_hierarchy_raises_when_an_item_has_two_labels(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rows = [_admin_row("Q12130", "P361", "Q327", "Brittany"), _admin_row("Q12130", "P361", "Q327", "Bretagne")]
+    monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=rows))
+
+    with pytest.raises(ValueError, match="wikidata_admin_hierarchy"):
+        bw.ingest_admin_hierarchy(tmp_path, ["Q12130"])
+
+
+def test_artist_image_query_skips_unknown_value_images() -> None:
+    assert 'STRSTARTS(STR(?image), "http://commons.wikimedia.org/wiki/Special:FilePath/")' in (
+        bw.wikidata_client.artist_image_query("0")
+    )

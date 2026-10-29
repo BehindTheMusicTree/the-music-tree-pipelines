@@ -1,0 +1,157 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "normalized": [
+      {
+        "fromencoded": false,
+        "from": "File:The_Beatles_1964.jpg",
+        "to": "File:The Beatles 1964.jpg"
+      },
+      {
+        "fromencoded": false,
+        "from": "File:RadioheadO2211125_composite.jpg",
+        "to": "File:RadioheadO2211125 composite.jpg"
+      }
+    ],
+    "redirects": [
+      {
+        "from": "File:The Beatles 1964.jpg",
+        "to": "File:The Beatles members at New York City in 1964.jpg"
+      }
+    ],
+    "pages": [
+      {
+        "ns": 6,
+        "title": "File:TheMusicTree integration test file that does not exist.jpg",
+        "missing": true,
+        "imagerepository": ""
+      },
+      {
+        "pageid": 3232661,
+        "ns": 6,
+        "title": "File:John Nolan.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/John_Nolan.jpg/500px-John_Nolan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 500,
+            "thumbheight": 405,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/John_Nolan.jpg/1280px-John_Nolan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/John_Nolan.jpg/500px-John_Nolan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 500,
+              "height": 405,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/John_Nolan.jpg/1280px-John_Nolan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/5/52/John_Nolan.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:John_Nolan.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=3232661",
+            "extmetadata": []
+          }
+        ]
+      },
+      {
+        "pageid": 4473823,
+        "ns": 6,
+        "title": "File:The Beatles members at New York City in 1964.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg/500px-The_Beatles_members_at_New_York_City_in_1964.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 500,
+            "thumbheight": 500,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg/500px-The_Beatles_members_at_New_York_City_in_1964.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 500,
+              "height": 500,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/d/d8/The_Beatles_members_at_New_York_City_in_1964.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:The_Beatles_members_at_New_York_City_in_1964.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=4473823",
+            "extmetadata": {
+              "Credit": {
+                "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.loc.gov/rr/print/list/235_pob.html\">https://www.loc.gov/rr/print/list/235_pob.html</a> <br>Library of Congress note: \"No copyright found; checked by staff December 2000.\"",
+                "source": "commons-desc-page"
+              },
+              "Artist": {
+                "value": "<p>United Press International (UPI Telephoto)<br>\n</p>\nCropping and retouching: User:Indopug and User:Misterweiss",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "Public domain",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "AttributionRequired": {
+                "value": "false",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 179695193,
+        "ns": 6,
+        "title": "File:RadioheadO2211125 composite.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/RadioheadO2211125_composite.jpg/500px-RadioheadO2211125_composite.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 500,
+            "thumbheight": 182,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/RadioheadO2211125_composite.jpg/1280px-RadioheadO2211125_composite.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/RadioheadO2211125_composite.jpg/500px-RadioheadO2211125_composite.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 500,
+              "height": 182,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/RadioheadO2211125_composite.jpg/1280px-RadioheadO2211125_composite.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/RadioheadO2211125_composite.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:RadioheadO2211125_composite.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=179695193",
+            "extmetadata": {
+              "Credit": {
+                "value": "<p><a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/photos/raph_ph/albums/72177720330630937\">https://www.flickr.com/photos/raph_ph/albums/72177720330630937</a>\n</p>\n<ul class=\"gallery mw-gallery-traditional\">\n\t\t<li class=\"gallerybox\" style=\"width: 155px\">\n\t\t\t<div class=\"thumb\" style=\"width: 150px; height: 150px;\"><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:RadioheadO2211125-176_(54955791798).jpg\" class=\"mw-file-description\" title=\"Ed O'Brien\"><img alt=\"Ed O'Brien\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/RadioheadO2211125-176_%2854955791798%29.jpg/120px-RadioheadO2211125-176_%2854955791798%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"120\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/RadioheadO2211125-176_%2854955791798%29.jpg/250px-RadioheadO2211125-176_%2854955791798%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"5836\" data-file-height=\"3913\"></a></span></div>\n\t\t\t<div class=\"gallerytext\">Ed O'Brien</div>\n\t\t</li>\n\t\t<li class=\"gallerybox\" style=\"width: 155px\">\n\t\t\t<div class=\"thumb\" style=\"width: 150px; height: 150px;\"><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:RadioheadO2211125-171_(54955791708).jpg\" class=\"mw-file-description\" title=\"Thom Yorke\"><img alt=\"Thom Yorke\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/RadioheadO2211125-171_%2854955791708%29.jpg/120px-RadioheadO2211125-171_%2854955791708%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"120\" height=\"79\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/RadioheadO2211125-171_%2854955791708%29.jpg/250px-RadioheadO2211125-171_%2854955791708%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"5773\" data-file-height=\"3792\"></a></span></div>\n\t\t\t<div class=\"gallerytext\">Thom Yorke </div>\n\t\t</li>\n\t\t<li class=\"gallerybox\" style=\"width: 155px\">\n\t\t\t<div class=\"thumb\" style=\"width: 150px; height: 150px;\"><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:RadioheadO2211125-157_(54955914460).jpg\" class=\"mw-file-description\" title=\"Colin Greenwood\"><img alt=\"Colin Greenwood\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e1/RadioheadO2211125-157_%2854955914460%29.jpg/120px-RadioheadO2211125-157_%2854955914460%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"120\" height=\"79\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e1/RadioheadO2211125-157_%2854955914460%29.jpg/250px-RadioheadO2211125-157_%2854955914460%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"6000\" data-file-height=\"3960\"></a></span></div>\n\t\t\t<div class=\"gallerytext\">Colin Greenwood</div>\n\t\t</li>\n\t\t<li class=\"gallerybox\" style=\"width: 155px\">\n\t\t\t<div class=\"thumb\" style=\"width: 150px; height: 150px;\"><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:RadioheadO2211125-152_(54955848039).jpg\" class=\"mw-file-description\" title=\"Philip Selway\"><img alt=\"Philip Selway\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/RadioheadO2211125-152_%2854955848039%29.jpg/120px-RadioheadO2211125-152_%2854955848039%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"120\" height=\"72\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/RadioheadO2211125-152_%2854955848039%29.jpg/250px-RadioheadO2211125-152_%2854955848039%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"6000\" data-file-height=\"3596\"></a></span></div>\n\t\t\t<div class=\"gallerytext\">Philip Selway</div>\n\t\t</li>\n\t\t<li class=\"gallerybox\" style=\"width: 155px\">\n\t\t\t<div class=\"thumb\" style=\"width: 150px; height: 150px;\"><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:RadioheadO2211125-167_(54955791678).jpg\" class=\"mw-file-description\" title=\"Johnny Greenwood\"><img alt=\"Johnny Greenwood\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/7/71/RadioheadO2211125-167_%2854955791678%29.jpg/120px-RadioheadO2211125-167_%2854955791678%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"120\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/7/71/RadioheadO2211125-167_%2854955791678%29.jpg/250px-RadioheadO2211125-167_%2854955791678%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"5908\" data-file-height=\"3917\"></a></span></div>\n\t\t\t<div class=\"gallerytext\">Johnny Greenwood</div>\n\t\t</li>\n</ul>",
+                "source": "commons-desc-page"
+              },
+              "Artist": {
+                "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/raph_ph/\">Raph_PH</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "AttributionRequired": {
+                "value": "true",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseUrl": {
+                "value": "https://creativecommons.org/licenses/by/4.0",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

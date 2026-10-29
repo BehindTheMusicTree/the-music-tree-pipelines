@@ -22,6 +22,7 @@
         "side": { "type": "string", "enum": ["pop"] },
         "isUnacceptedRoot": { "type": "boolean", "const": true },
         "isUmbrella": { "type": "boolean", "const": true },
+        "scene": { "type": "string", "enum": ["commercial", "underground"] },
         "children": {
           "type": "array",
           "items": { "$ref": "#/$defs/node" }

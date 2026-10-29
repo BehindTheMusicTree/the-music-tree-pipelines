@@ -38,8 +38,9 @@ def load_curated_disambiguation(
     genre_key: Callable[[pl.Expr], pl.Expr],
 ) -> Disambiguation:
     """`manual_genre_disambiguation.csv` + `manual_genre_disambiguation_context.csv`, keyed by genre key. Raises
-    on an unknown item, a key already resolved by an earlier cascade step (`taken_keys`), a key with fewer than 2
-    candidates or several defaults, or a hint on an unlisted candidate."""
+    on an unknown item, a key an earlier cascade step other than `normalized` already resolves (`taken_keys`:
+    lowercase labels, alias and non-genre keys), a key with fewer than 2 candidates or several defaults, or a hint
+    on an unlisted candidate."""
     candidates = read_curation_csv(
         disambiguation_path,
         required=("musicbrainz_genre_name", "item_id", "reason"),

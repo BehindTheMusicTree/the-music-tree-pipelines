@@ -2,7 +2,9 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.step_timer import step
 from common.quality_checks import (
+    MBID_PATTERN,
     ARTIST_NAME_LEN_MAX,
     FIRST_RELEASE_YEAR_RANGE,
     SONG_TITLE_LEN_MAX,
@@ -12,7 +14,7 @@ from common.quality_checks import (
     check_unique_key,
 )
 
-from gold.curation_csv import ITEM_ID_PATTERN, MBID_PATTERN, read_curation_csv
+from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
 from gold.delta_export import write_delta
 from gold.genre_precedence import PRECEDENCE_CSV, precedence_closure
 from gold.match_method import RESOLVED_METHODS
@@ -28,6 +30,16 @@ _PATTERNS = {
     "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
 }
+_SYNCED_COLUMNS = [
+    "title",
+    "artist",
+    "artist_musicbrainz_id",
+    "youtube_video_id",
+    "youtube_unplayable_reason",
+    "youtube_view_count",
+    "genre_name",
+    "first_release_year",
+]
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
 
@@ -163,9 +175,10 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),
     )
     names_by_id = _genre_names_by_item_id(wikidata_silver_dir)
-    songs = _apply_recording_overrides(lazy_songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
-        engine="streaming"
-    )
+    with step("songs.collect"):
+        songs = _apply_recording_overrides(lazy_songs, names_by_id, wikidata_silver_dir, curation_dir).collect(
+            engine="streaming"
+        )
     out_of_range = songs.filter(~pl.col("first_release_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).height
     if out_of_range:
         logger.warning(
@@ -176,20 +189,17 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
                 pl.col("first_release_year")
             )
         )
-    _check_songs(songs)
-    songs = songs.select(
-        pl.exclude("genre_item_id", "secondary_genre_item_ids", "musicbrainz_genres"),
-        secondary_genre_names=pl.col("secondary_genre_item_ids").list.eval(
-            pl.element().replace_strict(names_by_id, return_dtype=pl.Utf8)
-        ),
-        musicbrainz_genres="musicbrainz_genres",
-    )
+    with step("songs.checks"):
+        _check_songs(songs)
+    songs = songs.select("musicbrainz_recording_id", *_SYNCED_COLUMNS)
     for row in songs.group_by("youtube_unplayable_reason").len().sort("youtube_unplayable_reason").iter_rows():
         logger.info("youtube_unplayable_reason=%s: %d songs", row[0], row[1])
 
     parts_dir = output_dir / OUTPUT_DIRNAME
-    part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
-    write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
+    with step("songs.parts"):
+        part_count = write_ndjson_parts(songs, parts_dir, ROWS_PER_PART)
+    with step("songs.delta"):
+        write_delta(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART, _SYNCED_COLUMNS)
     logger.info(
         "wrote %d songs to %s in %d part(s), %d without a video, %d without a genre",
         songs.height,

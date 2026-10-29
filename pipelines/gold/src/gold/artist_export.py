@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import (
     ARTIST_NAME_LEN_MAX,
+    MBID_PATTERN,
     RELEASE_GROUP_TITLE_LEN_MAX,
     check_max_length,
     check_non_empty,
@@ -15,13 +16,14 @@ from jsonschema import Draft202012Validator
 
 from gold.delta_export import write_delta
 from gold.ndjson_parts import write_ndjson_parts
-from gold.curation_csv import MBID_PATTERN
 
 logger = logging.getLogger(__name__)
 
 # Rows are ~800 bytes of NDJSON (nested members, links, release groups) and grow's API workers are memory-capped,
 # so 10k rows keeps each upload around 8 MB.
 ROWS_PER_PART = 10_000
+# Bytes, as grow's artist import counts them.
+IMAGE_URL_LEN_MAX = 2048
 OUTPUT_DIRNAME = "3_artists"
 ARTIST_SCHEMA_PATH = Path(__file__).parent / "schemas" / "artist.schema.json"
 # Rows checked against ARTIST_SCHEMA_PATH: every row shares one Polars schema, so a sample catches shape drift;
@@ -58,6 +60,13 @@ def _scope(song_artist_ids: pl.LazyFrame, members: pl.LazyFrame) -> pl.LazyFrame
         pl.concat([with_groups, their_members])
         .unique()
         .filter(~pl.col("musicbrainz_artist_id").is_in(SPECIAL_PURPOSE_ARTIST_IDS))
+    )
+
+
+def _bad_url(column: str, *schemes: str) -> pl.Expr:
+    url = pl.col(column)
+    return ~pl.any_horizontal(*(url.str.starts_with(scheme) for scheme in schemes)) | (
+        url.str.len_bytes() > IMAGE_URL_LEN_MAX
     )
 
 
@@ -98,9 +107,23 @@ def _check_artists(artists: pl.DataFrame) -> None:
     for column, count in malformed.items():
         if count:
             raise ValueError(f"{OUTPUT_DIRNAME}: {count} row(s) with a malformed {column}")
+    # Mirrors grow's artist import validation (grow/artist/bulk_import/part_loader.py), which rejects the whole part.
+    images = artists.select(pl.col("image").struct.unnest()).drop_nulls("url")
+    bad_images = {
+        "image url": images.filter(_bad_url("url", "https://")).height,
+        "image page_url": images.filter(_bad_url("page_url", "https://")).height,
+        "image license": images.filter(pl.col("license").str.strip_chars().fill_null("") == "").height,
+        "image author": images.filter(pl.col("author").str.strip_chars() == "").height,
+        "image license_url": images.filter(_bad_url("license_url", "http://", "https://")).height,
+    }
+    for field, count in bad_images.items():
+        if count:
+            raise ValueError(f"{OUTPUT_DIRNAME}: {count} row(s) with a malformed {field}")
 
 
-def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_dir: Path) -> Path:
+def export_artists(
+    genre_match_path: Path, musicbrainz_silver_dir: Path, wikidata_silver_dir: Path, output_dir: Path
+) -> Path:
     logger.info("exporting artists of %s from %s", genre_match_path, musicbrainz_silver_dir)
     members = pl.scan_parquet(musicbrainz_silver_dir / "7_artist_members.parquet")
     scope = _scope(
@@ -168,12 +191,19 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
         .group_by("musicbrainz_artist_id")
         .agg(aliases=pl.col("alias").unique().sort())
     )
+    images = pl.scan_parquet(wikidata_silver_dir / "11_artist_images.parquet").select(
+        "musicbrainz_artist_id",
+        image=pl.struct(
+            url="thumb_url", page_url="page_url", author="author", license="license", license_url="license_url"
+        ),
+    )
     artists = (
         silver_artists.drop("sort_name")
         .join(aliases, on="musicbrainz_artist_id", how="left")
         .join(nested_members, on="musicbrainz_artist_id", how="left")
         .join(links, on="musicbrainz_artist_id", how="left")
         .join(release_groups, on="musicbrainz_artist_id", how="left")
+        .join(images, on="musicbrainz_artist_id", how="left")
         .sort("musicbrainz_artist_id")
         .collect()
     )
@@ -193,6 +223,19 @@ def export_artists(genre_match_path: Path, musicbrainz_silver_dir: Path, output_
 
     parts_dir = output_dir / OUTPUT_DIRNAME
     part_count = write_ndjson_parts(artists, parts_dir, ROWS_PER_PART)
-    write_delta(artists, "musicbrainz_artist_id", OUTPUT_DIRNAME, output_dir, ROWS_PER_PART)
-    logger.info("wrote %d artists to %s in %d part(s)", artists.height, parts_dir, part_count)
+    write_delta(
+        artists,
+        "musicbrainz_artist_id",
+        OUTPUT_DIRNAME,
+        output_dir,
+        ROWS_PER_PART,
+        [column for column in artists.columns if column != "musicbrainz_artist_id"],
+    )
+    logger.info(
+        "wrote %d artists to %s in %d part(s), %.1f%% with an image",
+        artists.height,
+        parts_dir,
+        part_count,
+        100 * (1 - artists["image"].null_count() / artists.height),
+    )
     return parts_dir

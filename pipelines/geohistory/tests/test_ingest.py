@@ -5,8 +5,9 @@ from pathlib import Path
 import httpx
 import polars as pl
 import pytest
+import shapely
 
-from geohistory import glottolog_client, ingest
+from geohistory import glottolog_client, ingest, natural_earth_client
 
 LANGUAGES_CSV = (
     "ID,Name,Macroarea,Latitude,Longitude,Glottocode,ISO639P3code,Level,Countries,Family_ID,Language_ID,"
@@ -114,3 +115,122 @@ def test_ingest_glottolog_languoids_raises_on_duplicate_glottocode(
 
     with pytest.raises(ValueError, match="not unique"):
         ingest.ingest_glottolog_languoids("v5.3", tmp_path)
+
+
+def _square(x: float) -> dict:
+    return {"type": "Polygon", "coordinates": [[[x, 0], [x + 1, 0], [x + 1, 1], [x, 1], [x, 0]]]}
+
+
+def _layer(*features: tuple[dict, dict | None]) -> dict:
+    return {"type": "FeatureCollection", "features": [{"properties": p, "geometry": g} for p, g in features]}
+
+
+ADMIN_0 = _layer(
+    ({"ADM0_A3": "FRA", "WIKIDATAID": "Q142", "NAME": "France", "ISO_A2_EH": "FR", "TYPE": "Country"}, _square(0)),
+)
+ADMIN_1 = _layer(
+    (
+        {
+            "adm1_code": "FRA-5327",
+            "wikidataid": "Q12642",
+            "adm0_a3": "FRA",
+            "name": "Morbihan",
+            "iso_3166_2": "FR-56",
+            "type_en": "Metropolitan department",
+        },
+        _square(0),
+    ),
+    (
+        {
+            "adm1_code": "FRA-0000",
+            "wikidataid": "",
+            "adm0_a3": "FRA",
+            "name": "Unknown",
+            "iso_3166_2": "FR-XX",
+            "type_en": None,
+        },
+        _square(0.5),
+    ),
+)
+
+
+def test_download_layer_pins_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_get(url: str, follow_redirects: bool, timeout: float) -> httpx.Response:
+        calls.append(url)
+        return httpx.Response(200, json={"features": []}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    assert natural_earth_client.download_layer("v5.1.2", natural_earth_client.ADMIN_0_LAYER) == {"features": []}
+    assert calls == [
+        "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_admin_0_countries.geojson"
+    ]
+
+
+def test_build_natural_earth_admin_flattens_both_levels() -> None:
+    df = ingest.build_natural_earth_admin(ADMIN_0, ADMIN_1)
+
+    assert df.drop("geometry_wkb").to_dicts() == [
+        {
+            "ne_id": "FRA",
+            "level": 0,
+            "wikidata_id": "Q142",
+            "adm0_a3": "FRA",
+            "name": "France",
+            "iso_code": "FR",
+            "ne_type": "Country",
+        },
+        {
+            "ne_id": "FRA-0000",
+            "level": 1,
+            "wikidata_id": None,
+            "adm0_a3": "FRA",
+            "name": "Unknown",
+            "iso_code": "FR-XX",
+            "ne_type": None,
+        },
+        {
+            "ne_id": "FRA-5327",
+            "level": 1,
+            "wikidata_id": "Q12642",
+            "adm0_a3": "FRA",
+            "name": "Morbihan",
+            "iso_code": "FR-56",
+            "ne_type": "Metropolitan department",
+        },
+    ]
+    assert shapely.from_wkb(df["geometry_wkb"][0]).equals(shapely.geometry.shape(_square(0)))
+
+
+def test_build_natural_earth_admin_raises_on_orphan_admin_1() -> None:
+    orphan = _layer(({**ADMIN_1["features"][0]["properties"], "adm0_a3": "ESP"}, _square(0)))
+
+    with pytest.raises(ValueError, match="FRA-5327"):
+        ingest.build_natural_earth_admin(ADMIN_0, orphan)
+
+
+def test_build_natural_earth_admin_raises_on_missing_geometry() -> None:
+    with pytest.raises(ValueError, match="no geometry"):
+        ingest.build_natural_earth_admin(ADMIN_0, _layer((ADMIN_1["features"][0]["properties"], None)))
+
+
+def test_ingest_natural_earth_admin_writes_parquet(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    layers = {natural_earth_client.ADMIN_0_LAYER: ADMIN_0, natural_earth_client.ADMIN_1_LAYER: ADMIN_1}
+    monkeypatch.setattr(natural_earth_client, "download_layer", lambda version, name: layers[name])
+
+    path = ingest.ingest_natural_earth_admin("v5.1.2", tmp_path / "bronze")
+
+    assert path == tmp_path / "bronze" / "natural_earth_admin.parquet"
+    assert pl.read_parquet(path)["ne_id"].to_list() == ["FRA", "FRA-0000", "FRA-5327"]
+
+
+def test_ingest_natural_earth_admin_raises_on_duplicate_ne_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    duplicated = _layer((ADMIN_1["features"][0]["properties"], _square(0)))
+    duplicated["features"] *= 2
+    layers = {natural_earth_client.ADMIN_0_LAYER: ADMIN_0, natural_earth_client.ADMIN_1_LAYER: duplicated}
+    monkeypatch.setattr(natural_earth_client, "download_layer", lambda version, name: layers[name])
+
+    with pytest.raises(ValueError, match="not unique"):
+        ingest.ingest_natural_earth_admin("v5.1.2", tmp_path)

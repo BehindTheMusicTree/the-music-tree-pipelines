@@ -62,6 +62,26 @@ documentation. End mirrors it with max `P576`/`P582` and the last year of docume
 A null end means alive; the 1950 ceiling is applied in Gold. An entity starting after it ends is logged and kept
 for curation.
 
+## 8.1 Admin units, containment and footprints
+
+Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
+one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
+P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
+claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
+a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
+The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
+its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
+Wikidata P625, first match in `ne_id` order). Anchoring drops a candidate that contains another candidate, and a
+tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
+lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
+
+`8_entity_geometry` unions the polygons of an entity's footprint, dropping admin units already contained in another
+one of the same footprint so a country and its province are not counted twice. An admin unit without a Natural
+Earth polygon is tiled by its contained units' polygons. The union is `shapely.union_all` rather than
+`coverage_union`, which rejects Natural Earth's not exactly noded neighbours; source polygons are repaired with
+`make_valid` first (e.g. BRA-1294 self-intersects). An entity whose footprint has no polygon raises. Measured on the
+staging Silver: about 43 s and 3 GB peak memory for 36k entities, so no optimisation.
+
 ## 9. Curation
 
 Eight lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
@@ -91,10 +111,17 @@ Header drift in a list raises. Succession overrides are not curated yet.
 A tradition is a genre (`P31` music genre) or a "music of X" overview whose start is at most 1950, plus the curated
 additions minus the exclusions. An overview also needs an anchor. Genres with neither date nor anchor are dropped
 silently (most of Wikidata's genres), whereas a dated tradition without anchor is kept, logged and written to
-`5_tradition_unplaced.csv` so it never blocks the daily run. The anchor is the first rule yielding an entity of
-`1_cultural_entity`: placement override, `P2596` culture, `P1269` facet of, then `P495` country of origin lifted
-along `3_entity_succession` to the entity valid at the tradition's date (an old genre of "Greece" lands on ancient
-Greece). Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
+`5_tradition_unplaced.csv` so it never blocks the daily run. Anchoring itself is `5_music_anchor` (genres, overviews and curated additions), which `5_tradition`
+only filters by date.
+
+The anchor is the placement override when set; otherwise it is picked among every candidate entity: `P2596` culture, `P1269` facet of, `P495`
+country of origin lifted along `3_entity_succession` to the entity valid at the tradition's date (an old genre of
+"Greece" lands on ancient Greece), `P17`/`P276`/`P921`/`P361` when the value is a place entity, and for an overview the
+label ("music of X" against entity labels and `wikidata_cultural_entity_alias`). A candidate that is a membership
+ancestor of another candidate is dropped, so the most specific place wins (Morbihan over Bretagne over France) whatever
+the property; among the remaining ones the first rule in the order above wins. A label matching several entities is
+ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
+Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 
 Links: lineage from `P155`/`P156` and the genre tree's `P279`, association from `P737`, both between two traditions.
 A lineage cycle raises; break it with a `tradition_link_overrides` remove.

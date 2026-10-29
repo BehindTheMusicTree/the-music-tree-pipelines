@@ -20,7 +20,8 @@
     "aliases",
     "members",
     "links",
-    "release_groups"
+    "release_groups",
+    "image"
   ],
   "properties": {
     "musicbrainz_artist_id": { "$ref": "#/$defs/mbid" },
@@ -91,6 +92,23 @@
           "first_release_year": { "$ref": "#/$defs/year" }
         }
       }
+    },
+    "image": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url", "page_url", "author", "license", "license_url"],
+          "properties": {
+            "url": { "type": "string", "pattern": "^https://", "maxLength": 2048 },
+            "page_url": { "type": "string", "pattern": "^https://", "maxLength": 2048 },
+            "author": { "type": ["string", "null"], "minLength": 1 },
+            "license": { "type": "string", "minLength": 1 },
+            "license_url": { "type": ["string", "null"], "pattern": "^https?://", "maxLength": 2048 }
+          }
+        }
+      ]
     }
   }
 }

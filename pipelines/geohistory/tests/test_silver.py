@@ -21,6 +21,14 @@ LANGUOID_SCHEMA = {
     "last_year_of_documentation": pl.Int32,
 }
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
+NE_SCHEMA = {
+    "ne_id": pl.String,
+    "level": pl.Int8,
+    "wikidata_id": pl.String,
+    "adm0_a3": pl.String,
+    "name": pl.String,
+}
+HIERARCHY_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "label": pl.String}
 ENTITY_SCHEMA = {"item_id": pl.String, "item_label": pl.String, "kind": pl.String, "glottocode": pl.String}
 
 
@@ -57,8 +65,19 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     return curation
 
 
+def write_admin(dirs, natural_earth=(), hierarchy=()):
+    bronze, wikidata, _ = dirs
+    pl.DataFrame(list(natural_earth), schema=NE_SCHEMA, orient="row").write_parquet(
+        bronze / "natural_earth_admin.parquet"
+    )
+    pl.DataFrame(list(hierarchy), schema=HIERARCHY_SCHEMA, orient="row").write_parquet(
+        wikidata / "wikidata_admin_hierarchy.parquet"
+    )
+
+
 def write_bronze(dirs, languoids, entities, claims):
     bronze, wikidata, _ = dirs
+    write_admin(dirs)
     pl.DataFrame(languoids, schema=LANGUOID_SCHEMA).write_parquet(bronze / "glottolog_languoid.parquet")
     pl.DataFrame(entities, schema=ENTITY_SCHEMA).write_parquet(wikidata / "wikidata_cultural_entity.parquet")
     pl.DataFrame(claims, schema=CLAIM_SCHEMA).write_parquet(wikidata / "wikidata_cultural_entity_claim.parquet")
@@ -405,3 +424,35 @@ def test_read_curation_list_raises_on_unexpected_columns(dirs):
 
     with pytest.raises(ValueError, match="expected"):
         cultural_entity(bronze, wikidata, silver, curation)
+
+
+def test_cultural_entity_builds_admin_units_from_natural_earth_and_p131_intermediates(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(dirs, entities=[entity("Q142", "country")], claims=[claim("Q142", "P625", "Point(2 46)")])
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c0", 0, "Q142", "FRA", "France"),
+            ("a1", 1, "Q12130", "FRA", "Bretagne"),
+            ("a2", 1, "Q142", "FRA", "France bis"),
+            ("a3", 1, None, "FRA", "Corse"),
+            ("a4", 1, None, "FRA", None),
+        ],
+        hierarchy=[
+            ("Q12130", "P131", "Q500", None),
+            ("Q500", "label", None, "Grand Ouest"),
+            ("Q142", "P131", "Q500", None),
+            ("Q600", "P131", "Q700", None),
+            ("Q700", "label", None, "Lonely parent"),
+        ],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    kinds = dict(pl.read_parquet(silver / "1_cultural_entity.parquet").select("entity_id", "kind").rows())
+    assert kinds["Q12130"] == kinds["Q500"] == kinds["ne:a3"] == "admin_unit"
+    assert "Q700" not in kinds and "ne:a2" not in kinds and "ne:a4" not in kinds
+    ne_map = {r["ne_id"]: r for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
+    assert ne_map["a2"]["entity_id"] == "Q142" and ne_map["a4"]["entity_id"] is None
+    assert ne_map["a1"]["country_entity_id"] == "Q142" and ne_map["c0"]["entity_id"] == "Q142"
+    crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
+    assert ("Q12130", "Q12130") in crosswalk.rows() and not any(e.startswith("ne:") for e in crosswalk["entity_id"])

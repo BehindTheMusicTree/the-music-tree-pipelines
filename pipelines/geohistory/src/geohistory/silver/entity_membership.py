@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 GLOTTOLOG_KINDS = ("family", "language", "dialect")
 
 
-def _assert_acyclic(edges: pl.DataFrame) -> None:
+def _assert_acyclic(edges: pl.DataFrame, name: str = "2_entity_membership") -> None:
     children = defaultdict(list)
     pending_parents: dict[str, int] = defaultdict(int)
     for child_id, parent_id in edges.select("child_id", "parent_id").iter_rows():
@@ -28,7 +28,10 @@ def _assert_acyclic(edges: pl.DataFrame) -> None:
             if pending_parents[child] == 0:
                 ready.append(child)
     if pending_parents:
-        raise ValueError(f"2_entity_membership has a cycle through {sorted(pending_parents)[:5]}")
+        cyclic = edges.filter(pl.col("child_id").is_in(pending_parents) & pl.col("parent_id").is_in(pending_parents))
+        raise ValueError(
+            f"{name} has a cycle through {sorted(pending_parents)[:5]}, edges (child, parent): {cyclic.head(5).rows()}"
+        )
 
 
 def _apply_overrides(edges: pl.DataFrame, entity_ids: list[str], overrides: pl.DataFrame) -> pl.DataFrame:

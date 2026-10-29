@@ -27,7 +27,8 @@ at the first that succeeds:
 0. `no_genre` — the song has no tag in `10_song_genre` (none of its recordings carries a genre tag). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
-2. `normalized` — equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
+2. `normalized` — (skipped for a key curated in `manual_genre_disambiguation.csv`, which resolves as `ambiguous`
+   instead: `trap` is `trap music` by key, yet means EDM trap on an EDM song) equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
    whitespace collapsed to one space, trailing `" music"` dropped. Covers the bulk of the naming-convention
    gap in both directions: musicbrainz `rock`/`hip hop`/`jazz music` meet wikidata `rock music`/`hip-hop`/
    `jazz`. When two canonical labels share a key (`dance`/`dance music`, `bass`/`bass music` are distinct
@@ -181,6 +182,7 @@ grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in
   (`musicbrainz_recording_id`) is checked against `1_genre_match.parquet` before the songs and artists are
   exported, so an essential song missing from the songs fails the build.
 - `manual_summary_overrides.csv`: a genre's `summary`.
+- `manual_canonical_genre_scene.csv`: a genre's `scene` (`commercial` | `underground`), which the front uses to render the branch specially.
 - `manual_song_genre.csv`: replaces a song's genre in `2_songs`; `1_genre_match.parquet` stays
   pre-override so the match report reflects the computed cascade.
 - `manual_recording_youtube_video.csv` is not applied here: musicbrainz Silver pins it as a rank-0
@@ -234,4 +236,14 @@ worth it here.
 
 ## Delta export, baseline owned by the sync
 
-The nightly import into grow is a full snapshot (grow deletes whatever a run omits), yet almost no song or artist changes day to day. Gold therefore also writes `<name>_delta/` — rows whose hash differs from the last *successfully synced* run, plus the keys that disappeared — so a delta import can send only those. Gold never moves the baseline: `infrastructure` promotes `<name>_hashes.parquet` into `_synced/` only after grow's merge task reports success, so a failed or skipped sync leaves the baseline behind and the next run re-sends everything it missed. Absent baseline means no delta, i.e. a full sync, which is also the fallback after any data loss.
+The nightly import into grow is a full snapshot (grow deletes whatever a run omits), yet almost no song or artist changes day to day. Gold therefore also writes `<name>_delta/` — rows whose stored columns differ, by value, from the last *successfully synced* run, plus the keys that disappeared — so a delta import can send only those. Gold never moves the baseline: `infrastructure` promotes `<name>_snapshot.parquet` into `_synced/` only after grow's merge task reports success, so a failed or skipped sync leaves the baseline behind and the next run re-sends everything it missed. The comparison is exact and per column (no hash, so a Polars upgrade or a dtype change cannot flip every row), and only the columns grow stores are exported, so a column grow ignores never causes a sync. Absent or reshaped baseline means no delta, i.e. a full sync, which is also the fallback after any data loss.
+
+## Region map
+
+**Song ↔ region contract.** A region's songs are the songs whose primary genre (`1_genre_match.parquet`'s `wikidata_genre_item_id`, before any curated override) is in the region's relevant genre set: the items anchored to the region by `5_music_anchor`, plus every canonical descendant of those. `songCount` sums the song counts over that set and `genreCount` is its size, so a region's counts include its sub-genres but never its sub-regions' own anchored genres.
+
+**Admin versus zone.** Countries from Natural Earth and admin-1 units form the drill-down tree (`world` → country → admin unit, parents from `2_place_containment`); an anchored admin unit pulls its admin ancestors onto the map even when they carry no genre. Historical countries, historical and cultural regions and macro-regions are zones: they overlap the admin tree rather than nest in it, so they ship as standalone files and each admin region lists the zones whose footprint reaches it (`zoneIds`, propagated up the admin ancestors).
+
+**Size cap.** Every GeoJSON file must fit in 300 KB so the front can fetch a level in one request. `_feature_collection` tries a ladder of tolerances (exact first, then `coverage_simplify` so shared borders stay shared, falling back to per-geometry simplification when GEOS rejects the coverage), drops parts smaller than the tolerance squared (keeping the largest part when all are smaller), rounds to 2 decimals and raises when the coarsest step still overflows, rather than shipping a file the front cannot load.
+
+**Unplaced genres.** A genre anchored to an entity that is not a place or has no geometry is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.

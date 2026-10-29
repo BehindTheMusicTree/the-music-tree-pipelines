@@ -11,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 CUTOFF_YEAR = 1950
 OVERVIEW_PREFIX = "music of "
-ANCHOR_PROPERTIES = ("P2596", "P1269")
-COUNTRY_OF_ORIGIN = "P495"
 TRADITION_SCHEMA = {
     "wikidata_id": pl.String,
     "label": pl.String,
@@ -45,6 +43,21 @@ def _lift_to_date(entity: str, year: int, spans: dict[str, tuple[int | None, int
         started = [s for s in candidates if (spans.get(s, (None, None))[0] or year) <= year]
         entity = (started or candidates)[0]
         seen.add(entity)
+
+
+def _inherited_start(entity: str | None, spans: dict, parents: dict[str, list[str]]) -> int | None:
+    """Own start year, else the earliest start among the nearest containing places that have one."""
+    if entity is None:
+        return None
+    level, seen = [entity], {entity}
+    while level:
+        starts = [start for node in level if (start := spans.get(node, (None, None))[0]) is not None]
+        if starts:
+            return min(starts)
+        upper = sorted({p for node in level for p in parents.get(node, ())} - seen)
+        seen.update(upper)
+        level = upper
+    return None
 
 
 def _placement_overrides(overrides: pl.DataFrame, entity_ids: set[str], item_entity: dict[str, str]) -> dict:
@@ -110,7 +123,7 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
     tree = pl.read_parquet(wikidata_bronze_dir / "wikidata_genre_tree.parquet")
     entity_ids = set(pl.read_parquet(silver_dir / "1_cultural_entity.parquet")["entity_id"])
     crosswalk = pl.read_parquet(silver_dir / "1_entity_wikidata_item.parquet").sort("entity_id")
-    succession = pl.read_parquet(silver_dir / "3_entity_succession.parquet").sort("predecessor_id", "successor_id")
+    music_anchor = pl.read_parquet(silver_dir / "5_music_anchor.parquet")
     time_span = pl.read_parquet(silver_dir / "4_entity_time_span.parquet")
 
     additions = set(read_curation_list(curation_dir, "tradition_additions")["wikidata_id"])
@@ -122,9 +135,11 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
     for entity_id, wikidata_id in crosswalk.select("entity_id", "wikidata_id").rows():
         item_entity.setdefault(wikidata_id, entity_id)
     spans = {e: (s, t) for e, s, t in time_span.select("entity_id", "start_year", "end_year").rows()}
-    successors: dict[str, list[str]] = defaultdict(list)
-    for predecessor, successor in succession.select("predecessor_id", "successor_id").rows():
-        successors[predecessor].append(successor)
+    parents: dict[str, list[str]] = defaultdict(list)
+    containment = pl.read_parquet(silver_dir / "2_place_containment.parquet").sort("child_id", "parent_id")
+    for child, parent in containment.select("child_id", "parent_id").rows():
+        parents[child].append(parent)
+    anchored = {q: (a, r) for q, a, r in music_anchor.select("wikidata_id", "anchor_id", "rule").rows()}
     values: dict[tuple[str, str], list[str]] = defaultdict(list)
     for item, prop, value in claims.filter(pl.col("value").is_not_null()).select("item_id", "property", "value").rows():
         values[(item, prop)].append(value)
@@ -148,22 +163,12 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
     for qid, label in sorted(labels.items()):
         if qid in exclusions:
             continue
-        override_entity, override_start, override_end = placements.get(qid, (None, None, None))
+        _, override_start, override_end = placements.get(qid, (None, None, None))
         known_start = override_start if override_start is not None else claim_start.get(qid)
 
-        anchor, rule = override_entity, "override" if override_entity else None
-        for prop in ANCHOR_PROPERTIES:
-            if anchor is None:
-                anchor, rule = next(
-                    ((item_entity[v], prop) for v in values[(qid, prop)] if v in item_entity), (None, None)
-                )
-        if anchor is None:
-            origin = next((item_entity[v] for v in values[(qid, COUNTRY_OF_ORIGIN)] if v in item_entity), None)
-            if origin is not None:
-                anchor = _lift_to_date(origin, known_start, spans, successors) if known_start is not None else origin
-                rule = COUNTRY_OF_ORIGIN
+        anchor, rule = anchored.get(qid, (None, None))
 
-        start = known_start if known_start is not None else spans.get(anchor, (None, None))[0]
+        start = known_start if known_start is not None else _inherited_start(anchor, spans, parents)
         end = override_end if override_end is not None else claim_end.get(qid)
         is_overview = label.startswith(OVERVIEW_PREFIX)
         if qid not in additions:

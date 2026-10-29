@@ -1,0 +1,65 @@
+name: Live contract
+
+# Checks that the recorded WDQS/Commons fixtures still match what the public APIs return. Never a PR gate: an external
+# outage or edit must not turn an unrelated PR red. A failure opens (or reopens) a `live-contract` issue; the next green run closes it.
+on:
+  schedule:
+    - cron: "0 19 * * *" # evening in Europe, before the 00:00 prod run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  live:
+    name: Live contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run live contract tests
+        id: live
+        run: uv run pytest -m live --no-cov -q
+
+      - name: Open or update the live-contract issue
+        if: failure() && steps.live.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "Live contract tests failing";
+            const body = `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nA public API (WDQS, Wikidata or Commons) no longer matches what the recorded fixtures assume, or was unreachable. Re-record the fixture and fix the code, or ignore a transient outage.`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              ...context.repo, state: "all", labels: "live-contract", per_page: 1,
+            });
+            if (!issues.length) {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ["live-contract"] });
+              return;
+            }
+            const [issue] = issues;
+            if (issue.state === "closed") {
+              await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: "open" });
+            }
+            await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });
+
+      - name: Close the live-contract issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: "open", labels: "live-contract",
+            });
+            const body = `Live contract tests pass again: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}. Closing; a new failure reopens this issue.`;
+            for (const issue of open) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });
+              await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: "closed", state_reason: "completed" });
+            }

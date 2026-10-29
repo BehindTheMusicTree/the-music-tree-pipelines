@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "geohistory"
 version = "0.1.0"
-description = "Cultural-entity backbone for the music-traditions genealogy: Glottolog languoids (Bronze)."
+description = "Cultural-entity backbone for the music-traditions genealogy: Glottolog languoids and Natural Earth admin units (Bronze)."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
@@ -13,6 +13,7 @@ dependencies = [
     "polars==1.42.1",
     "httpx==0.28.1",
     "tenacity==9.1.2",
+    "shapely==2.2.0",
     "common",
 ]
 

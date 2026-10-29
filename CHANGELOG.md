@@ -48,8 +48,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.3.0] - 2026-10-29
+
+### Added
+
+- `geohistory` Admin units (Natural Earth admin-1 plus P131 intermediates) become `admin_unit` entities, with a place containment graph (`2_place_containment`) and per-entity admin footprints (`8_entity_footprint`). Anchoring and tradition start years now follow containment, so more overviews and traditions are placed.
+- `geohistory` Entities with coordinates but no polygon get an admin footprint from the admin unit containing their point, and every footprint is unioned into a map geometry with bounding boxes and centroid (`8_entity_geometry`).
+- `gold` The region map: `5_region_map/index.json` (admin regions and zones with their genres, song and genre counts), simplified `geometry/<id>.geojson` per drill level and `zones/<id>.geojson`, each under 300 KB, plus an `5_region_map_unplaced.csv` triage report for genres whose anchor has no map geometry.
+
 ### Fixed
 
+- `geohistory`/`gold` Genealogy `anchorId` is the lifted lane id (new `6_genealogy_tradition_lane.parquet`) instead of the raw admin-unit anchor, and the export raises if an anchor is not a lane or band. Lifting an admin unit with no non-admin ancestor now raises.
+- `wikidata` A WDQS brownout no longer fails the nightly run: artist images reuse each partition's last good rows for up to 7 days. WDQS retries now run on a time budget with jitter, honour `Retry-After`, stop on non-retryable 4xx, and report a WDQS timeout as such. The live contract test checks the response shape on a sample instead of running the full extract.
+
+### Changed
+
+- `geohistory` Anchoring moves out of `5_tradition` into a new Silver step `5_music_anchor` (+ `5_music_anchor_unplaced.csv`): every candidate (override, `P2596`, `P1269`, lifted `P495`, place-valued `P17`/`P276`/`P921`/`P361`, and for overviews the label matched against entity labels and aliases) is collected, ancestors of another candidate are dropped, then the first rule wins. `5_tradition` keeps its schema and becomes a dated filter over it; it now also keeps overviews anchored by the new rules.
+- `gold` A curated `manual_genre_disambiguation.csv` key now outranks the `normalized` match, so a tag whose key equals a label's (`trap` → `trap music`) can be disambiguated per song from its other genres (hip-hop trap by default, EDM trap on an EDM context hint). Keys matching an exact label, `manual_genre_alias` or `accepted_non_genre_tags` still raise.
+- The `live-contract` issue closes itself when the next live run passes and reopens on a new failure.
+- The artist-image chain (Bronze, Silver Commons metadata, Silver `11_artist_images`) drops rows with bad external data (an unknown-value image, unparseable Commons metadata, a row breaking grow's image contract) instead of failing the run, and fails only when more than 1% of rows are rejected (`check_reject_rate`). Gold stays strict. Skipped Commons files are not cached, so they are retried next run.
+
+### Added
+
+- `geohistory` Bronze downloads the pinned Natural Earth 1:10m admin-0 and admin-1 GeoJSON (`NATURAL_EARTH_VERSION`, required) and writes `natural_earth_admin.parquet` (one row per country or first-level unit, Wikidata QID, full-resolution WKB geometry), the base map of the regional genres map. Tests cover the download URL, both levels, orphan admin-1 units, missing geometries and duplicate ids.
+- `wikidata` Bronze adds the place claims of the regional genres map: `wikidata_admin_hierarchy.parquet` (the `P131`/`P361` ancestry of every Natural Earth admin unit, chunked 400 seeds per query) and `wikidata_cultural_entity_alias.parquet` (English aliases of the cultural entities), plus `P30`/`P706` cultural entity claims and `P276`/`P921` tradition claims. Needs the new `GEOHISTORY_BRONZE_DIR` in the wikidata `.env`, and geohistory Bronze must run before wikidata Bronze (a missing or QID-less `natural_earth_admin.parquet` raises). Tests cover the query builders, the chunking and both ingests.
+- `gold` artists carry an `image` (`{url, page_url, author, license, license_url}`, null when none): a 500 px Wikimedia Commons thumbnail picked from Wikidata `P18` through `P434`, with the author and license its reuse requires. `wikidata` Bronze adds `wikidata_artist_images.parquet`, Silver adds `10_commons_image_metadata` (Commons API cache, 30-day TTL) and `11_artist_images` (free, attributable images only, one per artist). Needs the new `COMMONS_METADATA_MAX_BATCHES_PER_RUN` in the wikidata `.env`; the first delta export after the upgrade re-sends every artist. Tests cover parsing, the Commons client, the cache budget, the selection and the export, plus live WDQS and Commons integration tests.
+- `curation` ingests the `canonical_genre_scene` list; `gold` genre tree nodes carry the optional `scene` (`commercial` | `underground`) from `manual_canonical_genre_scene.csv`, and the playground fixture copies it. Tests cover the builder, the export, bad rows and the fixture.
+- `common.step_timer.step` logs `step=<name> seconds=<n> max_rss_gb=<n>` per step; applied to the musicbrainz Silver run, each gold step (plus songs collect, checks, parts and delta) and the wikidata Bronze ingest.
+
+### Changed
+
+- Live Wikidata and Commons tests carry a new `live` marker and run in a scheduled, non-blocking `Live contract` workflow (daily before the prod run, plus manual dispatch) that opens or updates a `live-contract` issue on failure; they assert invariants only. PR CI replays recorded real WDQS and Commons responses instead (`tests/fixtures`, `tests/silver/fixtures`), and the `Integration` job runs only the MusicBrainz sample DB tests, without reruns (`pytest-rerunfailures` dropped).
+- `gold` artist export enforces grow's image contract (`license_url` http(s), URLs at most 2048 bytes, non-blank `author`) and `artist.schema.json` mirrors it (URL length in characters; the byte limit is checked in code), so a violation fails Gold instead of a rejected grow import part.
+- `wikidata.ingest` runs its SPARQL queries and its wikidata.org/Wikipedia API calls in two concurrent lanes (serial per host), and `4_youtube_video_status` fetches its batches with 4 workers; the nightly compute critical path drops by about 3.5 minutes with the same request and quota volume.
+
+### Fixed
+
+- `wikidata` Silver `10_commons_image_metadata` no longer crashes on a Commons file whose `extmetadata` comes back as `[]` (no extended metadata); it yields a row with no license or author. Test added.
+- `wikidata` Silver `10_commons_image_metadata` queries the Commons API with POST: a 50-title GET batch exceeded the URL limit (414) and failed the staging run. Tests read the form body.
+- `wikidata` Bronze artist images skip `P18` "unknown value" statements (WDQS skolem `.well-known/genid/` IRIs) instead of failing the whole ingest; a test pins the query filter.
+- `mypy` passes again on develop: `wikidata` artist images reject a missing `P18` value explicitly, and the `gold` artist export computes its image share from the null count.
+- gold delta export compares rows by value, per column, against a `<name>_snapshot.parquet` baseline instead of a Polars row hash, and `2_songs` carries only the fields grow stores (`secondary_genre_names`, `musicbrainz_genres` dropped); an unchanged night or a Polars upgrade no longer yields a full-change delta, and the log shows the changed-column counts. Needs the infrastructure run script to promote `_snapshot` instead of `_hashes` (first run after deploy is a full sync).
 - gold `2_songs` delta export no longer runs out of memory when most rows changed: changed rows are found by hash index and written one part at a time instead of semi-joining a second copy of the frame, and `export_songs` builds the frame lazily with a single streaming collect.
 
 ## [8.2.0] - 2026-10-27

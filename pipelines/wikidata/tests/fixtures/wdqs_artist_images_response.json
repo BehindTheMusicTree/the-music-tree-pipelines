@@ -1,0 +1,83 @@
+{
+  "head": {
+    "vars": [
+      "item",
+      "mbid",
+      "image"
+    ]
+  },
+  "results": {
+    "bindings": [
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q588820"
+        },
+        "mbid": {
+          "type": "literal",
+          "value": "000fc734-b7e1-4a01-92d1-f544261b43f5"
+        },
+        "image": {
+          "type": "uri",
+          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Cocteau%20Twins%2C%20The%20Moon%20and%20the%20Melodies%201986%20%28cropped%29%20%28cropped%29.jpg"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q1449074"
+        },
+        "mbid": {
+          "type": "literal",
+          "value": "00052b1a-6672-456a-a6bd-24571ef08477"
+        },
+        "image": {
+          "type": "uri",
+          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Franz%20Seydelmann.jpg"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q66563"
+        },
+        "mbid": {
+          "type": "literal",
+          "value": "0006c824-595a-45af-9374-238ce585fa3a"
+        },
+        "image": {
+          "type": "uri",
+          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/ClaudiaJungCSDKoelnbyAbhijayAchatz.jpg"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q615504"
+        },
+        "mbid": {
+          "type": "literal",
+          "value": "0007fd67-d066-4372-a335-bd60e78c0a1c"
+        },
+        "image": {
+          "type": "uri",
+          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Scott%20Colley.jpg"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q20687374"
+        },
+        "mbid": {
+          "type": "literal",
+          "value": "c4214b38-ae20-442a-93ff-7cca6e01706f"
+        },
+        "image": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/.well-known/genid/4d48a18cd830fb0fe30ac52c4ad5f68b"
+        }
+      }
+    ]
+  }
+}

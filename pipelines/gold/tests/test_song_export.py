@@ -7,7 +7,7 @@ import polars as pl
 import pytest
 
 from gold import song_export
-from gold.song_export import export_songs
+from gold.song_export import _SYNCED_COLUMNS, _apply_recording_overrides, _genre_names_by_item_id, export_songs
 
 MATCH_ROWS = [
     {
@@ -151,8 +151,6 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "youtube_view_count": 1234,
         "first_release_year": 1977,
         "genre_name": "jazz",
-        "secondary_genre_names": [],
-        "musicbrainz_genres": [],
     }
     assert songs[4]["youtube_video_id"] is None
 
@@ -302,24 +300,23 @@ def test_export_songs_raises_on_bad_recording_override(
         export_songs(_write_genre_match(tmp_path), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
 
 
-def test_export_songs_writes_secondary_genre_names_and_musicbrainz_genres(tmp_path: Path, curation_dir: Path) -> None:
+def test_export_songs_exports_only_the_synced_columns(tmp_path: Path, curation_dir: Path) -> None:
     row = {
         **MATCH_ROWS[0],
         "secondary_genre_item_ids": ["Q4", "Q2"],
-        "musicbrainz_genres": [{"name": "Rock", "weight": 3}, {"name": "some tag", "weight": 1}],
+        "musicbrainz_genres": [{"name": "Rock", "weight": 3}],
     }
 
     songs = _read_parts(
         export_songs(_write_genre_match(tmp_path, rows=[row]), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
     )
 
-    assert songs[0]["secondary_genre_names"] == ["jazz", "Punk"]
-    assert songs[0]["musicbrainz_genres"] == [{"name": "Rock", "weight": 3}, {"name": "some tag", "weight": 1}]
+    assert set(songs[0]) == {"musicbrainz_recording_id", *_SYNCED_COLUMNS}
 
 
 @pytest.mark.parametrize(
     ("override", "expected"),
-    [("Q2", ["jazz", "hardcore punk"]), ("Q5", ["jazz"]), (None, ["punk", "jazz", "hardcore punk"])],
+    [("Q2", ["Q4", "Q5"]), ("Q5", ["Q4"]), (None, ["Q2", "Q4", "Q5"])],
 )
 def test_export_songs_override_drops_secondaries_its_genre_is_or_beats(
     tmp_path: Path,
@@ -331,11 +328,18 @@ def test_export_songs_override_drops_secondaries_its_genre_is_or_beats(
     write_curation("song_genre", [{"musicbrainz_recording_id": _mbid(0), "genre_item_id": override, "reason": "x"}])
     row = {**MATCH_ROWS[0], "secondary_genre_item_ids": ["Q2", "Q4", "Q5"]}
 
-    songs = _read_parts(
-        export_songs(_write_genre_match(tmp_path, rows=[row]), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+    lazy_songs = pl.scan_parquet(_write_genre_match(tmp_path, rows=[row])).select(
+        "musicbrainz_recording_id",
+        "secondary_genre_item_ids",
+        genre_item_id=pl.col("wikidata_genre_item_id"),
     )
+    silver_dir = _write_silver(tmp_path)
 
-    assert [name.lower() for name in songs[0]["secondary_genre_names"]] == expected
+    songs = _apply_recording_overrides(
+        lazy_songs, _genre_names_by_item_id(silver_dir), silver_dir, curation_dir
+    ).collect()
+
+    assert songs[0, "secondary_genre_item_ids"].to_list() == expected
 
 
 def test_export_songs_raises_on_genre_among_its_secondaries(tmp_path: Path, curation_dir: Path) -> None:
