@@ -143,7 +143,9 @@ def export_region_map(
         elif kinds.get(anchor_id) in UNFOOTPRINTED_KINDS:
             unplaced.append((item_id, anchor_id, "anchor is not a place"))
         elif footprint_admins.get(anchor_id):
-            for admin_id in footprint_admins[anchor_id]:
+            for admin_id in dict.fromkeys(footprint_admins[anchor_id]):
+                if any(g["itemId"] == item_id for g in genres_by_region[admin_id]):
+                    continue
                 genres_by_region[admin_id].append({"itemId": item_id, "rule": rule, "relation": "tradition"})
         else:
             reason = "anchor has no geometry" if anchor_id in shapes else "anchor has no footprint"
