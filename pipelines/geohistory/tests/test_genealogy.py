@@ -169,6 +169,8 @@ def test_genealogy_lane_and_order(paths):
     assert lanes["A"]["column_id"] == lanes["D"]["column_id"] == "A"
     assert lanes["B"]["column_id"] == "B"
     tradition_lane = pl.read_parquet(silver / "6_genealogy_tradition_lane.parquet")
+    anchored = pl.read_parquet(silver / "5_tradition.parquet").drop_nulls("anchor_id")
+    assert tradition_lane.height == anchored.height
     assert set(tradition_lane["lane_id"]) <= set(lanes) | {"C"}
     bands = pl.read_parquet(silver / "6_genealogy_band.parquet").sort("column_id")
     assert bands.select("entity_id", "column_id").rows() == [("C", "A"), ("C", "B")]

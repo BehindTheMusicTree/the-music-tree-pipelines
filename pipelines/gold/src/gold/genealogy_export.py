@@ -81,6 +81,14 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
     if empty:
         raise ValueError(f"genealogy columns without lanes (order and lane files disagree): {empty[:5]}")
 
+    unlaned = sorted(
+        row["wikidata_id"]
+        for row in traditions.to_dicts()
+        if row["anchor_id"] and row["wikidata_id"] not in tradition_lane
+    )
+    if unlaned:
+        raise ValueError(f"genealogy traditions anchored but missing from the tradition-lane file: {unlaned[:5]}")
+
     unshown = sorted({t["anchorId"] for t in document["traditions"] if t["anchorId"] not in (None, *shown_ids)})
     if unshown:
         raise ValueError(f"genealogy tradition anchors outside the lanes and bands: {unshown[:5]}")
