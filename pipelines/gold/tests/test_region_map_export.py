@@ -108,7 +108,14 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
         ("Q4", "anchor has no footprint"),
         ("Q5", "anchor has no footprint"),
     ]
-    assert json.loads((output / "5_region_map_report.json").read_text()) == {"unplacedGenreCount": 2}
+    report = json.loads((output / "5_region_map_report.json").read_text())
+    assert report["unplacedGenreCount"] == 2
+    assert {f["path"] for f in report["files"]} == {
+        "geometry/world.geojson",
+        "geometry/FR.geojson",
+        "zones/CE.geojson",
+    }
+    assert all(f["bytes"] > 0 and f["tolerance"] == 0.0 for f in report["files"])
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -170,3 +177,11 @@ def test_without_specks_keeps_the_largest_part_and_drops_islets() -> None:
 def test_feature_collection_raises_on_emptied_geometry() -> None:
     with pytest.raises(ValueError, match="emptied or degraded"):
         region_map_export._feature_collection([("P", "P", Point(1, 1).buffer(0))], "n")
+
+
+def test_feature_collection_keeps_the_largest_part_of_a_speck_only_feature() -> None:
+    encoded, tolerance = region_map_export._feature_collection(
+        [("A", "A", shapely.union_all([box(0, 0, 0.001, 0.001), box(5, 5, 5.0005, 5.0005)]))], "n"
+    )
+
+    assert tolerance == 0.0 and json.loads(encoded)["features"][0]["geometry"]["coordinates"]
