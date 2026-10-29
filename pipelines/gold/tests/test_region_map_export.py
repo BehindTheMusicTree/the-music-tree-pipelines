@@ -411,12 +411,36 @@ def test_feature_collection_keeps_the_largest_part_of_a_speck_only_feature() -> 
     assert tolerance == 0.0 and json.loads(encoded)["features"][0]["geometry"]["coordinates"]
 
 
+def test_polygons_flattens_nested_geometry_collections() -> None:
+    inner = shapely.GeometryCollection([box(0, 0, 1, 1), Point(5, 5)])
+    outer = shapely.GeometryCollection([inner, shapely.MultiPolygon([box(2, 2, 3, 3), box(4, 4, 5, 5)])])
+
+    assert len(region_map_export._polygons(outer)) == 3
+
+
+def test_rounded_keeps_a_valid_geometry_whose_every_part_collapses_and_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    tiny = shapely.Polygon([(0, 0), (0.004, 0), (0.004, 0.004)])
+
+    with caplog.at_level("WARNING"):
+        result = region_map_export._rounded(tiny, "Q99")
+
+    assert result.equals(tiny) and "Q99" in caplog.text
+
+
+def test_rounded_drops_an_invalid_geometry_whose_every_part_collapses() -> None:
+    bowtie = shapely.Polygon([(0, 0), (0.004, 0.004), (0.004, 0), (0, 0.004)])
+
+    assert region_map_export._rounded(bowtie, "Q99").is_empty
+
+
 def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
     kept = box(1.13, 1.26, 1.43, 1.56)
     collapsed = shapely.Polygon([(0.77, 2.29), (0.77, 2.29), (0.77, 3.29), (0.77, 3.29)])
     speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
 
-    assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept])).equals(kept)
+    assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept]), "R").equals(kept)
 
 
 def test_export_region_map_warns_when_the_bundle_nears_its_cap(

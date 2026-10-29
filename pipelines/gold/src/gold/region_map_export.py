@@ -47,7 +47,7 @@ def _canonical_descendants(hierarchy: pl.DataFrame) -> dict[str, set[str]]:
     return descendants
 
 
-def _share_within(child, parent) -> float:
+def _share_within(child: shapely.Geometry, parent: shapely.Geometry) -> float:
     child, parent = shapely.make_valid(child), shapely.make_valid(parent)
     return child.intersection(parent).area / child.area if child.area else 0.0
 
@@ -73,21 +73,32 @@ def _without_specks(geometry, tolerance: float):
     return shapely.union_all(kept or [max(parts, key=lambda part: part.area)])
 
 
-def _rounded(geometry):
+def _polygons(geometry: shapely.Geometry) -> list[shapely.Geometry]:
+    if geometry.geom_type == "Polygon":
+        return [geometry]
+    if geometry.geom_type in ("MultiPolygon", "GeometryCollection"):
+        return [polygon for part in shapely.get_parts(geometry) for polygon in _polygons(part)]
+    return []
+
+
+def _rounded(geometry: shapely.Geometry, region_id: str) -> shapely.Geometry:
     rounded = shapely.transform(geometry, lambda coordinates: np.round(coordinates, COORDINATE_DECIMALS))
-    polygons = [
-        polygon
-        for part in shapely.get_parts(rounded)
-        for polygon in shapely.get_parts(shapely.make_valid(part))
-        if polygon.geom_type == "Polygon"
-    ]
-    return shapely.union_all(polygons) if polygons else geometry
+    polygons = [polygon for part in shapely.get_parts(rounded) for polygon in _polygons(shapely.make_valid(part))]
+    if polygons:
+        return shapely.union_all(polygons)
+    if not geometry.is_valid:
+        return shapely.Polygon()
+    logger.warning("rounding collapsed every part of %s, keeping its unrounded geometry", region_id)
+    return geometry
 
 
 def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[bytes, float]:
     geometries = [geometry for _, _, geometry in features]
     for tolerance in SIMPLIFY_TOLERANCES:
-        rounded = [_rounded(_without_specks(geometry, tolerance)) for geometry in _simplified(geometries, tolerance)]
+        rounded = [
+            _rounded(_without_specks(geometry, tolerance), feature_id)
+            for (feature_id, _, _), geometry in zip(features, _simplified(geometries, tolerance), strict=True)
+        ]
         degenerate = [
             features[i][0]
             for i, geometry in enumerate(rounded)
