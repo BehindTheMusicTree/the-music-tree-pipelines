@@ -335,3 +335,28 @@ def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
     speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
 
     assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept])).equals(kept)
+
+
+def test_export_region_map_warns_when_the_bundle_nears_its_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    export_region_map(geohistory, wikidata, match, output)
+    size = (output / "5_region_map.json").stat().st_size
+    monkeypatch.setattr(region_map_export, "BUNDLE_LIMIT_BYTES", int(size / 0.95))
+
+    with caplog.at_level("WARNING"):
+        export_region_map(geohistory, wikidata, match, output)
+
+    assert "5_region_map.json is" in caplog.text
+
+
+def test_export_region_map_does_not_warn_well_under_the_bundle_cap(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    with caplog.at_level("WARNING"):
+        export_region_map(geohistory, wikidata, match, output)
+
+    assert "5_region_map.json is" not in caplog.text

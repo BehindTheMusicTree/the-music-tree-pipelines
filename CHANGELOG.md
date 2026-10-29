@@ -50,12 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `gold` The `5_region_map.json` cap matches grow-api's 20 MiB request body limit (was 15 MiB, which the staging region map exceeds at 17 MiB) and warns from 90%
 - `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
 
 ### Added
 
 - `gold` `gold.region_map_fixture_export`, an on-demand cut of `5_region_map/` into a small, schema-valid, referentially intact fixture (demo path by default).
-- `gold` `5_region_map.json`, a bundle of the region map index and every geojson file (at most 15 MiB) for `grow-the-music-tree-api` to import atomically.
+- `gold` `5_region_map.json`, a bundle of the region map index and every geojson file (at most 20 MiB) for `grow-the-music-tree-api` to import atomically.
 
 ### Changed
 
