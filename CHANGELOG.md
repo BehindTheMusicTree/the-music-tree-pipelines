@@ -48,6 +48,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.4.0] - 2026-10-30
+
+### Fixed
+
+- `geohistory` Music anchors honour `tradition_exclusions`.
+- `gold` Region map coordinate rounding flattens nested geometry collections (zones such as Africa had lost most of their polygons; the export grows by about 1.8 MB), warns naming the region when it keeps an unrounded geometry whose parts all collapse, and fails the export loudly when that geometry is also invalid
+- `gold` Region map genres whose anchor cannot be placed now inherit the region of their nearest placed regional parent and leave the unplaced report
+- `gold` Region map mainland dissolve is order-independent: deepest parents first, repeated until stable, one mainland (the largest claimant) per parent, and a country is only dissolved into a country
+- `gold` Region map `index.json` is capped at 2 MB (canonical bytes, warning above 90%), written canonical, and shipped alone in the last part; NaN/infinity raise in Gold instead of at grow upload
+- `gold` `gold.region_map_fixture_export` raises a clear error on an index that predates content-addressed `files`
+- `geohistory` A "music of X" label match with no footprint no longer makes the overview ambiguous, placing Brittany, Hawaii, Crimea, Moldova, Serbia, Bavaria, Limousin, Epirus and Bashkortostan
+- `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
+
+### Added
+
+- `gold` `gold.region_map_fixture_export`, an on-demand cut of `5_region_map/` into a small, schema-valid, referentially intact fixture (demo path by default).
+- `gold` The region map index maps every geojson path to the sha256 of its canonical bytes (`files`), and `5_region_map/parts/part-NNNNN.ndjson.gz` carries every file plus the index as `{path, sha256, document}` lines (25 per part) for `grow-the-music-tree-api`'s chunked import run, which stores files by hash and swaps the snapshot atomically. No size cap on the map as a whole.
+
+### Changed
+
+- `gold` Region map hierarchy: a region's parent is its nearest admin ancestor, Natural Earth countries nest only when at least 90% inside their parent, a mainland intermediate holding at least half of its parent is dissolved into it, genres without an anchor inherit their regional parent's region (`regional_parent`), genre-less admin children of a listed region are listed at count 0, and admin `songCount`/`genreCount` roll up over descendants.
+- `geohistory` Music anchors collapse an overview label matching one admin unit and zones whose footprint is exactly that admin to the admin, so "music of Brittany" anchors on Brittany; `music_anchor` now reads `8_entity_footprint.parquet`.
+- `geohistory` Point footprints match the admin polygon that intersects the coordinates (border points no longer drop), and `8_entity_geometry` is only built for entities Gold can draw.
+- `gold` Genres anchored to an ethnic group, language or other non-place entity with an admin footprint now land on each footprint region (relation `tradition`); `civilization` and `curated` anchors stay unplaced, and unplaced reasons read "no footprint" / "no geometry".
+- `geohistory` `2_place_containment` breaks containment cycles of any length, including ones crossing membership, by dropping the lowest-priority edge with a warning; a mutual-claim tie now drops one edge, not both.
+- `gold` `5_region_map_report.json` lists each geojson with its size and simplification tolerance, a file above 90% of the 300 KB cap logs a warning, and a schema failure names the offending JSON path.
+
 ## [8.3.0] - 2026-10-29
 
 ### Added

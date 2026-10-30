@@ -28,6 +28,57 @@ def _ancestors(entity: str, parents: dict[str, set[str]]) -> set[str]:
     return seen
 
 
+def _find_cycle(parents: dict[str, set[str]]) -> list[tuple[str, str]] | None:
+    state: dict[str, int] = {}
+    for root in sorted(parents):
+        if root in state:
+            continue
+        state[root] = 1
+        path = [root]
+        pending = [iter(sorted(parents.get(root, ())))]
+        while path:
+            for node in pending[-1]:
+                if state.get(node) == 1:
+                    cycle = path[path.index(node) :]
+                    return [(cycle[i], cycle[(i + 1) % len(cycle)]) for i in range(len(cycle))]
+                if node not in state:
+                    state[node] = 1
+                    path.append(node)
+                    pending.append(iter(sorted(parents.get(node, ()))))
+                    break
+            else:
+                state[path.pop()] = 2
+                pending.pop()
+    return None
+
+
+def _break_cycles(edges: pl.DataFrame, membership_pairs: set[tuple[str, str]]) -> pl.DataFrame:
+    """Drop the lowest-priority containment edge of every cycle in containment + membership (membership is pinned)."""
+    info = {
+        (child, parent): (rank, source)
+        for parent, child, source, rank in edges.select("parent_id", "child_id", "source", "rank").rows()
+    }
+    parents: dict[str, set[str]] = defaultdict(set)
+    for child, parent in [*info, *membership_pairs]:
+        parents[child].add(parent)
+    dropped: list[tuple[str, str, str]] = []
+    while (cycle := _find_cycle(parents)) is not None:
+        droppable = [edge for edge in cycle if edge in info and edge not in membership_pairs]
+        if not droppable:
+            raise ValueError(f"2_entity_membership has a cycle (child, parent): {cycle[:5]}")
+        child, parent = max(droppable, key=lambda edge: (info[edge][0], edge[1], edge[0]))
+        parents[child].discard(parent)
+        dropped.append((parent, child, info[(child, parent)][1]))
+    if dropped:
+        logger.warning(
+            "%d containment edge(s) dropped to break cycles, the lowest-priority edge of each loses (parent, child, "
+            "source): %s",
+            len(dropped),
+            dropped[:10],
+        )
+    return edges.join(pl.DataFrame(dropped, schema=EDGE_SCHEMA, orient="row"), on=["parent_id", "child_id"], how="anti")
+
+
 def _p131_edges(hierarchy: pl.DataFrame, item_entity: dict[str, str], place_ids: set[str]) -> list[tuple[str, str]]:
     direct: dict[str, list[str]] = defaultdict(list)
     for item, value in (
@@ -121,19 +172,7 @@ def place_containment(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir:
         .unique(["parent_id", "child_id"], keep="first", maintain_order=True)
         .join(removals, on=["parent_id", "child_id"], how="anti")
     )
-    reverse = ranked.select(
-        pl.col("parent_id").alias("child_id"), pl.col("child_id").alias("parent_id"), pl.col("rank").alias("other_rank")
-    )
-    conflicts = ranked.join(reverse, on=["parent_id", "child_id"]).filter(pl.col("rank") >= pl.col("other_rank"))
-    if conflicts.height:
-        logger.warning(
-            "%d mutual containment claim(s) dropped, the lower-priority source loses and ties drop both: %s",
-            conflicts.height,
-            conflicts.head(5).select("parent_id", "child_id", "source").rows(),
-        )
-    edges = ranked.join(conflicts.select("parent_id", "child_id"), on=["parent_id", "child_id"], how="anti").drop(
-        "rank"
-    )
+    edges = ranked
 
     parents: dict[str, set[str]] = defaultdict(set)
     for parent, child in edges.select("parent_id", "child_id").rows():
@@ -155,8 +194,18 @@ def place_containment(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir:
         fallback.append((country_id, entity_id, "natural_earth"))
         parents[entity_id].add(country_id)
 
-    edges = pl.concat([edges, pl.DataFrame(fallback, schema=EDGE_SCHEMA, orient="row")]).sort("parent_id", "child_id")
-    _assert_acyclic(edges, "2_place_containment")
+    fallback_rank = SOURCE_PRIORITY.index("natural_earth")
+    fallback_frame = pl.DataFrame(fallback, schema=EDGE_SCHEMA, orient="row").with_columns(
+        pl.lit(fallback_rank, dtype=pl.Int8).alias("rank")
+    )
+    membership_pairs = set(membership.select("child_id", "parent_id").rows())
+    edges = (
+        _break_cycles(pl.concat([edges, fallback_frame]), membership_pairs).drop("rank").sort("parent_id", "child_id")
+    )
+    _assert_acyclic(
+        pl.concat([edges.select("child_id", "parent_id"), membership.select("child_id", "parent_id")]),
+        "2_place_containment + 2_entity_membership",
+    )
     check_unique_key(
         edges.select(pl.concat_str("parent_id", "child_id", separator="|").alias("key")), "key", "2_place_containment"
     )

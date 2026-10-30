@@ -5,6 +5,8 @@ from pathlib import Path
 import polars as pl
 import shapely
 
+DRAWN_KINDS = ("country", "admin_unit", "historical_country", "historical_region", "cultural_region", "macro_region")
+
 logger = logging.getLogger(__name__)
 
 GEOMETRY_SCHEMA = pl.Schema(
@@ -49,7 +51,12 @@ def _descendants(node: str, children: dict[str, list[str]]) -> set[str]:
 def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
     ne_map = pl.read_parquet(silver_dir / "1_entity_ne_admin.parquet")
     containment = pl.read_parquet(silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
-    footprint = pl.read_parquet(silver_dir / "8_entity_footprint.parquet")
+    drawn = set(
+        pl.read_parquet(silver_dir / "1_cultural_entity.parquet", columns=["entity_id", "kind"]).filter(
+            pl.col("kind").is_in(DRAWN_KINDS)
+        )["entity_id"]
+    )
+    footprint = pl.read_parquet(silver_dir / "8_entity_footprint.parquet").filter(pl.col("entity_id").is_in(drawn))
 
     children: dict[str, list[str]] = defaultdict(list)
     for parent, child in containment.select("parent_id", "child_id").rows():

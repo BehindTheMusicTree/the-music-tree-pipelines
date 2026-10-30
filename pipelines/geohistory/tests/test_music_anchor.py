@@ -6,13 +6,15 @@ from geohistory.silver.music_anchor import music_anchor
 CLAIM_SCHEMA = {"item_id": pl.String, "property": pl.String, "value": pl.String, "time_precision": pl.Int8}
 ENTITIES = [
     ("fr", "country", "France"),
-    ("bre", "historical_region", "Bretagne"),
+    ("bre", "admin_unit", "Brittany"),
     ("mor", "historical_region", "Morbihan"),
     ("us", "country", "United States"),
     ("ge", "country", "Georgia"),
     ("gaus", "historical_region", "Georgia"),
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
+    ("bre_z", "historical_country", "Brittany"),
+    ("duchy", "historical_country", "Brittany"),
 ]
 CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
 
@@ -33,6 +35,8 @@ def run(
     aliases=(),
     placements=(),
     additions=(),
+    exclusions=(),
+    footprint=(),
 ):
     wikidata, silver, curation = tmp_path / "wikidata", tmp_path / "silver", tmp_path / "curation"
     for directory in (wikidata, silver, curation):
@@ -41,6 +45,7 @@ def run(
         rows = {
             "tradition_placement_overrides": placements,
             "tradition_additions": [(q, "r") for q in additions],
+            "tradition_exclusions": [(q, "r") for q in exclusions],
         }.get(list_name, ())
         lines = [",".join(columns), *(",".join(row) for row in rows)]
         (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
@@ -57,6 +62,9 @@ def run(
     )
     pl.DataFrame(list(containment), schema=["child_id", "parent_id"], orient="row").write_parquet(
         silver / "2_place_containment.parquet"
+    )
+    pl.DataFrame(list(footprint), schema=["entity_id", "admin_id", "rule"], orient="row").write_parquet(
+        silver / "8_entity_footprint.parquet"
     )
     pl.DataFrame(schema={"predecessor_id": pl.String, "successor_id": pl.String}).write_parquet(
         silver / "3_entity_succession.parquet"
@@ -135,6 +143,25 @@ def test_ambiguous_overview_label_is_unplaced(tmp_path):
     assert unplaced.rows() == [("Q1", "music of Georgia", "gaus|ge")]
 
 
+def test_overview_label_matching_an_admin_and_its_exact_zone_anchors_on_the_admin(tmp_path):
+    footprint = [("bre", "bre", "self"), ("bre_z", "bre", "cover")]
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "label")
+    assert unplaced.height == 0
+
+
+def test_overview_label_matching_a_zone_with_a_wider_footprint_stays_ambiguous(tmp_path):
+    footprint = [("bre", "bre", "self"), ("bre_z", "bre", "cover"), ("bre_z", "fr", "cover")]
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
+    assert "Q1" not in anchors and unplaced.height == 1
+
+
+def test_overview_label_ignores_a_match_without_footprint(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia")], footprint=[("gaus", "us", "cover")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("gaus", "label")
+    assert unplaced.height == 0
+
+
 def test_ambiguous_label_does_not_override_a_real_candidate(tmp_path):
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia"), claim("Q1", "P17", "Q230")])
     assert anchors["Q1"]["anchor_id"] == "ge"
@@ -155,3 +182,9 @@ def test_containment_makes_the_contained_place_more_specific(tmp_path):
     claims = [label("Q1", "Breton folk"), claim("Q1", "P17", "Q142"), claim("Q1", "P276", "Q12130")]
     anchors, _ = run(tmp_path, claims, membership=(), containment=(("bre", "fr"),))
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "P276")
+
+
+def test_excluded_item_gets_no_anchor(tmp_path):
+    claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q884")]
+    anchors, _ = run(tmp_path, claims, exclusions=["Q1"])
+    assert "Q1" not in anchors

@@ -67,11 +67,14 @@ for curation.
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
 one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
-claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops both with
-a warning. Longer cycles raise. A membership override remove also removes the matching containment edge.
+claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
+greater `(parent, child)` edge. Any longer cycle, including one that crosses `2_entity_membership`, drops its
+lowest-priority containment edge (membership edges are pinned) with a warning, so the union of membership and
+containment is acyclic and consumers (anchoring, lanes) can walk it without cycle handling. A membership override remove also removes the matching containment edge.
 The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
 its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
-Wikidata P625, first match in `ne_id` order). Anchoring drops a candidate that contains another candidate, and a
+Wikidata P625, first admin polygon in `ne_id` order that intersects the point, so a point on a border still matches).
+`8_entity_geometry` is only materialized for entities Gold can draw (countries, admin units and the four zone kinds). Anchoring drops a candidate that contains another candidate, and a
 tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
 lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
 
@@ -119,7 +122,10 @@ country of origin lifted along `3_entity_succession` to the entity valid at the 
 "Greece" lands on ancient Greece), `P17`/`P276`/`P921`/`P361` when the value is a place entity, and for an overview the
 label ("music of X" against entity labels and `wikidata_cultural_entity_alias`). A candidate that is a membership
 ancestor of another candidate is dropped, so the most specific place wins (Morbihan over Bretagne over France) whatever
-the property; among the remaining ones the first rule in the order above wins. A label matching several entities is
+the property; among the remaining ones the first rule in the order above wins. A label match with no
+footprint is dropped while a placeable match remains: with no geometry it cannot be drawn, so it cannot make the label
+ambiguous (the footprint-less Duchy of Brittany no longer blocks "music of Brittany"). An admin and zones whose footprint
+is exactly that admin are the same place and collapse to the admin. A label still matching several entities is
 ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
 Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 
