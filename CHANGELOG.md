@@ -48,8 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.4.0] - 2026-10-30
+
 ### Fixed
 
+- `geohistory` Music anchors honour `tradition_exclusions`.
 - `gold` Region map coordinate rounding flattens nested geometry collections (zones such as Africa had lost most of their polygons; the export grows by about 1.8 MB), warns naming the region when it keeps an unrounded geometry whose parts all collapse, and fails the export loudly when that geometry is also invalid
 - `gold` Region map genres whose anchor cannot be placed now inherit the region of their nearest placed regional parent and leave the unplaced report
 - `gold` Region map mainland dissolve is order-independent: deepest parents first, repeated until stable, one mainland (the largest claimant) per parent, and a country is only dissolved into a country
@@ -71,10 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gold` Genres anchored to an ethnic group, language or other non-place entity with an admin footprint now land on each footprint region (relation `tradition`); `civilization` and `curated` anchors stay unplaced, and unplaced reasons read "no footprint" / "no geometry".
 - `geohistory` `2_place_containment` breaks containment cycles of any length, including ones crossing membership, by dropping the lowest-priority edge with a warning; a mutual-claim tie now drops one edge, not both.
 - `gold` `5_region_map_report.json` lists each geojson with its size and simplification tolerance, a file above 90% of the 300 KB cap logs a warning, and a schema failure names the offending JSON path.
-
-### Fixed
-
-- `geohistory` Music anchors honour `tradition_exclusions`.
 
 ## [8.3.0] - 2026-10-29
 
