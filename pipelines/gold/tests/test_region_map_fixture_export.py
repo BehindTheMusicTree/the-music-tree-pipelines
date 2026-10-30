@@ -88,3 +88,13 @@ def test_fixture_raises_on_an_unknown_region_or_zone(tmp_path: Path, regions: tu
 
     with pytest.raises(ValueError, match="unknown"):
         export_region_map_fixture(source, tmp_path / "fixture", regions, zones)
+
+
+def test_fixture_raises_on_an_index_without_files(tmp_path: Path) -> None:
+    source = _export(tmp_path)
+    index = json.loads((source / "index.json").read_text())
+    del index["files"]
+    (source / "index.json").write_text(json.dumps(index))
+
+    with pytest.raises(ValueError, match="predates content-addressed files"):
+        export_region_map_fixture(source, tmp_path / "fixture", ("BR",), ())

@@ -172,9 +172,10 @@ def test_export_region_map_splits_import_lines_into_parts(tmp_path: Path, monkey
 
     export_region_map(geohistory, wikidata, match, output)
 
-    parts = sorted(p.name for p in (output / "5_region_map" / "parts").iterdir())
-    assert parts == ["part-00000.ndjson.gz", "part-00001.ndjson.gz"]
-    assert len(_part_lines(output)) == 4
+    parts = sorted((output / "5_region_map" / "parts").iterdir())
+    assert [p.name for p in parts] == ["part-00000.ndjson.gz", "part-00001.ndjson.gz"]
+    assert [len(gzip.decompress(p.read_bytes()).splitlines()) for p in parts] == [3, 1]
+    assert json.loads(gzip.decompress(parts[-1].read_bytes()))["path"] == "index.json"
 
 
 def test_export_region_map_lifts_an_orphan_behind_a_zone_parent(tmp_path: Path) -> None:
@@ -401,6 +402,37 @@ def test_export_region_map_raises_on_oversized_geometry(tmp_path: Path, monkeypa
 
     with pytest.raises(ValueError, match="stays above"):
         export_region_map(geohistory, wikidata, match, output)
+
+
+def test_export_region_map_writes_the_index_as_its_canonical_bytes(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    index_line = next(line for line in _part_lines(output) if line["path"] == "index.json")
+    assert hashlib.sha256(index_path.read_bytes()).hexdigest() == index_line["sha256"]
+
+
+def test_export_region_map_raises_on_oversized_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    monkeypatch.setattr(region_map_export, "INDEX_SIZE_LIMIT_BYTES", 10)
+
+    with pytest.raises(ValueError, match="index.json is [0-9]+ bytes, above the 10 cap"):
+        export_region_map(geohistory, wikidata, match, output)
+
+
+def test_export_region_map_warns_on_an_index_near_its_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    export_region_map(geohistory, wikidata, match, output)
+    size = (output / "5_region_map" / "index.json").stat().st_size
+    monkeypatch.setattr(region_map_export, "INDEX_SIZE_LIMIT_BYTES", size + 1)
+
+    with caplog.at_level("WARNING"):
+        export_region_map(geohistory, wikidata, match, output)
+
+    assert "index.json is" in caplog.text and f"of the {size + 1} cap" in caplog.text
 
 
 def test_export_region_map_raises_without_regions(tmp_path: Path) -> None:

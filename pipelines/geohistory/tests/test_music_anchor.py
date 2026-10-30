@@ -14,6 +14,7 @@ ENTITIES = [
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
     ("bre_z", "historical_country", "Brittany"),
+    ("duchy", "historical_country", "Brittany"),
 ]
 CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
 
@@ -152,6 +153,12 @@ def test_overview_label_matching_a_zone_with_a_wider_footprint_stays_ambiguous(t
     footprint = [("bre_z", "bre", "cover"), ("bre_z", "fr", "cover")]
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
     assert "Q1" not in anchors and unplaced.height == 1
+
+
+def test_overview_label_ignores_a_match_without_footprint_or_admin_kind(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=[("bre_z", "bre", "cover")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "label")
+    assert unplaced.height == 0
 
 
 def test_ambiguous_label_does_not_override_a_real_candidate(tmp_path):
