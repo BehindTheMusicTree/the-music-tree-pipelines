@@ -122,7 +122,10 @@ country of origin lifted along `3_entity_succession` to the entity valid at the 
 "Greece" lands on ancient Greece), `P17`/`P276`/`P921`/`P361` when the value is a place entity, and for an overview the
 label ("music of X" against entity labels and `wikidata_cultural_entity_alias`). A candidate that is a membership
 ancestor of another candidate is dropped, so the most specific place wins (Morbihan over Bretagne over France) whatever
-the property; among the remaining ones the first rule in the order above wins. A label matching several entities is
+the property; among the remaining ones the first rule in the order above wins. A label match with no
+footprint is dropped while a placeable match remains: with no geometry it cannot be drawn, so it cannot make the label
+ambiguous (the footprint-less Duchy of Brittany no longer blocks "music of Brittany"). An admin and zones whose footprint
+is exactly that admin are the same place and collapse to the admin. A label still matching several entities is
 ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
 Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 

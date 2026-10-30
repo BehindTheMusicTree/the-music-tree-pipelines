@@ -61,7 +61,14 @@ def _label_index(entities: pl.DataFrame, crosswalk: pl.DataFrame, aliases: pl.Da
 
 
 def _collapse_equivalent(matches: set[str], kinds: dict[str, str], footprint_admins: dict[str, set[str]]) -> set[str]:
-    """One admin_unit plus zones whose footprint is exactly that admin are the same place: keep the admin."""
+    """One admin_unit plus zones whose footprint is exactly that admin are the same place: keep the admin.
+
+    A match with no footprint has no geometry to draw, so it cannot make the label ambiguous: it is dropped
+    as long as a placeable match remains.
+    """
+    placeable = {e for e in matches if footprint_admins.get(e)}
+    if placeable:
+        matches = placeable
     admins = [entity for entity in matches if kinds.get(entity) == "admin_unit"]
     if len(matches) < 2 or len(admins) != 1:
         return matches

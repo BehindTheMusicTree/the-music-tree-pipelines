@@ -21,6 +21,8 @@ ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "mac
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
 SIZE_LIMIT_BYTES = 300_000
 SIZE_WARNING_RATIO = 0.9
+# The index is fetched whole on every map load, before any geometry.
+INDEX_SIZE_LIMIT_BYTES = 2_000_000
 FILES_PER_PART = 25
 INDEX_PATH = "index.json"
 NESTED_COUNTRY_MIN_OVERLAP = 0.9
@@ -97,7 +99,14 @@ def _rounded(geometry: shapely.Geometry, region_id: str) -> shapely.Geometry:
 
 def _canonical_bytes(document: dict) -> bytes:
     """The serialization grow hashes and serves, so a file's sha256 here is its URL there."""
-    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
+
+
+def _check_size(label: str, size: int, limit: int) -> None:
+    if size > limit:
+        raise ValueError(f"{label} is {size} bytes, above the {limit} cap")
+    if size > limit * SIZE_WARNING_RATIO:
+        logger.warning("%s is %d bytes, above %d%% of the %d cap", label, size, SIZE_WARNING_RATIO * 100, limit)
 
 
 def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[dict, bytes, float]:
@@ -132,17 +141,17 @@ def _feature_collection(features: list[tuple[str, str, object]], name: str) -> t
     raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
 
 
-def _write_parts(lines: list[dict], parts_dir: Path) -> int:
-    """grow's import-run parts, one file per line as a JSON object (not a string) so grow can re-hash it."""
+def _write_parts(lines: list[dict], index_line: dict, parts_dir: Path) -> int:
+    """grow's import-run parts, one file per line as a JSON object (not a string) so grow can re-hash it. The index,
+    up to `INDEX_SIZE_LIMIT_BYTES`, gets a part of its own so no part outgrows `FILES_PER_PART` geometry files."""
     parts_dir.mkdir()
-    starts = range(0, len(lines), FILES_PER_PART)
-    for index, start in enumerate(starts):
+    chunks = [lines[start : start + FILES_PER_PART] for start in range(0, len(lines), FILES_PER_PART)] + [[index_line]]
+    for index, chunk in enumerate(chunks):
         with gzip.open(parts_dir / f"part-{index:05d}.ndjson.gz", "wt", encoding="utf-8") as part:
             part.writelines(
-                json.dumps(line, separators=(",", ":"), ensure_ascii=False) + "\n"
-                for line in lines[start : start + FILES_PER_PART]
+                json.dumps(line, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n" for line in chunk
             )
-    return len(starts)
+    return len(chunks)
 
 
 def export_region_map(
@@ -382,14 +391,7 @@ def export_region_map(
         relative = str(path.relative_to(geometry_dir))
         files.append((relative, len(encoded), tolerance))
         lines.append({"path": relative, "sha256": hashlib.sha256(encoded).hexdigest(), "document": collection})
-        if len(encoded) > SIZE_LIMIT_BYTES * SIZE_WARNING_RATIO:
-            logger.warning(
-                "%s is %d bytes, above %d%% of the %d cap",
-                path.name,
-                len(encoded),
-                SIZE_WARNING_RATIO * 100,
-                SIZE_LIMIT_BYTES,
-            )
+        _check_size(path.name, len(encoded), SIZE_LIMIT_BYTES)
 
     write_collection(
         geometry_dir / "geometry" / "world.geojson",
@@ -413,11 +415,11 @@ def export_region_map(
         raise ValueError(
             f"region map failed schema validation ({REGION_MAP_SCHEMA_PATH}) at {e.json_path}: {e.message}"
         ) from e
-    (geometry_dir / INDEX_PATH).write_text(json.dumps(document, indent=2, ensure_ascii=False))
-    lines.append(
-        {"path": INDEX_PATH, "sha256": hashlib.sha256(_canonical_bytes(document)).hexdigest(), "document": document}
-    )
-    part_count = _write_parts(lines, geometry_dir / "parts")
+    encoded_index = _canonical_bytes(document)
+    _check_size(INDEX_PATH, len(encoded_index), INDEX_SIZE_LIMIT_BYTES)
+    (geometry_dir / INDEX_PATH).write_bytes(encoded_index)
+    index_line = {"path": INDEX_PATH, "sha256": hashlib.sha256(encoded_index).hexdigest(), "document": document}
+    part_count = _write_parts(lines, index_line, geometry_dir / "parts")
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")

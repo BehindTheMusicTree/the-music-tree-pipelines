@@ -14,6 +14,7 @@ ENTITIES = [
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
     ("bre_z", "historical_country", "Brittany"),
+    ("duchy", "historical_country", "Brittany"),
 ]
 CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
 
@@ -143,15 +144,22 @@ def test_ambiguous_overview_label_is_unplaced(tmp_path):
 
 
 def test_overview_label_matching_an_admin_and_its_exact_zone_anchors_on_the_admin(tmp_path):
-    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=[("bre_z", "bre", "cover")])
+    footprint = [("bre", "bre", "self"), ("bre_z", "bre", "cover")]
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "label")
     assert unplaced.height == 0
 
 
 def test_overview_label_matching_a_zone_with_a_wider_footprint_stays_ambiguous(tmp_path):
-    footprint = [("bre_z", "bre", "cover"), ("bre_z", "fr", "cover")]
+    footprint = [("bre", "bre", "self"), ("bre_z", "bre", "cover"), ("bre_z", "fr", "cover")]
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Brittany")], footprint=footprint)
     assert "Q1" not in anchors and unplaced.height == 1
+
+
+def test_overview_label_ignores_a_match_without_footprint(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia")], footprint=[("gaus", "us", "cover")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("gaus", "label")
+    assert unplaced.height == 0
 
 
 def test_ambiguous_label_does_not_override_a_real_candidate(tmp_path):

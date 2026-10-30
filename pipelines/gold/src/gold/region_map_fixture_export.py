@@ -41,6 +41,8 @@ def export_region_map_fixture(
 ) -> Path:
     logger.info("cutting region map fixture from %s", region_map_dir)
     index = json.loads((region_map_dir / "index.json").read_text())
+    if "files" not in index:
+        raise ValueError(f"{region_map_dir / 'index.json'} predates content-addressed files; re-run gold")
     regions = {r["id"]: r for r in index["regions"]}
 
     unknown = [r for r in region_ids if r not in regions or regions[r]["kind"] == "zone"]
