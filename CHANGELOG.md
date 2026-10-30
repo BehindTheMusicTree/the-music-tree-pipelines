@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.5.0] - 2026-10-30
+
 ### Changed
 
 - `manual_canonical_genre_pop_side.csv` is keyed by item id (`root_item_id, pop_child_item_id, reason`) instead of genre names, matching grow-the-music-tree-api's re-keyed `canonical_genre_pop_side` list, so a Wikidata label change no longer breaks the gold export. `_load_pop_sides` validates roots and direct children by item id, and `build_genre_tree` matches pop sides on `item_id`.
