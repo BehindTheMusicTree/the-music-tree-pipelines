@@ -157,8 +157,7 @@ Wikidata merges and deletes items, so a curated QID can drop out of the Bronze g
 ### 2.0 1_item_links — display-label casing
 
 `item_label`/`parent_label` stay the raw, untouched Wikidata string everywhere — every exact-match
-comparison downstream (`genre_match.py`, `genre_tree_builder.py`'s pop_sides matching,
-`canonical_genre_tree_export.py`'s root/child lookups, every manual CSV that references a genre by
+comparison downstream (`genre_match.py`, every manual CSV that references a genre by
 name) keys off it. `item_display_label`/`parent_display_label` is the separate, display-only field
 gold's `genre_tree_builder` actually emits as a tree node's `"name"`, derived with this precedence:
 
@@ -490,8 +489,7 @@ different tree nodes — a real collision hit in production when the real Wikida
 `LOCAL:blues-rock` grouping node.
 
 Convention: every synthetic (`LOCAL:`-prefixed) grouping node's `item_label` in
-`manual_canonical_parent_additions.csv` (and any place that references it by label, e.g.
-`manual_canonical_genre_pop_side.csv`'s `root_genre_name`) carries a trailing `" (grouping)"` suffix,
+`manual_canonical_parent_additions.csv` (and any place that references it by label) carries a trailing `" (grouping)"` suffix,
 e.g. `"Blues/Rock (grouping)"`, `"Disco/Funk (grouping)"`, `"Reggae/Dub (grouping)"`. This guarantees
 the slug stays distinct from any real Wikidata item's slug regardless of word overlap, rather than
 relying on no real genre ever sharing the same words as a grouping label. Apply this suffix to every

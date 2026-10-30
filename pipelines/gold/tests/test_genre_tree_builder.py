@@ -35,7 +35,7 @@ def test_build_genre_tree_handles_multiple_roots() -> None:
 
 
 def test_build_genre_tree_marks_pop_side_on_direct_child_only() -> None:
-    tree = build_genre_tree(_hierarchy(), pop_sides={"rock": {"pop rock"}})
+    tree = build_genre_tree(_hierarchy(), pop_sides={"Q1": {"Q4"}})
 
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     pop_rock = next(child for child in rock["children"] if child["name"] == "pop rock")
@@ -47,7 +47,7 @@ def test_build_genre_tree_marks_pop_side_on_direct_child_only() -> None:
 
 def test_build_genre_tree_marks_multiple_pop_sides_on_same_root() -> None:
     rows = [*TREE_ROWS, {"item_id": "Q6", "item_label": "soft rock", "parent_id": "Q1"}]
-    tree = build_genre_tree(pl.DataFrame(rows), pop_sides={"rock": {"pop rock", "soft rock"}})
+    tree = build_genre_tree(pl.DataFrame(rows), pop_sides={"Q1": {"Q4", "Q6"}})
 
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     sides = {child["name"]: child.get("side") for child in rock["children"]}
@@ -55,7 +55,7 @@ def test_build_genre_tree_marks_multiple_pop_sides_on_same_root() -> None:
 
 
 def test_build_genre_tree_ignores_pop_side_for_root_without_entry() -> None:
-    tree = build_genre_tree(_hierarchy(), pop_sides={"rock": {"pop rock"}})
+    tree = build_genre_tree(_hierarchy(), pop_sides={"Q1": {"Q4"}})
 
     jazz = next(node for node in tree["tree"] if node["name"] == "jazz")
     assert "side" not in jazz
@@ -78,12 +78,12 @@ def test_build_genre_tree_raises_on_duplicate_item_id() -> None:
         build_genre_tree(pl.DataFrame(rows))
 
 
-def test_build_genre_tree_uses_display_label_for_name_but_real_label_for_pop_sides() -> None:
+def test_build_genre_tree_uses_display_label_for_name_and_item_id_for_pop_sides() -> None:
     rows = [
         {"item_id": "Q1", "item_label": "popular music", "item_display_label": "Mainstream Pop", "parent_id": None},
         {"item_id": "Q2", "item_label": "pop rock", "item_display_label": None, "parent_id": "Q1"},
     ]
-    tree = build_genre_tree(pl.DataFrame(rows), pop_sides={"popular music": {"pop rock"}})
+    tree = build_genre_tree(pl.DataFrame(rows), pop_sides={"Q1": {"Q2"}})
 
     root = tree["tree"][0]
     assert root["name"] == "Mainstream Pop"
