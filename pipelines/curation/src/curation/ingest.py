@@ -29,7 +29,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "non_stylistic_genres": ("item_id", "reason"),
     "umbrella_genres": ("item_id", "reason"),
     "accepted_non_genre_tags": ("musicbrainz_genre_name", "reason"),
-    "canonical_genre_pop_side": ("root_genre_name", "pop_child_genre_name", "reason"),
+    "canonical_genre_pop_side": ("root_item_id", "pop_child_item_id", "reason"),
     "genre_alias": ("musicbrainz_genre_name", "wikidata_genre_name", "reason"),
     "genre_precedence": ("item_id", "over_item_id", "reason"),
     "genre_disambiguation": ("musicbrainz_genre_name", "item_id", "is_default", "reason"),

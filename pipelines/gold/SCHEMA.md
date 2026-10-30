@@ -67,7 +67,7 @@ Read from `CURATION_BRONZE_DIR` (curation pipeline's Bronze output) — see [DES
 
 **`manual_genre_disambiguation_context.csv`**: `musicbrainz_genre_name, item_id, context_item_id, reason` — a song also carrying `context_item_id`, or a genre under it, resolves the tag to the candidate `item_id`.
 
-**`manual_canonical_genre_pop_side.csv`**: `root_genre_name, pop_child_genre_name, reason` — for a canonical root, which direct child(ren) are `the-music-tree-genre-kit`'s "pop" side; a root may have zero, one, or several pop children (one row each), but at least one direct child must remain "core".
+**`manual_canonical_genre_pop_side.csv`**: `root_item_id, pop_child_item_id, reason` — for a canonical root (by item id, Wikidata QID or `LOCAL:` grouping id), which direct child(ren) are `the-music-tree-genre-kit`'s "pop" side; a root may have zero, one, or several pop children (one row each), but at least one direct child must remain "core".
 
 **`manual_secondary_parents.csv`**: `item_id, parent_id, action, reason` — `action` `add` or `remove`. Ids are `Q…` or `LOCAL:…`.
 

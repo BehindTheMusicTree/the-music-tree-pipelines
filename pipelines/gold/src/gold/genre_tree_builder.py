@@ -191,9 +191,8 @@ def build_genre_tree(
     for row in hierarchy.iter_rows(named=True):
         children_by_parent.setdefault(row["parent_id"], []).append(row["item_id"])
 
-    # `item_label` (the real Wikidata label) drives pop_sides matching below — pop_sides is keyed by
-    # item_label, not any display override. `item_display_label` (a manual_label_overrides.csv pick,
-    # falling back to item_label when absent) is what's actually emitted as a node's "name".
+    # `item_display_label` (a manual_label_overrides.csv pick, falling back to item_label when absent)
+    # is what's actually emitted as a node's "name".
     labels_by_id = dict(hierarchy.select("item_id", "item_label").unique(subset="item_id").iter_rows())
     if "item_display_label" in hierarchy.columns:
         display_labels_by_id = dict(
@@ -272,9 +271,9 @@ def build_genre_tree(
         node = build_node(item_id)
         # `side` (the-music-tree-genre-kit's pop/core distinction) is only meaningful for a root's
         # direct children, hence marking it here rather than inside build_node's recursion.
-        pop_children = (pop_sides or {}).get(labels_by_id[item_id], set())
+        pop_children = (pop_sides or {}).get(item_id, set())
         for child_id, child in zip(children_by_parent.get(item_id, []), node["children"]):
-            if labels_by_id[child_id] in pop_children:
+            if child_id in pop_children:
                 child["side"] = "pop"
         if item_id in (unaccepted_root_ids or set()):
             node["isUnacceptedRoot"] = True
