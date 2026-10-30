@@ -37,44 +37,37 @@ def _load_pop_sides(manual_canonical_genre_pop_side_path: Path, hierarchy: pl.Da
     df = pl.read_csv(manual_canonical_genre_pop_side_path)
     csv_name = manual_canonical_genre_pop_side_path.name
 
-    for column in ("root_genre_name", "pop_child_genre_name", "reason"):
+    for column in ("root_item_id", "pop_child_item_id", "reason"):
         if not df.filter(_blank_mask(df, column)).is_empty():
             raise ValueError(f"{csv_name} has row(s) with a null/blank '{column}'")
 
-    rows = df.select("root_genre_name", "pop_child_genre_name").rows()
+    rows = df.select("root_item_id", "pop_child_item_id").rows()
     if len(rows) != len(set(rows)):
-        raise ValueError(f"{csv_name} has duplicate (root_genre_name, pop_child_genre_name) row(s)")
-
-    roots = df.select("root_genre_name").to_series().to_list()
+        raise ValueError(f"{csv_name} has duplicate (root_item_id, pop_child_item_id) row(s)")
 
     known_item_ids = set(hierarchy.select("item_id").unique().to_series().to_list())
     root_rows = hierarchy.filter(pl.col("parent_id").is_null() | ~pl.col("parent_id").is_in(known_item_ids))
-    root_id_by_label = dict(root_rows.select("item_label", "item_id").unique(subset="item_label").iter_rows())
+    root_ids = set(root_rows.select("item_id").to_series().to_list())
 
-    unknown_roots = sorted(set(roots) - set(root_id_by_label))
+    unknown_roots = sorted({root_id for root_id, _ in rows} - root_ids)
     if unknown_roots:
-        raise ValueError(f"{csv_name} references root_genre_name(s) not found among canonical roots: {unknown_roots}")
+        raise ValueError(f"{csv_name} references root_item_id(s) not found among canonical roots: {unknown_roots}")
+
+    def direct_children(root_id: str) -> set[str]:
+        return set(hierarchy.filter(pl.col("parent_id") == root_id).select("item_id").to_series())
 
     pop_sides: dict[str, set[str]] = {}
-    for row in df.iter_rows(named=True):
-        root_label, child_label = row["root_genre_name"], row["pop_child_genre_name"]
-        direct_children = set(
-            hierarchy.filter(pl.col("parent_id") == root_id_by_label[root_label]).select("item_label").to_series()
-        )
-        if child_label not in direct_children:
-            raise ValueError(
-                f"{csv_name}: pop_child_genre_name '{child_label}' is not a direct child of root '{root_label}'"
-            )
-        pop_sides.setdefault(root_label, set()).add(child_label)
+    for root_id, child_id in rows:
+        if child_id not in direct_children(root_id):
+            raise ValueError(f"{csv_name}: pop_child_item_id '{child_id}' is not a direct child of root '{root_id}'")
+        pop_sides.setdefault(root_id, set()).add(child_id)
 
-    for root_label, pop_children in pop_sides.items():
-        direct_children = set(
-            hierarchy.filter(pl.col("parent_id") == root_id_by_label[root_label]).select("item_label").to_series()
-        )
-        if pop_children >= direct_children:
+    for root_id, pop_children in pop_sides.items():
+        children = direct_children(root_id)
+        if pop_children >= children:
             raise ValueError(
-                f"{csv_name}: root '{root_label}' has no core (non-pop) child left — "
-                f"all {len(direct_children)} direct child(ren) marked pop"
+                f"{csv_name}: root '{root_id}' has no core (non-pop) child left — "
+                f"all {len(children)} direct child(ren) marked pop"
             )
 
     return pop_sides

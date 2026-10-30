@@ -201,8 +201,8 @@ consumer-specific (genre-kit) curation belongs.
 pop child) pair — a root may have zero, one, or several pop children, but at least one direct child
 must remain "core" (unmarked). `canonical_genre_tree_export.py::_load_pop_sides` validates it the
 same way as the other manual CSVs — `ValueError` naming the CSV and offending value(s) for a
-blank/null required column, a duplicate `(root_genre_name, pop_child_genre_name)` row, a
-`root_genre_name` that isn't an actual canonical root, a `pop_child_genre_name` that isn't a direct
+blank/null required column, a duplicate `(root_item_id, pop_child_item_id)` row, a
+`root_item_id` that isn't an actual canonical root, a `pop_child_item_id` that isn't a direct
 child of that root, or a root whose *every* direct child is marked pop (no core side left) — then
 `genre_tree_builder.py::build_genre_tree` marks each matching direct child `"side": "pop"` in the
 exported tree. Everything else is implicitly "core" (unmarked), matching the genre-kit's own

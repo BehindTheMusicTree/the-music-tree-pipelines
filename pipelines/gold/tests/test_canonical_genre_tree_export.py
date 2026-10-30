@@ -40,7 +40,7 @@ def _write_canonical_roots(wikidata_silver_dir: Path, unaccepted_ids: set[str]) 
 
 
 def _write_pop_side_csv(path: Path, rows: list[dict[str, str]]) -> None:
-    columns = ["root_genre_name", "pop_child_genre_name", "reason"]
+    columns = ["root_item_id", "pop_child_item_id", "reason"]
     data = {column: [row[column] for row in rows] for column in columns}
     pl.DataFrame(data, schema={column: pl.Utf8 for column in columns}).write_csv(path)
 
@@ -120,7 +120,7 @@ def test_export_canonical_genre_tree_marks_pop_side(
     _write_secondary_parents(wikidata_silver_dir, [])
     output_dir = tmp_path / "gold"
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
-    _write_pop_side_csv(pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"}])
+    _write_pop_side_csv(pop_side_path, [{"root_item_id": "Q1", "pop_child_item_id": "Q4", "reason": "x"}])
 
     result = export_canonical_genre_tree(
         wikidata_silver_dir, output_dir, pop_side_path, curation_dir, descriptions_path, CURATION_EXPORTED_ON
@@ -161,9 +161,7 @@ def test_export_canonical_genre_tree_raises_on_unknown_root(
     _write_canonical_roots(wikidata_silver_dir, set())
     _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
-    _write_pop_side_csv(
-        pop_side_path, [{"root_genre_name": "punk rock", "pop_child_genre_name": "hardcore punk", "reason": "x"}]
-    )
+    _write_pop_side_csv(pop_side_path, [{"root_item_id": "Q2", "pop_child_item_id": "Q3", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not found among canonical roots"):
         export_canonical_genre_tree(
@@ -180,9 +178,7 @@ def test_export_canonical_genre_tree_raises_on_non_direct_child(
     _write_canonical_roots(wikidata_silver_dir, set())
     _write_secondary_parents(wikidata_silver_dir, [])
     pop_side_path = tmp_path / "manual_canonical_genre_pop_side.csv"
-    _write_pop_side_csv(
-        pop_side_path, [{"root_genre_name": "rock", "pop_child_genre_name": "hardcore punk", "reason": "x"}]
-    )
+    _write_pop_side_csv(pop_side_path, [{"root_item_id": "Q1", "pop_child_item_id": "Q3", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not a direct child of root"):
         export_canonical_genre_tree(
@@ -202,8 +198,8 @@ def test_export_canonical_genre_tree_raises_on_duplicate_row(
     _write_pop_side_csv(
         pop_side_path,
         [
-            {"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"},
-            {"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "y"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q4", "reason": "x"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q4", "reason": "y"},
         ],
     )
 
@@ -225,8 +221,8 @@ def test_export_canonical_genre_tree_raises_on_no_core_child_left(
     _write_pop_side_csv(
         pop_side_path,
         [
-            {"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"},
-            {"root_genre_name": "rock", "pop_child_genre_name": "punk rock", "reason": "y"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q4", "reason": "x"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q2", "reason": "y"},
         ],
     )
 
@@ -252,8 +248,8 @@ def test_export_canonical_genre_tree_marks_multiple_pop_sides(
     _write_pop_side_csv(
         pop_side_path,
         [
-            {"root_genre_name": "rock", "pop_child_genre_name": "pop rock", "reason": "x"},
-            {"root_genre_name": "rock", "pop_child_genre_name": "soft rock", "reason": "y"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q4", "reason": "x"},
+            {"root_item_id": "Q1", "pop_child_item_id": "Q6", "reason": "y"},
         ],
     )
 
