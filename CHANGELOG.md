@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gold` Region map mainland dissolve is order-independent: deepest parents first, repeated until stable, one mainland (the largest claimant) per parent, and a country is only dissolved into a country
 - `gold` Region map `index.json` is capped at 2 MB (canonical bytes, warning above 90%), written canonical, and shipped alone in the last part; NaN/infinity raise in Gold instead of at grow upload
 - `gold` `gold.region_map_fixture_export` raises a clear error on an index that predates content-addressed `files`
-- `geohistory` A "music of X" label match with no geometry (neither an admin unit nor footprinted) no longer makes the overview ambiguous, placing Brittany, Hawaii, Crimea, Moldova, Serbia, Bavaria, Limousin, Epirus and Bashkortostan
+- `geohistory` A "music of X" label match with no footprint no longer makes the overview ambiguous, placing Brittany, Hawaii, Crimea, Moldova, Serbia, Bavaria, Limousin, Epirus and Bashkortostan
 - `gold` Region map export no longer crashes with "Overlay input is mixed-dimension" when rounding collapses a geometry part to a point or line
 
 ### Added
