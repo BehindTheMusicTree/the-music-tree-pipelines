@@ -54,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `manual_canonical_genre_pop_side.csv` is keyed by item id (`root_item_id, pop_child_item_id, reason`) instead of genre names, matching grow-the-music-tree-api's re-keyed `canonical_genre_pop_side` list, so a Wikidata label change no longer breaks the gold export. `_load_pop_sides` validates roots and direct children by item id, and `build_genre_tree` matches pop sides on `item_id`.
 
+### Added
+
+- `geohistory` Natural Earth admin-0 `continent` in bronze, `6_column_region.parquet` (region per genealogy column), and `region_id`/`region_label` in `7_lane_order.parquet`; columns are ordered region-first so every region is contiguous
+- `gold` `4_genealogy.json` gains `regions` (`id`, `label`, `startPosition`, `endPosition`) and `columns[].regionId`; the export raises when a region is split
+
 ## [8.4.0] - 2026-10-30
 
 ### Fixed

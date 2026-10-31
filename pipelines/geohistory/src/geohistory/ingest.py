@@ -19,6 +19,7 @@ ADMIN_SCHEMA = {
     "name": pl.String,
     "iso_code": pl.String,
     "ne_type": pl.String,
+    "continent": pl.String,
     "geometry_wkb": pl.Binary,
 }
 ADMIN_FIELDS = {
@@ -85,7 +86,8 @@ def build_natural_earth_admin(admin_0: dict, admin_1: dict) -> pl.DataFrame:
             if feature["geometry"] is None:
                 raise ValueError(f"Natural Earth admin-{level} unit {ne_id} has no geometry")
             wkb = shapely.geometry.shape(feature["geometry"]).wkb
-            rows.append((ne_id, level, wikidata_id, adm0_a3, name, iso_code, ne_type, wkb))
+            continent = (properties["CONTINENT"] or None) if level == 0 else None
+            rows.append((ne_id, level, wikidata_id, adm0_a3, name, iso_code, ne_type, continent, wkb))
     df = pl.DataFrame(rows, schema=ADMIN_SCHEMA, orient="row").sort("level", "ne_id")
     countries = set(df.filter(pl.col("level") == 0)["adm0_a3"])
     orphans = df.filter((pl.col("level") == 1) & ~pl.col("adm0_a3").is_in(countries))

@@ -6,7 +6,7 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 MAX_PASSES = 100
-ORDER_SCHEMA = {"column_id": pl.String, "position": pl.Int32}
+ORDER_SCHEMA = {"column_id": pl.String, "position": pl.Int32, "region_id": pl.String, "region_label": pl.String}
 FRAGMENT_SCHEMA = {
     "entity_id": pl.String,
     "label": pl.String,
@@ -31,12 +31,15 @@ def _cost(order: list[str], bands: dict[str, set[str]]) -> int:
     return total
 
 
-def _seriate(prior: list[str], bands: dict[str, set[str]]) -> list[str]:
+def _seriate(prior: list[str], bands: dict[str, set[str]], region: dict[str, str]) -> list[str]:
+    """Adjacent-swap seriation that never moves a column across a region boundary, so regions stay contiguous."""
     order = list(prior)
     cost = _cost(order, bands)
     for _ in range(MAX_PASSES):
         improved = False
         for index in range(len(order) - 1):
+            if region[order[index]] != region[order[index + 1]]:
+                continue
             order[index], order[index + 1] = order[index + 1], order[index]
             swapped = _cost(order, bands)
             if swapped < cost:
@@ -53,6 +56,25 @@ def lane_order(silver_dir: Path) -> tuple[Path, Path]:
     lanes = pl.read_parquet(silver_dir / "6_genealogy_lane.parquet")
     band_rows = pl.read_parquet(silver_dir / "6_genealogy_band.parquet")
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet")
+    regions = pl.read_parquet(silver_dir / "6_column_region.parquet")
+    lane_columns = set(lanes.get_column("column_id"))
+    region_columns = regions.get_column("column_id")
+    if region_columns.n_unique() != len(region_columns) or set(region_columns) != lane_columns:
+        raise ValueError("genealogy columns must each have exactly one region assignment")
+    for field in ("region_label", "region_rank"):
+        if (
+            regions.group_by("region_id")
+            .agg(pl.col(field).n_unique().alias("count"))
+            .filter(pl.col("count") != 1)
+            .height
+        ):
+            raise ValueError(f"genealogy regions must have a consistent {field}")
+    ranks = regions.select("region_id", "region_rank").unique()
+    if ranks.get_column("region_rank").n_unique() != ranks.height or regions.null_count().row(0) != (0, 0, 0, 0):
+        raise ValueError("genealogy region assignments must have distinct ranks and no nulls")
+    region = dict(regions.select("column_id", "region_id").rows())
+    region_label = dict(regions.select("column_id", "region_label").rows())
+    region_rank = dict(regions.select("column_id", "region_rank").rows())
     longitude = {e: lon for e, lon in entities.select("entity_id", "longitude").rows() if lon is not None}
 
     bands: dict[str, set[str]] = {}
@@ -73,8 +95,11 @@ def lane_order(silver_dir: Path) -> tuple[Path, Path]:
     neutral = _mean(known)
     if neutral is None:
         raise ValueError("no lane or band has coordinates, cannot seed the west-to-east order")
-    prior = sorted(centroid, key=lambda column: (centroid[column] if centroid[column] is not None else neutral, column))
-    order = _seriate(prior, bands)
+    prior = sorted(
+        centroid,
+        key=lambda column: (region_rank[column], centroid[column] if centroid[column] is not None else neutral, column),
+    )
+    order = _seriate(prior, bands, region)
     position = {column: index for index, column in enumerate(order)}
 
     fragments: list[tuple[str, str, int, int, int, int | None, int | None]] = []
@@ -91,7 +116,9 @@ def lane_order(silver_dir: Path) -> tuple[Path, Path]:
         fragments.extend((band, labels[band], i, run[0], run[-1], *spans[band]) for i, run in enumerate(runs))
 
     order_path, fragment_path = silver_dir / "7_lane_order.parquet", silver_dir / "7_band_fragment.parquet"
-    pl.DataFrame([(c, i) for i, c in enumerate(order)], schema=ORDER_SCHEMA, orient="row").write_parquet(order_path)
+    pl.DataFrame(
+        [(c, i, region[c], region_label[c]) for i, c in enumerate(order)], schema=ORDER_SCHEMA, orient="row"
+    ).write_parquet(order_path)
     pl.DataFrame(fragments, schema=FRAGMENT_SCHEMA, orient="row").write_parquet(fragment_path)
     logger.info("ordered %d columns, %d band fragments to %s", len(order), len(fragments), silver_dir)
     return order_path, fragment_path

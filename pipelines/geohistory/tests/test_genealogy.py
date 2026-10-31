@@ -3,6 +3,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from geohistory.silver.column_region import REGION_RANK, column_region
 from geohistory.silver.curation import LISTS
 from geohistory.silver.genealogy_lane import genealogy_lane
 from geohistory.silver.lane_order import lane_order
@@ -20,6 +21,14 @@ ENTITIES = [
 ]
 CROSSWALK = [("A", "Q10"), ("B", "Q11"), ("C", "Q12"), ("D", "Q13"), ("E", "Q14")]
 SPANS = [("A", 1000, 1500), ("B", 800, 1900), ("C", None, None), ("D", 1500, 1900), ("E", 500, 600)]
+
+
+def write_column_region(silver: Path, regions: dict[str, str]) -> None:
+    pl.DataFrame(
+        [(column, region, region.title(), REGION_RANK[region]) for column, region in regions.items()],
+        schema=["column_id", "region_id", "region_label", "region_rank"],
+        orient="row",
+    ).write_parquet(silver / "6_column_region.parquet")
 
 
 def claim(item_id, property_, value, precision=None):
@@ -165,6 +174,7 @@ def test_genealogy_lane_and_order(paths):
     wikidata, silver, curation = paths
     build_tradition(wikidata, silver, curation)
     genealogy_lane(silver)
+    write_column_region(silver, {"A": "europe", "B": "europe"})
     lane_order(silver)
 
     lanes = {r["entity_id"]: r for r in pl.read_parquet(silver / "6_genealogy_lane.parquet").to_dicts()}
@@ -177,7 +187,10 @@ def test_genealogy_lane_and_order(paths):
     assert set(tradition_lane["lane_id"]) <= set(lanes) | {"C"}
     bands = pl.read_parquet(silver / "6_genealogy_band.parquet").sort("column_id")
     assert bands.select("entity_id", "column_id").rows() == [("C", "A"), ("C", "B")]
-    assert pl.read_parquet(silver / "7_lane_order.parquet").sort("position").rows() == [("A", 0), ("B", 1)]
+    assert pl.read_parquet(silver / "7_lane_order.parquet").sort("position").rows() == [
+        ("A", 0, "europe", "Europe"),
+        ("B", 1, "europe", "Europe"),
+    ]
     fragments = pl.read_parquet(silver / "7_band_fragment.parquet")
     assert fragments.select("entity_id", "fragment", "start_position", "end_position").rows() == [("C", 0, 0, 1)]
 
@@ -195,7 +208,96 @@ def test_lane_order_splits_noncontiguous_band_and_swaps_to_close_gaps(tmp_path):
         [("W", 0.0), ("X", 5.0), ("Y", 10.0), ("B", None)], schema=["entity_id", "longitude"], orient="row"
     ).write_parquet(tmp_path / "1_cultural_entity.parquet")
 
+    write_column_region(tmp_path, {"W": "europe", "X": "europe", "Y": "europe"})
     lane_order(tmp_path)
 
     assert pl.read_parquet(tmp_path / "7_lane_order.parquet").sort("position")["column_id"].to_list() == ["X", "W", "Y"]
     assert pl.read_parquet(tmp_path / "7_band_fragment.parquet")["fragment"].to_list() == [0]
+
+
+def test_lane_order_keeps_regions_contiguous_even_when_a_swap_would_close_a_band_gap(tmp_path):
+    lanes = [("W", "w", "W", 0, 10), ("X", "x", "X", 0, 10), ("Y", "y", "Y", 0, 10)]
+    pl.DataFrame(
+        lanes, schema=["entity_id", "label", "column_id", "start_year", "end_year"], orient="row"
+    ).write_parquet(tmp_path / "6_genealogy_lane.parquet")
+    pl.DataFrame(
+        [("B", "b", "W", 0, 10), ("B", "b", "Y", 0, 10)],
+        schema=["entity_id", "label", "column_id", "start_year", "end_year"],
+        orient="row",
+    ).write_parquet(tmp_path / "6_genealogy_band.parquet")
+    pl.DataFrame(
+        [("W", 0.0), ("X", 5.0), ("Y", 10.0), ("B", None)], schema=["entity_id", "longitude"], orient="row"
+    ).write_parquet(tmp_path / "1_cultural_entity.parquet")
+    write_column_region(tmp_path, {"W": "americas", "X": "europe", "Y": "asia"})
+
+    lane_order(tmp_path)
+
+    assert pl.read_parquet(tmp_path / "7_lane_order.parquet").sort("position").select(
+        "column_id", "region_id"
+    ).rows() == [
+        ("W", "americas"),
+        ("X", "europe"),
+        ("Y", "asia"),
+    ]
+
+
+def test_column_region_votes_by_footprint_continent_and_falls_back_to_other(tmp_path):
+    bronze, silver = tmp_path / "bronze", tmp_path / "silver"
+    bronze.mkdir()
+    silver.mkdir()
+    pl.DataFrame(
+        [
+            ("TUR", 0, "TUR", "Asia"),
+            ("GRC", 0, "GRC", "Europe"),
+            ("TUR-1", 1, "TUR", None),
+            ("TUR-2", 1, "TUR", None),
+            ("GRC-1", 1, "GRC", None),
+            ("ATA", 0, "ATA", "Antarctica"),
+        ],
+        schema=["ne_id", "level", "adm0_a3", "continent"],
+        orient="row",
+    ).write_parquet(bronze / "natural_earth_admin.parquet")
+    pl.DataFrame(
+        [("TUR-1", 1, "u1", "T"), ("TUR-2", 1, "u2", "T"), ("GRC-1", 1, "u3", "G"), ("GRC", 0, "G", "G")],
+        schema=["ne_id", "level", "entity_id", "country_entity_id"],
+        orient="row",
+    ).write_parquet(silver / "1_entity_ne_admin.parquet")
+    pl.DataFrame(
+        [("EMPIRE", "u1"), ("EMPIRE", "u2"), ("EMPIRE", "u3"), ("NOWHERE", "missing")],
+        schema=["entity_id", "admin_id"],
+        orient="row",
+    ).with_columns(rule=pl.lit("cover")).write_parquet(silver / "8_entity_footprint.parquet")
+    pl.DataFrame(
+        [("EMPIRE", "EMPIRE"), ("G", "GRCOL"), ("NOWHERE", "NOWHERE")],
+        schema=["entity_id", "column_id"],
+        orient="row",
+    ).write_parquet(silver / "6_genealogy_lane.parquet")
+
+    column_region(bronze, silver)
+
+    assert pl.read_parquet(silver / "6_column_region.parquet").sort("column_id").select(
+        "column_id", "region_id", "region_label"
+    ).rows() == [("EMPIRE", "asia", "Asia"), ("GRCOL", "europe", "Europe"), ("NOWHERE", "other", "Other")]
+
+
+def test_column_region_ties_and_direct_fallback(tmp_path):
+    bronze, silver = tmp_path / "bronze", tmp_path / "silver"
+    bronze.mkdir()
+    silver.mkdir()
+    pl.DataFrame(
+        [("A", 0, "A", "Europe"), ("B", 0, "B", "Asia")],
+        schema=["ne_id", "level", "adm0_a3", "continent"],
+        orient="row",
+    ).write_parquet(bronze / "natural_earth_admin.parquet")
+    pl.DataFrame([("A", "a"), ("B", "b")], schema=["ne_id", "entity_id"], orient="row").write_parquet(
+        silver / "1_entity_ne_admin.parquet"
+    )
+    pl.DataFrame([("a", "a"), ("a", "b")], schema=["entity_id", "admin_id"], orient="row").write_parquet(
+        silver / "8_entity_footprint.parquet"
+    )
+    pl.DataFrame([("a", "tie"), ("b", "direct")], schema=["entity_id", "column_id"], orient="row").write_parquet(
+        silver / "6_genealogy_lane.parquet"
+    )
+    column_region(bronze, silver)
+    rows = dict(pl.read_parquet(silver / "6_column_region.parquet").select("column_id", "region_id").rows())
+    assert rows == {"tie": "europe", "direct": "asia"}
