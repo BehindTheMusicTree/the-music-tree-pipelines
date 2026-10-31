@@ -60,6 +60,7 @@ admin-1 `adm0_a3` exists at level 0 (both checked before the write). Release v5.
 | name         | str  | Natural Earth name (e.g. `Morbihan`)                                                    |
 | iso_code     | str  | `ISO_A2_EH` (`-99` when none) for admin-0, `iso_3166_2` for admin-1                     |
 | ne_type      | str? | `TYPE` (e.g. `Sovereign country`, `Dependency`) for admin-0, `type_en` for admin-1      |
+| continent    | str? | `CONTINENT` for admin-0 (e.g. `Europe`, `North America`), null for admin-1               |
 | geometry_wkb | bin  | Full-resolution `Polygon` or `MultiPolygon`, WKB, WGS 84                                |
 
 ## 2. Silver
@@ -211,8 +212,14 @@ covering at least two lanes, or an anchored entity having anchored descendants.
 `6_genealogy_tradition_lane.parquet`: `wikidata_id` (str), `lane_id` (str) — one row per anchored tradition, `lane_id`
 being its anchor lifted to a non-admin place (an `entity_id` of the lane or band files); `gold` uses it as `anchorId`.
 
+`6_column_region.parquet`: one row per column, `column_id` (str), `region_id` (str), `region_label` (str),
+`region_rank` (i32). The region is the plurality of the continents (Natural Earth, via `1_entity_ne_admin` and
+`8_entity_footprint`) of the column's lane entities, ignoring `other` unless it is the only vote; ties go to the lowest
+`region_rank` (`americas`, `europe`, `africa`, `asia`, `oceania`, `other`). Each footprint admin contributes one vote per mapped region; direct mappings provide votes only when no footprint votes are available.
+
 ### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
 
-`7_lane_order.parquet`: `column_id` (str), `position` (i32, 0 = west). `7_band_fragment.parquet`: one row per
+`7_lane_order.parquet`: `column_id` (str), `position` (i32, 0 = first in region order), `region_id` (str), `region_label` (str); columns
+of one region are contiguous (seriation never swaps across regions). `7_band_fragment.parquet`: one row per
 contiguous run of a band's columns: `entity_id`, `label`, `fragment` (i32), `start_position`, `end_position` (i32,
 inclusive), `start_year`, `end_year`.

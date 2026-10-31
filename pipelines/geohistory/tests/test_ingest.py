@@ -126,7 +126,17 @@ def _layer(*features: tuple[dict, dict | None]) -> dict:
 
 
 ADMIN_0 = _layer(
-    ({"ADM0_A3": "FRA", "WIKIDATAID": "Q142", "NAME": "France", "ISO_A2_EH": "FR", "TYPE": "Country"}, _square(0)),
+    (
+        {
+            "ADM0_A3": "FRA",
+            "WIKIDATAID": "Q142",
+            "NAME": "France",
+            "ISO_A2_EH": "FR",
+            "TYPE": "Country",
+            "CONTINENT": "Europe",
+        },
+        _square(0),
+    ),
 )
 ADMIN_1 = _layer(
     (
@@ -181,6 +191,7 @@ def test_build_natural_earth_admin_flattens_both_levels() -> None:
             "name": "France",
             "iso_code": "FR",
             "ne_type": "Country",
+            "continent": "Europe",
         },
         {
             "ne_id": "FRA-0000",
@@ -190,6 +201,7 @@ def test_build_natural_earth_admin_flattens_both_levels() -> None:
             "name": "Unknown",
             "iso_code": "FR-XX",
             "ne_type": None,
+            "continent": None,
         },
         {
             "ne_id": "FRA-5327",
@@ -199,6 +211,7 @@ def test_build_natural_earth_admin_flattens_both_levels() -> None:
             "name": "Morbihan",
             "iso_code": "FR-56",
             "ne_type": "Metropolitan department",
+            "continent": None,
         },
     ]
     assert shapely.from_wkb(df["geometry_wkb"][0]).equals(shapely.geometry.shape(_square(0)))

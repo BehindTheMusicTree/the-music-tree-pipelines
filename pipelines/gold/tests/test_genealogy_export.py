@@ -52,9 +52,10 @@ def _write_silver(tmp_path: Path) -> tuple[Path, Path]:
         },
         schema_overrides={"fragment": pl.Int32, "start_position": pl.Int32, "end_position": pl.Int32},
     ).write_parquet(geohistory_dir / "7_band_fragment.parquet")
-    pl.DataFrame({"column_id": ["c0"], "position": [0]}, schema_overrides={"position": pl.Int32}).write_parquet(
-        geohistory_dir / "7_lane_order.parquet"
-    )
+    pl.DataFrame(
+        {"column_id": ["c0"], "position": [0], "region_id": ["europe"], "region_label": ["Europe"]},
+        schema_overrides={"position": pl.Int32},
+    ).write_parquet(geohistory_dir / "7_lane_order.parquet")
     pl.DataFrame(
         {
             "predecessor_id": ["aaaa1234", "aaaa1234"],
@@ -76,6 +77,7 @@ def test_export_genealogy_writes_document(tmp_path: Path) -> None:
         {
             "id": "c0",
             "position": 0,
+            "regionId": "europe",
             "lanes": [
                 {"entityId": "aaaa1234", "label": "Mississippi", "startYear": 1800, "endYear": 1899},
                 {"entityId": "bbbb1234", "label": "Delta", "startYear": 1900, "endYear": 1950},
@@ -111,7 +113,13 @@ def test_export_genealogy_raises_without_traditions(tmp_path: Path) -> None:
 def test_export_genealogy_raises_on_column_without_lanes(tmp_path: Path) -> None:
     geohistory_dir, wikidata_dir = _write_silver(tmp_path)
     pl.DataFrame(
-        {"column_id": ["c0", "c9"], "position": [0, 1]}, schema_overrides={"position": pl.Int32}
+        {
+            "column_id": ["c0", "c9"],
+            "position": [0, 1],
+            "region_id": ["europe", "europe"],
+            "region_label": ["Europe", "Europe"],
+        },
+        schema_overrides={"position": pl.Int32},
     ).write_parquet(geohistory_dir / "7_lane_order.parquet")
 
     with pytest.raises(ValueError, match="without lanes"):
@@ -159,4 +167,71 @@ def test_export_genealogy_raises_when_an_anchored_tradition_has_no_lane_row(tmp_
     )
 
     with pytest.raises(ValueError, match="Q2"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
+def test_export_genealogy_groups_contiguous_columns_into_regions(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    lanes = pl.read_parquet(geohistory_dir / "6_genealogy_lane.parquet")
+    pl.concat([lanes, lanes.with_columns(entity_id=pl.lit("lane2"), column_id=pl.lit("c1"))]).write_parquet(
+        geohistory_dir / "6_genealogy_lane.parquet"
+    )
+    pl.DataFrame(
+        {
+            "column_id": ["c0", "c1"],
+            "position": [0, 1],
+            "region_id": ["europe", "asia"],
+            "region_label": ["Europe", "Asia"],
+        },
+        schema_overrides={"position": pl.Int32},
+    ).write_parquet(geohistory_dir / "7_lane_order.parquet")
+
+    document = json.loads(export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold").read_text())
+
+    assert document["regions"] == [
+        {"id": "europe", "label": "Europe", "startPosition": 0, "endPosition": 0},
+        {"id": "asia", "label": "Asia", "startPosition": 1, "endPosition": 1},
+    ]
+    assert [column["regionId"] for column in document["columns"]] == ["europe", "asia"]
+
+
+def test_export_genealogy_raises_when_a_region_is_split(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    lanes = pl.read_parquet(geohistory_dir / "6_genealogy_lane.parquet")
+    pl.concat(
+        [
+            lanes,
+            lanes.with_columns(entity_id=pl.lit("lane2"), column_id=pl.lit("c1")),
+            lanes.with_columns(entity_id=pl.lit("lane3"), column_id=pl.lit("c2")),
+        ]
+    ).write_parquet(geohistory_dir / "6_genealogy_lane.parquet")
+    pl.DataFrame(
+        {
+            "column_id": ["c0", "c1", "c2"],
+            "position": [0, 1, 2],
+            "region_id": ["europe", "asia", "europe"],
+            "region_label": ["Europe", "Asia", "Europe"],
+        },
+        schema_overrides={"position": pl.Int32},
+    ).write_parquet(geohistory_dir / "7_lane_order.parquet")
+
+    with pytest.raises(ValueError, match="not contiguous"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
+@pytest.mark.parametrize(
+    ("positions", "columns", "labels", "message"),
+    [
+        ([0, 2], ["c0", "c1"], ["Europe", "Europe"], "positions"),
+        ([0, 0], ["c0", "c1"], ["Europe", "Europe"], "positions"),
+        ([0, 1], ["c0", "c0"], ["Europe", "Europe"], "IDs"),
+        ([0, 1], ["c0", "c1"], ["Europe", "Europa"], "labels"),
+    ],
+)
+def test_export_rejects_invalid_order(tmp_path, positions, columns, labels, message):
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.DataFrame(
+        {"column_id": columns, "position": positions, "region_id": ["europe", "europe"], "region_label": labels}
+    ).write_parquet(geohistory_dir / "7_lane_order.parquet")
+    with pytest.raises(ValueError, match=message):
         export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
