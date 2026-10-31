@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.6.0] - 2026-10-31
+
+### Added
+
+- `geohistory` Natural Earth admin-0 `continent` in bronze, `6_column_region.parquet` (region per genealogy column), and `region_id`/`region_label` in `7_lane_order.parquet`; columns are ordered region-first so every region is contiguous
+- `gold` `4_genealogy.json` gains `regions` (`id`, `label`, `startPosition`, `endPosition`) and `columns[].regionId`; the export raises when a region is split
+
 ## [8.5.0] - 2026-10-30
 
 ### Changed

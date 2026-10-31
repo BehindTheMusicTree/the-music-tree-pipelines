@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import Counter
 from pathlib import Path
 
 import polars as pl
@@ -17,6 +18,14 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
     tradition_lane = dict(pl.read_parquet(geohistory_silver_dir / "6_genealogy_tradition_lane.parquet").rows())
     bands = pl.read_parquet(geohistory_silver_dir / "7_band_fragment.parquet")
     order = pl.read_parquet(geohistory_silver_dir / "7_lane_order.parquet")
+    order = order.sort("position")
+    if order.get_column("position").to_list() != list(range(order.height)):
+        raise ValueError("genealogy column positions must be consecutive from zero")
+    if order.get_column("column_id").n_unique() != order.height:
+        raise ValueError("genealogy column IDs must be unique")
+    labels = order.group_by("region_id").agg(pl.col("region_label").n_unique().alias("count"))
+    if labels.filter(pl.col("count") != 1).height:
+        raise ValueError("genealogy region labels must be consistent")
     succession = pl.read_parquet(geohistory_silver_dir / "3_entity_succession.parquet")
     canonical_ids = set(pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet").get_column("item_id"))
 
@@ -24,6 +33,7 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
         {
             "id": column_id,
             "position": position,
+            "regionId": region_id,
             "lanes": [
                 {
                     "entityId": lane["entity_id"],
@@ -36,11 +46,18 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
                 .to_dicts()
             ],
         }
-        for column_id, position in order.sort("position").rows()
+        for column_id, position, region_id, _ in order.sort("position").rows()
     ]
+    regions: list[dict] = []
+    for column_id, position, region_id, region_label in order.sort("position").rows():
+        if regions and regions[-1]["id"] == region_id:
+            regions[-1]["endPosition"] = position
+        else:
+            regions.append({"id": region_id, "label": region_label, "startPosition": position, "endPosition": position})
     shown_ids = set(lanes.get_column("entity_id")) | set(bands.get_column("entity_id"))
     document = {
         "columns": columns,
+        "regions": regions,
         "bands": [
             {
                 "entityId": band["entity_id"],
@@ -77,6 +94,9 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
 
     if not document["traditions"] or not columns:
         raise ValueError(f"genealogy has {len(document['traditions'])} tradition(s) and {len(columns)} column(s)")
+    split = [region_id for region_id, count in Counter(r["id"] for r in regions).items() if count > 1]
+    if split:
+        raise ValueError(f"genealogy regions are not contiguous in the column order: {split[:5]}")
     empty = [column["id"] for column in columns if not column["lanes"]]
     if empty:
         raise ValueError(f"genealogy columns without lanes (order and lane files disagree): {empty[:5]}")
