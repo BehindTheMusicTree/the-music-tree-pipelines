@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Share pipeline instructions and the Wikidata curation skill across Claude and Codex.
+
 ## [8.5.0] - 2026-10-30
 
 ### Changed
