@@ -3,6 +3,8 @@ import hashlib
 import json
 import logging
 import shutil
+import subprocess
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -29,6 +31,9 @@ NESTED_COUNTRY_MIN_OVERLAP = 0.9
 MAINLAND_MIN_SHARE = 0.5
 SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
 COORDINATE_DECIMALS = 2
+TILESET_MIN_ZOOM = 0
+TILESET_MAX_ZOOM = 10
+TILESET_DIR = "regions"
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "reason": pl.String}
 
 logger = logging.getLogger(__name__)
@@ -139,6 +144,60 @@ def _feature_collection(features: list[tuple[str, str, object]], name: str) -> t
         if len(encoded) <= SIZE_LIMIT_BYTES:
             return document, encoded, tolerance
     raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
+
+
+def _write_geojsonl(path: Path, features: list[tuple[dict, shapely.Geometry]]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        for properties, geometry in features:
+            feature = {"type": "Feature", "properties": properties, "geometry": mapping(geometry)}
+            handle.write(json.dumps(feature, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n")
+
+
+def _run_tippecanoe(arguments: list[str]) -> None:
+    result = subprocess.run(["tippecanoe", *arguments], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"tippecanoe failed with exit code {result.returncode}: {result.stderr[-2000:]}")
+    # tippecanoe reports any feature it had to drop; none is acceptable, the map would silently lose a region
+    dropped = [line for line in result.stderr.splitlines() if "drop" in line.lower()]
+    if dropped:
+        raise RuntimeError(f"tippecanoe dropped features: {' | '.join(dropped[:5])}")
+
+
+def _region_tileset(
+    regions: list[tuple[str, str, str, shapely.Geometry]],
+    zones: list[tuple[str, shapely.Geometry]],
+    work_dir: Path,
+    geometry_dir: Path,
+) -> dict:
+    """Vector tiles of the full-resolution geometry: layer `regions` (`id`, `parentId`, `kind`, same as the index) and
+    layer `zones` (`id`). Returns the index's `tileset` entry; the file is `regions/<sha256>.pmtiles`."""
+    if shutil.which("tippecanoe") is None:
+        raise RuntimeError("tippecanoe is not installed, see pipelines/gold/README.md")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    regions_path, zones_path, built = (
+        work_dir / "regions.geojsonl",
+        work_dir / "zones.geojsonl",
+        work_dir / "built.pmtiles",
+    )
+    _write_geojsonl(
+        regions_path, [({"id": r, "parentId": parent, "kind": kind}, shape) for r, parent, kind, shape in regions]
+    )
+    _write_geojsonl(zones_path, [({"id": z}, shape) for z, shape in zones])
+    _run_tippecanoe(
+        [
+            "-o", str(built), "--force",
+            f"-Z{TILESET_MIN_ZOOM}", f"-z{TILESET_MAX_ZOOM}",
+            "--detect-shared-borders", "--no-progress-indicator",
+            "-L", f"regions:{regions_path}", "-L", f"zones:{zones_path}",
+        ]
+    )  # fmt: skip
+    if not built.exists() or built.stat().st_size == 0:
+        raise RuntimeError("tippecanoe wrote no tileset")
+    content = built.read_bytes()
+    sha256 = hashlib.sha256(content).hexdigest()
+    (geometry_dir / TILESET_DIR).mkdir(parents=True, exist_ok=True)
+    built.replace(geometry_dir / TILESET_DIR / f"{sha256}.pmtiles")
+    return {"path": f"{TILESET_DIR}/{sha256}.pmtiles", "sha256": sha256, "bytes": len(content)}
 
 
 def _write_parts(lines: list[dict], index_line: dict, parts_dir: Path) -> int:
@@ -409,6 +468,15 @@ def export_region_map(
         write_collection(geometry_dir / "zones" / f"{zone}.geojson", [(zone, labels[zone], load(zone))], zone)
 
     document["files"] = {line["path"]: line["sha256"] for line in lines}
+    started = time.monotonic()
+    document["tileset"] = _region_tileset(
+        [(r, parents.get(r, WORLD_ID), kinds[r], load(r)) for r in admin_regions],
+        [(z, load(z)) for z in zones],
+        output_dir / "5_region_map_tileset_work",
+        geometry_dir,
+    )
+    tileset_seconds = round(time.monotonic() - started, 1)
+    shutil.rmtree(output_dir / "5_region_map_tileset_work")
     try:
         validate(document, json.loads(REGION_MAP_SCHEMA_PATH.read_text()))
     except ValidationError as e:
@@ -426,6 +494,7 @@ def export_region_map(
     report = {
         "unplacedGenreCount": unplaced_frame.height,
         "files": [{"path": p, "bytes": b, "tolerance": t} for p, b, t in sorted(files)],
+        "tileset": {"bytes": document["tileset"]["bytes"], "seconds": tileset_seconds},
     }
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
     if unplaced_frame.height:

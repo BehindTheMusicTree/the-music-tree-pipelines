@@ -46,6 +46,8 @@ See [SCHEMA.md](SCHEMA.md).
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md#setup) for local environment setup. `cp .env.example .env` and point `MUSICBRAINZ_SILVER_DIR`/`WIKIDATA_SILVER_DIR` at those pipelines' Silver output and `WIKIDATA_BRONZE_DIR` at wikidata's Bronze output.
 
+Gold also needs the [tippecanoe](https://github.com/felt/tippecanoe) binary (version 2.17 or later) on the `PATH` to build the region map's vector tileset, and fails fast without it: `brew install tippecanoe` locally; the VPS gets it from the `music_tree_pipelines` Ansible role.
+
 ## Running
 
 ```bash

@@ -159,9 +159,9 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | entity_id    | str       | `1_cultural_entity.entity_id`                                                    |
 | geometry_wkb | binary    | WGS 84 (Multi)Polygon, full Natural Earth resolution                             |
 | source       | str       | `natural_earth` (its own polygon) or `footprint` (union of its admin units)      |
-| bbox         | list[f64] | `[minx, miny, maxx, maxy]` of the whole geometry                                 |
+| bbox         | list[f64] | `[west, south, east, north]` of the whole geometry; across the antimeridian `east` exceeds 180 |
 | main_bbox    | list[f64] | Same for the largest polygon part (mainland, without remote islands)             |
-| centroid     | list[f64] | `[x, y]` centroid of the largest polygon part                                    |
+| centroid     | list[f64] | `[x, y]` pole of inaccessibility (shapely `polylabel`) of the largest polygon part |
 
 ### 2.5.1 5_music_anchor files
 
