@@ -655,3 +655,11 @@ def test_artist_image_query_skips_unknown_value_images() -> None:
     assert 'STRSTARTS(STR(?image), "http://commons.wikimedia.org/wiki/Special:FilePath/")' in (
         bw.wikidata_client.artist_image_query("0")
     )
+
+
+def test_religion_pattern_selects_every_religion_class():
+    pattern = bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS["religion"]
+
+    for qid in ("Q9174", "Q71966963", "Q123129246", "Q6957341"):
+        assert f"wd:{qid}" in pattern
+    assert "wdt:P31 ?religionClass" in pattern

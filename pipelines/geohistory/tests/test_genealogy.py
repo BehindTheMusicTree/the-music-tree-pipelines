@@ -361,6 +361,50 @@ def test_column_region_override_beats_votes_and_religions_are_last(tmp_path):
     assert REGION_RANK["religions"] == max(REGION_RANK.values())
 
 
+def test_column_region_forces_religions_for_a_column_mixing_religion_and_voted_entities(tmp_path):
+    admin = [("FRA", 0, "FRA", "Europe", 5.0, square(0, 0))]
+    entities = [("FAITH", "religion", None, None), ("KINGDOM", "historical_country", None, None)]
+    bronze, silver, curation = region_inputs(
+        tmp_path, admin, [("FRA", "KINGDOM")], [("KINGDOM", "FRA")], [("FAITH", "c"), ("KINGDOM", "c")], entities
+    )
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"c": "religions"}
+
+
+def test_column_region_rejects_a_duplicate_override_entity(tmp_path):
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        [("A", 0, "A", "Europe", 5.0, square(0, 0))],
+        [],
+        [],
+        [("x", "X")],
+        overrides=[("x", "europe", "first"), ("x", "asia", "second")],
+    )
+
+    with pytest.raises(ValueError, match="each entity_id once"):
+        column_region(bronze, silver, curation)
+
+
+def test_column_region_warns_and_ignores_an_out_of_scope_override(tmp_path, caplog):
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        [("A", 0, "A", "Europe", 5.0, square(0, 0))],
+        [("A", "X")],
+        [("X", "A")],
+        [("X", "c")],
+        [("X", "historical_country", None, None)],
+        overrides=[("GHOST", "asia", "not in scope")],
+    )
+
+    with caplog.at_level("WARNING"):
+        column_region(bronze, silver, curation)
+
+    assert "GHOST" in caplog.text
+    assert region_rows(silver) == {"c": "europe"}
+
+
 def test_column_region_raises_when_a_column_has_no_region(tmp_path):
     bronze, silver, curation = region_inputs(
         tmp_path,

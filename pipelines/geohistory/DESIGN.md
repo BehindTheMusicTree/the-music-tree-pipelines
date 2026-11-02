@@ -154,7 +154,7 @@ result is deterministic. A band whose columns end up non-contiguous is split int
 
 A column's region is decided in this order, the first rule that applies to any of its lane entities winning:
 
-1. `region_overrides`, then entities of kind `religion` (bulk `P31` = `Q9174`), which go to `religions`.
+1. `region_overrides`, then entities of kind `religion` (bulk `P31` in religion, "religion or world view", "Christian denominational family" or "major religious group"), which go to `religions`.
 2. The continent vote: each admin unit an entity covers votes for its country's continent, weighted by the unit's
    `area_km2` (Bronze, spherical equal-area), so a few small European units do not outvote Siberia. Ties go to the lowest
    `region_rank`.
@@ -162,3 +162,7 @@ A column's region is decided in this order, the first rule that applies to any o
    nearest country within 2 degrees (straits, island groups).
 
 A column no rule places raises and names the column: add a `region_overrides` row rather than shipping an `other` band.
+
+Known limitation: the nearest-country fallback searches within a fixed tolerance in degrees and does not wrap across the
+antimeridian, so a point just across ±180° (Fiji, Chukotka) finds no country on the other side. The area vote covers
+such entities whenever they have a footprint; add a `region_overrides` row for the rest.

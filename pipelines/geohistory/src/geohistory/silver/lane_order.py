@@ -52,6 +52,12 @@ def _seriate(prior: list[str], bands: dict[str, set[str]], region: dict[str, str
     return order
 
 
+def _band_span(order: list[str], bands: dict[str, set[str]]) -> int:
+    """Total number of column positions the bands stretch over, a gap-free band counting its own width."""
+    position = {column: index for index, column in enumerate(order)}
+    return sum(max(position[c] for c in columns) - min(position[c] for c in columns) + 1 for columns in bands.values())
+
+
 def lane_order(silver_dir: Path) -> tuple[Path, Path]:
     lanes = pl.read_parquet(silver_dir / "6_genealogy_lane.parquet")
     band_rows = pl.read_parquet(silver_dir / "6_genealogy_band.parquet")
@@ -100,6 +106,9 @@ def lane_order(silver_dir: Path) -> tuple[Path, Path]:
         key=lambda column: (region_rank[column], centroid[column] if centroid[column] is not None else neutral, column),
     )
     order = _seriate(prior, bands, region)
+    logger.info(
+        "total band span %d before and %d after the ordering", _band_span(prior, bands), _band_span(order, bands)
+    )
     position = {column: index for index, column in enumerate(order)}
 
     fragments: list[tuple[str, str, int, int, int, int | None, int | None]] = []
