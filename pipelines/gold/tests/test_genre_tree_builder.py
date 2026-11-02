@@ -237,10 +237,20 @@ def test_apply_secondary_parent_rules_with_mixed_rules(caplog: pytest.LogCapture
     assert "main parent" in warnings[0].getMessage()
 
 
-def test_build_genre_tree_sets_scene_on_listed_node_only() -> None:
-    tree = build_genre_tree(_hierarchy(), scenes={"Q4": "commercial"})
+def test_build_genre_tree_sets_scene_on_listed_nodes_only() -> None:
+    tree = build_genre_tree(_hierarchy(), scenes={"Q4": "commercial", "Q2": "underground"})
 
     rock = next(node for node in tree["tree"] if node["name"] == "rock")
     assert next(child for child in rock["children"] if child["name"] == "pop rock")["scene"] == "commercial"
+    assert next(child for child in rock["children"] if child["name"] == "punk rock")["scene"] == "underground"
     assert "scene" not in rock
-    assert "scene" not in next(child for child in rock["children"] if child["name"] == "punk rock")
+
+
+@pytest.mark.parametrize(
+    "scenes",
+    [{"Q4": "commercial"}, {"Q4": "commercial", "Q2": "commercial"}],
+    ids=["missing-underground", "two-commercial"],
+)
+def test_build_genre_tree_rejects_scene_split_that_is_not_one_of_each(scenes: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="'rock' has a scene child"):
+        build_genre_tree(_hierarchy(), scenes=scenes)
