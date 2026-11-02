@@ -427,12 +427,18 @@ def test_export_canonical_genre_tree_emits_scene(
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
-    write_curation("canonical_genre_scene", [{"item_id": "Q4", "scene": "underground", "reason": "x"}])
+    write_curation(
+        "canonical_genre_scene",
+        [
+            {"item_id": "Q4", "scene": "underground", "reason": "x"},
+            {"item_id": "Q2", "scene": "commercial", "reason": "x"},
+        ],
+    )
 
     tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
 
     assert _rock_child(tree, "pop rock")["scene"] == "underground"
-    assert "scene" not in _rock_child(tree, "punk rock")
+    assert _rock_child(tree, "punk rock")["scene"] == "commercial"
 
 
 @pytest.mark.parametrize(

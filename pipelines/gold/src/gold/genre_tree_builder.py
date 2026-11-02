@@ -170,6 +170,22 @@ def _collect_names(nodes: list[dict]) -> list[str]:
     return [node["name"] for node in nodes] + [name for node in nodes for name in _collect_names(node["children"])]
 
 
+def _check_scene_splits(nodes: list[dict], parent_name: str = "the tree root") -> None:
+    """A node with a scene child holds exactly two children: one commercial and one underground.
+
+    Mirrors the-music-tree-genre-kit's import check, so a bad curation row fails Gold instead of the import.
+    """
+    scenes = sorted(node.get("scene", "") for node in nodes)
+    if any(scenes) and scenes != ["commercial", "underground"]:
+        children = [node["name"] for node in nodes]
+        raise ValueError(
+            f"{parent_name!r} has a scene child, so it must have exactly one commercial and one underground "
+            f"child, got {children}"
+        )
+    for node in nodes:
+        _check_scene_splits(node["children"], node["name"])
+
+
 def build_genre_tree(
     hierarchy: pl.DataFrame,
     pop_sides: dict[str, set[str]] | None = None,
@@ -295,5 +311,7 @@ def build_genre_tree(
     duplicate_names = sorted({name for name in names if name.lower() in duplicate_lowered})
     if duplicate_names:
         raise ValueError(f"genre tree has duplicate node name(s) (case-insensitive): {duplicate_names}")
+
+    _check_scene_splits(tree)
 
     return {"tree": tree}

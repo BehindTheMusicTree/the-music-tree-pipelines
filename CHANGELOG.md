@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Gold fails when a node with a scene child doesn't have exactly one commercial and one underground child, naming the node and its children, instead of shipping a tree the API import would reject. Covered by `test_build_genre_tree_rejects_scene_split_that_is_not_one_of_each`.
+
 ### Documentation
 
 - Share pipeline instructions and the Wikidata curation skill across Claude and Codex.
