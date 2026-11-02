@@ -130,3 +130,11 @@ def test_anchor_point_of_a_c_shaped_region_lies_inside_it(tmp_path):
     rows = build(tmp_path, [("cs", "cs", "self")])
     x, y = rows["cs"]["centroid"]
     assert shapely.Point(x, y).within(shapely.from_wkb(rows["cs"]["geometry_wkb"]))
+
+
+def test_western_hemisphere_only_bbox_is_returned_unshifted():
+    from geohistory.silver.entity_geometry import _bbox
+
+    for west in (-125.71262367719233, -100.1234567891, -3.3333333333, -179.9999999):
+        box = shapely.box(west, 10, west + 0.5, 20)
+        assert _bbox(box) == list(shapely.bounds(box))

@@ -11,6 +11,7 @@ DRAWN_KINDS = ("country", "admin_unit", "historical_country", "historical_region
 
 # Pole of inaccessibility, so a C-shaped country or an atoll ring anchors inside its own land.
 CENTROID_TOLERANCE = 0.001
+BBOX_WIDTH_EPSILON = 1e-9
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def _bbox(geometry: shapely.Geometry) -> list[float]:
     parts = shapely.bounds(shapely.get_parts(geometry))
     shifted = np.where(parts[:, [2]] <= 0, parts[:, [0, 2]] + 360, parts[:, [0, 2]])
     shifted_west, shifted_east = shifted[:, 0].min(), shifted[:, 1].max()
-    if shifted_east - shifted_west >= east - west:
+    if shifted_east - shifted_west >= east - west - BBOX_WIDTH_EPSILON:
         return [west, south, east, north]
     return [shifted_west - 360 if shifted_west > 180 else shifted_west, south, shifted_east, north]
 
