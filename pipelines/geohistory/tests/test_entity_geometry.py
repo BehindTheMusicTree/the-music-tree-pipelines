@@ -9,6 +9,15 @@ NE = [
     ("ne_c", 1, "c", shapely.box(5, 5, 6, 6)),
     ("ne_bow", 1, "bow", shapely.Polygon([(10, 0), (12, 2), (12, 0), (10, 2)])),
     ("ne_fr", 0, "fr", shapely.box(0, 0, 2, 1)),
+    ("ne_fj", 1, "fj", shapely.union_all([shapely.box(177, -18, 180, -16), shapely.box(-180, -18, -178, -16)])),
+    ("ne_ru", 1, "ru", shapely.union_all([shapely.box(30, 50, 180, 70), shapely.box(-180, 64, -170, 68)])),
+    ("ne_wide", 1, "wide", shapely.box(-100, 0, 100, 10)),
+    (
+        "ne_c_shape",
+        1,
+        "cs",
+        shapely.Polygon([(40, 0), (50, 0), (50, 1), (41, 1), (41, 9), (50, 9), (50, 10), (40, 10)]),
+    ),
     ("ne_islands", 1, "islands", shapely.union_all([shapely.box(20, 0, 24, 4), shapely.box(30, 0, 31, 1)])),
 ]
 
@@ -47,7 +56,7 @@ def test_natural_earth_polygon_is_used_as_is(tmp_path):
     rows = build(tmp_path, [("a", "a", "self")])
     assert rows["a"]["source"] == "natural_earth"
     assert rows["a"]["bbox"] == [0.0, 0.0, 1.0, 1.0]
-    assert rows["a"]["centroid"] == [0.5, 0.5]
+    assert rows["a"]["centroid"] == pytest.approx([0.5, 0.5], abs=1e-3)
 
 
 def test_cover_unions_tiles_without_holes(tmp_path):
@@ -98,3 +107,26 @@ def test_only_drawn_kinds_get_a_geometry(tmp_path):
     rows = build(tmp_path, [("a", "a", "self"), ("lang", "a", "point")])
     assert "a" in rows
     assert "lang" not in rows
+
+
+def test_bbox_spanning_the_antimeridian_east_exceeds_180(tmp_path):
+    rows = build(tmp_path, [("fj", "fj", "self")])
+    assert rows["fj"]["bbox"] == [177.0, -18.0, 182.0, -16.0]
+    assert rows["fj"]["main_bbox"][0] == 177.0
+
+
+def test_bbox_of_a_mainland_with_a_far_east_part_keeps_the_narrow_side(tmp_path):
+    rows = build(tmp_path, [("ru", "ru", "self")])
+    assert rows["ru"]["bbox"] == [30.0, 50.0, 190.0, 70.0]
+    assert rows["ru"]["main_bbox"] == [30.0, 50.0, 180.0, 70.0]
+
+
+def test_wide_geometry_without_a_crossing_keeps_its_plain_bbox(tmp_path):
+    rows = build(tmp_path, [("wide", "wide", "self")])
+    assert rows["wide"]["bbox"] == [-100.0, 0.0, 100.0, 10.0]
+
+
+def test_anchor_point_of_a_c_shaped_region_lies_inside_it(tmp_path):
+    rows = build(tmp_path, [("cs", "cs", "self")])
+    x, y = rows["cs"]["centroid"]
+    assert shapely.Point(x, y).within(shapely.from_wkb(rows["cs"]["geometry_wkb"]))

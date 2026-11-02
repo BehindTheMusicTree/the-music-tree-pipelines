@@ -2,10 +2,15 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import shapely
+from shapely.ops import polylabel
 
 DRAWN_KINDS = ("country", "admin_unit", "historical_country", "historical_region", "cultural_region", "macro_region")
+
+# Pole of inaccessibility, so a C-shaped country or an atoll ring anchors inside its own land.
+CENTROID_TOLERANCE = 0.001
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +28,19 @@ GEOMETRY_SCHEMA = pl.Schema(
 
 def _polygons(geometry: shapely.Geometry) -> list[shapely.Geometry]:
     return list(shapely.get_parts(geometry))
+
+
+def _bbox(geometry: shapely.Geometry) -> list[float]:
+    """[west, south, east, north]. A geometry with parts on both sides of the antimeridian gets the narrower of its
+    plain box and its box with the western-hemisphere parts shifted by 360; west stays in [-180, 180] and east may
+    exceed 180."""
+    west, south, east, north = shapely.bounds(geometry)
+    parts = shapely.bounds(shapely.get_parts(geometry))
+    shifted = np.where(parts[:, [2]] <= 0, parts[:, [0, 2]] + 360, parts[:, [0, 2]])
+    shifted_west, shifted_east = shifted[:, 0].min(), shifted[:, 1].max()
+    if shifted_east - shifted_west >= east - west:
+        return [west, south, east, north]
+    return [shifted_west - 360 if shifted_west > 180 else shifted_west, south, shifted_east, north]
 
 
 def _ne_geometries(bronze_dir: Path, ne_map: pl.DataFrame) -> dict[str, shapely.Geometry]:
@@ -92,15 +110,15 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
         if not shapely.is_valid(geometry) or shapely.is_empty(geometry):
             raise ValueError(f"{entity_id} footprint does not tile into a valid geometry")
         main = max(_polygons(geometry), key=shapely.area)
-        centroid = shapely.centroid(main)
+        centroid = polylabel(main, tolerance=CENTROID_TOLERANCE)
         source = "natural_earth" if admins == {entity_id} and entity_id in ne_geometry else "footprint"
         rows.append(
             (
                 entity_id,
                 shapely.to_wkb(geometry),
                 source,
-                list(shapely.bounds(geometry)),
-                list(shapely.bounds(main)),
+                _bbox(geometry),
+                _bbox(main),
                 [centroid.x, centroid.y],
             )
         )

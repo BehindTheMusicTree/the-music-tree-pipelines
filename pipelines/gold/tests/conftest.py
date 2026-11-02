@@ -4,6 +4,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from gold import region_map_export
+
 CURATION_COLUMNS = {
     "secondary_parents": ("item_id", "parent_id", "action", "reason"),
     "essential_songs": ("item_id", "musicbrainz_recording_id", "position", "reason"),
@@ -43,3 +45,20 @@ def descriptions_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def write_curation(curation_dir: Path) -> Callable[[str, list[dict[str, str]]], None]:
     return lambda name, rows: _write(curation_dir, name, rows)
+
+
+REAL_RUN_TIPPECANOE = region_map_export._run_tippecanoe
+
+
+@pytest.fixture(autouse=True)
+def fake_tippecanoe(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """Stands in for the tippecanoe binary (absent from CI); records each call's arguments."""
+    calls: list[list[str]] = []
+
+    def run(arguments: list[str]) -> None:
+        calls.append(arguments)
+        Path(arguments[arguments.index("-o") + 1]).write_bytes(b"PMTiles:" + str(len(calls)).encode())
+
+    monkeypatch.setattr(region_map_export.shutil, "which", lambda _: "/usr/bin/tippecanoe")
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", run)
+    return calls
