@@ -48,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Geohistory column regions are weighted by admin-unit area, fall back to the entity's `P625` point, and honour a curated `region_overrides` list. Religions (bulk kind `religion`, `P31` = `Q9174`) form a last `religions` region. `natural_earth_admin` gains `area_km2`.
+
+### Changed
+
+- Geohistory `column_region` raises when a column cannot be placed instead of assigning `other`. **Deploy order:** grow-api must expose `region_overrides` in `curation/export/` before the curation ingest runs.
+
 ## [8.7.0] - 2026-11-02
 
 ### Added

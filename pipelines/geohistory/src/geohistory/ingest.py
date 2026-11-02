@@ -1,7 +1,9 @@
 import logging
 from pathlib import Path
 
+import numpy as np
 import polars as pl
+import shapely
 import shapely.geometry
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import check_non_empty, check_unique_key
@@ -20,8 +22,10 @@ ADMIN_SCHEMA = {
     "iso_code": pl.String,
     "ne_type": pl.String,
     "continent": pl.String,
+    "area_km2": pl.Float64,
     "geometry_wkb": pl.Binary,
 }
+EARTH_RADIUS_KM = 6371.0088
 ADMIN_FIELDS = {
     0: ("ADM0_A3", "WIKIDATAID", "ADM0_A3", "NAME", "ISO_A2_EH", "TYPE"),
     1: ("adm1_code", "wikidataid", "adm0_a3", "name", "iso_3166_2", "type_en"),
@@ -76,6 +80,17 @@ def ingest_glottolog_languoids(version: str, output_dir: Path) -> Path:
     return output_path
 
 
+def _equal_area(degrees: np.ndarray) -> np.ndarray:
+    return np.column_stack(
+        (np.radians(degrees[:, 0]) * EARTH_RADIUS_KM, np.sin(np.radians(degrees[:, 1])) * EARTH_RADIUS_KM)
+    )
+
+
+def area_km2(geometry: shapely.Geometry) -> float:
+    """Spherical area, through the Lambert cylindrical equal-area projection of lon/lat degrees."""
+    return float(shapely.area(shapely.transform(shapely.make_valid(geometry), _equal_area)))
+
+
 def build_natural_earth_admin(admin_0: dict, admin_1: dict) -> pl.DataFrame:
     rows = []
     for level, layer in ((0, admin_0), (1, admin_1)):
@@ -85,9 +100,22 @@ def build_natural_earth_admin(admin_0: dict, admin_1: dict) -> pl.DataFrame:
             ne_id, wikidata_id, adm0_a3, name, iso_code, ne_type = (properties[field] or None for field in fields)
             if feature["geometry"] is None:
                 raise ValueError(f"Natural Earth admin-{level} unit {ne_id} has no geometry")
-            wkb = shapely.geometry.shape(feature["geometry"]).wkb
+            geometry = shapely.geometry.shape(feature["geometry"])
             continent = (properties["CONTINENT"] or None) if level == 0 else None
-            rows.append((ne_id, level, wikidata_id, adm0_a3, name, iso_code, ne_type, continent, wkb))
+            rows.append(
+                (
+                    ne_id,
+                    level,
+                    wikidata_id,
+                    adm0_a3,
+                    name,
+                    iso_code,
+                    ne_type,
+                    continent,
+                    area_km2(geometry),
+                    geometry.wkb,
+                )
+            )
     df = pl.DataFrame(rows, schema=ADMIN_SCHEMA, orient="row").sort("level", "ne_id")
     countries = set(df.filter(pl.col("level") == 0)["adm0_a3"])
     orphans = df.filter((pl.col("level") == 1) & ~pl.col("adm0_a3").is_in(countries))

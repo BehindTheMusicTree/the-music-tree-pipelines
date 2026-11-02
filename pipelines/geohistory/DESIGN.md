@@ -87,7 +87,7 @@ staging Silver: about 43 s and 3 GB peak memory for 36k entities, so no optimisa
 
 ## 9. Curation
 
-Eight lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
+Nine lists from grow-api (`curation` pipeline, read via `CURATION_BRONZE_DIR`), applied in Silver. Entity ids are
 Glottocodes or QIDs.
 
 - `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
@@ -100,6 +100,9 @@ Glottocodes or QIDs.
   if an end is not an entity. Any other `action` raises.
 - `entity_time_span_overrides` wins over every sourced date (`start_source`/`end_source` = `curation`, precision
   null). An empty year keeps the sourced value.
+- `region_overrides` forces the region (`americas`, `europe`, `africa`, `asia`, `oceania` or `religions`) of an entity,
+  for the transcontinental cases a continent vote cannot settle (Ottoman, Abbasid, Byzantine). An unknown region or a
+  duplicated entity raises; an entity out of scope is logged.
 
 - `tradition_additions` / `tradition_exclusions` add or drop a tradition by QID; a QID in both raises.
 - `tradition_placement_overrides` sets the anchor (entity id or QID) and/or the start and end years of a tradition;
@@ -146,3 +149,16 @@ Columns are ordered west to east by centroid longitude (a column without coordin
 refined by adjacent swaps while they reduce the sum over bands of (extent - column count), capped at 100 passes. The
 result is deterministic. A band whose columns end up non-contiguous is split into fragments, no column duplicated.
 
+
+## Column regions
+
+A column's region is decided in this order, the first rule that applies to any of its lane entities winning:
+
+1. `region_overrides`, then entities of kind `religion` (bulk `P31` = `Q9174`), which go to `religions`.
+2. The continent vote: each admin unit an entity covers votes for its country's continent, weighted by the unit's
+   `area_km2` (Bronze, spherical equal-area), so a few small European units do not outvote Siberia. Ties go to the lowest
+   `region_rank`.
+3. For entities with no vote, the Wikidata `P625` point: the containing Natural Earth country's continent, else the
+   nearest country within 2 degrees (straits, island groups).
+
+A column no rule places raises and names the column: add a `region_overrides` row rather than shipping an `other` band.
