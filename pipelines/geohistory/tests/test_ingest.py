@@ -1,4 +1,5 @@
 import io
+import math
 import zipfile
 from pathlib import Path
 
@@ -182,7 +183,7 @@ def test_download_layer_pins_version(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_build_natural_earth_admin_flattens_both_levels() -> None:
     df = ingest.build_natural_earth_admin(ADMIN_0, ADMIN_1)
 
-    assert df.drop("geometry_wkb").to_dicts() == [
+    assert df.drop("geometry_wkb", "area_km2").to_dicts() == [
         {
             "ne_id": "FRA",
             "level": 0,
@@ -215,6 +216,12 @@ def test_build_natural_earth_admin_flattens_both_levels() -> None:
         },
     ]
     assert shapely.from_wkb(df["geometry_wkb"][0]).equals(shapely.geometry.shape(_square(0)))
+
+
+def test_area_km2_is_spherical_equal_area() -> None:
+    assert ingest.area_km2(shapely.box(0, 0, 1, 1)) == pytest.approx(12364, rel=1e-3)
+    assert ingest.area_km2(shapely.box(0, 0, 180, 90)) == pytest.approx(4 * math.pi * 6371.0088**2 / 4)
+    assert ingest.area_km2(shapely.box(0, 60, 1, 61)) < ingest.area_km2(shapely.box(0, 0, 1, 1))
 
 
 def test_build_natural_earth_admin_raises_on_orphan_admin_1() -> None:

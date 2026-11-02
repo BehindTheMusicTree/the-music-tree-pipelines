@@ -18,6 +18,7 @@ WIKIDATA_ENTITY_KINDS = (
     "ethnic_group",
     "cultural_region",
     "macro_region",
+    "religion",
     "curated",
 )
 ADMIN_KIND = "admin_unit"

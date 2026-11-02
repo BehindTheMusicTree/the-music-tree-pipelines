@@ -38,6 +38,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),
     "entity_time_span_overrides": ("entity_id", "start_year", "end_year", "reason"),
+    "region_overrides": ("entity_id", "region_id", "reason"),
     "song_genre": ("musicbrainz_recording_id", "genre_item_id", "reason"),
     "recording_youtube_video": ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason"),
     "tradition_additions": ("wikidata_id", "reason"),

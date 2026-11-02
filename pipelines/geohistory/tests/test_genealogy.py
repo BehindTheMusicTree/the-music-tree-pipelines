@@ -3,6 +3,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+import shapely
 from geohistory.silver.column_region import REGION_RANK, column_region
 from geohistory.silver.curation import LISTS
 from geohistory.silver.genealogy_lane import genealogy_lane
@@ -241,63 +242,147 @@ def test_lane_order_keeps_regions_contiguous_even_when_a_swap_would_close_a_band
     ]
 
 
-def test_column_region_votes_by_footprint_continent_and_falls_back_to_other(tmp_path):
+def region_inputs(tmp_path, admin, ne_map, footprint, lanes, entities=(), overrides=()):
     bronze, silver = tmp_path / "bronze", tmp_path / "silver"
     bronze.mkdir()
     silver.mkdir()
     pl.DataFrame(
-        [
-            ("TUR", 0, "TUR", "Asia"),
-            ("GRC", 0, "GRC", "Europe"),
-            ("TUR-1", 1, "TUR", None),
-            ("TUR-2", 1, "TUR", None),
-            ("GRC-1", 1, "GRC", None),
-            ("ATA", 0, "ATA", "Antarctica"),
-        ],
-        schema=["ne_id", "level", "adm0_a3", "continent"],
+        admin,
+        schema={
+            "ne_id": pl.String,
+            "level": pl.Int32,
+            "adm0_a3": pl.String,
+            "continent": pl.String,
+            "area_km2": pl.Float64,
+            "geometry_wkb": pl.Binary,
+        },
         orient="row",
     ).write_parquet(bronze / "natural_earth_admin.parquet")
-    pl.DataFrame(
-        [("TUR-1", 1, "u1", "T"), ("TUR-2", 1, "u2", "T"), ("GRC-1", 1, "u3", "G"), ("GRC", 0, "G", "G")],
-        schema=["ne_id", "level", "entity_id", "country_entity_id"],
-        orient="row",
-    ).write_parquet(silver / "1_entity_ne_admin.parquet")
-    pl.DataFrame(
-        [("EMPIRE", "u1"), ("EMPIRE", "u2"), ("EMPIRE", "u3"), ("NOWHERE", "missing")],
-        schema=["entity_id", "admin_id"],
-        orient="row",
-    ).with_columns(rule=pl.lit("cover")).write_parquet(silver / "8_entity_footprint.parquet")
-    pl.DataFrame(
-        [("EMPIRE", "EMPIRE"), ("G", "GRCOL"), ("NOWHERE", "NOWHERE")],
-        schema=["entity_id", "column_id"],
-        orient="row",
-    ).write_parquet(silver / "6_genealogy_lane.parquet")
-
-    column_region(bronze, silver)
-
-    assert pl.read_parquet(silver / "6_column_region.parquet").sort("column_id").select(
-        "column_id", "region_id", "region_label"
-    ).rows() == [("EMPIRE", "asia", "Asia"), ("GRCOL", "europe", "Europe"), ("NOWHERE", "other", "Other")]
-
-
-def test_column_region_ties_and_direct_fallback(tmp_path):
-    bronze, silver = tmp_path / "bronze", tmp_path / "silver"
-    bronze.mkdir()
-    silver.mkdir()
-    pl.DataFrame(
-        [("A", 0, "A", "Europe"), ("B", 0, "B", "Asia")],
-        schema=["ne_id", "level", "adm0_a3", "continent"],
-        orient="row",
-    ).write_parquet(bronze / "natural_earth_admin.parquet")
-    pl.DataFrame([("A", "a"), ("B", "b")], schema=["ne_id", "entity_id"], orient="row").write_parquet(
+    pl.DataFrame(ne_map, schema=["ne_id", "entity_id"], orient="row").write_parquet(
         silver / "1_entity_ne_admin.parquet"
     )
-    pl.DataFrame([("a", "a"), ("a", "b")], schema=["entity_id", "admin_id"], orient="row").write_parquet(
+    pl.DataFrame(footprint, schema=["entity_id", "admin_id"], orient="row").write_parquet(
         silver / "8_entity_footprint.parquet"
     )
-    pl.DataFrame([("a", "tie"), ("b", "direct")], schema=["entity_id", "column_id"], orient="row").write_parquet(
+    pl.DataFrame(lanes, schema=["entity_id", "column_id"], orient="row").write_parquet(
         silver / "6_genealogy_lane.parquet"
     )
-    column_region(bronze, silver)
-    rows = dict(pl.read_parquet(silver / "6_column_region.parquet").select("column_id", "region_id").rows())
-    assert rows == {"tie": "europe", "direct": "asia"}
+    pl.DataFrame(
+        entities,
+        schema={"entity_id": pl.String, "kind": pl.String, "latitude": pl.Float64, "longitude": pl.Float64},
+        orient="row",
+    ).write_parquet(silver / "1_cultural_entity.parquet")
+    curation = write_curation(tmp_path / "curation", region_overrides=[list(row) for row in overrides])
+    return bronze, silver, curation
+
+
+def square(x, y, size=10.0):
+    return shapely.box(x, y, x + size, y + size).wkb
+
+
+def region_rows(silver):
+    return dict(pl.read_parquet(silver / "6_column_region.parquet").select("column_id", "region_id").rows())
+
+
+def test_column_region_weights_votes_by_area_not_unit_count(tmp_path):
+    admin = [
+        ("TUR", 0, "TUR", "Asia", 1000.0, square(0, 0)),
+        ("GRC", 0, "GRC", "Europe", 10.0, square(20, 0)),
+        ("TUR-1", 1, "TUR", None, 1000.0, square(0, 0)),
+        ("GRC-1", 1, "GRC", None, 1.0, square(20, 0)),
+        ("GRC-2", 1, "GRC", None, 1.0, square(20, 0)),
+        ("GRC-3", 1, "GRC", None, 1.0, square(20, 0)),
+    ]
+    ne_map = [("TUR-1", "u1"), ("GRC-1", "u2"), ("GRC-2", "u3"), ("GRC-3", "u4")]
+    footprint = [("EMPIRE", unit) for unit in ("u1", "u2", "u3", "u4")]
+    bronze, silver, curation = region_inputs(tmp_path, admin, ne_map, footprint, [("EMPIRE", "EMPIRE")])
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"EMPIRE": "asia"}
+
+
+def test_column_region_ties_and_direct_mapping(tmp_path):
+    admin = [("A", 0, "A", "Europe", 5.0, square(0, 0)), ("B", 0, "B", "Asia", 5.0, square(20, 0))]
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        admin,
+        [("A", "a"), ("B", "b")],
+        [("a", "a"), ("a", "b")],
+        [("a", "tie"), ("b", "direct")],
+    )
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"tie": "europe", "direct": "asia"}
+
+
+def test_column_region_falls_back_to_the_entity_point(tmp_path):
+    admin = [
+        ("FRA", 0, "FRA", "Europe", 5.0, square(0, 0)),
+        ("USA", 0, "USA", "North America", 5.0, square(50, 0)),
+    ]
+    entities = [("BRITTANY", "historical_region", 5.0, 5.0), ("STRAIT", "historical_region", 5.0, 11.0)]
+    lanes = [("BRITTANY", "BRITTANY"), ("STRAIT", "STRAIT")]
+    bronze, silver, curation = region_inputs(tmp_path, admin, [], [], lanes, entities)
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"BRITTANY": "europe", "STRAIT": "europe"}
+
+
+def test_column_region_ignores_a_point_beyond_the_tolerance(tmp_path):
+    admin = [("FRA", 0, "FRA", "Europe", 5.0, square(0, 0))]
+    bronze, silver, curation = region_inputs(
+        tmp_path, admin, [], [], [("FAR", "FAR")], [("FAR", "historical_region", 5.0, 40.0)]
+    )
+
+    with pytest.raises(ValueError, match="no region"):
+        column_region(bronze, silver, curation)
+
+
+def test_column_region_override_beats_votes_and_religions_are_last(tmp_path):
+    admin = [("TUR", 0, "TUR", "Asia", 5.0, square(0, 0))]
+    entities = [("OTTOMAN", "historical_country", None, None), ("FAITH", "religion", None, None)]
+    lanes = [("OTTOMAN", "OTTOMAN"), ("FAITH", "FAITH")]
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        admin,
+        [("TUR", "OTTOMAN")],
+        [],
+        lanes,
+        entities,
+        overrides=[("OTTOMAN", "europe", "straddles the Bosphorus")],
+    )
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"OTTOMAN": "europe", "FAITH": "religions"}
+    assert REGION_RANK["religions"] == max(REGION_RANK.values())
+
+
+def test_column_region_raises_when_a_column_has_no_region(tmp_path):
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        [("ATA", 0, "ATA", "Antarctica", 5.0, square(0, 0))],
+        [("ATA", "p")],
+        [],
+        [("p", "ICE"), ("q", "NOWHERE")],
+    )
+
+    with pytest.raises(ValueError, match=r"2 genealogy column\(s\) have no region.*ICE"):
+        column_region(bronze, silver, curation)
+
+
+def test_column_region_rejects_an_unknown_override_region(tmp_path):
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        [("A", 0, "A", "Europe", 5.0, square(0, 0))],
+        [],
+        [],
+        [("x", "X")],
+        overrides=[("x", "atlantis", "bad")],
+    )
+
+    with pytest.raises(ValueError, match="unknown region"):
+        column_region(bronze, silver, curation)
