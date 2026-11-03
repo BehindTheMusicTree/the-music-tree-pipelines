@@ -19,8 +19,9 @@ def _write_silver(tmp_path: Path) -> tuple[Path, Path]:
             "end_year": [1950, 1950],
             "anchor_id": ["aaaa1234", None],
             "anchor_rule": ["P495", None],
+            "sitelinks": [120, 15],
         },
-        schema_overrides={"start_year": pl.Int32, "end_year": pl.Int32},
+        schema_overrides={"start_year": pl.Int32, "end_year": pl.Int32, "sitelinks": pl.Int32},
     ).write_parquet(geohistory_dir / "5_tradition.parquet")
     pl.DataFrame({"from_wikidata_id": ["Q1"], "to_wikidata_id": ["Q2"], "kind": ["lineage"]}).write_parquet(
         geohistory_dir / "5_tradition_link.parquet"
@@ -87,7 +88,15 @@ def test_export_genealogy_writes_document(tmp_path: Path) -> None:
     assert document["bands"][0]["entityId"] == "root0000"
     assert document["successions"] == [{"predecessorId": "aaaa1234", "successorId": "bbbb1234"}]
     assert document["traditions"] == [
-        {"wikidataId": "Q1", "label": "gospel", "start": None, "end": 1950, "anchorId": None, "inCanonicalTree": False},
+        {
+            "wikidataId": "Q1",
+            "label": "gospel",
+            "start": None,
+            "end": 1950,
+            "anchorId": None,
+            "inCanonicalTree": False,
+            "sitelinks": 15,
+        },
         {
             "wikidataId": "Q2",
             "label": "blues",
@@ -95,6 +104,7 @@ def test_export_genealogy_writes_document(tmp_path: Path) -> None:
             "end": 1950,
             "anchorId": "aaaa1234",
             "inCanonicalTree": True,
+            "sitelinks": 120,
         },
     ]
     assert document["traditionLinks"] == [{"sourceId": "Q1", "targetId": "Q2", "kind": "lineage"}]
