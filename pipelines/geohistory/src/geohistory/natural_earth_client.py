@@ -4,6 +4,10 @@ import tenacity
 GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/{version}/geojson/{name}.geojson"
 ADMIN_0_LAYER = "ne_10m_admin_0_countries"
 ADMIN_1_LAYER = "ne_10m_admin_1_states_provinces"
+DISPUTED_LAYER = "ne_10m_admin_0_boundary_lines_disputed_areas"
+PLACES_LAYER = "ne_10m_populated_places"
+RIVERS_LAYER = "ne_10m_rivers_lake_centerlines"
+LAKES_LAYER = "ne_10m_lakes"
 
 
 @tenacity.retry(

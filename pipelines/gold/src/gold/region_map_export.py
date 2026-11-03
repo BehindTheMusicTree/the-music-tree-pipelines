@@ -34,6 +34,7 @@ COORDINATE_DECIMALS = 2
 TILESET_MIN_ZOOM = 0
 TILESET_MAX_ZOOM = 10
 TILESET_DIR = "regions"
+BASEMAP_LAYER_NAMES = ("land", "lakes", "rivers", "disputed", "places")
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "reason": pl.String}
 
 logger = logging.getLogger(__name__)
@@ -146,10 +147,14 @@ def _feature_collection(features: list[tuple[str, str, object]], name: str) -> t
     raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
 
 
-def _write_geojsonl(path: Path, features: list[tuple[dict, shapely.Geometry]]) -> None:
+def _write_geojsonl(path: Path, features: list[tuple[dict, shapely.Geometry]], by_min_zoom: bool = False) -> None:
+    """With `by_min_zoom`, a feature's `min_zoom` property also becomes its tippecanoe `minzoom`, so the low-zoom tiles
+    do not carry thousands of features the style hides anyway."""
     with path.open("w", encoding="utf-8") as handle:
         for properties, geometry in features:
             feature = {"type": "Feature", "properties": properties, "geometry": mapping(geometry)}
+            if by_min_zoom:
+                feature["tippecanoe"] = {"minzoom": min(int(properties["min_zoom"]), TILESET_MAX_ZOOM)}
             handle.write(json.dumps(feature, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n")
 
 
@@ -163,34 +168,63 @@ def _run_tippecanoe(arguments: list[str]) -> None:
         raise RuntimeError(f"tippecanoe dropped features: {' | '.join(dropped[:5])}")
 
 
+def _basemap_layers(basemap: pl.DataFrame) -> dict[str, list[tuple[dict, shapely.Geometry]]]:
+    layers: dict[str, list[tuple[dict, shapely.Geometry]]] = {}
+    for layer, name, featurecla, min_zoom, wkb in basemap.select(
+        "layer", "name", "featurecla", "min_zoom", "geometry_wkb"
+    ).rows():
+        properties = {"min_zoom": min_zoom}
+        if layer == "land":
+            properties = {}
+        elif layer == "disputed":
+            properties["featurecla"] = featurecla
+        if name is not None:
+            properties["name"] = name
+        layers.setdefault(layer, []).append((properties, shapely.from_wkb(wkb)))
+    missing = set(BASEMAP_LAYER_NAMES) - set(layers)
+    if missing:
+        raise ValueError(f"the basemap has no feature for layer(s) {sorted(missing)}")
+    return layers
+
+
 def _region_tileset(
-    regions: list[tuple[str, str, str, shapely.Geometry]],
-    zones: list[tuple[str, shapely.Geometry]],
+    regions: list[tuple[str, str, str, str, shapely.Geometry]],
+    zones: list[tuple[str, str, shapely.Geometry]],
+    labels: list[tuple[str, str, str, tuple[float, float]]],
+    basemap: pl.DataFrame,
     work_dir: Path,
     geometry_dir: Path,
 ) -> dict:
-    """Vector tiles of the full-resolution geometry: layer `regions` (`id`, `parentId`, `kind`, same as the index) and
-    layer `zones` (`id`). Returns the index's `tileset` entry; the file is `regions/<sha256>.pmtiles`."""
+    """The one vector tileset of the map, from full-resolution geometry. Layers `regions` (`id`, `parentId`, `kind`,
+    `name`, same as the index), `region_labels` (`id`, `parentId`, `name`, at the pole of inaccessibility), `zones`
+    (`id`, `name`), and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Returns the index's
+    `tileset` entry; the file is `regions/<sha256>.pmtiles`."""
     if shutil.which("tippecanoe") is None:
         raise RuntimeError("tippecanoe is not installed, see pipelines/gold/README.md")
     work_dir.mkdir(parents=True, exist_ok=True)
-    regions_path, zones_path, built = (
-        work_dir / "regions.geojsonl",
-        work_dir / "zones.geojsonl",
-        work_dir / "built.pmtiles",
-    )
-    _write_geojsonl(
-        regions_path, [({"id": r, "parentId": parent, "kind": kind}, shape) for r, parent, kind, shape in regions]
-    )
-    _write_geojsonl(zones_path, [({"id": z}, shape) for z, shape in zones])
-    _run_tippecanoe(
-        [
-            "-o", str(built), "--force",
-            f"-Z{TILESET_MIN_ZOOM}", f"-z{TILESET_MAX_ZOOM}",
-            "--detect-shared-borders", "--no-progress-indicator",
-            "-L", f"regions:{regions_path}", "-L", f"zones:{zones_path}",
-        ]
-    )  # fmt: skip
+    built = work_dir / "built.pmtiles"
+    layers: dict[str, tuple[list[tuple[dict, shapely.Geometry]], bool]] = {
+        "regions": (
+            [({"id": r, "parentId": p, "kind": k, "name": n}, shape) for r, n, p, k, shape in regions],
+            False,
+        ),
+        "region_labels": (
+            [({"id": r, "parentId": p, "name": n}, shapely.Point(point)) for r, p, n, point in labels],
+            False,
+        ),
+        "zones": ([({"id": z, "name": n}, shape) for z, n, shape in zones], False),
+        **{layer: (features, layer != "land") for layer, features in _basemap_layers(basemap).items()},
+    }
+    arguments = [
+        "-o", str(built), "--force",
+        f"-Z{TILESET_MIN_ZOOM}", f"-z{TILESET_MAX_ZOOM}",
+        "--detect-shared-borders", "--no-progress-indicator",
+    ]  # fmt: skip
+    for layer, (features, by_min_zoom) in layers.items():
+        path = work_dir / f"{layer}.geojsonl"
+        _write_geojsonl(path, features, by_min_zoom)
+        arguments += ["-L", f"{layer}:{path}"]
+    _run_tippecanoe(arguments)
     if not built.exists() or built.stat().st_size == 0:
         raise RuntimeError("tippecanoe wrote no tileset")
     content = built.read_bytes()
@@ -220,6 +254,7 @@ def export_region_map(
         geohistory_silver_dir / "1_cultural_entity.parquet", columns=["entity_id", "kind", "label"]
     )
     geometry = pl.read_parquet(geohistory_silver_dir / "8_entity_geometry.parquet")
+    basemap = pl.read_parquet(geohistory_silver_dir / "8_basemap_feature.parquet")
     footprint = pl.read_parquet(geohistory_silver_dir / "8_entity_footprint.parquet")
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
@@ -470,8 +505,14 @@ def export_region_map(
     document["files"] = {line["path"]: line["sha256"] for line in lines}
     started = time.monotonic()
     document["tileset"] = _region_tileset(
-        [(r, parents.get(r, WORLD_ID), kinds[r], load(r)) for r in admin_regions],
-        [(z, load(z)) for z in zones],
+        [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], load(r)) for r in admin_regions],
+        [(z, labels[z], load(z)) for z in zones],
+        [
+            (entry["id"], entry["parentId"], entry["name"], tuple(entry["centroid"]))
+            for entry in entries
+            if entry["kind"] != "zone"
+        ],
+        basemap,
         output_dir / "5_region_map_tileset_work",
         geometry_dir,
     )
