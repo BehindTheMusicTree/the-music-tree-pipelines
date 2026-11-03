@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.8.0] - 2026-11-03
+
 ### Added
 
 - Gold's region map builds a vector tileset `5_region_map/regions/<sha256>.pmtiles` from the unsimplified geometry with tippecanoe (zooms 0-10), referenced by an optional `tileset` entry in `index.json`; size and duration go in `5_region_map_report.json`. Gold now requires tippecanoe on the `PATH`.
