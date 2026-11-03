@@ -158,16 +158,9 @@ def test_export_region_map_writes_index_and_geometry(tmp_path: Path) -> None:
     assert regions["CE"]["kind"] == "zone" and regions["CE"]["genres"][0]["relation"] == "regional"
     assert regions["BR"]["zoneIds"] == ["CE"] and regions["FR"]["zoneIds"] == ["CE"]
     assert regions["NR"]["zoneIds"] == []
-    geometry_dir = output / "5_region_map"
-    world = json.loads((geometry_dir / "geometry" / "world.geojson").read_text())
-    assert {f["id"] for f in world["features"]} == {"FR", "DE"}
-    assert {f["id"] for f in json.loads((geometry_dir / "geometry" / "FR.geojson").read_text())["features"]} == {
-        "BR",
-        "NR",
-    }
-    assert not (geometry_dir / "geometry" / "BR.geojson").exists()
-    assert (geometry_dir / "zones" / "CE.geojson").exists()
-    assert all(p.stat().st_size <= region_map_export.SIZE_LIMIT_BYTES for p in geometry_dir.rglob("*.geojson"))
+    assert not (output / "5_region_map" / "geometry").exists()
+    assert not (output / "5_region_map" / "zones").exists()
+    assert "files" not in json.loads(index_path.read_text())
 
 
 def _part_lines(output: Path) -> list[dict]:
@@ -180,34 +173,17 @@ def _sha256(document: dict) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def test_export_region_map_writes_every_file_and_the_index_as_hashed_import_lines(tmp_path: Path) -> None:
+def test_export_region_map_writes_the_index_alone_as_a_hashed_import_line(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
 
     index_path = export_region_map(geohistory, wikidata, match, output)
 
-    lines = {line["path"]: line for line in _part_lines(output)}
-    index = json.loads(index_path.read_text())
-    assert set(lines) == {"index.json", "geometry/world.geojson", "geometry/FR.geojson", "zones/CE.geojson"}
-    assert all(line["sha256"] == _sha256(line["document"]) for line in lines.values())
-    assert lines["index.json"]["document"] == index
-    assert index["files"] == {path: line["sha256"] for path, line in lines.items() if path != "index.json"}
-    assert lines["zones/CE.geojson"]["document"] == json.loads((output / "5_region_map/zones/CE.geojson").read_text())
-    assert (
-        hashlib.sha256((output / "5_region_map/zones/CE.geojson").read_bytes()).hexdigest()
-        == index["files"]["zones/CE.geojson"]
-    )
-
-
-def test_export_region_map_splits_import_lines_into_parts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    geohistory, wikidata, match, output = _write(tmp_path)
-    monkeypatch.setattr(region_map_export, "FILES_PER_PART", 3)
-
-    export_region_map(geohistory, wikidata, match, output)
-
     parts = sorted((output / "5_region_map" / "parts").iterdir())
-    assert [p.name for p in parts] == ["part-00000.ndjson.gz", "part-00001.ndjson.gz"]
-    assert [len(gzip.decompress(p.read_bytes()).splitlines()) for p in parts] == [3, 1]
-    assert json.loads(gzip.decompress(parts[-1].read_bytes()))["path"] == "index.json"
+    assert [p.name for p in parts] == ["part-00000.ndjson.gz"]
+    lines = _part_lines(output)
+    assert [line["path"] for line in lines] == ["index.json"]
+    assert lines[0]["sha256"] == _sha256(lines[0]["document"])
+    assert lines[0]["document"] == json.loads(index_path.read_text())
 
 
 def test_export_region_map_lifts_an_orphan_behind_a_zone_parent(tmp_path: Path) -> None:
@@ -389,12 +365,7 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     ]
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["unplacedGenreCount"] == 2
-    assert {f["path"] for f in report["files"]} == {
-        "geometry/world.geojson",
-        "geometry/FR.geojson",
-        "zones/CE.geojson",
-    }
-    assert all(f["bytes"] > 0 and f["tolerance"] == 0.0 for f in report["files"])
+    assert set(report) == {"unplacedGenreCount", "tileset"}
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -426,14 +397,6 @@ def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp
     assert genres == [{"itemId": "Q6", "rule": "P495", "relation": "tradition"}]
     unplaced = pl.read_csv(output / "5_region_map_unplaced.csv")
     assert ("Q7", "anchor is not a place") in unplaced.select("wikidata_id", "reason").rows()
-
-
-def test_export_region_map_raises_on_oversized_geometry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    geohistory, wikidata, match, output = _write(tmp_path)
-    monkeypatch.setattr(region_map_export, "SIZE_LIMIT_BYTES", 10)
-
-    with pytest.raises(ValueError, match="stays above"):
-        export_region_map(geohistory, wikidata, match, output)
 
 
 def test_export_region_map_writes_the_index_as_its_canonical_bytes(tmp_path: Path) -> None:
@@ -477,58 +440,6 @@ def test_export_region_map_raises_without_regions(tmp_path: Path) -> None:
         export_region_map(geohistory, wikidata, match, output)
 
 
-def test_without_specks_keeps_the_largest_part_and_drops_islets() -> None:
-    main, islet = box(0, 0, 10, 10), box(50, 50, 50.01, 50.01)
-
-    assert region_map_export._without_specks(shapely.union_all([main, islet]), 0.1).equals(main)
-    assert region_map_export._without_specks(islet, 1.0).equals(islet)
-
-
-def test_feature_collection_raises_on_emptied_geometry() -> None:
-    with pytest.raises(ValueError, match="emptied or degraded"):
-        region_map_export._feature_collection([("P", "P", Point(1, 1).buffer(0))], "n")
-
-
-def test_feature_collection_keeps_the_largest_part_of_a_speck_only_feature() -> None:
-    _, encoded, tolerance = region_map_export._feature_collection(
-        [("A", "A", shapely.union_all([box(0, 0, 0.001, 0.001), box(5, 5, 5.0005, 5.0005)]))], "n"
-    )
-
-    assert tolerance == 0.0 and json.loads(encoded)["features"][0]["geometry"]["coordinates"]
-
-
-def test_polygons_flattens_nested_geometry_collections() -> None:
-    inner = shapely.GeometryCollection([box(0, 0, 1, 1), Point(5, 5)])
-    outer = shapely.GeometryCollection([inner, shapely.MultiPolygon([box(2, 2, 3, 3), box(4, 4, 5, 5)])])
-
-    assert len(region_map_export._polygons(outer)) == 3
-
-
-def test_rounded_keeps_a_valid_geometry_whose_every_part_collapses_and_warns(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    tiny = shapely.Polygon([(0, 0), (0.004, 0), (0.004, 0.004)])
-
-    with caplog.at_level("WARNING"):
-        result = region_map_export._rounded(tiny, "Q99")
-
-    assert result.equals(tiny) and "Q99" in caplog.text
-
-
-def test_rounded_drops_an_invalid_geometry_whose_every_part_collapses() -> None:
-    bowtie = shapely.Polygon([(0, 0), (0.004, 0.004), (0.004, 0), (0, 0.004)])
-
-    assert region_map_export._rounded(bowtie, "Q99").is_empty
-
-
-def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
-    kept = box(1.13, 1.26, 1.43, 1.56)
-    collapsed = shapely.Polygon([(0.77, 2.29), (0.77, 2.29), (0.77, 3.29), (0.77, 3.29)])
-    speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
-
-    assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept]), "R").equals(kept)
-
-
 def _layer(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
@@ -550,10 +461,8 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     index_path = export_region_map(geohistory, wikidata, match, output)
 
     tileset = json.loads(index_path.read_text())["tileset"]
-    tile_file = output / "5_region_map" / tileset["path"]
-    assert tileset["path"] == f"regions/{tileset['sha256']}.pmtiles"
-    assert hashlib.sha256(tile_file.read_bytes()).hexdigest() == tileset["sha256"]
-    assert tileset["bytes"] == tile_file.stat().st_size
+    tile_file = output / "5_region_map" / "regions" / f"{tileset}.pmtiles"
+    assert hashlib.sha256(tile_file.read_bytes()).hexdigest() == tileset
     assert [a for a in fake_tippecanoe[0] if a.startswith(("-Z", "-z", "--detect"))] == [
         "-Z0",
         "-z10",
@@ -585,7 +494,7 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     ]
     assert all("tippecanoe" not in f for name in ("regions", "region_labels", "zones", "land") for f in layers[name])
     report = json.loads((output / "5_region_map_report.json").read_text())
-    assert report["tileset"]["bytes"] == tileset["bytes"] and report["tileset"]["seconds"] >= 0
+    assert report["tileset"]["bytes"] == tile_file.stat().st_size and report["tileset"]["seconds"] >= 0
     assert not (output / "5_region_map_tileset_work").exists()
 
 
