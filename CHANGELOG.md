@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The "genealogy column(s) have no region" error now lists the entity ids to add to `region_overrides` (it listed column ids).
 - **Breaking:** the region map index matches grow-api 15.0.0: `tileset` is the bare sha256 of `regions/<sha256>.pmtiles` (it was an object `{path, sha256, bytes}`) and is required, and `files` is gone. Gold no longer writes the simplified `geometry/` and `zones/` GeoJSON, so `parts/` holds a single `part-00000.ndjson.gz` with only the index line, and `5_region_map_report.json` drops `files`.
 
 ### Removed
