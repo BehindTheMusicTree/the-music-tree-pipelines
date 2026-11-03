@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.0] - 2026-11-03
+
 ### Added
 
 - Songs inherit a genre when their recordings carry none: from their official, non-compilation release groups (release tags included), else from their artist. Bronze ingests `release_group_tag`, `release_tag`, `artist_tag`, `release`, `release_status`, `medium` and `track` (projected); musicbrainz Silver adds `12_release_group_genre` and `13_artist_genre`, and `10_song_genre` gains a `level` column.
