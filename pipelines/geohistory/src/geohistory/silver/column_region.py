@@ -140,7 +140,7 @@ def column_region(bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Pat
     )
 
     rows: list[tuple[str, str, str, int]] = []
-    unplaced: list[str] = []
+    unplaced: list[tuple[str, list[str]]] = []
     for column_id, members in columns:
         region = _plurality(Counter(forced[entity_id] for entity_id in members if entity_id in forced))
         if region is None:
@@ -149,13 +149,14 @@ def column_region(bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Pat
                 tally.update(votes.get(entity_id, ()))
             region = _plurality(tally) or _plurality(Counter(fallback[e] for e in members if e in fallback))
         if region is None:
-            unplaced.append(column_id)
+            unplaced.append((column_id, members))
             continue
         rows.append((column_id, region, REGION_LABEL[region], REGION_RANK[region]))
     if unplaced:
+        entity_ids = sorted({entity_id for _, members in unplaced for entity_id in members})
         raise ValueError(
-            f"{len(unplaced)} genealogy column(s) have no region: add a region_overrides row for their entities: "
-            f"{unplaced[:10]}"
+            f"{len(unplaced)} genealogy column(s) have no region: add a region_overrides row for each entity: "
+            f"{entity_ids[:10]}"
         )
 
     path = silver_dir / "6_column_region.parquet"
