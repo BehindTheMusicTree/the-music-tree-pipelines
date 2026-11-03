@@ -1,15 +1,18 @@
 import gzip
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import polars as pl
 import pytest
 import shapely
-from shapely.geometry import Point, box
+from shapely.geometry import Point, box, mapping
 
 from gold import region_map_export
 from gold.region_map_export import export_region_map
+
+from .conftest import REAL_RUN_TIPPECANOE
 
 
 REGIONAL_SCHEMA = {"item_id": pl.String, "parent_id": pl.String}
@@ -55,6 +58,34 @@ def _geometry_row(entity_id: str, shape, source: str = "natural_earth") -> dict:
     }
 
 
+BASEMAP = [
+    ("land", None, None, 0.0, box(-1, -1, 31, 11)),
+    ("lakes", "Lac Léman", "Lake", 3.0, box(2, 2, 3, 3)),
+    ("rivers", "Seine", "River", 2.5, shapely.LineString([(1, 1), (6, 7)])),
+    ("rivers", None, "River", 7.0, shapely.LineString([(21, 1), (26, 7)])),
+    ("disputed", "Claim", "Claim boundary", 4.0, shapely.LineString([(10, 0), (20, 0)])),
+    ("places", "Paris", "Admin-0 capital", 1.7, Point(2, 2)),
+    ("places", "Berlin", "Admin-0 capital", 12.0, Point(25, 5)),
+]
+
+
+def _write_basemap(geohistory: Path, features: list[tuple] = BASEMAP) -> None:
+    pl.DataFrame(
+        [
+            (layer, name, featurecla, min_zoom, shapely.to_wkb(shape))
+            for layer, name, featurecla, min_zoom, shape in features
+        ],
+        schema={
+            "layer": pl.String,
+            "name": pl.String,
+            "featurecla": pl.String,
+            "min_zoom": pl.Float64,
+            "geometry_wkb": pl.Binary,
+        },
+        orient="row",
+    ).write_parquet(geohistory / "8_basemap_feature.parquet")
+
+
 def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     geohistory, wikidata, output = tmp_path / "geohistory", tmp_path / "wikidata", tmp_path / "out"
     geohistory.mkdir()
@@ -82,6 +113,7 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     pl.DataFrame(
         [_geometry_row(e, s, "natural_earth" if e != "CE" else "wikidata") for e, s in shapes.items()]
     ).write_parquet(geohistory / "8_entity_geometry.parquet")
+    _write_basemap(geohistory)
     pl.DataFrame([("CE", "BR", "point")], schema=["entity_id", "admin_id", "rule"], orient="row").write_parquet(
         geohistory / "8_entity_footprint.parquet"
     )
@@ -495,3 +527,130 @@ def test_rounded_survives_parts_that_collapse_when_rounded() -> None:
     speck = shapely.Polygon([(2.9901, 0.7301), (2.9902, 0.7301), (2.9902, 0.7302), (2.9901, 0.7302)])
 
     assert region_map_export._rounded(shapely.MultiPolygon([speck, collapsed, kept]), "R").equals(kept)
+
+
+def _layer(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_index(
+    tmp_path: Path, fake_tippecanoe: list[list[str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    layers: dict[str, list[dict]] = {}
+    inner = region_map_export._run_tippecanoe
+
+    def capture(arguments: list[str]) -> None:
+        for name, path in (a.split(":", 1) for a in arguments if a.count(":") == 1 and not a.startswith("-")):
+            layers[name] = _layer(Path(path))
+        inner(arguments)
+
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", capture)
+
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    tileset = json.loads(index_path.read_text())["tileset"]
+    tile_file = output / "5_region_map" / tileset["path"]
+    assert tileset["path"] == f"regions/{tileset['sha256']}.pmtiles"
+    assert hashlib.sha256(tile_file.read_bytes()).hexdigest() == tileset["sha256"]
+    assert tileset["bytes"] == tile_file.stat().st_size
+    assert [a for a in fake_tippecanoe[0] if a.startswith(("-Z", "-z", "--detect"))] == [
+        "-Z0",
+        "-z10",
+        "--detect-shared-borders",
+    ]
+    index_regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
+    assert {f["properties"]["id"] for f in layers["regions"]} == {"FR", "BR", "NR", "DE"}
+    assert all(
+        f["properties"] == {"id": f["properties"]["id"], "parentId": index_regions[f["properties"]["id"]]["parentId"],
+                            "kind": index_regions[f["properties"]["id"]]["kind"],
+                            "name": index_regions[f["properties"]["id"]]["name"]}
+        for f in layers["regions"]
+    )  # fmt: skip
+    assert [f["properties"] for f in layers["zones"]] == [{"id": "CE", "name": "Celtic nations"}]
+    assert list(layers) == ["regions", "region_labels", "zones", "land", "lakes", "rivers", "disputed", "places"]
+    labelled = {f["properties"]["id"]: f for f in layers["region_labels"]}
+    assert set(labelled) == {"FR", "BR", "NR", "DE"}
+    assert labelled["BR"]["properties"] == {"id": "BR", "parentId": "FR", "name": "Bretagne"}
+    assert labelled["BR"]["geometry"] == {"type": "Point", "coordinates": index_regions["BR"]["centroid"]}
+    assert layers["land"][0]["properties"] == {}
+    assert [f["properties"] for f in layers["rivers"]] == [
+        {"min_zoom": 2.5, "name": "Seine"},
+        {"min_zoom": 7.0},
+    ]
+    assert layers["disputed"][0]["properties"] == {"min_zoom": 4.0, "featurecla": "Claim boundary", "name": "Claim"}
+    assert [(f["properties"]["name"], f["tippecanoe"]["minzoom"]) for f in layers["places"]] == [
+        ("Paris", 1),
+        ("Berlin", 10),
+    ]
+    assert all("tippecanoe" not in f for name in ("regions", "region_labels", "zones", "land") for f in layers[name])
+    report = json.loads((output / "5_region_map_report.json").read_text())
+    assert report["tileset"]["bytes"] == tileset["bytes"] and report["tileset"]["seconds"] >= 0
+    assert not (output / "5_region_map_tileset_work").exists()
+
+
+def test_export_region_map_tileset_uses_full_resolution_geometry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    wiggly = shapely.Polygon([(20 + i / 100, 0 if i % 2 else 0.004) for i in range(1000)] + [(30, 10), (20, 10)])
+    frame = pl.read_parquet(geohistory / "8_entity_geometry.parquet").filter(pl.col("entity_id") != "DE")
+    pl.concat([frame, pl.DataFrame([_geometry_row("DE", wiggly)], schema=frame.schema)]).write_parquet(
+        geohistory / "8_entity_geometry.parquet"
+    )
+    seen: list[int] = []
+    inner = region_map_export._run_tippecanoe
+
+    def capture(arguments: list[str]) -> None:
+        layer = next(a for a in arguments if a.startswith("regions:"))
+        seen.extend(
+            len(f["geometry"]["coordinates"][0])
+            for f in _layer(Path(layer.split(":", 1)[1]))
+            if f["properties"]["id"] == "DE"
+        )
+        inner(arguments)
+
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", capture)
+    export_region_map(geohistory, wikidata, match, output)
+    assert seen == [len(wiggly.exterior.coords)]
+
+
+def test_export_region_map_raises_without_a_basemap_layer(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _write_basemap(geohistory, [feature for feature in BASEMAP if feature[0] != "lakes"])
+    with pytest.raises(ValueError, match=r"no feature for layer\(s\) \['lakes'\]"):
+        export_region_map(geohistory, wikidata, match, output)
+
+
+def test_export_region_map_fails_without_tippecanoe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    monkeypatch.setattr(region_map_export.shutil, "which", lambda _: None)
+    with pytest.raises(RuntimeError, match="tippecanoe is not installed"):
+        export_region_map(geohistory, wikidata, match, output)
+
+
+@pytest.mark.skipif(shutil.which("tippecanoe") is None, reason="tippecanoe is not installed")
+def test_real_tippecanoe_builds_a_tileset(tmp_path: Path) -> None:
+    feature = {
+        "type": "Feature",
+        "properties": {"id": "A"},
+        "geometry": mapping(box(0, 0, 10, 10)),
+    }
+    source = tmp_path / "a.geojsonl"
+    source.write_text(json.dumps(feature) + "\n")
+    REAL_RUN_TIPPECANOE(
+        ["-o", str(tmp_path / "t.pmtiles"), "-Z0", "-z4", "--no-progress-indicator", "-L", f"regions:{source}"]
+    )
+    assert (tmp_path / "t.pmtiles").stat().st_size > 0
+    with pytest.raises(RuntimeError, match="tippecanoe failed"):
+        REAL_RUN_TIPPECANOE(["-o", str(tmp_path / "x.pmtiles"), "-L", f"regions:{tmp_path / 'missing'}"])
+
+
+def test_run_tippecanoe_raises_on_dropped_features(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Result:
+        returncode = 0
+        stderr = "Dropped 3 features\n"
+
+    monkeypatch.setattr(region_map_export.subprocess, "run", lambda *a, **k: Result())
+    with pytest.raises(RuntimeError, match="dropped features"):
+        REAL_RUN_TIPPECANOE(["-o", "x"])

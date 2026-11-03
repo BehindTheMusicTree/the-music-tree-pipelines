@@ -15,6 +15,8 @@ WIKIDATA_ENTITY_KINDS = (
     "historical_country",
     "country",
     "historical_region",
+    # Wikidata models denominations as subclasses of ethnic group, so religion must win over ethnic_group.
+    "religion",
     "ethnic_group",
     "cultural_region",
     "macro_region",

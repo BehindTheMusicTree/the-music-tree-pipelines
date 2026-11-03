@@ -1,4 +1,5 @@
 import io
+import math
 import zipfile
 from pathlib import Path
 
@@ -182,7 +183,7 @@ def test_download_layer_pins_version(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_build_natural_earth_admin_flattens_both_levels() -> None:
     df = ingest.build_natural_earth_admin(ADMIN_0, ADMIN_1)
 
-    assert df.drop("geometry_wkb").to_dicts() == [
+    assert df.drop("geometry_wkb", "area_km2").to_dicts() == [
         {
             "ne_id": "FRA",
             "level": 0,
@@ -217,6 +218,12 @@ def test_build_natural_earth_admin_flattens_both_levels() -> None:
     assert shapely.from_wkb(df["geometry_wkb"][0]).equals(shapely.geometry.shape(_square(0)))
 
 
+def test_area_km2_is_spherical_equal_area() -> None:
+    assert ingest.area_km2(shapely.box(0, 0, 1, 1)) == pytest.approx(12364, rel=1e-3)
+    assert ingest.area_km2(shapely.box(0, 0, 180, 90)) == pytest.approx(4 * math.pi * 6371.0088**2 / 4)
+    assert ingest.area_km2(shapely.box(0, 60, 1, 61)) < ingest.area_km2(shapely.box(0, 0, 1, 1))
+
+
 def test_build_natural_earth_admin_raises_on_orphan_admin_1() -> None:
     orphan = _layer(({**ADMIN_1["features"][0]["properties"], "adm0_a3": "ESP"}, _square(0)))
 
@@ -247,3 +254,82 @@ def test_ingest_natural_earth_admin_raises_on_duplicate_ne_id(monkeypatch: pytes
 
     with pytest.raises(ValueError, match="not unique"):
         ingest.ingest_natural_earth_admin("v5.1.2", tmp_path)
+
+
+def _line(x: float) -> dict:
+    return {"type": "LineString", "coordinates": [[x, 0], [x + 1, 1]]}
+
+
+BASEMAP = {
+    "disputed": _layer(({"NAME": "Claim", "FEATURECLA": "Claim boundary", "MIN_ZOOM": 4}, _line(0))),
+    "places": _layer(
+        (
+            {"NAME": "Paris", "FEATURECLA": "Admin-0 capital", "MIN_ZOOM": 1.7},
+            {"type": "Point", "coordinates": [2, 48]},
+        ),
+        (
+            {"NAME": "Berlin", "FEATURECLA": "Admin-0 capital", "MIN_ZOOM": 1.7},
+            {"type": "Point", "coordinates": [13, 52]},
+        ),
+    ),
+    "rivers": _layer(({"name": "Seine", "featurecla": "River", "min_zoom": 2.0}, _line(2))),
+    "lakes": _layer(({"name": "Léman", "featurecla": "Lake", "min_zoom": 7}, _square(6))),
+}
+
+
+def test_build_natural_earth_basemap_lowercases_keys_and_sorts() -> None:
+    df = ingest.build_natural_earth_basemap(BASEMAP)
+
+    assert df.schema == ingest.BASEMAP_SCHEMA
+    assert df.select("layer", "name", "featurecla", "min_zoom").rows() == [
+        ("disputed", "Claim", "Claim boundary", 4.0),
+        ("lakes", "Léman", "Lake", 7.0),
+        ("places", "Berlin", "Admin-0 capital", 1.7),
+        ("places", "Paris", "Admin-0 capital", 1.7),
+        ("rivers", "Seine", "River", 2.0),
+    ]
+    assert shapely.from_wkb(df["geometry_wkb"][0]).geom_type == "LineString"
+
+
+def test_build_natural_earth_basemap_raises_on_missing_geometry() -> None:
+    with pytest.raises(ValueError, match="no geometry"):
+        ingest.build_natural_earth_basemap({"lakes": _layer(({"name": "Léman", "min_zoom": 7}, None))})
+
+
+def test_build_natural_earth_basemap_raises_on_missing_min_zoom() -> None:
+    with pytest.raises(ValueError, match="no min_zoom"):
+        ingest.build_natural_earth_basemap({"lakes": _layer(({"name": "Léman"}, _square(0)))})
+
+
+def test_build_natural_earth_basemap_gives_a_disputed_line_without_min_zoom_a_default() -> None:
+    claim = _layer(({"NAME": None, "NOTE": "(Admin. by Brazil, Claimed by Urug.)", "MIN_ZOOM": None}, _line(0)))
+
+    df = ingest.build_natural_earth_basemap({"disputed": claim})
+
+    assert df["min_zoom"].to_list() == [ingest.DISPUTED_MISSING_MIN_ZOOM]
+
+
+def _stub_basemap_download(monkeypatch: pytest.MonkeyPatch, layers: dict[str, dict]) -> None:
+    by_name = {ingest.BASEMAP_LAYERS[layer]: collection for layer, collection in layers.items()}
+    monkeypatch.setattr(natural_earth_client, "download_layer", lambda version, name: by_name[name])
+
+
+def test_ingest_natural_earth_basemap_writes_parquet(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _stub_basemap_download(monkeypatch, BASEMAP)
+
+    path = ingest.ingest_natural_earth_basemap("v5.1.2", tmp_path / "bronze")
+
+    assert path == tmp_path / "bronze" / "natural_earth_basemap.parquet"
+    assert pl.read_parquet(path)["layer"].unique(maintain_order=True).to_list() == [
+        "disputed",
+        "lakes",
+        "places",
+        "rivers",
+    ]
+
+
+def test_ingest_natural_earth_basemap_raises_on_empty_layer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _stub_basemap_download(monkeypatch, {**BASEMAP, "lakes": _layer()})
+
+    with pytest.raises(ValueError, match=r"layer\(s\) \['lakes'\]"):
+        ingest.ingest_natural_earth_basemap("v5.1.2", tmp_path)

@@ -1,7 +1,9 @@
 import logging
 from pathlib import Path
 
+import numpy as np
 import polars as pl
+import shapely
 import shapely.geometry
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 from common.quality_checks import check_non_empty, check_unique_key
@@ -20,8 +22,27 @@ ADMIN_SCHEMA = {
     "iso_code": pl.String,
     "ne_type": pl.String,
     "continent": pl.String,
+    "area_km2": pl.Float64,
     "geometry_wkb": pl.Binary,
 }
+BASEMAP_SCHEMA = {
+    "layer": pl.String,
+    "name": pl.String,
+    "featurecla": pl.String,
+    "min_zoom": pl.Float64,
+    "geometry_wkb": pl.Binary,
+}
+BASEMAP_LAYERS = {
+    "disputed": natural_earth_client.DISPUTED_LAYER,
+    "places": natural_earth_client.PLACES_LAYER,
+    "rivers": natural_earth_client.RIVERS_LAYER,
+    "lakes": natural_earth_client.LAKES_LAYER,
+}
+# Natural Earth v5.1.2 ships one disputed line (Brazil/Uruguay claim) without a min_zoom; a short border segment, so it
+# appears at zoom 7, among the finest of the disputed lines (3.7 to 8). No other layer has a gap, any other one is a
+# data error. Each default is logged, so a newer release with more gaps shows up.
+DISPUTED_MISSING_MIN_ZOOM = 7.0
+EARTH_RADIUS_KM = 6371.0088
 ADMIN_FIELDS = {
     0: ("ADM0_A3", "WIKIDATAID", "ADM0_A3", "NAME", "ISO_A2_EH", "TYPE"),
     1: ("adm1_code", "wikidataid", "adm0_a3", "name", "iso_3166_2", "type_en"),
@@ -76,6 +97,17 @@ def ingest_glottolog_languoids(version: str, output_dir: Path) -> Path:
     return output_path
 
 
+def _equal_area(degrees: np.ndarray) -> np.ndarray:
+    return np.column_stack(
+        (np.radians(degrees[:, 0]) * EARTH_RADIUS_KM, np.sin(np.radians(degrees[:, 1])) * EARTH_RADIUS_KM)
+    )
+
+
+def area_km2(geometry: shapely.Geometry) -> float:
+    """Spherical area, through the Lambert cylindrical equal-area projection of lon/lat degrees."""
+    return float(shapely.area(shapely.transform(shapely.make_valid(geometry), _equal_area)))
+
+
 def build_natural_earth_admin(admin_0: dict, admin_1: dict) -> pl.DataFrame:
     rows = []
     for level, layer in ((0, admin_0), (1, admin_1)):
@@ -85,9 +117,22 @@ def build_natural_earth_admin(admin_0: dict, admin_1: dict) -> pl.DataFrame:
             ne_id, wikidata_id, adm0_a3, name, iso_code, ne_type = (properties[field] or None for field in fields)
             if feature["geometry"] is None:
                 raise ValueError(f"Natural Earth admin-{level} unit {ne_id} has no geometry")
-            wkb = shapely.geometry.shape(feature["geometry"]).wkb
+            geometry = shapely.geometry.shape(feature["geometry"])
             continent = (properties["CONTINENT"] or None) if level == 0 else None
-            rows.append((ne_id, level, wikidata_id, adm0_a3, name, iso_code, ne_type, continent, wkb))
+            rows.append(
+                (
+                    ne_id,
+                    level,
+                    wikidata_id,
+                    adm0_a3,
+                    name,
+                    iso_code,
+                    ne_type,
+                    continent,
+                    area_km2(geometry),
+                    geometry.wkb,
+                )
+            )
     df = pl.DataFrame(rows, schema=ADMIN_SCHEMA, orient="row").sort("level", "ne_id")
     countries = set(df.filter(pl.col("level") == 0)["adm0_a3"])
     orphans = df.filter((pl.col("level") == 1) & ~pl.col("adm0_a3").is_in(countries))
@@ -112,9 +157,59 @@ def ingest_natural_earth_admin(version: str, output_dir: Path) -> Path:
     return output_path
 
 
+def build_natural_earth_basemap(layers: dict[str, dict]) -> pl.DataFrame:
+    """One row per feature of the basemap layers (`layers` maps a name of `BASEMAP_LAYERS` to its GeoJSON). Natural
+    Earth spells the property keys in upper case on some layers and lower case on others."""
+    rows = []
+    for layer, collection in layers.items():
+        for feature in collection["features"]:
+            properties = {key.lower(): value for key, value in feature["properties"].items()}
+            if feature["geometry"] is None:
+                raise ValueError(f"Natural Earth {layer} feature {properties.get('name')!r} has no geometry")
+            if properties.get("min_zoom") is None:
+                if layer != "disputed":
+                    raise ValueError(f"Natural Earth {layer} feature {properties.get('name')!r} has no min_zoom")
+                logger.warning(
+                    "Natural Earth disputed line %r has no min_zoom, using %s",
+                    properties.get("note"),
+                    DISPUTED_MISSING_MIN_ZOOM,
+                )
+                properties["min_zoom"] = DISPUTED_MISSING_MIN_ZOOM
+            rows.append(
+                (
+                    layer,
+                    properties.get("name"),
+                    properties.get("featurecla"),
+                    float(properties["min_zoom"]),
+                    shapely.geometry.shape(feature["geometry"]).wkb,
+                )
+            )
+    return pl.DataFrame(rows, schema=BASEMAP_SCHEMA, orient="row").sort(
+        "layer", "min_zoom", "name", maintain_order=True
+    )
+
+
+def ingest_natural_earth_basemap(version: str, output_dir: Path) -> Path:
+    logger.info("downloading Natural Earth %s basemap layers", version)
+    df = build_natural_earth_basemap(
+        {layer: natural_earth_client.download_layer(version, name) for layer, name in BASEMAP_LAYERS.items()}
+    )
+    check_non_empty(df, "natural_earth_basemap")
+    missing = set(BASEMAP_LAYERS) - set(df["layer"])
+    if missing:
+        raise ValueError(f"natural_earth_basemap has no feature for layer(s) {sorted(missing)}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "natural_earth_basemap.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+    return output_path
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
     bronze_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     ingest_glottolog_languoids(require_env("GLOTTOLOG_CLDF_VERSION"), bronze_dir)
     ingest_natural_earth_admin(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
+    ingest_natural_earth_basemap(require_env("NATURAL_EARTH_VERSION"), bronze_dir)

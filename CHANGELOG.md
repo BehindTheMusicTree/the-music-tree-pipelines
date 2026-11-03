@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.8.0] - 2026-11-03
+
+### Added
+
+- Gold's region map builds a vector tileset `5_region_map/regions/<sha256>.pmtiles` from the unsimplified geometry with tippecanoe (zooms 0-10), referenced by an optional `tileset` entry in `index.json`; size and duration go in `5_region_map_report.json`. Gold now requires tippecanoe on the `PATH`.
+- The region map tileset also carries the layers the map draws: `land`, `lakes`, `rivers`, `disputed`, `places` (from Natural Earth 1:10m, downloaded by geohistory into `natural_earth_basemap.parquet` and `8_basemap_feature.parquet`) and `region_labels`; `regions` gains `name`.
+- The `lane_order` step logs the total band span before and after the ordering.
+- Geohistory column regions are weighted by admin-unit area, fall back to the entity's `P625` point, and honour a curated `region_overrides` list. Religions (bulk kind `religion`) form a last `religions` region. `natural_earth_admin` gains `area_km2`.
+
+### Changed
+
+- Geohistory's `bbox`/`main_bbox` follow the narrower side of the antimeridian (`east` may exceed 180, e.g. Russia, Fiji, United States), and the entity `centroid` is the pole of inaccessibility of the mainland; the region map schema allows `east` up to 360.
+- The bulk `religion` kind matches items whose `P31` is religion, "religion or world view", "Christian denominational family" or "major religious group" (367 items instead of 313). An item matching both `ethnic_group` and `religion` now gets the `religion` kind (it still ranks below country, civilization, historical region and archaeological culture), so 23 Christian denominations, including Catholicism and Lutheranism, go to the `religions` column region.
+- Geohistory `column_region` raises when a column cannot be placed instead of assigning `other`. **Deploy order:** grow-api must expose `region_overrides` in `curation/export/` before the curation ingest runs.
+
 ## [8.7.0] - 2026-11-02
 
 ### Added

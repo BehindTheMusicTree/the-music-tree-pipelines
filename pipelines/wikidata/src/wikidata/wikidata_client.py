@@ -128,6 +128,10 @@ CULTURAL_REGION_QID = "Q3502482"
 CIVILIZATION_QID = "Q8432"
 ETHNIC_GROUP_QID = "Q41710"
 HISTORICAL_REGION_QID = "Q1620908"
+# Wikidata types its religions with several direct classes: religion, "religion or world view" (Catholicism),
+# "Christian denominational family" (Lutheranism) and "major religious group" (Islam). A P31/P279* path from religion
+# returns 1.4k items and still misses Catholicism; these four direct classes return ~370 and catch the major ones.
+RELIGION_CLASS_QIDS = ("Q9174", "Q71966963", "Q123129246", "Q6957341")
 NOTABLE_SITELINKS = 30
 MACRO_REGION_MIN_MEMBERS = 2
 CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
@@ -163,6 +167,10 @@ CULTURAL_ENTITY_KIND_PATTERNS = {
         f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"
     ),
     "cultural_region": f"?item wdt:P31/wdt:P279* wd:{CULTURAL_REGION_QID} .",
+    "religion": (
+        f"VALUES ?religionClass {{ {' '.join(f'wd:{qid}' for qid in RELIGION_CLASS_QIDS)} }} "
+        "?item wdt:P31 ?religionClass ."
+    ),
     "macro_region": (
         "{ SELECT ?item WHERE { hint:Query hint:optimizer 'None' . "
         f"VALUES ?memberClass {{ wd:{COUNTRY_QID} wd:{HISTORICAL_COUNTRY_QID} }} "

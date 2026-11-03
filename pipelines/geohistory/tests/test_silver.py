@@ -227,6 +227,10 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
         entity("Q6", "historical_country"),
         entity("Q7", "historical_region"),
         entity("Q7", "ethnic_group"),
+        entity("Q8", "ethnic_group"),
+        entity("Q8", "religion"),
+        entity("Q9", "archaeological_culture"),
+        entity("Q9", "religion"),
     ]
     base_bronze(dirs, entities=entities, claims=[])
     bronze, wikidata, silver = dirs
@@ -243,6 +247,8 @@ def test_cultural_entity_keeps_the_most_specific_kind_of_a_multi_kind_item(dirs)
         "Q5": "ethnic_group",
         "Q6": "civilization",
         "Q7": "historical_region",
+        "Q8": "religion",
+        "Q9": "archaeological_culture",
     }
 
 

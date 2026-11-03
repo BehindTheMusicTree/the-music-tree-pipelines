@@ -236,6 +236,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         "historical_region": [_entity_row("Q7", "Bohemia", None)],
         "ethnic_group": [_entity_row("Q8", "Berbers", None)],
         "cultural_region": [_entity_row("Q5", "Maghreb", None)],
+        "religion": [_entity_row("Q11", "Lutheranism", None)],
         "macro_region": [_entity_row("Q9", "Caribbean", None)],
         "time_period": [_entity_row("Q3", "Bronze Age", None)],
         "curated": [_entity_row("Q10", "Oued Beht", None)],
@@ -259,6 +260,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
         ("Q1", "languoid", "limb1263"),
         ("Q1", "languoid", "limb1265"),
         ("Q9", "macro_region", None),
+        ("Q11", "religion", None),
         ("Q3", "time_period", None),
     ]
     assert run_query.call_args.kwargs["timeout"] == bw.wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT
@@ -653,3 +655,11 @@ def test_artist_image_query_skips_unknown_value_images() -> None:
     assert 'STRSTARTS(STR(?image), "http://commons.wikimedia.org/wiki/Special:FilePath/")' in (
         bw.wikidata_client.artist_image_query("0")
     )
+
+
+def test_religion_pattern_selects_every_religion_class():
+    pattern = bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS["religion"]
+
+    for qid in ("Q9174", "Q71966963", "Q123129246", "Q6957341"):
+        assert f"wd:{qid}" in pattern
+    assert "wdt:P31 ?religionClass" in pattern
