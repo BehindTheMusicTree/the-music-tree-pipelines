@@ -18,6 +18,7 @@ TRADITION_SCHEMA = {
     "end_year": pl.Int32,
     "anchor_id": pl.String,
     "anchor_rule": pl.String,
+    "sitelinks": pl.Int32,
 }
 LINK_SCHEMA = {"from_wikidata_id": pl.String, "to_wikidata_id": pl.String, "kind": pl.String}
 
@@ -154,6 +155,14 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
         .select("item_id", "value")
         .rows()
     }
+    sitelinks = {
+        item: int(value)
+        for item, value in claims.filter(pl.col("property") == "sitelinks")
+        .sort("item_id", "value")
+        .unique("item_id", keep="first", maintain_order=True)
+        .select("item_id", "value")
+        .rows()
+    }
     genres = set(tree["item_id"])
     placements = _placement_overrides(
         read_curation_list(curation_dir, "tradition_placement_overrides"), entity_ids, item_entity
@@ -176,7 +185,11 @@ def tradition(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -
                 continue
             if start is None or start > CUTOFF_YEAR or (is_overview and anchor is None):
                 continue
-        rows.append((qid, label, start, min(end, CUTOFF_YEAR) if end is not None else CUTOFF_YEAR, anchor, rule))
+        if qid not in sitelinks:
+            raise ValueError(f"tradition {qid} has no sitelinks claim in wikidata_music_tradition_claims")
+        rows.append(
+            (qid, label, start, min(end, CUTOFF_YEAR) if end is not None else CUTOFF_YEAR, anchor, rule, sitelinks[qid])
+        )
 
     traditions = pl.DataFrame(rows, schema=TRADITION_SCHEMA, orient="row").sort("wikidata_id")
     known = set(traditions["wikidata_id"])
