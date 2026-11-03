@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0] - 2026-11-03
+
 ### Changed
 
 - The "genealogy column(s) have no region" error now lists the entity ids to add to `region_overrides` (it listed column ids).
