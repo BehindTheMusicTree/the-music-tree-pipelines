@@ -149,6 +149,16 @@ def test_export_genealogy_raises_on_schema_violation(tmp_path: Path) -> None:
         export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
 
 
+def test_export_genealogy_raises_on_negative_sitelinks(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.read_parquet(geohistory_dir / "5_tradition.parquet").with_columns(
+        pl.lit(-1, dtype=pl.Int32).alias("sitelinks")
+    ).write_parquet(geohistory_dir / "5_tradition.parquet")
+
+    with pytest.raises(ValueError, match="failed schema validation"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
 def test_export_genealogy_anchors_on_the_lifted_lane(tmp_path: Path) -> None:
     geohistory_dir, wikidata_dir = _write_silver(tmp_path)
     pl.DataFrame({"wikidata_id": ["Q2"], "lane_id": ["bbbb1234"]}).write_parquet(
