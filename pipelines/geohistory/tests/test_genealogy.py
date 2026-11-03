@@ -414,7 +414,7 @@ def test_column_region_raises_when_a_column_has_no_region(tmp_path):
         [("p", "ICE"), ("q", "NOWHERE")],
     )
 
-    with pytest.raises(ValueError, match=r"2 genealogy column\(s\) have no region.*ICE"):
+    with pytest.raises(ValueError, match=r"2 genealogy column\(s\) have no region.*\['p', 'q'\]"):
         column_region(bronze, silver, curation)
 
 
