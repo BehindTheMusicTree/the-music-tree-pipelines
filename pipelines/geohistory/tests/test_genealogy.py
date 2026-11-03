@@ -97,6 +97,7 @@ def paths(tmp_path: Path):
         label("Q104", "Floating genre"),
         claim("Q104", "P571", "+1300-00-00T00:00:00Z", 9),
     ]
+    claims += [claim(f"Q10{n}", "sitelinks", str(10 * (n + 1))) for n in range(5)]
     pl.DataFrame(claims, schema=CLAIM_SCHEMA).write_parquet(wikidata / "wikidata_music_tradition_claims.parquet")
     pl.DataFrame(
         [("Q100", "Q188451"), ("Q101", "Q100"), ("Q102", "Q188451"), ("Q104", "Q188451")],
@@ -115,6 +116,16 @@ def curation_with(paths, **rows):
     return wikidata, silver, curation
 
 
+def test_tradition_raises_without_sitelinks(paths):
+    wikidata, silver, curation = paths
+    claims = pl.read_parquet(wikidata / "wikidata_music_tradition_claims.parquet")
+    claims.filter(~((pl.col("item_id") == "Q100") & (pl.col("property") == "sitelinks"))).write_parquet(
+        wikidata / "wikidata_music_tradition_claims.parquet"
+    )
+    with pytest.raises(ValueError, match="Q100 has no sitelinks"):
+        build_tradition(wikidata, silver, curation)
+
+
 def test_tradition_anchors_dates_and_links(paths):
     wikidata, silver, curation = paths
     build_tradition(wikidata, silver, curation)
@@ -122,6 +133,7 @@ def test_tradition_anchors_dates_and_links(paths):
     rows = {r["wikidata_id"]: r for r in pl.read_parquet(silver / "5_tradition.parquet").to_dicts()}
     assert set(rows) == {"Q100", "Q101", "Q103", "Q104"}
     assert (rows["Q100"]["anchor_id"], rows["Q100"]["anchor_rule"], rows["Q100"]["start_year"]) == ("A", "P2596", 1200)
+    assert {qid: row["sitelinks"] for qid, row in rows.items()} == {"Q100": 10, "Q101": 20, "Q103": 40, "Q104": 50}
     assert (rows["Q101"]["anchor_id"], rows["Q101"]["anchor_rule"]) == ("D", "P495")
     assert (rows["Q103"]["anchor_id"], rows["Q103"]["start_year"], rows["Q103"]["end_year"]) == ("B", 800, 1950)
     assert rows["Q104"]["anchor_id"] is None

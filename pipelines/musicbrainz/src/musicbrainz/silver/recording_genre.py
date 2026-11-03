@@ -6,26 +6,26 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 
-def recording_genre(bronze_dir: Path, output_dir: Path) -> Path:
-    recording_tag = pl.read_parquet(bronze_dir / "recording_tag.parquet")
-    tag = pl.read_parquet(bronze_dir / "tag.parquet")
-    genre = pl.read_parquet(bronze_dir / "genre.parquet")
+def genre_tags(entity_tag: pl.LazyFrame, entity_column: str, bronze_dir: Path) -> pl.LazyFrame:
+    """`(entity_id, genre_id, weight)` for a MusicBrainz `<entity>_tag` table: tags whose name is a genre's
+    (case-insensitive), upvoted at least once."""
+    tag = pl.scan_parquet(bronze_dir / "tag.parquet").select(tag="id", name_lower=pl.col("name").str.to_lowercase())
+    genre = pl.scan_parquet(bronze_dir / "genre.parquet").select(
+        genre_id="id", name_lower=pl.col("name").str.to_lowercase()
+    )
+    return (
+        entity_tag.filter(pl.col("count") > 0)
+        .join(tag, on="tag")
+        .join(genre, on="name_lower")
+        .select(entity_id=entity_column, genre_id="genre_id", weight="count")
+    )
 
+
+def recording_genre(bronze_dir: Path, output_dir: Path) -> Path:
     result = (
-        recording_tag.filter(pl.col("count") > 0)
-        .join(tag, left_on="tag", right_on="id", how="inner")
-        .with_columns(pl.col("name").str.to_lowercase().alias("name_lower"))
-        .join(
-            genre.with_columns(pl.col("name").str.to_lowercase().alias("name_lower")),
-            on="name_lower",
-            how="inner",
-            suffix="_genre",
-        )
-        .select(
-            pl.col("recording").alias("recording_id"),
-            pl.col("id").alias("genre_id"),
-            pl.col("count").alias("weight"),
-        )
+        genre_tags(pl.scan_parquet(bronze_dir / "recording_tag.parquet"), "recording", bronze_dir)
+        .rename({"entity_id": "recording_id"})
+        .collect()
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

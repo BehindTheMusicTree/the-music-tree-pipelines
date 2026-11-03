@@ -6,8 +6,6 @@ import polars as pl
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
 
-_REC = "musicbrainz_recording_id"
-
 
 @dataclass(frozen=True)
 class Disambiguation:
@@ -103,31 +101,32 @@ def disambiguate(
     context: pl.LazyFrame,
     disambiguation: Disambiguation,
     closure: pl.DataFrame,
+    subject: str,
 ) -> tuple[pl.LazyFrame, pl.LazyFrame]:
-    """`ambiguous_tags` (`musicbrainz_recording_id, genre_name, key, weight`) against the song's `context`
-    (`musicbrainz_recording_id, context_item_id`, its unambiguously resolved genres). Returns the picks
-    (`musicbrainz_recording_id, genre_name, item_id, weight`) and the ignored tags
-    (`musicbrainz_recording_id, genre_name`): a tag whose candidate, or a genre under it, is already on the song
-    adds nothing. A candidate fits when one of the song's genres is under it or under one of its hints; the most
-    precise fitting candidate is picked when it is the only one left, else the default."""
+    """`ambiguous_tags` (`<subject>, genre_name, key, weight`) against the subject's `context`
+    (`<subject>, context_item_id`, its unambiguously resolved genres), the subject being a song or an artist.
+    Returns the picks (`<subject>, genre_name, item_id, weight`) and the ignored tags (`<subject>, genre_name`): a
+    tag whose candidate, or a genre under it, is already on the subject adds nothing. A candidate fits when one of
+    the subject's genres is under it or under one of its hints; the most precise fitting candidate is picked when it
+    is the only one left, else the default."""
     rules = closure.lazy()
-    tag = [_REC, "genre_name"]
+    tag = [subject, "genre_name"]
     pairs = ambiguous_tags.select(*tag, "key").join(disambiguation.candidates.lazy(), on="key")
 
-    on_song = pl.concat(
+    on_subject = pl.concat(
         [
-            context.select(_REC, item_id="context_item_id"),
-            context.join(rules, left_on="context_item_id", right_on="winner").select(_REC, item_id="loser"),
+            context.select(subject, item_id="context_item_id"),
+            context.join(rules, left_on="context_item_id", right_on="winner").select(subject, item_id="loser"),
         ]
     )
-    ignored = pairs.join(on_song, on=[_REC, "item_id"], how="semi").select(tag).unique()
+    ignored = pairs.join(on_subject, on=[subject, "item_id"], how="semi").select(tag).unique()
     pairs = pairs.join(ignored, on=tag, how="anti")
 
     under_candidate = pairs.join(rules, left_on="item_id", right_on="winner").join(
-        context, left_on=[_REC, "loser"], right_on=[_REC, "context_item_id"], how="semi"
+        context, left_on=[subject, "loser"], right_on=[subject, "context_item_id"], how="semi"
     )
     hinted = pairs.join(disambiguation.hints.lazy(), on=["key", "item_id"]).join(
-        context, on=[_REC, "context_item_id"], how="semi"
+        context, on=[subject, "context_item_id"], how="semi"
     )
     fits = pl.concat([under_candidate.select(*tag, "item_id"), hinted.select(*tag, "item_id")]).unique().collect()
     precise = most_precise(fits, tag, closure)

@@ -212,6 +212,7 @@ matched, empty when none) of the overviews without anchor.
 | end_year    | i32? | End year, capped at 1950                                                             |
 | anchor_id   | str? | `1_cultural_entity.entity_id` the tradition is placed on; null = unplaced            |
 | anchor_rule | str? | `5_music_anchor.rule` of the anchor (see 2.5.1); null when unplaced                   |
+| sitelinks   | i32  | Wikidata sitelink count (`sitelinks` pseudo-claim); raises when a tradition has none  |
 
 `5_tradition_link.parquet`: `from_wikidata_id` (str), `to_wikidata_id` (str), `kind` (`lineage` or `association`);
 `from` is the earlier or influencing tradition. `5_tradition_unplaced.csv`: `wikidata_id`, `label`, `start_year` of

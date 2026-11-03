@@ -83,6 +83,7 @@ def export_genealogy(geohistory_silver_dir: Path, wikidata_silver_dir: Path, out
                 "end": row["end_year"],
                 "anchorId": tradition_lane.get(row["wikidata_id"]),
                 "inCanonicalTree": row["wikidata_id"] in canonical_ids,
+                "sitelinks": row["sitelinks"],
             }
             for row in traditions.sort("wikidata_id").to_dicts()
         ],

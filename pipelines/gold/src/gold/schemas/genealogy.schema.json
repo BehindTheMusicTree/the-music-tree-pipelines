@@ -81,14 +81,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["wikidataId", "label", "start", "end", "anchorId", "inCanonicalTree"],
+        "required": ["wikidataId", "label", "start", "end", "anchorId", "inCanonicalTree", "sitelinks"],
         "properties": {
           "wikidataId": {"type": "string", "pattern": "^Q[0-9]+$"},
           "label": {"type": "string", "minLength": 1},
           "start": {"type": ["integer", "null"]},
           "end": {"type": ["integer", "null"]},
           "anchorId": {"type": ["string", "null"]},
-          "inCanonicalTree": {"type": "boolean"}
+          "inCanonicalTree": {"type": "boolean"},
+          "sitelinks": {"type": "integer", "minimum": 0}
         }
       }
     },

@@ -19,8 +19,9 @@ def _write_silver(tmp_path: Path) -> tuple[Path, Path]:
             "end_year": [1950, 1950],
             "anchor_id": ["aaaa1234", None],
             "anchor_rule": ["P495", None],
+            "sitelinks": [120, 15],
         },
-        schema_overrides={"start_year": pl.Int32, "end_year": pl.Int32},
+        schema_overrides={"start_year": pl.Int32, "end_year": pl.Int32, "sitelinks": pl.Int32},
     ).write_parquet(geohistory_dir / "5_tradition.parquet")
     pl.DataFrame({"from_wikidata_id": ["Q1"], "to_wikidata_id": ["Q2"], "kind": ["lineage"]}).write_parquet(
         geohistory_dir / "5_tradition_link.parquet"
@@ -87,7 +88,15 @@ def test_export_genealogy_writes_document(tmp_path: Path) -> None:
     assert document["bands"][0]["entityId"] == "root0000"
     assert document["successions"] == [{"predecessorId": "aaaa1234", "successorId": "bbbb1234"}]
     assert document["traditions"] == [
-        {"wikidataId": "Q1", "label": "gospel", "start": None, "end": 1950, "anchorId": None, "inCanonicalTree": False},
+        {
+            "wikidataId": "Q1",
+            "label": "gospel",
+            "start": None,
+            "end": 1950,
+            "anchorId": None,
+            "inCanonicalTree": False,
+            "sitelinks": 15,
+        },
         {
             "wikidataId": "Q2",
             "label": "blues",
@@ -95,6 +104,7 @@ def test_export_genealogy_writes_document(tmp_path: Path) -> None:
             "end": 1950,
             "anchorId": "aaaa1234",
             "inCanonicalTree": True,
+            "sitelinks": 120,
         },
     ]
     assert document["traditionLinks"] == [{"sourceId": "Q1", "targetId": "Q2", "kind": "lineage"}]
@@ -134,6 +144,16 @@ def test_export_genealogy_raises_on_schema_violation(tmp_path: Path) -> None:
     pl.DataFrame({"wikidata_id": ["not-a-qid"], "lane_id": ["aaaa1234"]}).write_parquet(
         geohistory_dir / "6_genealogy_tradition_lane.parquet"
     )
+
+    with pytest.raises(ValueError, match="failed schema validation"):
+        export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")
+
+
+def test_export_genealogy_raises_on_negative_sitelinks(tmp_path: Path) -> None:
+    geohistory_dir, wikidata_dir = _write_silver(tmp_path)
+    pl.read_parquet(geohistory_dir / "5_tradition.parquet").with_columns(
+        pl.lit(-1, dtype=pl.Int32).alias("sitelinks")
+    ).write_parquet(geohistory_dir / "5_tradition.parquet")
 
     with pytest.raises(ValueError, match="failed schema validation"):
         export_genealogy(geohistory_dir, wikidata_dir, tmp_path / "gold")

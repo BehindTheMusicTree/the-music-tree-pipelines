@@ -62,28 +62,19 @@ def precedence_closure(
     return closure
 
 
-def apply_precedence(song_genre: pl.LazyFrame, closure: pl.DataFrame) -> pl.LazyFrame:
-    """`song_genre` (`musicbrainz_recording_id, item_id, weight, ...`) minus every genre beaten by another
-    genre of the same song; the winner inherits the highest beaten weight when above its own."""
+def apply_precedence(subject_genre: pl.LazyFrame, closure: pl.DataFrame, subject: str) -> pl.LazyFrame:
+    """`subject_genre` (`<subject>, item_id, weight, ...`) minus every genre beaten by another genre of the same
+    subject; the winner inherits the highest beaten weight when above its own."""
     rules = closure.lazy()
-    beaten = song_genre.join(rules, left_on="item_id", right_on="loser").join(
-        song_genre.select("musicbrainz_recording_id", winner="item_id"),
-        on=["musicbrainz_recording_id", "winner"],
+    beaten = subject_genre.join(rules, left_on="item_id", right_on="loser").join(
+        subject_genre.select(subject, winner="item_id"),
+        on=[subject, "winner"],
         how="semi",
     )
-    inherited = beaten.group_by("musicbrainz_recording_id", "winner").agg(pl.col("weight").max().alias("beaten_weight"))
+    inherited = beaten.group_by(subject, "winner").agg(pl.col("weight").max().alias("beaten_weight"))
     return (
-        song_genre.join(
-            beaten.select("musicbrainz_recording_id", "item_id").unique(),
-            on=["musicbrainz_recording_id", "item_id"],
-            how="anti",
-        )
-        .join(
-            inherited,
-            left_on=["musicbrainz_recording_id", "item_id"],
-            right_on=["musicbrainz_recording_id", "winner"],
-            how="left",
-        )
+        subject_genre.join(beaten.select(subject, "item_id").unique(), on=[subject, "item_id"], how="anti")
+        .join(inherited, left_on=[subject, "item_id"], right_on=[subject, "winner"], how="left")
         .with_columns(pl.max_horizontal("weight", "beaten_weight").alias("weight"))
         .drop("beaten_weight")
     )

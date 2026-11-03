@@ -85,6 +85,7 @@ def build_gold(
         genre_match_path = genre_match(
             musicbrainz_silver_dir / "5_songs.parquet",
             musicbrainz_silver_dir / "10_song_genre.parquet",
+            musicbrainz_silver_dir / "13_artist_genre.parquet",
             wikidata_silver_dir / "7_canonical_hierarchy.parquet",
             wikidata_silver_dir / "5_secondary_parents.parquet",
             curation_dir / "manual_genre_alias.csv",

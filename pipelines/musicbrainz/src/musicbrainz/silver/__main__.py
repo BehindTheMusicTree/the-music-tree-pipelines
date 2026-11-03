@@ -7,12 +7,14 @@ from common.step_timer import step
 
 import musicbrainz
 from musicbrainz.silver.artist_aliases import artist_aliases
+from musicbrainz.silver.artist_genre import artist_genre
 from musicbrainz.silver.artist_links import artist_links
 from musicbrainz.silver.artist_members import artist_members
 from musicbrainz.silver.artist_release_groups import artist_release_groups
 from musicbrainz.silver.artists import artists
 from musicbrainz.silver.recording_genre import recording_genre
 from musicbrainz.silver.recording_link import recording_link
+from musicbrainz.silver.release_group_genre import release_group_genre
 from musicbrainz.silver.song_genre import song_genre
 from musicbrainz.silver.songs import songs, youtube_candidates
 from musicbrainz.silver.youtube_video_status import youtube_video_status
@@ -49,5 +51,9 @@ with step("9_artist_release_groups"):
     artist_release_groups(bronze_dir, silver_dir)
 with step("11_artist_aliases"):
     artist_aliases(bronze_dir, silver_dir)
+with step("12_release_group_genre"):
+    release_group_genre(bronze_dir, silver_dir)
+with step("13_artist_genre"):
+    artist_genre(bronze_dir, silver_dir)
 with step("10_song_genre"):
     song_genre(bronze_dir, silver_dir, silver_dir)

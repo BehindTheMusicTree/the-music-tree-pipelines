@@ -20,7 +20,10 @@ def _mbid(index: int) -> str:
     return f"00000000-0000-0000-0000-{index:012d}"
 
 
-def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
+_TAG_KEYS = ("genre_name", "genres", "release_group_genres", "artist_genres")
+
+
+def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path, Path]:
     path = tmp_path / "5_songs.parquet"
     rows = [
         {
@@ -34,7 +37,7 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
         for i, row in enumerate(rows)
     ]
     pl.DataFrame(
-        [{k: v for k, v in row.items() if k not in ("genre_name", "genres")} for row in rows],
+        [{k: v for k, v in row.items() if k not in _TAG_KEYS} for row in rows],
         schema_overrides={
             "youtube_unplayable_reason": pl.Utf8,
             "youtube_view_count": pl.Int64,
@@ -43,14 +46,33 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
     ).write_parquet(path)
     genre_path = tmp_path / "10_song_genre.parquet"
     tags = [
-        {"musicbrainz_recording_id": row["musicbrainz_recording_id"], "genre_name": name, "weight": weight}
+        {
+            "musicbrainz_recording_id": row["musicbrainz_recording_id"],
+            "level": level,
+            "genre_name": name,
+            "weight": weight,
+        }
         for row in rows
-        for name, weight in (row.get("genres") or ([(row["genre_name"], 1)] if row.get("genre_name") else []))
+        for level, level_tags in (
+            ("recording", row.get("genres") or ([(row["genre_name"], 1)] if row.get("genre_name") else [])),
+            ("release_group", row.get("release_group_genres") or []),
+        )
+        for name, weight in level_tags
     ]
     pl.DataFrame(
-        tags, schema={"musicbrainz_recording_id": pl.Utf8, "genre_name": pl.Utf8, "weight": pl.Int64}
+        tags,
+        schema={"musicbrainz_recording_id": pl.Utf8, "level": pl.Utf8, "genre_name": pl.Utf8, "weight": pl.Int64},
     ).write_parquet(genre_path)
-    return path, genre_path
+    artist_genre_path = tmp_path / "13_artist_genre.parquet"
+    artist_tags = {
+        (row["artist_musicbrainz_id"], name): weight for row in rows for name, weight in row.get("artist_genres") or []
+    }
+    pl.DataFrame(
+        [(artist, name, weight) for (artist, name), weight in artist_tags.items()],
+        schema={"artist_musicbrainz_id": pl.Utf8, "genre_name": pl.Utf8, "weight": pl.Int64},
+        orient="row",
+    ).write_parquet(artist_genre_path)
+    return path, genre_path, artist_genre_path
 
 
 def _write_hierarchy(tmp_path: Path, rows: list[dict] | None = None) -> Path:
@@ -130,10 +152,11 @@ def _run_genre_match(
     disambiguation_rows: list[tuple[str, str, bool]] | None = None,
     context_rows: list[tuple[str, str, str]] | None = None,
 ) -> Path:
-    song_path, song_genre_path = _write_songs(tmp_path, song_rows)
+    song_path, song_genre_path, artist_genre_path = _write_songs(tmp_path, song_rows)
     return genre_match(
         song_path,
         song_genre_path,
+        artist_genre_path,
         _write_hierarchy(tmp_path, hierarchy_rows),
         _write_secondary_parents(tmp_path, secondary_rows),
         _write_alias_csv(tmp_path, alias_rows),
@@ -241,7 +264,9 @@ def test_genre_match_writes_unresolved_report_for_untriaged_names(tmp_path: Path
     assert row["match_method"] == "unmatched"
 
     unresolved = pl.read_csv(output_dir / "1_genre_match_unresolved.csv")
-    assert unresolved.to_dicts() == [{"genre_name": "some random tag", "song_count": 1, "weight_sum": 1}]
+    assert unresolved.to_dicts() == [
+        {"genre_name": "some random tag", "level": "recording", "subject_count": 1, "weight_sum": 1}
+    ]
 
 
 def test_genre_match_writes_empty_unresolved_report_when_all_matched(tmp_path: Path) -> None:
@@ -829,3 +854,107 @@ def test_genre_match_curated_disambiguation_outranks_a_normalized_label_match(
     )
 
     assert (row["wikidata_genre_name"], row["match_method"]) == (expected_genre, expected_method)
+
+
+def _source(row: dict) -> tuple[str | None, str | None, str]:
+    return row["wikidata_genre_name"], row["genre_source"], row["match_method"]
+
+
+def test_genre_match_recording_genre_wins_over_heavier_inherited_genres(tmp_path: Path) -> None:
+    song = {**_song("jazz"), "release_group_genres": [("rock", 50)], "artist_genres": [("pop", 90)]}
+
+    row = pl.read_parquet(_run_genre_match(tmp_path, [song])).to_dicts()[0]
+
+    assert _source(row) == ("jazz", "recording", "exact")
+    assert row["musicbrainz_genres"] == [{"name": "jazz", "weight": 1}]
+
+
+def test_genre_match_never_blends_levels(tmp_path: Path) -> None:
+    song = {**_song("x"), "genres": [("jazz", 2)], "release_group_genres": [("pop", 1)], "artist_genres": [("rock", 1)]}
+
+    row = pl.read_parquet(_run_genre_match(tmp_path, [song])).to_dicts()[0]
+
+    assert (row["wikidata_genre_name"], row["secondary_genre_item_ids"]) == ("jazz", [])
+
+
+def test_genre_match_falls_back_to_release_group_when_recording_tags_are_unmatched(tmp_path: Path) -> None:
+    song = {**_song("some random tag"), "release_group_genres": [("Pop", 3)], "artist_genres": [("jazz", 9)]}
+
+    row = pl.read_parquet(_run_genre_match(tmp_path, [song])).to_dicts()[0]
+
+    assert _source(row) == ("pop", "release_group", "exact")
+    assert row["musicbrainz_genres"] == [{"name": "Pop", "weight": 3}]
+
+
+def test_genre_match_falls_back_to_artist_genre(tmp_path: Path) -> None:
+    song = {
+        **_song("x"),
+        "genre_name": None,
+        "release_group_genres": [("other tag", 2)],
+        "artist_genres": [("Jazz", 4)],
+    }
+
+    row = pl.read_parquet(_run_genre_match(tmp_path, [song])).to_dicts()[0]
+
+    assert _source(row) == ("jazz", "artist", "exact")
+
+
+def test_genre_match_artist_genre_reaches_every_song_of_the_artist(tmp_path: Path) -> None:
+    songs = [
+        {
+            **_song("x", title=title),
+            "genre_name": None,
+            "artist_musicbrainz_id": _mbid(999),
+            "artist_genres": [("jazz", 1)],
+        }
+        for title in ("A", "B")
+    ]
+
+    rows = pl.read_parquet(_run_genre_match(tmp_path, songs)).to_dicts()
+
+    assert [_source(row) for row in rows] == [("jazz", "artist", "exact")] * 2
+
+
+def test_genre_match_unresolved_inherited_tags_keep_the_most_precise_level_s_method(tmp_path: Path) -> None:
+    song = {**_song("x"), "genre_name": None, "release_group_genres": [("other tag", 2)], "artist_genres": [("a", 1)]}
+
+    row = pl.read_parquet(_run_genre_match(tmp_path, [song])).to_dicts()[0]
+
+    assert _source(row) == (None, None, "unmatched")
+    assert row["musicbrainz_genres"] == [{"name": "other tag", "weight": 2}]
+
+
+def test_genre_match_song_without_tags_at_any_level_has_no_genre_source(tmp_path: Path) -> None:
+    row = pl.read_parquet(_run_genre_match(tmp_path, [{**_song("x"), "genre_name": None}])).to_dicts()[0]
+
+    assert _source(row) == (None, None, "no_genre")
+
+
+def test_genre_match_disambiguates_artist_tags_by_the_artist_s_other_genres(tmp_path: Path) -> None:
+    song = {**_song("x"), "genre_name": None, "artist_genres": [("r&b", 5), ("hip hop", 1)]}
+
+    result = _run_genre_match(
+        tmp_path,
+        [song],
+        hierarchy_rows=R_AND_B_HIERARCHY,
+        disambiguation_rows=R_AND_B,
+        context_rows=HIP_HOP_HINT,
+    )
+
+    assert _source(pl.read_parquet(result).to_dicts()[0]) == ("contemporary R&B", "artist", "disambiguated")
+
+
+def test_genre_match_unresolved_report_counts_subjects_per_level(tmp_path: Path) -> None:
+    output_dir = tmp_path / "gold"
+    songs = [
+        {**_song("odd tag", title=title), "artist_musicbrainz_id": _mbid(999), "artist_genres": [("odd tag", 3)]}
+        for title in ("A", "B")
+    ]
+
+    _run_genre_match(tmp_path, songs, output_dir=output_dir)
+
+    assert pl.read_csv(output_dir / "1_genre_match_unresolved.csv").to_dicts() == [
+        {"genre_name": "odd tag", "level": "recording", "subject_count": 2, "weight_sum": 2},
+        {"genre_name": "odd tag", "level": "artist", "subject_count": 1, "weight_sum": 3},
+    ]
+    assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 1}

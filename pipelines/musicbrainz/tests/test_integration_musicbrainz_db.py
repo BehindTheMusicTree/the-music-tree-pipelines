@@ -54,3 +54,15 @@ def test_ingest_table_writes_bronze_dtypes(mb_conn: adbc.Connection, tmp_path: P
     assert schema["type"] == pl.Int64
     assert schema["gid"] == pl.String
     assert schema["last_updated"] == pl.Datetime("us", "UTC")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "table", ["release_group_tag", "release_tag", "artist_tag", "release", "release_status", "medium", "track"]
+)
+def test_ingest_table_writes_inherited_genre_tables(mb_conn: adbc.Connection, tmp_path: Path, table: str) -> None:
+    columns = read_column_types(mb_conn)
+
+    path = ingest_table(mb_conn, table, table_query(table, columns[table]), tmp_path)
+
+    assert pl.read_parquet(path).height > 0

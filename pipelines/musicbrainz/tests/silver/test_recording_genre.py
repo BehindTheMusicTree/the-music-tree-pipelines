@@ -53,3 +53,14 @@ def test_recording_genre_creates_output_dir(tmp_path: Path) -> None:
     sl.recording_genre(bronze_dir, output_dir)
 
     assert output_dir.is_dir()
+
+
+def test_genre_tags_keys_any_entity_and_drops_non_positive_counts(tmp_path: Path) -> None:
+    bronze_dir = _write_bronze(tmp_path)
+    artist_tag = pl.LazyFrame(
+        [{"artist": 7, "tag": 3, "count": 4}, {"artist": 7, "tag": 1, "count": 0}, {"artist": 8, "tag": 2, "count": 9}]
+    )
+
+    rows = sl.genre_tags(artist_tag, "artist", bronze_dir).collect().to_dicts()
+
+    assert rows == [{"entity_id": 7, "genre_id": 101, "weight": 4}]
