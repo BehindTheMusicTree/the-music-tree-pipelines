@@ -154,7 +154,7 @@ result is deterministic. A band whose columns end up non-contiguous is split int
 
 A column's region is decided in this order, the first rule that applies to any of its lane entities winning:
 
-1. `region_overrides`, then entities of kind `religion` (bulk `P31` in religion, "religion or world view", "Christian denominational family" or "major religious group"), which go to `religions`.
+1. `region_overrides`, then entities of kind `religion` (bulk `P31` in religion, "religion or world view", "Christian denominational family" or "major religious group"), which go to `religions`. `religion` takes precedence over `ethnic_group` when an item has both kinds (Wikidata models denominations as subclasses of ethnic group), while still ranking below country, civilization, historical region and archaeological culture.
 2. The continent vote: each admin unit an entity covers votes for its country's continent, weighted by the unit's
    `area_km2` (Bronze, spherical equal-area), so a few small European units do not outvote Siberia. Ties go to the lowest
    `region_rank`.

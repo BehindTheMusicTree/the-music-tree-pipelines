@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Geohistory's `bbox`/`main_bbox` follow the narrower side of the antimeridian (`east` may exceed 180, e.g. Russia, Fiji, United States), and the entity `centroid` is the pole of inaccessibility of the mainland; the region map schema allows `east` up to 360.
-- The bulk `religion` kind matches items whose `P31` is religion, "religion or world view", "Christian denominational family" or "major religious group" (367 items instead of 313), so Catholicism, Lutheranism and Islam are religions.
+- The bulk `religion` kind matches items whose `P31` is religion, "religion or world view", "Christian denominational family" or "major religious group" (367 items instead of 313). An item matching both `ethnic_group` and `religion` now gets the `religion` kind (it still ranks below country, civilization, historical region and archaeological culture), so 23 Christian denominations, including Catholicism and Lutheranism, go to the `religions` column region.
 - Geohistory `column_region` raises when a column cannot be placed instead of assigning `other`. **Deploy order:** grow-api must expose `region_overrides` in `curation/export/` before the curation ingest runs.
 
 ## [8.7.0] - 2026-11-02
