@@ -8,11 +8,9 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 import polars as pl
 import shapely
 from jsonschema import ValidationError, validate
-from shapely.errors import GEOSException
 from shapely.geometry import mapping
 
 REGION_MAP_SCHEMA_PATH = Path(__file__).parent / "schemas" / "region_map.schema.json"
@@ -21,16 +19,12 @@ WORLD_ID = "world"
 ADMIN_KINDS = ("country", "admin_unit")
 ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "macro_region")
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
-SIZE_LIMIT_BYTES = 300_000
 SIZE_WARNING_RATIO = 0.9
 # The index is fetched whole on every map load, before any geometry.
 INDEX_SIZE_LIMIT_BYTES = 2_000_000
-FILES_PER_PART = 25
 INDEX_PATH = "index.json"
 NESTED_COUNTRY_MIN_OVERLAP = 0.9
 MAINLAND_MIN_SHARE = 0.5
-SIMPLIFY_TOLERANCES = (0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0)
-COORDINATE_DECIMALS = 2
 TILESET_MIN_ZOOM = 0
 TILESET_MAX_ZOOM = 10
 TILESET_DIR = "regions"
@@ -63,46 +57,6 @@ def _share_within(child: shapely.Geometry, parent: shapely.Geometry) -> float:
     return child.intersection(parent).area / child.area if child.area else 0.0
 
 
-def _simplified(geometries: list, tolerance: float) -> list:
-    if tolerance == 0.0:
-        return geometries
-    try:
-        simplified = list(shapely.coverage_simplify(np.array(geometries, dtype=object), tolerance))
-    except GEOSException:
-        logger.warning(
-            "coverage_simplify rejected the inputs at tolerance %s, simplifying each geometry alone", tolerance
-        )
-        simplified = [shapely.simplify(geometry, tolerance, preserve_topology=True) for geometry in geometries]
-    return simplified
-
-
-def _without_specks(geometry, tolerance: float):
-    parts = shapely.get_parts(geometry)
-    kept = [part for part in parts if part.area >= tolerance**2]
-    if len(kept) == len(parts):
-        return geometry
-    return shapely.union_all(kept or [max(parts, key=lambda part: part.area)])
-
-
-def _polygons(geometry: shapely.Geometry) -> list[shapely.Geometry]:
-    if geometry.geom_type == "Polygon":
-        return [geometry]
-    if geometry.geom_type in ("MultiPolygon", "GeometryCollection"):
-        return [polygon for part in shapely.get_parts(geometry) for polygon in _polygons(part)]
-    return []
-
-
-def _rounded(geometry: shapely.Geometry, region_id: str) -> shapely.Geometry:
-    rounded = shapely.transform(geometry, lambda coordinates: np.round(coordinates, COORDINATE_DECIMALS))
-    polygons = [polygon for part in shapely.get_parts(rounded) for polygon in _polygons(shapely.make_valid(part))]
-    if polygons:
-        return shapely.union_all(polygons)
-    if not geometry.is_valid:
-        return shapely.Polygon()
-    logger.warning("rounding collapsed every part of %s, keeping its unrounded geometry", region_id)
-    return geometry
-
-
 def _canonical_bytes(document: dict) -> bytes:
     """The serialization grow hashes and serves, so a file's sha256 here is its URL there."""
     return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
@@ -113,38 +67,6 @@ def _check_size(label: str, size: int, limit: int) -> None:
         raise ValueError(f"{label} is {size} bytes, above the {limit} cap")
     if size > limit * SIZE_WARNING_RATIO:
         logger.warning("%s is %d bytes, above %d%% of the %d cap", label, size, SIZE_WARNING_RATIO * 100, limit)
-
-
-def _feature_collection(features: list[tuple[str, str, object]], name: str) -> tuple[dict, bytes, float]:
-    geometries = [geometry for _, _, geometry in features]
-    for tolerance in SIMPLIFY_TOLERANCES:
-        rounded = [
-            _rounded(_without_specks(geometry, tolerance), feature_id)
-            for (feature_id, _, _), geometry in zip(features, _simplified(geometries, tolerance), strict=True)
-        ]
-        degenerate = [
-            features[i][0]
-            for i, geometry in enumerate(rounded)
-            if geometry.is_empty or geometry.geom_type not in ("Polygon", "MultiPolygon")
-        ]
-        if degenerate:
-            raise ValueError(f"{name}: simplification emptied or degraded the geometry of {degenerate[:5]}")
-        document = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "id": feature_id,
-                    "properties": {"id": feature_id, "name": label},
-                    "geometry": mapping(g),
-                }
-                for (feature_id, label, _), g in zip(features, rounded, strict=True)
-            ],
-        }
-        encoded = _canonical_bytes(document)
-        if len(encoded) <= SIZE_LIMIT_BYTES:
-            return document, encoded, tolerance
-    raise ValueError(f"{name} stays above {SIZE_LIMIT_BYTES} bytes at tolerance {SIMPLIFY_TOLERANCES[-1]}")
 
 
 def _write_geojsonl(path: Path, features: list[tuple[dict, shapely.Geometry]], by_min_zoom: bool = False) -> None:
@@ -194,11 +116,11 @@ def _region_tileset(
     basemap: pl.DataFrame,
     work_dir: Path,
     geometry_dir: Path,
-) -> dict:
+) -> tuple[str, int]:
     """The one vector tileset of the map, from full-resolution geometry. Layers `regions` (`id`, `parentId`, `kind`,
     `name`, same as the index), `region_labels` (`id`, `parentId`, `name`, at the pole of inaccessibility), `zones`
     (`id`, `name`), and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Returns the index's
-    `tileset` entry; the file is `regions/<sha256>.pmtiles`."""
+    sha256 of the file, `regions/<sha256>.pmtiles`, and its size in bytes."""
     if shutil.which("tippecanoe") is None:
         raise RuntimeError("tippecanoe is not installed, see pipelines/gold/README.md")
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -231,20 +153,15 @@ def _region_tileset(
     sha256 = hashlib.sha256(content).hexdigest()
     (geometry_dir / TILESET_DIR).mkdir(parents=True, exist_ok=True)
     built.replace(geometry_dir / TILESET_DIR / f"{sha256}.pmtiles")
-    return {"path": f"{TILESET_DIR}/{sha256}.pmtiles", "sha256": sha256, "bytes": len(content)}
+    return sha256, len(content)
 
 
-def _write_parts(lines: list[dict], index_line: dict, parts_dir: Path) -> int:
-    """grow's import-run parts, one file per line as a JSON object (not a string) so grow can re-hash it. The index,
-    up to `INDEX_SIZE_LIMIT_BYTES`, gets a part of its own so no part outgrows `FILES_PER_PART` geometry files."""
+def _write_part(index_line: dict, parts_dir: Path) -> None:
+    """grow's import-run part: the index alone, as a JSON object (not a string) so grow can re-hash it. The geometry is
+    the tileset, published to object storage by the runner, so no other file is uploaded."""
     parts_dir.mkdir()
-    chunks = [lines[start : start + FILES_PER_PART] for start in range(0, len(lines), FILES_PER_PART)] + [[index_line]]
-    for index, chunk in enumerate(chunks):
-        with gzip.open(parts_dir / f"part-{index:05d}.ndjson.gz", "wt", encoding="utf-8") as part:
-            part.writelines(
-                json.dumps(line, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n" for line in chunk
-            )
-    return len(chunks)
+    with gzip.open(parts_dir / "part-00000.ndjson.gz", "wt", encoding="utf-8") as part:
+        part.write(json.dumps(index_line, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n")
 
 
 def export_region_map(
@@ -473,38 +390,9 @@ def export_region_map(
     geometry_dir = output_dir / "5_region_map"
     if geometry_dir.exists():
         shutil.rmtree(geometry_dir)
-    (geometry_dir / "geometry").mkdir(parents=True)
-    (geometry_dir / "zones").mkdir()
-
-    files: list[tuple[str, int, float]] = []
-    lines: list[dict] = []
-
-    def write_collection(path: Path, features: list[tuple[str, str, object]], name: str) -> None:
-        collection, encoded, tolerance = _feature_collection(features, name)
-        path.write_bytes(encoded)
-        relative = str(path.relative_to(geometry_dir))
-        files.append((relative, len(encoded), tolerance))
-        lines.append({"path": relative, "sha256": hashlib.sha256(encoded).hexdigest(), "document": collection})
-        _check_size(path.name, len(encoded), SIZE_LIMIT_BYTES)
-
-    write_collection(
-        geometry_dir / "geometry" / "world.geojson",
-        [(r, labels[r], load(r)) for r in children.get(WORLD_ID, [])],
-        "world",
-    )
-    for region in admin_regions:
-        if children.get(region):
-            write_collection(
-                geometry_dir / "geometry" / f"{region}.geojson",
-                [(r, labels[r], load(r)) for r in children[region]],
-                region,
-            )
-    for zone in zones:
-        write_collection(geometry_dir / "zones" / f"{zone}.geojson", [(zone, labels[zone], load(zone))], zone)
-
-    document["files"] = {line["path"]: line["sha256"] for line in lines}
+    geometry_dir.mkdir(parents=True)
     started = time.monotonic()
-    document["tileset"] = _region_tileset(
+    document["tileset"], tileset_bytes = _region_tileset(
         [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], load(r)) for r in admin_regions],
         [(z, labels[z], load(z)) for z in zones],
         [
@@ -528,23 +416,21 @@ def export_region_map(
     _check_size(INDEX_PATH, len(encoded_index), INDEX_SIZE_LIMIT_BYTES)
     (geometry_dir / INDEX_PATH).write_bytes(encoded_index)
     index_line = {"path": INDEX_PATH, "sha256": hashlib.sha256(encoded_index).hexdigest(), "document": document}
-    part_count = _write_parts(lines, index_line, geometry_dir / "parts")
+    _write_part(index_line, geometry_dir / "parts")
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
     report = {
         "unplacedGenreCount": unplaced_frame.height,
-        "files": [{"path": p, "bytes": b, "tolerance": t} for p, b, t in sorted(files)],
-        "tileset": {"bytes": document["tileset"]["bytes"], "seconds": tileset_seconds},
+        "tileset": {"bytes": tileset_bytes, "seconds": tileset_seconds},
     }
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
     if unplaced_frame.height:
         logger.warning("%d genre(s) have no region on the map, see 5_region_map_unplaced.csv", unplaced_frame.height)
     logger.info(
-        "wrote %d region(s) and %d zone(s) to %s, in %d import part(s)",
+        "wrote %d region(s) and %d zone(s) to %s",
         len(admin_regions),
         len(zones),
         geometry_dir,
-        part_count,
     )
     return geometry_dir / INDEX_PATH
