@@ -96,6 +96,25 @@ def test_table_query_keeps_only_projected_columns() -> None:
     assert query == 'SELECT "id"::bigint AS "id", "url" FROM musicbrainz.url'
 
 
+@pytest.mark.parametrize(
+    ("table", "expected"),
+    [
+        ("track", 'SELECT "recording"::bigint AS "recording", "medium"::bigint AS "medium" FROM musicbrainz.track'),
+        ("medium", 'SELECT "id"::bigint AS "id", "release"::bigint AS "release" FROM musicbrainz.medium'),
+        (
+            "release",
+            'SELECT "id"::bigint AS "id", "release_group"::bigint AS "release_group", "status"::bigint AS "status" '
+            "FROM musicbrainz.release",
+        ),
+    ],
+)
+def test_table_query_projects_release_tables(table: str, expected: str) -> None:
+    columns = [(column, "integer") for column in ("id", "gid", "recording", "medium", "release", "release_group")]
+    columns += [("status", "integer"), ("name", "character varying")]
+
+    assert bm.table_query(table, columns) == expected
+
+
 def _cursor_rows(rows: list[tuple]) -> MagicMock:
     conn = MagicMock()
     conn.cursor.return_value.__enter__.return_value.fetchall.return_value = rows

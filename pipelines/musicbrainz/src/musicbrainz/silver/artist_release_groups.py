@@ -4,24 +4,14 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import FIRST_RELEASE_YEAR_RANGE
 
+from musicbrainz.silver.release_group_types import primary_types, secondary_types
+
 logger = logging.getLogger(__name__)
 
 
 def artist_release_groups(bronze_dir: Path, output_dir: Path) -> Path:
-    primary_type = pl.scan_parquet(bronze_dir / "release_group_primary_type.parquet").select(
-        type="id", primary_type=pl.col("name").str.to_lowercase()
-    )
-    secondary_types = (
-        pl.scan_parquet(bronze_dir / "release_group_secondary_type_join.parquet")
-        .join(
-            pl.scan_parquet(bronze_dir / "release_group_secondary_type.parquet").select(
-                secondary_type="id", secondary_type_name=pl.col("name").str.to_lowercase()
-            ),
-            on="secondary_type",
-        )
-        .group_by("release_group")
-        .agg(secondary_types=pl.col("secondary_type_name").unique().sort())
-    )
+    primary_type = primary_types(bronze_dir)
+    secondary_type = secondary_types(bronze_dir)
     first_release_year = pl.scan_parquet(bronze_dir / "release_group_meta.parquet").select(
         release_group="id",
         first_release_year=pl.when(pl.col("first_release_date_year").is_between(*FIRST_RELEASE_YEAR_RANGE)).then(
@@ -42,7 +32,7 @@ def artist_release_groups(bronze_dir: Path, output_dir: Path) -> Path:
         .select("type", "artist_credit", release_group="id", musicbrainz_release_group_id="gid", title="name")
         .join(credited_artist, on="artist_credit")
         .join(primary_type, on="type", how="left")
-        .join(secondary_types, on="release_group", how="left")
+        .join(secondary_type, on="release_group", how="left")
         .join(first_release_year, on="release_group", how="left")
         .select(
             "musicbrainz_artist_id",

@@ -37,6 +37,13 @@ BRONZE_TABLES = (
     "release_group_secondary_type_join",
     "release_group_meta",
     "recording_first_release_date",
+    "release_group_tag",
+    "release_tag",
+    "artist_tag",
+    "release",
+    "release_status",
+    "medium",
+    "track",
 )
 
 # Arrow batch size the driver aims for, rather than loading a whole table into memory at once — the `recording`
@@ -46,10 +53,13 @@ BATCH_SIZE_HINT_BYTES = 64 << 20
 # Tables extracted at once, each on its own connection.
 INGEST_WORKERS = 4
 
-# The two largest tables: Silver reads only these columns, and `SELECT *` would stream (and compress) the rest.
+# The largest tables: Silver reads only these columns, and `SELECT *` would stream (and compress) the rest.
 PROJECTED_COLUMNS = {
     "recording": ("id", "gid", "name", "artist_credit"),
     "url": ("id", "url"),
+    "track": ("recording", "medium"),
+    "medium": ("id", "release"),
+    "release": ("id", "release_group", "status"),
 }
 
 # Records which mirror state and queries produced the Parquet files, so a run against an unchanged mirror skips

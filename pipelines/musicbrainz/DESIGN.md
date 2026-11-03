@@ -44,7 +44,24 @@ newly curated video ships with a null reason until the next full Silver run.
 
 ## Genre selection
 
-`5_songs` carries no genre. `10_song_genre` emits every genre tag of a song with its summed weight, and `gold` picks one (curated precedence and the lineage rule) once the tags are resolved against the canonical tree — see `pipelines/gold/DESIGN.md#genre-precedence-and-lineage`.
+`5_songs` carries no genre. `10_song_genre` emits every genre tag of a song with its summed weight, per level, and `gold` picks one (curated precedence and the lineage rule) once the tags are resolved against the canonical tree — see `pipelines/gold/DESIGN.md#genre-precedence-and-lineage`.
+
+## Inherited genres
+
+Most songs carry no recording tag: MusicBrainz's style guidelines put genres on release groups, and artists are
+tagged far more often than recordings (prod, 2026-11: 1.48M tagged recordings, 1.64M tagged release groups,
+219k tagged artists, 95% of songs without a genre). So Silver also emits a song's release-group tags
+(`level = release_group`) and every artist's tags (`13_artist_genre`); `gold` falls back on them in that order.
+
+- **Release tags fold into their release group**: an edition carries its album's genre, not a more precise one.
+- **Only release groups whose genre is the song's**: a compilation, soundtrack, live album, DJ mix, remix album or
+  mixtape gathers songs of other genres or other versions of them, and a Various Artists release group is a
+  compilation by another name. Untyped release groups are kept (most are albums never typed by an editor).
+- **Official releases only**: a bootleg or promotion places a recording on a release group it doesn't belong to.
+- **Each release group counts once per song**: a song on five editions of one album would otherwise count that
+  album's tags five times.
+- **Artist genres stay per artist**: fanning ~220k artists out to ~30M songs in Silver would only repeat rows;
+  `gold` picks one genre per artist and joins it.
 
 ## First release year
 
