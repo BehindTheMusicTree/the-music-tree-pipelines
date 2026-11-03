@@ -48,6 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Songs inherit a genre when their recordings carry none: from their official, non-compilation release groups (release tags included), else from their artist. Bronze ingests `release_group_tag`, `release_tag`, `artist_tag`, `release`, `release_status`, `medium` and `track` (projected); musicbrainz Silver adds `12_release_group_genre` and `13_artist_genre`, and `10_song_genre` gains a `level` column.
+- `1_genre_match.parquet` gains `genre_source` (`recording`, `release_group`, `artist`, or null); `1_genre_match_unresolved.csv` gains `level` and renames `song_count` to `subject_count`.
+
+### Changed
+
+- `match_method` `no_genre` now means no genre tag at any level. The new Bronze queries force one full re-ingest, and the first run changes `genre_name` for millions of songs in `2_songs_delta`.
+
 ## [9.0.0] - 2026-11-03
 
 ### Changed

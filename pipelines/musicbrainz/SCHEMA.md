@@ -11,9 +11,11 @@ Data dictionary and lineage notes for `musicbrainz`. See [README.md#pipeline](RE
 
 ## 1. Bronze
 
-Twenty-six MusicBrainz Postgres tables (`musicbrainz` schema), ingested to Parquet (`SELECT *`, except `recording` — `id`, `gid`, `name`, `artist_credit` — and `url` — `id`, `url` — the two largest tables, projected to the columns Silver reads): `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_alias`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`, `recording_first_release_date`.
+Thirty-three MusicBrainz Postgres tables (`musicbrainz` schema), ingested to Parquet (`SELECT *`, except the largest tables, projected to the columns Silver reads: `recording` — `id`, `gid`, `name`, `artist_credit` —, `url` — `id`, `url` —, `track` — `recording`, `medium` —, `medium` — `id`, `release` — and `release` — `id`, `release_group`, `status`): `recording`, `tag`, `recording_tag`, `genre`, `url`, `l_recording_url`, `l_recording_work`, `link`, `link_type`, `artist_credit`, `artist_credit_name`, `artist`, `artist_alias`, `artist_type`, `area`, `iso_3166_1`, `l_artist_artist`, `link_attribute`, `link_attribute_type`, `l_artist_url`, `release_group`, `release_group_primary_type`, `release_group_secondary_type`, `release_group_secondary_type_join`, `release_group_meta`, `recording_first_release_date`, `release_group_tag`, `release_tag`, `artist_tag`, `release`, `release_status`, `medium`, `track`.
 
-`release_group` (and its type/meta tables) is ingested for artist discographies: it carries its own `artist_credit` FK and a first-release year in `release_group_meta`, so no release-level join is needed. `release`, `medium` and `track` are still not ingested: `release` has no FK to `recording` (MusicBrainz links them via `medium`/`track`) and no FK to `genre`, and no consumer needs release-level data (e.g. `release.status`).
+`release_group` (and its type/meta tables) is ingested for artist discographies: it carries its own `artist_credit` FK and a first-release year in `release_group_meta`, so no release-level join is needed there. `release`, `medium` and `track` are ingested for inherited song genres: `release` has no FK to `recording`, MusicBrainz links them via `track.recording → track.medium → medium.release`, and `release.release_group`/`release.status` give the release group and whether the release is official.
+
+**Release group and artist ↔ genre**: `release_group_tag`, `release_tag` and `artist_tag` (`release_group`/`release`/`artist`, `tag`, `count`) are the same folksonomy tags as `recording_tag`, on another entity. MusicBrainz's style guidelines put genres on release groups, so far more release groups and artists carry genre tags than recordings.
 
 **Artist tables**: `artist_type` names `artist.type`; `iso_3166_1` maps an `area` to its ISO country code (`area` itself is ingested for lineage, the code lookup needs only `iso_3166_1.area`). `l_artist_artist` + `link`/`link_type` ("member of band") + `link_attribute`/`link_attribute_type` give band memberships and the instruments/vocals played. `l_artist_url` + `link`/`link_type` + `url` give an artist's external links.
 
@@ -59,10 +61,17 @@ Column-level schema (names, types, meaning) is **not duplicated here** — see M
 | release_group_secondary_type_join | Many-to-many `release_group` ↔ secondary type | not yet run locally |
 | release_group_meta | Derived per-release-group data, incl. first release date | not yet run locally |
 | recording_first_release_date | One row per recording with its earliest release `year`/`month`/`day` (each nullable) | not yet run locally |
+| release_group_tag | User-applied tags linked to a release group | not yet run locally |
+| release_tag | User-applied tags linked to a release | not yet run locally |
+| artist_tag | User-applied tags linked to an artist | not yet run locally |
+| release | One edition of a release group (`release_group`, `status`) | not yet run locally |
+| release_status | Release status names (Official, Promotion, Bootleg, ...) | not yet run locally |
+| medium | One disc/side of a release | not yet run locally |
+| track | One recording on a medium (largest MusicBrainz table) | not yet run locally |
 
 ## 2. Silver
 
-Nine steps built so far.
+Thirteen steps built so far.
 
 `1_recording_link` (`pipelines/musicbrainz/src/musicbrainz/silver/recording_link.py`) — a recording ↔ link correspondence, typed by `link_type.name` (e.g. "free streaming", "streaming", "license"), derived from the Bronze `l_recording_url`/`url`/`link`/`link_type` tables per the note in [1. Bronze](#1-bronze):
 
@@ -146,6 +155,19 @@ Steps 6–9 run after `5_songs` in `python -m musicbrainz.silver`, unfiltered; s
 
 `recording_genre_path` is not built yet (see [README.md#pipeline](README.md#pipeline)).
 
-`10_song_genre` (`song_genre.py`) — `(musicbrainz_recording_id, genre_name, weight)`, tidy/long: one row per (song, MusicBrainz `genre.name`), `weight` summing `2_recording_genre.weight` across the song's group (the same song groups and `musicbrainz_recording_id` as `5_songs`). Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/10_song_genre.parquet`.
+`10_song_genre` (`song_genre.py`) — `(musicbrainz_recording_id, level, genre_name, weight)`, tidy/long: one row per (song, level, MusicBrainz `genre.name`), with the same song groups and `musicbrainz_recording_id` as `5_songs`. Run via `uv run --package musicbrainz python -m musicbrainz.silver`, writing `SILVER_OUTPUT_DIR/10_song_genre.parquet`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `musicbrainz_recording_id` | str | The song's id, as in `5_songs`. |
+| `level` | str | `recording`: tags of the song's recordings. `release_group`: tags of the eligible release groups (`12_release_group_genre`) with an `Official` release that has one of the song's recordings as a track. |
+| `genre_name` | str | MusicBrainz `genre.name`. |
+| `weight` | int | At `recording` level, `2_recording_genre.weight` summed across the song's recordings. At `release_group` level, `12_release_group_genre.weight` summed across the song's distinct release groups (each counted once, however many of its editions carry the song). |
+
+`12_release_group_genre` (`release_group_genre.py`) — `(release_group_id, genre_id, weight)`, one row per (eligible release group, genre): `release_group_tag` plus the `release_tag` of its releases, matched to `genre` as in `2_recording_genre`, weights summed. Eligible: primary type `Album`, `Single`, `EP` or none; no secondary type among `Compilation`, `Soundtrack`, `Live`, `DJ-mix`, `Remix`, `Mixtape/Street`; artist credit naming no special-purpose artist (`common.musicbrainz_artists.SPECIAL_PURPOSE_ARTIST_IDS`). See [DESIGN.md](DESIGN.md#inherited-genres).
+
+`13_artist_genre` (`artist_genre.py`) — `(artist_musicbrainz_id, genre_name, weight)`, one row per (artist, genre) from `artist_tag`, matched to `genre` as in `2_recording_genre`; special-purpose artists excluded. Keyed by artist, not by song: `gold` joins it to songs on `artist_musicbrainz_id`.
+
+`12_release_group_genre` and `13_artist_genre` run before `10_song_genre`.
 
 `11_artist_aliases` (`artist_aliases.py`) — `(musicbrainz_artist_id, alias)`, one row per distinct non-blank `artist_alias.name` or `artist_alias.sort_name` of an artist, so grow can match search queries to alternate spellings and scripts.

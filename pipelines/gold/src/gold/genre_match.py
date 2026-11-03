@@ -7,7 +7,7 @@ import polars as pl
 from jsonschema import ValidationError, validate
 
 from common.quality_checks import check_non_empty, check_null_rate, check_row_count_delta
-from gold.genre_disambiguation import disambiguate, load_curated_disambiguation, most_precise
+from gold.genre_disambiguation import Disambiguation, disambiguate, load_curated_disambiguation, most_precise
 from gold.genre_precedence import apply_precedence, precedence_closure
 from gold.match_method import METHOD_RANK
 
@@ -198,9 +198,92 @@ def _resolve_tags(
     )
 
 
+_SONG = "musicbrainz_recording_id"
+_ARTIST = "artist_musicbrainz_id"
+LEVEL_RECORDING = "recording"
+LEVEL_RELEASE_GROUP = "release_group"
+LEVEL_ARTIST = "artist"
+# Most precise first: a song takes its genre from the first level whose tags resolve to a wikidata genre.
+LEVELS = (LEVEL_RECORDING, LEVEL_RELEASE_GROUP, LEVEL_ARTIST)
+
+
+def _of_level(level_column: str, field: str) -> pl.Expr:
+    return pl.coalesce(pl.when(pl.col(level_column) == level).then(pl.col(f"{level}_{field}")) for level in LEVELS)
+
+
+def _pick(
+    tags: pl.LazyFrame,
+    subject: str,
+    resolution: pl.LazyFrame,
+    disambiguation: Disambiguation,
+    closure: pl.DataFrame,
+) -> tuple[pl.LazyFrame, pl.LazyFrame]:
+    """One genre per subject from its tags (`<subject>, genre_name, weight`). Returns one row per tagged subject
+    (`<subject>, item_id, secondary_genre_item_ids, resolved_method, leftover_method, musicbrainz_genres`, `item_id`
+    null when no tag resolved) and the subject's unresolved tags (`<subject>, genre_name, weight`)."""
+    resolved_tags = tags.join(resolution, on="genre_name")
+    tag = [subject, "genre_name"]
+    ambiguous_tags = resolved_tags.filter(pl.col("method") == "ambiguous").with_columns(
+        key=_genre_key(pl.col("genre_name"))
+    )
+    context = resolved_tags.filter(pl.col("item_id").is_not_null()).select(subject, context_item_id="item_id").unique()
+    picks, ignored = disambiguate(ambiguous_tags, context, disambiguation, closure, subject)
+    settled = pl.concat([picks.select(tag), ignored])
+    unpicked = ambiguous_tags.join(settled, on=tag, how="anti")
+
+    resolved = (
+        pl.concat(
+            [
+                resolved_tags.filter(pl.col("item_id").is_not_null()).select(*tag, "item_id", "weight", "method"),
+                picks.select(*tag, "item_id", "weight", method=pl.lit("disambiguated")),
+            ]
+        )
+        .with_columns(method_rank=pl.col("method").replace_strict(METHOD_RANK, return_dtype=pl.UInt8))
+        .group_by(subject, "item_id")
+        .agg(pl.col("weight").sum(), pl.col("method_rank").min())
+    )
+    # Precedence already drops every genre beaten by another of the subject's genres, so the genres left after the
+    # first are neither ancestors of the primary nor of each other.
+    best = (
+        apply_precedence(resolved, closure, subject)
+        .sort(["weight", "item_id"], descending=[True, False])
+        .group_by(subject)
+        .agg(
+            pl.col("item_id").first(),
+            pl.col("method_rank").first(),
+            secondary_genre_item_ids=pl.col("item_id").slice(1),
+        )
+        .select(
+            subject,
+            "item_id",
+            "secondary_genre_item_ids",
+            resolved_method=pl.col("method_rank").replace_strict(dict(enumerate(METHOD_RANK)), return_dtype=pl.Utf8),
+        )
+    )
+    raw_genres = (
+        tags.sort(["weight", "genre_name"], descending=[True, False])
+        .group_by(subject)
+        .agg(musicbrainz_genres=pl.struct(name="genre_name", weight="weight"))
+    )
+    leftover = (
+        resolved_tags.filter(pl.col("item_id").is_null())
+        .join(settled, on=tag, how="anti")
+        .sort(["weight", "genre_name"], descending=[True, False])
+        .group_by(subject)
+        .first()
+        .select(subject, leftover_method="method")
+    )
+    picked = raw_genres.join(best, on=subject, how="left").join(leftover, on=subject, how="left")
+    unresolved = pl.concat(
+        [resolved_tags.filter(pl.col("method") == "unmatched").select(*tag, "weight"), unpicked.select(*tag, "weight")]
+    )
+    return picked, unresolved
+
+
 def genre_match(
     songs_path: Path,
     song_genre_path: Path,
+    artist_genre_path: Path,
     canonical_hierarchy_path: Path,
     secondary_parents_path: Path,
     manual_genre_alias_path: Path,
@@ -211,7 +294,7 @@ def genre_match(
     wikidata_aliases_path: Path,
     output_dir: Path,
 ) -> Path:
-    logger.info("matching %s genres against %s", song_genre_path, canonical_hierarchy_path)
+    logger.info("matching %s and %s genres against %s", song_genre_path, artist_genre_path, canonical_hierarchy_path)
     songs = pl.scan_parquet(songs_path)
     hierarchy = pl.read_parquet(canonical_hierarchy_path)
 
@@ -262,8 +345,9 @@ def genre_match(
     disambiguation = curated.with_automatic(automatic)
 
     song_genre = pl.scan_parquet(song_genre_path)
+    artist_genre = pl.scan_parquet(artist_genre_path)
     resolution = _resolve_tags(
-        song_genre.select("genre_name").unique().collect(),
+        pl.concat([song_genre.select("genre_name"), artist_genre.select("genre_name")]).unique().collect(),
         item_id_by_label,
         index,
         dict(alias_keyed.iter_rows()),
@@ -271,67 +355,43 @@ def genre_match(
         curated.keys,
         disambiguation.keys,
         wikidata_alias_by_key,
-    )
-    tags = song_genre.join(resolution.lazy(), on="genre_name")
+    ).lazy()
 
-    tag = ["musicbrainz_recording_id", "genre_name"]
-    ambiguous_tags = tags.filter(pl.col("method") == "ambiguous").with_columns(key=_genre_key(pl.col("genre_name")))
-    context = (
-        tags.filter(pl.col("item_id").is_not_null())
-        .select("musicbrainz_recording_id", context_item_id="item_id")
-        .unique()
-    )
-    picks, ignored = disambiguate(ambiguous_tags, context, disambiguation, closure)
-    settled = pl.concat([picks.select(tag), ignored])
-    unpicked = ambiguous_tags.join(settled, on=tag, how="anti")
+    level_tags = {
+        LEVEL_RECORDING: (song_genre.filter(pl.col("level") == LEVEL_RECORDING), _SONG),
+        LEVEL_RELEASE_GROUP: (song_genre.filter(pl.col("level") == LEVEL_RELEASE_GROUP), _SONG),
+        LEVEL_ARTIST: (artist_genre, _ARTIST),
+    }
+    matched = songs
+    unresolved_by_level = []
+    for level, (tags, subject) in level_tags.items():
+        picked, unresolved_tags = _pick(
+            tags.select(subject, "genre_name", "weight"), subject, resolution, disambiguation, closure
+        )
+        fields = picked.collect_schema().names()
+        matched = matched.join(
+            picked.rename({field: f"{level}_{field}" for field in fields if field != subject}), on=subject, how="left"
+        )
+        unresolved_by_level.append(unresolved_tags.select("genre_name", "weight", level=pl.lit(level)))
 
-    resolved = (
-        pl.concat(
-            [
-                tags.filter(pl.col("item_id").is_not_null()).select(*tag, "item_id", "weight", "method"),
-                picks.select(*tag, "item_id", "weight", method=pl.lit("disambiguated")),
-            ]
-        )
-        .with_columns(method_rank=pl.col("method").replace_strict(METHOD_RANK, return_dtype=pl.UInt8))
-        .group_by("musicbrainz_recording_id", "item_id")
-        .agg(pl.col("weight").sum(), pl.col("method_rank").min())
+    resolved_level = pl.coalesce(
+        pl.when(pl.col(f"{level}_item_id").is_not_null()).then(pl.lit(level)) for level in LEVELS
     )
-    # Precedence already drops every genre beaten by another of the song's genres, so the genres left after the
-    # first are neither ancestors of the primary nor of each other.
-    best = (
-        apply_precedence(resolved, closure)
-        .sort(["weight", "item_id"], descending=[True, False])
-        .group_by("musicbrainz_recording_id")
-        .agg(
-            pl.col("item_id").first(),
-            pl.col("method_rank").first(),
-            secondary_genre_item_ids=pl.col("item_id").slice(1),
-        )
-        .select(
-            "musicbrainz_recording_id",
-            "item_id",
-            "secondary_genre_item_ids",
-            resolved_method=pl.col("method_rank").replace_strict(dict(enumerate(METHOD_RANK)), return_dtype=pl.Utf8),
-        )
-    )
-    raw_genres = (
-        song_genre.sort(["weight", "genre_name"], descending=[True, False])
-        .group_by("musicbrainz_recording_id")
-        .agg(musicbrainz_genres=pl.struct(name="genre_name", weight="weight"))
-    )
-    leftover = (
-        tags.filter(pl.col("item_id").is_null())
-        .join(settled, on=tag, how="anti")
-        .sort(["weight", "genre_name"], descending=[True, False])
-        .group_by("musicbrainz_recording_id")
-        .first()
-        .select("musicbrainz_recording_id", leftover_method="method")
+    tagged_level = pl.coalesce(
+        pl.when(pl.col(f"{level}_musicbrainz_genres").is_not_null()).then(pl.lit(level)) for level in LEVELS
     )
     labels = hierarchy.select("item_id", wikidata_genre_name="item_label", is_umbrella=pl.col("is_umbrella"))
     matched = (
-        songs.join(best, on="musicbrainz_recording_id", how="left")
-        .join(leftover, on="musicbrainz_recording_id", how="left")
-        .join(raw_genres, on="musicbrainz_recording_id", how="left")
+        matched.with_columns(genre_source=resolved_level, tagged_level=tagged_level)
+        .with_columns(
+            item_id=_of_level("genre_source", "item_id"),
+            secondary_genre_item_ids=_of_level("genre_source", "secondary_genre_item_ids"),
+            resolved_method=_of_level("genre_source", "resolved_method"),
+            leftover_method=_of_level("tagged_level", "leftover_method"),
+            musicbrainz_genres=pl.coalesce(
+                _of_level("genre_source", "musicbrainz_genres"), _of_level("tagged_level", "musicbrainz_genres")
+            ),
+        )
         .join(labels.lazy(), on="item_id", how="left")
         .select(
             "musicbrainz_recording_id",
@@ -346,6 +406,7 @@ def genre_match(
             wikidata_genre_item_id="item_id",
             is_umbrella=pl.col("is_umbrella").fill_null(False),
             match_method=pl.coalesce("resolved_method", "leftover_method", pl.lit("no_genre")),
+            genre_source="genre_source",
             secondary_genre_item_ids=pl.col("secondary_genre_item_ids").fill_null([]),
             musicbrainz_genres=pl.col("musicbrainz_genres").fill_null([]),
         )
@@ -361,24 +422,23 @@ def genre_match(
     check_row_count_delta(song_count, pl.scan_parquet(output_path).select(pl.len()).collect().item(), "genre_match")
 
     unresolved = (
-        pl.concat(
-            [tags.filter(pl.col("method") == "unmatched").select(*tag, "weight"), unpicked.select(*tag, "weight")]
-        )
-        .group_by("genre_name")
-        .agg(song_count=pl.len(), weight_sum=pl.col("weight").sum())
-        .sort(["song_count", "genre_name"], descending=[True, False])
+        pl.concat(unresolved_by_level)
+        .group_by("genre_name", "level")
+        .agg(subject_count=pl.len(), weight_sum=pl.col("weight").sum())
+        .sort(["subject_count", "genre_name", "level"], descending=[True, False, False])
         .collect()
     )
-    if not unresolved.is_empty():
+    unresolved_names = unresolved["genre_name"].unique().sort().to_list()
+    if unresolved_names:
         logger.warning(
             "%d unmatched or ambiguous genre name(s), see 1_genre_match_unresolved.csv: %s",
-            unresolved.height,
-            unresolved["genre_name"].to_list(),
+            len(unresolved_names),
+            unresolved_names,
         )
     unresolved_path = output_dir / "1_genre_match_unresolved.csv"
     unresolved.write_csv(unresolved_path)
 
-    report = {"unresolvedGenreTagCount": unresolved.height}
+    report = {"unresolvedGenreTagCount": len(unresolved_names)}
     schema = json.loads(GENRE_MATCH_REPORT_SCHEMA_PATH.read_text())
     try:
         validate(report, schema)
@@ -390,7 +450,7 @@ def genre_match(
         "wrote %d rows to %s (%d unresolved tag(s), see %s)",
         song_count,
         output_path,
-        unresolved.height,
+        len(unresolved_names),
         unresolved_path,
     )
     return output_path

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from common.musicbrainz_artists import SPECIAL_PURPOSE_ARTIST_IDS
 
 from gold import artist_export
 from gold.artist_export import export_artists
@@ -301,7 +302,7 @@ def test_export_artists_raises_on_bad_artist(tmp_path: Path, artist_rows: list[d
 
 
 def test_export_artists_excludes_special_purpose_artists(tmp_path: Path) -> None:
-    various = artist_export.SPECIAL_PURPOSE_ARTIST_IDS[0]
+    various = SPECIAL_PURPOSE_ARTIST_IDS[0]
     inputs = _write_inputs(tmp_path, [*ARTIST_ROWS, _artist(various, "Various Artists", "other")], [SINGER, various])
 
     artists = _read_parts(export_artists(*inputs, tmp_path / "gold"))

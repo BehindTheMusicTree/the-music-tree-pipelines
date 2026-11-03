@@ -24,7 +24,7 @@ The remaining ~17% splits between real naming-convention mismatches (fixable via
 `genre_match` tags each row with a `match_method`, trying each of the following in order and stopping
 at the first that succeeds:
 
-0. `no_genre` — the song has no tag in `10_song_genre` (none of its recordings carries a genre tag). Kept with
+0. `no_genre` — the song has no genre tag at any level (recording, release group, artist; see [Inherited genres](#inherited-genres)). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
 1. `exact` — case-insensitive equality against a canonical `item_label`.
 2. `normalized` — (skipped for a key curated in `manual_genre_disambiguation.csv`, which resolves as `ambiguous`
@@ -96,6 +96,25 @@ closure) from the secondaries.
 
 The run fails on a self-pair, a cycle (a manual pair reversing a lineage included), or an id absent from
 the canonical hierarchy.
+
+## Inherited genres
+
+A song's genre comes from the most precise level that yields one: its recordings' tags, else its release
+groups' (`10_song_genre` `level = release_group`), else its artist's (`13_artist_genre`). `genre_source` records
+which. Eligibility of release groups is musicbrainz Silver's concern, see
+`pipelines/musicbrainz/DESIGN.md#inherited-genres`.
+
+- **Fallback after matching**: a level counts only if one of its tags resolves to a canonical genre. A release
+  group tagged only with unmatched folksonomy must not hide a good artist genre.
+- **Never blended**: weights are summed within a level, never across. An artist's `rock` with weight 20 would
+  otherwise outvote the song's own `shoegaze` with weight 1, the opposite of "most precise".
+- **One pick per subject**: the cascade, disambiguation and precedence run per level with the level's own tags as
+  context, per song for the recording and release-group levels and once per artist for the artist level (then
+  joined to the artist's songs). Resolution runs once over every level's distinct names.
+- `secondary_genre_item_ids`, `musicbrainz_genres` and `match_method` come from the deciding level, so they
+  describe the tags the genre was picked from. An unresolved song keeps the most precise tagged level's method.
+- Curation (aliases, disambiguation, precedence, `manual_song_genre.csv`) applies at every level unchanged; a song
+  override still beats an inherited genre.
 
 ## Umbrella genres
 
