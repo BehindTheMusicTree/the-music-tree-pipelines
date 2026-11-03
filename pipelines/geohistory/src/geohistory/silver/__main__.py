@@ -3,6 +3,7 @@ import logging
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
 
 import geohistory
+from geohistory.silver.basemap_feature import basemap_feature
 from geohistory.silver.column_region import column_region
 from geohistory.silver.cultural_entity import cultural_entity
 from geohistory.silver.entity_geometry import entity_geometry
@@ -29,6 +30,7 @@ entity_time_span(bronze_dir, wikidata_bronze_dir, silver_dir, curation_dir)
 place_containment(wikidata_bronze_dir, silver_dir, curation_dir)
 entity_footprint(bronze_dir, silver_dir)
 entity_geometry(bronze_dir, silver_dir)
+basemap_feature(bronze_dir, silver_dir)
 music_anchor(wikidata_bronze_dir, silver_dir, curation_dir)
 tradition(wikidata_bronze_dir, silver_dir, curation_dir)
 genealogy_lane(silver_dir)

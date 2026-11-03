@@ -9,6 +9,7 @@ Data dictionary for `geohistory`. Design rationale is in [DESIGN.md](DESIGN.md).
   - [1. Bronze](#1-bronze)
     - [1.1 glottolog_languoid.parquet](#11-glottolog_languoidparquet)
     - [1.2 natural_earth_admin.parquet](#12-natural_earth_adminparquet)
+    - [1.3 natural_earth_basemap.parquet](#13-natural_earth_basemapparquet)
   - [2. Silver](#2-silver)
     - [2.1 1_cultural_entity.parquet](#21-1_cultural_entityparquet)
     - [2.2 1_entity_wikidata_item.parquet](#22-1_entity_wikidata_itemparquet)
@@ -63,6 +64,23 @@ admin-1 `adm0_a3` exists at level 0 (both checked before the write). Release v5.
 | continent    | str? | `CONTINENT` for admin-0 (e.g. `Europe`, `North America`), null for admin-1               |
 | area_km2     | f64  | Spherical area of the full-resolution geometry (Lambert cylindrical equal-area projection)         |
 | geometry_wkb | bin  | Full-resolution `Polygon` or `MultiPolygon`, WKB, WGS 84                                |
+
+### 1.3 natural_earth_basemap.parquet
+
+One row per Natural Earth 1:10m background feature of the pinned release (`NATURAL_EARTH_VERSION`) the region map draws
+under and over the regions: disputed boundary lines (`ne_10m_admin_0_boundary_lines_disputed_areas`), populated places
+(`ne_10m_populated_places`), river centerlines (`ne_10m_rivers_lake_centerlines`) and lakes (`ne_10m_lakes`). Every
+layer has at least one row, and every feature has a geometry and a `min_zoom` (both checked before the write), except
+the one disputed line without `min_zoom` in v5.1.2 (Brazil/Uruguay claim), which gets `7.0`. Sorted by `layer`,
+`min_zoom`, `name`.
+
+| Column       | Type | Meaning                                                                                   |
+| ------------ | ---- | ----------------------------------------------------------------------------------------- |
+| layer        | str  | `disputed`, `places`, `rivers` or `lakes`                                                 |
+| name         | str? | Natural Earth `name`                                                                      |
+| featurecla   | str? | Natural Earth feature class (e.g. `Admin-0 capital`, `Claim boundary`)                    |
+| min_zoom     | f64  | Natural Earth's suggested minimum zoom of the feature                                     |
+| geometry_wkb | bin  | Full-resolution `Point`, (Multi)`LineString` or (Multi)`Polygon`, WKB, WGS 84             |
 
 ## 2. Silver
 
@@ -162,6 +180,10 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | bbox         | list[f64] | `[west, south, east, north]` of the whole geometry; across the antimeridian `east` exceeds 180 |
 | main_bbox    | list[f64] | Same for the largest polygon part (mainland, without remote islands)             |
 | centroid     | list[f64] | `[x, y]` pole of inaccessibility (shapely `polylabel`) of the largest polygon part |
+
+`8_basemap_feature.parquet`: the background features of the map, same columns as `natural_earth_basemap.parquet`, with
+valid geometry, plus one `land` row (`name`, `featurecla` null, `min_zoom` 0): the union of the admin-0 countries, so the
+coast coincides with the regions drawn on it.
 
 ### 2.5.1 5_music_anchor files
 
