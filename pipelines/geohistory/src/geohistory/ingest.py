@@ -38,8 +38,9 @@ BASEMAP_LAYERS = {
     "rivers": natural_earth_client.RIVERS_LAYER,
     "lakes": natural_earth_client.LAKES_LAYER,
 }
-# Natural Earth v5.1.2 ships one disputed line (Brazil/Uruguay claim) without a min_zoom; a small border segment, so it
-# appears at the zoom of the finest disputed lines. No other layer has a gap, any other one is a data error.
+# Natural Earth v5.1.2 ships one disputed line (Brazil/Uruguay claim) without a min_zoom; a short border segment, so it
+# appears at zoom 7, among the finest of the disputed lines (3.7 to 8). No other layer has a gap, any other one is a
+# data error. Each default is logged, so a newer release with more gaps shows up.
 DISPUTED_MISSING_MIN_ZOOM = 7.0
 EARTH_RADIUS_KM = 6371.0088
 ADMIN_FIELDS = {
