@@ -41,7 +41,7 @@ def song_genre(bronze_dir: Path, silver_dir: Path, output_dir: Path) -> Path:
     """One row per (song, level, genre name), the weight summed across the song's recordings (`recording` level) or
     its eligible release groups (`release_group` level); picking a song's genre is Gold's job (it needs the Wikidata
     tree)."""
-    song_recordings = _song_recordings(bronze_dir)
+    song_recordings = _song_recordings(bronze_dir).cache()
     song_id = song_recordings.select("recording_id", "song_id")
     song_musicbrainz_id = song_recordings.filter(pl.col("recording_id") == pl.col("song_id")).select(
         "song_id", "musicbrainz_recording_id"

@@ -20,3 +20,16 @@ def test_artist_genre_names_each_artist_s_genre_tags_except_special_purpose_arti
 
     assert result == tmp_path / "silver" / "13_artist_genre.parquet"
     assert pl.read_parquet(result).to_dicts() == [{"artist_musicbrainz_id": "a1", "genre_name": "jazz", "weight": 3}]
+
+
+def test_artist_genre_sums_case_variant_tags_of_one_genre(tmp_path: Path) -> None:
+    pl.DataFrame([{"id": 1, "name": "Jazz"}, {"id": 2, "name": "jazz"}]).write_parquet(tmp_path / "tag.parquet")
+    pl.DataFrame([{"id": 101, "name": "jazz"}]).write_parquet(tmp_path / "genre.parquet")
+    pl.DataFrame([{"id": 1, "gid": "a1"}]).write_parquet(tmp_path / "artist.parquet")
+    pl.DataFrame([{"artist": 1, "tag": 1, "count": 3}, {"artist": 1, "tag": 2, "count": 2}]).write_parquet(
+        tmp_path / "artist_tag.parquet"
+    )
+
+    result = artist_genre(tmp_path, tmp_path / "silver")
+
+    assert pl.read_parquet(result).to_dicts() == [{"artist_musicbrainz_id": "a1", "genre_name": "jazz", "weight": 5}]

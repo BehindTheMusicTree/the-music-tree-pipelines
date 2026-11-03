@@ -18,6 +18,8 @@ def artist_genre(bronze_dir: Path, output_dir: Path) -> Path:
         genre_tags(pl.scan_parquet(bronze_dir / "artist_tag.parquet"), "artist", bronze_dir)
         .join(artist, on="entity_id")
         .filter(~pl.col("artist_musicbrainz_id").is_in(SPECIAL_PURPOSE_ARTIST_IDS))
+        .group_by("artist_musicbrainz_id", "genre_id")
+        .agg(pl.col("weight").sum())
         .join(genre, on="genre_id")
         .select("artist_musicbrainz_id", "genre_name", "weight")
     )
