@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
@@ -183,15 +183,24 @@ def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str])
     return output_path
 
 
-def ingest_cultural_entity_aliases(output_dir: Path, patterns: Mapping[str, str]) -> Path:
+def ingest_cultural_entity_aliases(
+    output_dir: Path, patterns: Mapping[str, str], admin_seed_qids: Sequence[str] = ()
+) -> Path:
+    queries = {kind: [wikidata_client.cultural_entity_alias_query(kind, patterns)] for kind in patterns}
+    if admin_seed_qids:
+        queries["admin_unit"] = wikidata_client.admin_alias_queries(admin_seed_qids)
     frames = []
-    for kind in patterns:
-        logger.info("querying Wikidata for English aliases of %s entities", kind)
-        rows = wikidata_client.run_query(
-            wikidata_client.cultural_entity_alias_query(kind, patterns),
-            variables=wikidata_client.CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES,
-            timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
-        )
+    for kind, kind_queries in queries.items():
+        logger.info("querying Wikidata for English names of %s entities", kind)
+        rows = [
+            row
+            for query in kind_queries
+            for row in wikidata_client.run_query(
+                query,
+                variables=wikidata_client.CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        ]
         frames.append(
             pl.DataFrame(
                 {"item_id": [_qid(row["item"]) for row in rows], "alias": [row["alias"] for row in rows]},
@@ -488,7 +497,7 @@ def _ingest_sparql_lane(
     with step("admin_hierarchy"):
         ingest_admin_hierarchy(output_dir, admin_seed_qids)
     with step("cultural_entity_aliases"):
-        ingest_cultural_entity_aliases(output_dir, entity_patterns)
+        ingest_cultural_entity_aliases(output_dir, entity_patterns, admin_seed_qids)
 
 
 def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:

@@ -274,8 +274,9 @@ As of this writing: 6,292 rows (P131 5,001, P361 1,291).
 
 ### 2.10 wikidata_cultural_entity_alias.parquet
 
-One row per (item, alias): the English Wikidata aliases (`skos:altLabel`) of every cultural entity of
-`wikidata_cultural_entity.parquet`, one query per kind. See `wikidata_client.cultural_entity_alias_query`.
+One row per (item, alias): the English Wikidata names (`skos:altLabel` and the main `rdfs:label`) of every cultural entity of
+`wikidata_cultural_entity.parquet`, one query per kind, plus the admin units under the seed countries
+(`wdt:P131*`, chunked). See `wikidata_client.cultural_entity_alias_query`.
 
 | Column  | Type | Meaning                                       |
 | ------- | ---- | --------------------------------------------- |

@@ -15,8 +15,29 @@ ENTITIES = [
     ("pop", "ethnic_group", "Pop people"),
     ("bre_z", "historical_country", "Brittany"),
     ("duchy", "historical_country", "Brittany"),
+    ("es", "country", "Spain"),
+    ("gal", "admin_unit", "Galicia"),
+    ("gal_ee", "historical_region", "Galicia"),
+    ("gal_k", "historical_country", "Galicia"),
+    ("uk", "country", "United Kingdom"),
+    ("sco", "cultural_region", "Scotland"),
+    ("sco_k", "historical_country", "Scotland"),
+    ("khk", "admin_unit", "Khakass"),
 ]
-CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
+CROSSWALK = {
+    "fr": "Q142",
+    "bre": "Q12130",
+    "mor": "Q12642",
+    "us": "Q30",
+    "ge": "Q230",
+    "gaus": "Q1428",
+    "kr": "Q884",
+    "es": "Q29",
+    "gal": "Q3908",
+    "uk": "Q145",
+    "sco": "Q22",
+    "khk": "Q6543",
+}
 
 
 def claim(item_id, property_, value):
@@ -209,3 +230,43 @@ def test_excluded_item_gets_no_anchor(tmp_path):
     claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q884")]
     anchors, _ = run(tmp_path, claims, exclusions=["Q1"])
     assert "Q1" not in anchors
+
+
+def ambiguous(tmp_path):
+    return pl.read_csv(tmp_path / "silver" / "5_music_anchor_ambiguous.csv", infer_schema=False)
+
+
+def test_ambiguous_label_resolves_to_the_place_inside_the_claimed_country(tmp_path):
+    claims = [label("Q1", "music of Galicia"), claim("Q1", "P495", "Q29")]
+    containment = [("gal", "es"), ("gal_k", "es")]
+    anchors, _ = run(tmp_path, claims, containment=containment)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"], anchors["Q1"]["overview_rank"]) == ("gal", "label", 0)
+    assert ambiguous(tmp_path).height == 0
+
+
+def test_narrowed_label_is_not_outranked_by_an_unrelated_claim(tmp_path):
+    claims = [label("Q1", "music of Galicia"), claim("Q1", "P495", "Q29"), claim("Q1", "P17", "Q142")]
+    anchors, _ = run(tmp_path, claims, containment=[("gal", "es"), ("gal_k", "es")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("gal", "label")
+
+
+def test_ambiguous_label_prefers_a_current_place_over_a_historical_state(tmp_path):
+    claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q145")]
+    anchors, _ = run(tmp_path, claims, containment=[("sco", "uk"), ("sco_k", "uk")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("sco", "label")
+
+
+def test_ambiguous_label_without_a_claimed_place_is_listed(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of Galicia"), claim("Q1", "P17", "Q29")])
+    assert anchors["Q1"]["anchor_id"] == "es"
+    assert ambiguous(tmp_path).rows() == [("Q1", "music of Galicia", "gal|gal_ee|gal_k")]
+
+
+def test_overview_naming_its_country_keeps_names_anchor(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of the United Kingdom"), claim("Q1", "P17", "Q145")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("uk", 0)
+
+
+def test_overview_label_matches_a_place_through_its_alias(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of Khakassia")], aliases=[("Q6543", "Khakassia")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("khk", "label")

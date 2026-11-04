@@ -22,6 +22,7 @@ PLACE_KINDS = (
     "macro_region",
     "admin_unit",
 )
+HISTORICAL_KINDS = ("historical_country", "historical_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
 ANCHOR_SCHEMA = {
     "wikidata_id": pl.String,
@@ -31,6 +32,7 @@ ANCHOR_SCHEMA = {
     "overview_rank": pl.Int32,
 }
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "candidate_ids": pl.String}
+AMBIGUOUS_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "match_ids": pl.String}
 
 
 def _ancestors(entity: str, parents: dict[str, list[str]]) -> set[str]:
@@ -105,6 +107,24 @@ def _collapse_equivalent(matches: set[str], kinds: dict[str, str], footprint_adm
     return matches
 
 
+def _narrow_label_matches(
+    matches: set[str], claimed: set[str], parents: dict[str, list[str]], kinds: dict[str, str]
+) -> set[str]:
+    """Resolve an ambiguous overview label with the places the genre itself claims.
+
+    "Music of Galicia" claims Spain (P495): of the places named Galicia, only the one inside Spain is meant.
+    Matches still tied after that prefer a current place over a historical state (Scotland over the Kingdom of
+    Scotland). Without any claimed place the label stays ambiguous.
+    """
+    if len(matches) < 2:
+        return matches
+    inside = {m for m in matches if m in claimed or _ancestors(m, parents) & claimed}
+    if not inside:
+        return matches
+    current = {m for m in inside if kinds.get(m) not in HISTORICAL_KINDS}
+    return current or inside
+
+
 def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_music_tradition_claims.parquet")
     tree = pl.read_parquet(wikidata_bronze_dir / "wikidata_genre_tree.parquet")
@@ -154,7 +174,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         footprint_admins[entity_id].add(admin_id)
     label_index = _label_index(entities, crosswalk, aliases)
 
-    anchors, unplaced = [], []
+    anchors, unplaced, ambiguous = [], [], []
     for qid, label in sorted(labels.items()):
         is_overview = label.startswith(OVERVIEW_PREFIX)
         if qid in exclusions or (qid not in genres and not is_overview and qid not in additions):
@@ -191,8 +211,17 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
                 kinds,
                 footprint_admins,
             )
-            if len(label_matches) == 1:
-                add(next(iter(label_matches)), "label")
+            resolved = _narrow_label_matches(label_matches, set(candidates), parents, kinds)
+            if len(resolved) == 1:
+                named = next(iter(resolved))
+                if len(label_matches) > 1:
+                    # A claim unrelated to the narrowed place must not outrank it once its ancestor is dominated.
+                    related = _ancestors(named, parents) | {named}
+                    for entity in [e for e in candidates if e not in related and named not in _ancestors(e, parents)]:
+                        del candidates[entity]
+                add(named, "label")
+            elif len(label_matches) > 1:
+                ambiguous.append((qid, label, "|".join(sorted(label_matches))))
 
         picked = (override_entity, "override") if override_entity else _pick(candidates, parents)
         if picked is None:
@@ -204,9 +233,15 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
 
     frame = pl.DataFrame(_rank_overviews(anchors), schema=ANCHOR_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
+    ambiguous_frame = pl.DataFrame(ambiguous, schema=AMBIGUOUS_SCHEMA, orient="row").sort("wikidata_id")
+    if ambiguous_frame.height:
+        logger.warning(
+            "%d overview label(s) name several places, see 5_music_anchor_ambiguous.csv", ambiguous_frame.height
+        )
     if unplaced_frame.height:
         logger.warning("%d overview(s) have no music anchor, see 5_music_anchor_unplaced.csv", unplaced_frame.height)
     frame.write_parquet(silver_dir / "5_music_anchor.parquet")
     unplaced_frame.write_csv(silver_dir / "5_music_anchor_unplaced.csv")
+    ambiguous_frame.write_csv(silver_dir / "5_music_anchor_ambiguous.csv")
     logger.info("wrote %d music anchors to %s", frame.height, silver_dir)
     return silver_dir / "5_music_anchor.parquet"

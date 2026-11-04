@@ -201,6 +201,10 @@ dated or not.
 `5_music_anchor_unplaced.csv`: `wikidata_id`, `label`, `candidate_ids` (the `|`-joined entities an ambiguous label
 matched, empty when none) of the overviews without anchor.
 
+`5_music_anchor_ambiguous.csv`: `wikidata_id`, `label`, `match_ids` (the `|`-joined places) of the overviews whose label
+still names several places after narrowing by the places the genre claims and preferring a current place over a historical
+state. These overviews get no `label` candidate.
+
 ### 2.6 5_tradition files
 
 `5_tradition.parquet`: one row per music tradition (genre or "music of X" overview starting by 1950, plus additions).
