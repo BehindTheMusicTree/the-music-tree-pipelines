@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import httpx
 
 from common.env import load_pipeline_env, require_env, resolve_pipeline_path
+from common.step_timer import step
 
 import wikidata
 from wikidata.silver.artist_images import artist_images
@@ -27,51 +28,63 @@ bronze_dir = resolve_pipeline_path(wikidata.__file__, require_env("BRONZE_OUTPUT
 silver_dir = resolve_pipeline_path(wikidata.__file__, require_env("SILVER_OUTPUT_DIR"))
 curation_dir = resolve_pipeline_path(wikidata.__file__, require_env("CURATION_BRONZE_DIR"))
 commons_max_batches = int(require_env("COMMONS_METADATA_MAX_BATCHES_PER_RUN"))
-resolve_curation_qids(
-    bronze_dir / "wikidata_genre_tree.parquet",
-    bronze_dir / "wikidata_genre_indigenous_to.parquet",
-    curation_dir,
-    silver_dir,
-)
-write_curation_items(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
-item_links_path = add_item_links(
-    bronze_dir / "wikidata_genre_tree.parquet",
-    silver_dir,
-    curation_dir / "manual_label_overrides.csv",
-    curation_dir / "manual_capitalized_words.csv",
-)
-non_genre_pruning_path = prune_non_genre_items(
-    item_links_path,
-    curation_dir / "manual_theme_genres.csv",
-    curation_dir / "manual_technique_genres.csv",
-    curation_dir / "manual_out_of_scope_genres.csv",
-    curation_dir / "manual_non_stylistic_genres.csv",
-    curation_dir / "manual_duplicate_genres.csv",
-    silver_dir,
-)
-regional_overview_classification_path = classify_regional_from_overviews(
-    non_genre_pruning_path,
-    curation_dir / "manual_regional_overview_additions.csv",
-    curation_dir / "manual_overview_reclassifications.csv",
-    silver_dir,
-)
-regional_classification_path = classify_regional_genres(
-    regional_overview_classification_path,
-    bronze_dir / "wikidata_genre_indigenous_to.parquet",
-    curation_dir / "manual_regional_overrides.csv",
-    curation_dir / "manual_canonical_parent_additions.csv",
-    curation_dir / "manual_main_parent.csv",
-    curation_dir / "manual_accepted_canonical_roots.csv",
-    curation_dir / "manual_indigenous_to_exclusions.csv",
-    silver_dir,
-)
-main_parent_selection_path, _secondary_parents_path = select_main_parents(regional_classification_path, silver_dir)
-canonical_parents_path = flag_canonical_parents(main_parent_selection_path, silver_dir)
-canonical_hierarchy_path = prune_canonical_hierarchy(
-    canonical_parents_path, curation_dir / "manual_umbrella_genres.csv", silver_dir
-)
-prune_regional_hierarchy(canonical_parents_path, silver_dir)
-extract_canonical_roots(canonical_hierarchy_path, curation_dir / "manual_accepted_canonical_roots.csv", silver_dir)
-with httpx.Client(headers={"User-Agent": USER_AGENT}) as client:
+with step("resolve_curation_qids"):
+    resolve_curation_qids(
+        bronze_dir / "wikidata_genre_tree.parquet",
+        bronze_dir / "wikidata_genre_indigenous_to.parquet",
+        curation_dir,
+        silver_dir,
+    )
+with step("write_curation_items"):
+    write_curation_items(bronze_dir / "wikidata_genre_tree.parquet", silver_dir)
+with step("add_item_links"):
+    item_links_path = add_item_links(
+        bronze_dir / "wikidata_genre_tree.parquet",
+        silver_dir,
+        curation_dir / "manual_label_overrides.csv",
+        curation_dir / "manual_capitalized_words.csv",
+    )
+with step("prune_non_genre_items"):
+    non_genre_pruning_path = prune_non_genre_items(
+        item_links_path,
+        curation_dir / "manual_theme_genres.csv",
+        curation_dir / "manual_technique_genres.csv",
+        curation_dir / "manual_out_of_scope_genres.csv",
+        curation_dir / "manual_non_stylistic_genres.csv",
+        curation_dir / "manual_duplicate_genres.csv",
+        silver_dir,
+    )
+with step("classify_regional_from_overviews"):
+    regional_overview_classification_path = classify_regional_from_overviews(
+        non_genre_pruning_path,
+        curation_dir / "manual_regional_overview_additions.csv",
+        curation_dir / "manual_overview_reclassifications.csv",
+        silver_dir,
+    )
+with step("classify_regional_genres"):
+    regional_classification_path = classify_regional_genres(
+        regional_overview_classification_path,
+        bronze_dir / "wikidata_genre_indigenous_to.parquet",
+        curation_dir / "manual_regional_overrides.csv",
+        curation_dir / "manual_canonical_parent_additions.csv",
+        curation_dir / "manual_main_parent.csv",
+        curation_dir / "manual_accepted_canonical_roots.csv",
+        curation_dir / "manual_indigenous_to_exclusions.csv",
+        silver_dir,
+    )
+with step("select_main_parents"):
+    main_parent_selection_path, _secondary_parents_path = select_main_parents(regional_classification_path, silver_dir)
+with step("flag_canonical_parents"):
+    canonical_parents_path = flag_canonical_parents(main_parent_selection_path, silver_dir)
+with step("prune_canonical_hierarchy"):
+    canonical_hierarchy_path = prune_canonical_hierarchy(
+        canonical_parents_path, curation_dir / "manual_umbrella_genres.csv", silver_dir
+    )
+with step("prune_regional_hierarchy"):
+    prune_regional_hierarchy(canonical_parents_path, silver_dir)
+with step("extract_canonical_roots"):
+    extract_canonical_roots(canonical_hierarchy_path, curation_dir / "manual_accepted_canonical_roots.csv", silver_dir)
+with httpx.Client(headers={"User-Agent": USER_AGENT}) as client, step("commons_image_metadata"):
     commons_image_metadata(bronze_dir, silver_dir, client, datetime.now(UTC), commons_max_batches)
-artist_images(bronze_dir, silver_dir)
+with step("artist_images"):
+    artist_images(bronze_dir, silver_dir)
