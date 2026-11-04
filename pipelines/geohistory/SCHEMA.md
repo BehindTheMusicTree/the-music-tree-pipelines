@@ -196,6 +196,7 @@ dated or not.
 | anchor_id   | str  | `1_cultural_entity.entity_id` the item is placed on                                                  |
 | rule        | str  | `override`, `P2596`, `P1269`, `P495`, `P17`, `P276`, `P921`, `P361` or `label`                       |
 | is_overview | bool | The label starts with "music of "                                                                    |
+| overview_rank | int? | Per anchor, 0 for the overview whose label names the anchor, 1+ for further ones (ordered by rule, then QID); null for an overview that only fell back to the anchor through a property (an unresolved "music of Catalonia" landing on Spain) and for non-overviews |
 
 `5_music_anchor_unplaced.csv`: `wikidata_id`, `label`, `candidate_ids` (the `|`-joined entities an ambiguous label
 matched, empty when none) of the overviews without anchor.

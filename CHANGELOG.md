@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The region map index gains `overviewItemId` per region (its own "music of X" genre, picked by the new `5_music_anchor.overview_rank`), drillable zones (`childIds` of a zone are its top-most member regions) and top-level `worldChildIds` / `worldZoneIds`; the export report lists `regionsWithoutOverview`. grow-api must accept these keys before the index reaches an environment.
 - Song genres also resolve against the regional genre tree (country, k-pop, reggaeton, …), the canonical genre winning on a shared label and regional overviews ("music of Japan") never picked. `1_genre_match.parquet` gains `genre_tree`; `2_songs` gains `genre_wikidata_id`, which grow-api must accept before this reaches an environment. Curation entries made redundant by a regional label now fail the run.
 - `common.step_timer.step` appends one NDJSON record (`ts`, `run_id`, `pipeline`, `step`, `seconds`, `max_rss_gb`) to `PIPELINE_TIMINGS_FILE` when set, requiring `PIPELINE_RUN_ID` and `PIPELINE_NAME`, so run times can be compared across releases; wikidata Silver now times each of its steps.
 

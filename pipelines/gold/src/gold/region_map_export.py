@@ -203,13 +203,18 @@ def export_region_map(
             footprint_admins[entity_id].append(admin_id)
 
     genres_by_region: dict[str, list[dict]] = defaultdict(list)
+    overview_candidates: dict[str, list[tuple[int, str]]] = defaultdict(list)
     placed: dict[str, list[str]] = defaultdict(list)
     unplaced = []
-    for item_id, anchor_id, rule in anchors.select("wikidata_id", "anchor_id", "rule").rows():
+    for item_id, anchor_id, rule, overview_rank in anchors.select(
+        "wikidata_id", "anchor_id", "rule", "overview_rank"
+    ).rows():
         relation = "canonical" if item_id in canonical_ids else "regional" if item_id in regional_ids else "tradition"
         if anchor_id in admin_ids or anchor_id in zone_candidates:
             genres_by_region[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
             placed[item_id].append(anchor_id)
+            if overview_rank is not None and relation != "tradition":
+                overview_candidates[anchor_id].append((overview_rank, item_id))
         elif kinds.get(anchor_id) in UNFOOTPRINTED_KINDS:
             unplaced.append((item_id, anchor_id, "anchor is not a place"))
         elif footprint_admins.get(anchor_id):
@@ -300,6 +305,7 @@ def export_region_map(
                 return min(claimants, key=lambda c: (-area(c), c)), parent
         return None
 
+    overview_by_region = {region: min(candidates)[1] for region, candidates in overview_candidates.items()}
     dissolved: dict[str, str] = {}
     while (dissolution := next_dissolution()) is not None:
         mainland, parent = dissolution
@@ -310,6 +316,8 @@ def export_region_map(
         owned = genres_by_region.pop(mainland, [])
         known = {g["itemId"] for g in genres_by_region.get(parent, ())}
         genres_by_region[parent].extend(g for g in owned if g["itemId"] not in known)
+        if mainland in overview_by_region:
+            overview_by_region.setdefault(parent, overview_by_region.pop(mainland))
         admin_ids.discard(mainland)
     if dissolved:
         logger.info(
@@ -354,12 +362,26 @@ def export_region_map(
         return items
 
     zone_ids_by_region: dict[str, set[str]] = defaultdict(set)
+    zone_members: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
     for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
         admin_id = dissolved.get(admin_id, admin_id)
         if entity_id in zone_set and admin_id in shapes:
+            zone_members[entity_id].add(admin_id)
             for ancestor in admin_ancestors(admin_id):
                 zone_ids_by_region[ancestor].add(entity_id)
+
+    admin_region_set = set(admin_regions)
+    for zone, members in zone_members.items():
+        listed = members & admin_region_set
+        children[zone] = sorted(m for m in listed if not any(a in listed for a in admin_ancestors(m)[1:]))
+    zone_inside: dict[str, list[str]] = {
+        zone: sorted(other for other in zones if zone_members[other] < zone_members[zone] and zone_members[other])
+        for zone in zones
+    }
+    for zone, inside in zone_inside.items():
+        zone_ids_by_region[zone].update(inside)
+    nested_zones = {other for inside in zone_inside.values() for other in inside}
 
     entries = []
     for region in [*admin_regions, *zones]:
@@ -378,12 +400,17 @@ def export_region_map(
                 "mainBbox": shape["main_bbox"],
                 "centroid": shape["centroid"],
                 "drillable": bool(children.get(region)),
+                "overviewItemId": overview_by_region.get(region),
                 "genres": genres_by_region.get(region, []),
                 "songCount": sum(song_counts.get(item, 0) for item in relevant),
                 "genreCount": len(relevant),
             }
         )
-    document: dict = {"regions": entries}
+    document: dict = {
+        "regions": entries,
+        "worldChildIds": children.get(WORLD_ID, []),
+        "worldZoneIds": [zone for zone in zones if zone not in nested_zones],
+    }
     if not entries:
         raise ValueError("region map has no region")
 
@@ -420,8 +447,11 @@ def export_region_map(
 
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
+    without_overview = sum(1 for entry in entries if entry["overviewItemId"] is None)
+    logger.info("%d of %d region(s) have no overview genre", without_overview, len(entries))
     report = {
         "unplacedGenreCount": unplaced_frame.height,
+        "regionsWithoutOverview": without_overview,
         "tileset": {"bytes": tileset_bytes, "seconds": tileset_seconds},
     }
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")
