@@ -213,7 +213,13 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
             )
             resolved = _narrow_label_matches(label_matches, set(candidates), parents, kinds)
             if len(resolved) == 1:
-                add(next(iter(resolved)), "label")
+                named = next(iter(resolved))
+                if len(label_matches) > 1:
+                    # A claim unrelated to the narrowed place must not outrank it once its ancestor is dominated.
+                    related = _ancestors(named, parents) | {named}
+                    for entity in [e for e in candidates if e not in related and named not in _ancestors(e, parents)]:
+                        del candidates[entity]
+                add(named, "label")
             elif len(label_matches) > 1:
                 ambiguous.append((qid, label, "|".join(sorted(label_matches))))
 

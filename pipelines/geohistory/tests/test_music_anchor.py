@@ -244,6 +244,12 @@ def test_ambiguous_label_resolves_to_the_place_inside_the_claimed_country(tmp_pa
     assert ambiguous(tmp_path).height == 0
 
 
+def test_narrowed_label_is_not_outranked_by_an_unrelated_claim(tmp_path):
+    claims = [label("Q1", "music of Galicia"), claim("Q1", "P495", "Q29"), claim("Q1", "P17", "Q142")]
+    anchors, _ = run(tmp_path, claims, containment=[("gal", "es"), ("gal_k", "es")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("gal", "label")
+
+
 def test_ambiguous_label_prefers_a_current_place_over_a_historical_state(tmp_path):
     claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q145")]
     anchors, _ = run(tmp_path, claims, containment=[("sco", "uk"), ("sco_k", "uk")])
