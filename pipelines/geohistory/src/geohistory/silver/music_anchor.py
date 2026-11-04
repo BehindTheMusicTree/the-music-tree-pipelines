@@ -118,9 +118,13 @@ def _narrow_label_matches(
     """
     if len(matches) < 2:
         return matches
-    pool = {m for m in matches if m in claimed or _ancestors(m, parents) & claimed} or matches
+    pool = _claim_backed(matches, claimed, parents) or matches
     current = {m for m in pool if kinds.get(m) not in HISTORICAL_KINDS}
     return current or pool
+
+
+def _claim_backed(matches: set[str], claimed: set[str], parents: dict[str, list[str]]) -> set[str]:
+    return {m for m in matches if m in claimed or _ancestors(m, parents) & claimed}
 
 
 def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
@@ -212,8 +216,9 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
             resolved = _narrow_label_matches(label_matches, set(candidates), parents, kinds)
             if len(resolved) == 1:
                 named = next(iter(resolved))
-                if len(label_matches) > 1:
+                if len(label_matches) > 1 and named in _claim_backed(label_matches, set(candidates), parents):
                     # A claim unrelated to the narrowed place must not outrank it once its ancestor is dominated.
+                    # Only when a claim chose the place: a label resolved on era alone must not discard a claim.
                     related = _ancestors(named, parents) | {named}
                     for entity in [e for e in candidates if e not in related and named not in _ancestors(e, parents)]:
                         del candidates[entity]

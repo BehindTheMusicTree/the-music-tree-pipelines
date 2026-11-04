@@ -269,6 +269,12 @@ def test_label_with_several_current_places_and_no_claimed_place_is_listed(tmp_pa
     assert ambiguous(tmp_path).rows() == [("Q1", "music of Galicia", "gal|gal_c|gal_ee|gal_k")]
 
 
+def test_era_only_label_does_not_discard_a_claim_outside_every_match(tmp_path):
+    claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q30")]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("us", "P17")
+
+
 def test_overview_naming_its_country_keeps_names_anchor(tmp_path):
     anchors, _ = run(tmp_path, [label("Q1", "music of the United Kingdom"), claim("Q1", "P17", "Q145")])
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("uk", 0)
