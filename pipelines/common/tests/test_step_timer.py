@@ -38,10 +38,37 @@ def test_step_appends_ndjson_record_when_timings_file_set(tmp_path, monkeypatch:
     assert set(records[0]) == {"ts", "run_id", "pipeline", "step", "seconds", "max_rss_gb"}
 
 
-def test_step_fails_fast_when_timings_file_set_without_run_id(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PIPELINE_TIMINGS_FILE", str(tmp_path / "timings.ndjson"))
-    monkeypatch.delenv("PIPELINE_RUN_ID", raising=False)
-    with pytest.raises(Exception, match="PIPELINE_RUN_ID"), step("a"):
+@pytest.mark.parametrize("missing", ["PIPELINE_RUN_ID", "PIPELINE_NAME"])
+def test_step_fails_fast_before_running_when_timing_env_incomplete(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, missing: str
+) -> None:
+    timings = tmp_path / "timings.ndjson"
+    monkeypatch.setenv("PIPELINE_TIMINGS_FILE", str(timings))
+    monkeypatch.setenv("PIPELINE_RUN_ID", "run-1")
+    monkeypatch.setenv("PIPELINE_NAME", "gold")
+    monkeypatch.delenv(missing)
+    ran = []
+    with pytest.raises(Exception, match=missing), step("a"):
+        ran.append(True)
+    assert ran == []
+    assert not timings.exists()
+
+
+def test_step_keeps_the_step_exception_when_the_timing_write_fails(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PIPELINE_TIMINGS_FILE", str(tmp_path / "missing-dir" / "timings.ndjson"))
+    monkeypatch.setenv("PIPELINE_RUN_ID", "run-1")
+    monkeypatch.setenv("PIPELINE_NAME", "gold")
+    with pytest.raises(ValueError, match="boom"), step("a"):
+        raise ValueError("boom")
+
+
+def test_step_raises_when_the_timing_write_fails_after_a_successful_step(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PIPELINE_TIMINGS_FILE", str(tmp_path / "missing-dir" / "timings.ndjson"))
+    monkeypatch.setenv("PIPELINE_RUN_ID", "run-1")
+    monkeypatch.setenv("PIPELINE_NAME", "gold")
+    with pytest.raises(FileNotFoundError), step("a"):
         pass
 
 
