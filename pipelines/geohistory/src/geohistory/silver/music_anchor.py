@@ -54,7 +54,7 @@ def _pick(candidates: dict[str, str], parents: dict[str, list[str]]) -> tuple[st
 
 
 def _rank_overviews(anchors: list[tuple[str, str, str, bool, bool]]) -> list[tuple[str, str, str, bool, int | None]]:
-    """Rank, per anchor, the overviews whose label names that anchor (0 is the region's own overview).
+    """Rank, per anchor, the overviews whose label names that anchor (0 is the best-ranked overview naming the anchor).
 
     An overview that merely falls back to a country (P17, P495...) because its own place did not resolve
     ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank.
