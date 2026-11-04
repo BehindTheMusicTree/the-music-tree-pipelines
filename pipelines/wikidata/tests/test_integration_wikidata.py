@@ -42,15 +42,14 @@ def test_fetch_descriptions_returns_description_and_enwiki_article_from_the_live
     assert rock.aliases
 
 
-def test_tradition_label_query_binds_labels_on_the_live_endpoint() -> None:
-    patterns = {"music_genre": "VALUES ?item { wd:Q11399 }"}
-    rows = wikidata_client.run_query(
-        wikidata_client.tradition_claim_query("music_genre", wikidata_client.LABEL_PID, patterns),
-        variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
-        timeout=60.0,
-    )
+def test_item_claims_query_binds_labels_and_dates_on_the_live_endpoint() -> None:
+    [query] = wikidata_client.item_claims_queries(["Q11399"], (wikidata_client.LABEL_PID, "P571"))
+    rows = wikidata_client.run_query(query, variables=wikidata_client.ITEM_CLAIM_QUERY_VARIABLES, timeout=60.0)
 
-    assert [row["value"] for row in rows] == ["rock music"]
+    assert {"property": "label", "value": "rock music"} in [
+        {"property": row["property"], "value": row["value"]} for row in rows
+    ]
+    assert any(row["property"] == "P571" and row["precision"] for row in rows)
 
 
 def test_artist_image_query_returns_well_formed_rows_from_the_live_endpoint() -> None:

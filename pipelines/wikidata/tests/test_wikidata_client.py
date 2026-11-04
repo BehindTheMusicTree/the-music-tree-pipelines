@@ -20,14 +20,14 @@ def _mock_response(bindings: list[dict]) -> MagicMock:
 
 
 def test_run_query_sends_query_and_headers(monkeypatch: pytest.MonkeyPatch) -> None:
-    httpx_get = MagicMock(return_value=_mock_response([]))
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(return_value=_mock_response([]))
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     wikidata_client.run_query("SELECT * WHERE {}", timeout=10.0)
 
-    httpx_get.assert_called_once_with(
+    httpx_post.assert_called_once_with(
         wikidata_client.SPARQL_ENDPOINT,
-        params={"query": "SELECT * WHERE {}"},
+        data={"query": "SELECT * WHERE {}"},
         headers={
             "User-Agent": wikidata_client.USER_AGENT,
             "Accept": "application/sparql-results+json",
@@ -39,7 +39,7 @@ def test_run_query_sends_query_and_headers(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_run_query_raises_status_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     response = _mock_response([])
-    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=response))
+    monkeypatch.setattr(wikidata_client.httpx, "post", MagicMock(return_value=response))
 
     wikidata_client.run_query("SELECT * WHERE {}")
 
@@ -62,7 +62,7 @@ def test_run_query_parses_bindings_and_defaults_unbound_optional_fields_to_none(
             "itemLabel": {"value": "music genre"},
         },
     ]
-    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_mock_response(bindings)))
+    monkeypatch.setattr(wikidata_client.httpx, "post", MagicMock(return_value=_mock_response(bindings)))
 
     result = wikidata_client.run_query(wikidata_client.GENRE_TREE_QUERY)
 
@@ -88,47 +88,47 @@ TRUNCATED_BODY = b'{"results": {"bindings": [{"item": {"type": "uri", "val\njava
 
 
 def _http_response(status: int = 200, content: bytes = b"", headers: dict[str, str] | None = None) -> httpx.Response:
-    return httpx.Response(status, content=content, headers=headers, request=httpx.Request("GET", "https://wdqs"))
+    return httpx.Response(status, content=content, headers=headers, request=httpx.Request("POST", "https://wdqs"))
 
 
 def test_run_query_retries_a_truncated_body_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
-    httpx_get = MagicMock(side_effect=[_http_response(content=TRUNCATED_BODY), _mock_response([])])
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(side_effect=[_http_response(content=TRUNCATED_BODY), _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     result = wikidata_client.run_query("SELECT * WHERE {}")
 
     assert result == []
-    assert httpx_get.call_count == 2
+    assert httpx_post.call_count == 2
 
 
 def test_run_query_reports_a_truncated_body_as_a_wdqs_timeout_after_exhausting_retries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    httpx_get = MagicMock(side_effect=lambda *_, **__: _http_response(content=TRUNCATED_BODY))
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(side_effect=lambda *_, **__: _http_response(content=TRUNCATED_BODY))
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     with pytest.raises(wikidata_client.WdqsTimeout, match="Idle timeout expired"):
         wikidata_client.run_query("SELECT * WHERE {}")
 
-    assert httpx_get.call_count == 3
+    assert httpx_post.call_count == 3
 
 
 def test_run_query_does_not_retry_a_rejected_query(monkeypatch: pytest.MonkeyPatch) -> None:
-    httpx_get = MagicMock(return_value=_http_response(400, b"MalformedQueryException"))
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(return_value=_http_response(400, b"MalformedQueryException"))
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     with pytest.raises(httpx.HTTPStatusError):
         wikidata_client.run_query("SELECT")
 
-    assert httpx_get.call_count == 1
+    assert httpx_post.call_count == 1
 
 
 def test_run_query_retries_a_server_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    httpx_get = MagicMock(side_effect=[_http_response(503), _mock_response([])])
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(side_effect=[_http_response(503), _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     assert wikidata_client.run_query("SELECT * WHERE {}") == []
-    assert httpx_get.call_count == 2
+    assert httpx_post.call_count == 2
 
 
 def _retry_state(response: httpx.Response) -> tenacity.RetryCallState:
@@ -170,7 +170,7 @@ def test_run_query_uses_given_variables_to_extract_bindings(monkeypatch: pytest.
             "indigenousToLabel": {"value": "Han Chinese"},
         }
     ]
-    monkeypatch.setattr(wikidata_client.httpx, "get", MagicMock(return_value=_mock_response(bindings)))
+    monkeypatch.setattr(wikidata_client.httpx, "post", MagicMock(return_value=_mock_response(bindings)))
 
     result = wikidata_client.run_query(
         wikidata_client.INDIGENOUS_TO_QUERY, variables=wikidata_client.INDIGENOUS_TO_QUERY_VARIABLES
@@ -186,13 +186,13 @@ def test_run_query_uses_given_variables_to_extract_bindings(monkeypatch: pytest.
 
 
 def test_run_query_retries_transport_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    httpx_get = MagicMock(side_effect=[httpx.ConnectError("boom"), _mock_response([])])
-    monkeypatch.setattr(wikidata_client.httpx, "get", httpx_get)
+    httpx_post = MagicMock(side_effect=[httpx.ConnectError("boom"), _mock_response([])])
+    monkeypatch.setattr(wikidata_client.httpx, "post", httpx_post)
 
     result = wikidata_client.run_query("SELECT * WHERE {}")
 
     assert result == []
-    assert httpx_get.call_count == 2
+    assert httpx_post.call_count == 2
 
 
 def _entities_response(entities: dict) -> MagicMock:
@@ -358,14 +358,41 @@ def test_cultural_entity_query_selects_items_that_several_countries_belong_to_as
     assert "wd:Q3024240" in query
 
 
-def test_cultural_entity_claim_query_reads_date_precision_and_skips_deprecated_statements() -> None:
-    date_query = wikidata_client.cultural_entity_claim_query("historical_country", "P571")
-    item_query = wikidata_client.cultural_entity_claim_query("historical_country", "P1366")
+def test_item_claims_queries_tag_each_property_branch_and_skip_deprecated_dates() -> None:
+    [query] = wikidata_client.item_claims_queries(["Q2", "Q1", "Q2"], ("P571", "P1366"))
 
-    assert "wikibase:timePrecision ?precision" in date_query
-    assert "DeprecatedRank" in date_query
-    assert "?item wdt:P1366 ?value ." in item_query
-    assert "precision" not in item_query.split("WHERE", 1)[1]
+    assert "VALUES ?item { wd:Q1 wd:Q2 }" in query
+    assert "wikibase:timePrecision ?precision" in query
+    assert "DeprecatedRank" in query
+    assert "?item wdt:P1366 ?value ." in query
+    assert 'BIND("P571" AS ?property)' in query
+    assert 'BIND("P1366" AS ?property)' in query
+    assert query.count("UNION") == 1
+
+
+def test_item_claims_queries_read_sitelinks_and_labels() -> None:
+    [query] = wikidata_client.item_claims_queries(["Q1"], (wikidata_client.SITELINKS_PID, wikidata_client.LABEL_PID))
+
+    assert "?item wikibase:sitelinks ?value ." in query
+    assert "SERVICE wikibase:label" in query
+    assert "?item rdfs:label ?value" in query
+    assert "AS ?value" not in query
+
+
+def test_item_claims_queries_split_the_items_into_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client, "ITEM_CLAIM_CHUNK", 2)
+
+    queries = wikidata_client.item_claims_queries(["Q3", "Q1", "Q2"], ("P571",))
+
+    assert len(queries) == 2
+    assert "VALUES ?item { wd:Q1 wd:Q2 }" in queries[0]
+    assert "VALUES ?item { wd:Q3 }" in queries[1]
+    assert wikidata_client.item_claims_queries([], ("P571",)) == []
+
+
+def test_item_claims_queries_raise_on_invalid_ids() -> None:
+    with pytest.raises(ValueError, match="Wikidata QIDs"):
+        wikidata_client.item_claims_queries(["Q1", "LOCAL:x"], ("P571",))
 
 
 def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countries() -> None:
@@ -382,10 +409,8 @@ def test_cultural_entity_query_selects_the_period_targets_of_cultures_and_countr
 def test_curated_entity_patterns_add_a_values_kind_for_the_listed_qids() -> None:
     patterns = wikidata_client.curated_entity_patterns(["Q123559", "Q141814080"])
     query = wikidata_client.cultural_entity_query("curated", patterns)
-    claim_query = wikidata_client.cultural_entity_claim_query("curated", "P571", patterns)
 
     assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in query
-    assert "VALUES ?item { wd:Q123559 wd:Q141814080 }" in claim_query
     assert list(patterns)[-1] == wikidata_client.CURATED_KIND
 
 
@@ -402,33 +427,6 @@ def test_curated_entity_patterns_raise_on_invalid_or_duplicate_ids(qids: list[st
 def test_country_query_excludes_great_homelands() -> None:
     query = wikidata_client.cultural_entity_query("country")
     assert f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{wikidata_client.GREAT_HOMELAND_QID} . }}" in query
-
-
-def test_tradition_candidate_patterns_select_music_genres_and_the_listed_extra_items() -> None:
-    patterns = wikidata_client.tradition_candidate_patterns(["Q2", "Q1", "Q2"])
-
-    assert patterns["music_genre"] == "?item wdt:P31 wd:Q188451 ."
-    assert patterns["curated"] == "VALUES ?item { wd:Q1 wd:Q2 }"
-    assert list(wikidata_client.tradition_candidate_patterns([])) == ["music_genre"]
-
-
-def test_tradition_candidate_patterns_raise_on_invalid_ids() -> None:
-    with pytest.raises(ValueError, match="Wikidata QIDs"):
-        wikidata_client.tradition_candidate_patterns(["not-a-qid"])
-
-
-def test_tradition_claim_query_reads_sitelinks_labels_dates_and_plain_claims() -> None:
-    patterns = wikidata_client.tradition_candidate_patterns([])
-
-    assert "?item wikibase:sitelinks ?value" in wikidata_client.tradition_claim_query(
-        "music_genre", "sitelinks", patterns
-    )
-    label_query = wikidata_client.tradition_claim_query("music_genre", "label", patterns)
-    assert "SERVICE wikibase:label" in label_query
-    assert "?item rdfs:label ?value" in label_query
-    assert "AS ?value" not in label_query
-    assert "psv:P571" in wikidata_client.tradition_claim_query("music_genre", "P571", patterns)
-    assert "?item wdt:P2596 ?value" in wikidata_client.tradition_claim_query("music_genre", "P2596", patterns)
 
 
 def test_cultural_entity_alias_query_reads_english_alt_labels_of_the_kind() -> None:
