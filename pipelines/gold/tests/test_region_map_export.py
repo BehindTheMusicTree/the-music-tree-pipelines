@@ -29,6 +29,7 @@ def _extend(
     entities: dict[str, tuple[str, object, str]] = {},
     containment: list[tuple[str, str]] = [],
     anchors: list[tuple[str, str]] = [],
+    overviews: dict[str, int] = {},
     regional: list[tuple[str, str | None]] = [],
 ) -> None:
     _append(geohistory / "1_cultural_entity.parquet", [(e, kind, e) for e, (kind, _, _) in entities.items()])
@@ -37,7 +38,10 @@ def _extend(
         [tuple(_geometry_row(e, shape, source).values()) for e, (_, shape, source) in entities.items()],
     )
     _append(geohistory / "2_place_containment.parquet", [(parent, child, "p") for parent, child in containment])
-    _append(geohistory / "5_music_anchor.parquet", [(item, anchor, "P495") for item, anchor in anchors])
+    _append(
+        geohistory / "5_music_anchor.parquet",
+        [(item, anchor, "P495", item in overviews, overviews.get(item)) for item, anchor in anchors],
+    )
     _append(wikidata / "8_regional_hierarchy.parquet", regional)
 
 
@@ -122,13 +126,19 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     ).write_parquet(geohistory / "2_place_containment.parquet")
     pl.DataFrame(
         [
-            ("Q1", "BR", "P495"),
-            ("Q2", "CE", "P495"),
-            ("Q3", "DE", "P495"),
-            ("Q4", "LG", "P495"),
-            ("Q5", "NOPE", "P495"),
+            ("Q1", "BR", "P495", False, None),
+            ("Q2", "CE", "P495", False, None),
+            ("Q3", "DE", "P495", False, None),
+            ("Q4", "LG", "P495", False, None),
+            ("Q5", "NOPE", "P495", False, None),
         ],
-        schema=["wikidata_id", "anchor_id", "rule"],
+        schema={
+            "wikidata_id": pl.String,
+            "anchor_id": pl.String,
+            "rule": pl.String,
+            "is_overview": pl.Boolean,
+            "overview_rank": pl.Int32,
+        },
         orient="row",
     ).write_parquet(geohistory / "5_music_anchor.parquet")
     pl.DataFrame(
@@ -365,7 +375,7 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     ]
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["unplacedGenreCount"] == 2
-    assert set(report) == {"unplacedGenreCount", "tileset"}
+    assert set(report) == {"unplacedGenreCount", "regionsWithoutOverview", "tileset"}
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -387,7 +397,14 @@ def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp
     ).write_parquet(geohistory / "8_entity_footprint.parquet")
     anchors = pl.read_parquet(geohistory / "5_music_anchor.parquet")
     pl.concat(
-        [anchors, pl.DataFrame([("Q6", "EG", "P495"), ("Q7", "CV", "P495")], schema=anchors.schema, orient="row")]
+        [
+            anchors,
+            pl.DataFrame(
+                [("Q6", "EG", "P495", False, None), ("Q7", "CV", "P495", False, None)],
+                schema=anchors.schema,
+                orient="row",
+            ),
+        ]
     ).write_parquet(geohistory / "5_music_anchor.parquet")
 
     index_path = export_region_map(geohistory, wikidata, match, output)
@@ -432,9 +449,15 @@ def test_export_region_map_warns_on_an_index_near_its_cap(
 
 def test_export_region_map_raises_without_regions(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
-    pl.DataFrame(schema={"wikidata_id": pl.String, "anchor_id": pl.String, "rule": pl.String}).write_parquet(
-        geohistory / "5_music_anchor.parquet"
-    )
+    pl.DataFrame(
+        schema={
+            "wikidata_id": pl.String,
+            "anchor_id": pl.String,
+            "rule": pl.String,
+            "is_overview": pl.Boolean,
+            "overview_rank": pl.Int32,
+        }
+    ).write_parquet(geohistory / "5_music_anchor.parquet")
 
     with pytest.raises(ValueError, match="no region"):
         export_region_map(geohistory, wikidata, match, output)
@@ -563,3 +586,48 @@ def test_run_tippecanoe_raises_on_dropped_features(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(region_map_export.subprocess, "run", lambda *a, **k: Result())
     with pytest.raises(RuntimeError, match="dropped features"):
         REAL_RUN_TIPPECANOE(["-o", "x"])
+
+
+def test_export_region_map_picks_the_overview_that_names_the_region(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        anchors=[("Q30", "FR"), ("Q31", "FR"), ("Q32", "BR")],
+        overviews={"Q30": 1, "Q31": 0, "Q32": 0},
+        regional=[("Q30", None), ("Q31", None), ("Q32", None)],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert regions["FR"]["overviewItemId"] == "Q31"
+    assert regions["BR"]["overviewItemId"] == "Q32"
+    assert regions["DE"]["overviewItemId"] is None
+
+
+def test_export_region_map_ignores_unranked_overviews_and_traditions(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        anchors=[("Q30", "FR")],
+        overviews={"Q30": None},
+        regional=[("Q30", None)],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert regions["FR"]["overviewItemId"] is None
+    assert regions["DE"]["overviewItemId"] is None
+
+
+def test_export_region_map_makes_a_zone_drillable_through_its_member_regions(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    document = json.loads(export_region_map(geohistory, wikidata, match, output).read_text())
+    regions = {r["id"]: r for r in document["regions"]}
+
+    assert regions["CE"]["childIds"] == ["BR"] and regions["CE"]["drillable"] is True
+    assert "CE" in document["worldZoneIds"]
+    assert set(document["worldChildIds"]) == {"FR", "DE"}
+    assert set(document) >= {"regions", "worldChildIds", "worldZoneIds"}
