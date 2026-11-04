@@ -64,7 +64,7 @@ def _key(list_name: str, row: dict) -> str:
 
 
 def _key_conflict(
-    list_name: str, row: dict, column: str, target: str, colliding_lists: set[str], keys: dict[str, set[str]]
+    list_name: str, row: dict, column: str, target: str, colliding_lists: frozenset[str], keys: dict[str, set[str]]
 ) -> str | None:
     if column not in KEY_COLUMNS.get(list_name, ("item_id",)):
         return None
@@ -129,7 +129,7 @@ def resolve_curation_qids(
     remaps: list[dict[str, str]] = []
     review: list[dict] = []
     for name, df in lists.items():
-        colliding_lists = EXCLUSIVE_LISTS if name in EXCLUSIVE_LISTS else {name}
+        colliding_lists = EXCLUSIVE_LISTS if name in EXCLUSIVE_LISTS else frozenset({name})
         rows = df.to_dicts()
         kept = []
         changed = False
