@@ -10,14 +10,15 @@ ENTITIES = [
     ("mor", "historical_region", "Morbihan"),
     ("us", "country", "United States"),
     ("ge", "country", "Georgia"),
-    ("gaus", "historical_region", "Georgia"),
+    ("gaus", "admin_unit", "Georgia"),
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
-    ("bre_z", "historical_country", "Brittany"),
+    ("bre_z", "cultural_region", "Brittany"),
     ("duchy", "historical_country", "Brittany"),
     ("es", "country", "Spain"),
     ("gal", "admin_unit", "Galicia"),
     ("gal_ee", "historical_region", "Galicia"),
+    ("gal_c", "cultural_region", "Galicia"),
     ("gal_k", "historical_country", "Galicia"),
     ("uk", "country", "United Kingdom"),
     ("sco", "cultural_region", "Scotland"),
@@ -256,10 +257,22 @@ def test_ambiguous_label_prefers_a_current_place_over_a_historical_state(tmp_pat
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("sco", "label")
 
 
-def test_ambiguous_label_without_a_claimed_place_is_listed(tmp_path):
+def test_label_without_any_claim_prefers_a_current_place_over_historical_ones(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia"), label("Q2", "music of Scotland")])
+    assert (anchors["Q2"]["anchor_id"], anchors["Q2"]["rule"]) == ("sco", "label")
+    assert "Q1" not in anchors and unplaced.rows() == [("Q1", "music of Georgia", "gaus|ge")]
+
+
+def test_label_with_several_current_places_and_no_claimed_place_is_listed(tmp_path):
     anchors, _ = run(tmp_path, [label("Q1", "music of Galicia"), claim("Q1", "P17", "Q29")])
     assert anchors["Q1"]["anchor_id"] == "es"
-    assert ambiguous(tmp_path).rows() == [("Q1", "music of Galicia", "gal|gal_ee|gal_k")]
+    assert ambiguous(tmp_path).rows() == [("Q1", "music of Galicia", "gal|gal_c|gal_ee|gal_k")]
+
+
+def test_era_only_label_does_not_discard_a_claim_outside_every_match(tmp_path):
+    claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q30")]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("us", "P17")
 
 
 def test_overview_naming_its_country_keeps_names_anchor(tmp_path):

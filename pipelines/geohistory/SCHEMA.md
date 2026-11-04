@@ -203,7 +203,7 @@ matched, empty when none) of the overviews without anchor.
 
 `5_music_anchor_ambiguous.csv`: `wikidata_id`, `label`, `match_ids` (the `|`-joined places) of the overviews whose label
 still names several places after narrowing by the places the genre claims and preferring a current place over a historical
-state. These overviews get no `label` candidate.
+state (also when the genre claims no place). These overviews get no `label` candidate.
 
 ### 2.6 5_tradition files
 
