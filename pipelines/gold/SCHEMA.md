@@ -12,7 +12,7 @@ Data dictionary for `gold`. See [README.md#pipeline](README.md#pipeline) for the
 
 ## 1. Inputs
 
-- `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`: `item_id, item_label, item_url, parent_id, parent_label, parent_url, relation_type` — see `pipelines/wikidata/SCHEMA.md`. Both are `genre_match` targets; `4_regional_classification.parquet`'s `is_regional_overview` excludes the regional overview items from them.
+- `wikidata`'s `7_canonical_hierarchy.parquet` and `8_regional_hierarchy.parquet`: `item_id, item_label, item_url, parent_id, parent_label, parent_url, relation_type` — see `pipelines/wikidata/SCHEMA.md`. Both are `genre_match` targets; `4_regional_classification.parquet`'s `is_regional_overview` with the regional hierarchy's parents decides which overviews are targets: one with sub-genres is an umbrella target, one without is excluded.
 - `wikidata`'s Bronze `wikidata_genre_descriptions.parquet` (`WIKIDATA_BRONZE_DIR`): the source of the tree nodes' `description` and Wikipedia `summary` — see `pipelines/wikidata/SCHEMA.md`.
 - `musicbrainz`'s `10_song_genre.parquet` (`musicbrainz_recording_id, level, genre_name, weight`) and `13_artist_genre.parquet` (`artist_musicbrainz_id, genre_name, weight`) — see `pipelines/musicbrainz/SCHEMA.md`.
 - `musicbrainz`'s `6_artists.parquet`, `7_artist_members.parquet`, `8_artist_links.parquet`, `9_artist_release_groups.parquet`, `11_artist_aliases.parquet` — see `pipelines/musicbrainz/SCHEMA.md`.
