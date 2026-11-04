@@ -208,8 +208,8 @@ As of this writing: 24,864 rows (languoid 11,925, historical_country 5,026, hist
 
 ### 2.6 wikidata_cultural_entity_claim.parquet
 
-One row per (item, property, value) claim of a cultural entity of any kind, one query per (kind ×
-property). Deprecated statements are excluded. See `wikidata_client.cultural_entity_claim_query`.
+One row per (item, property, value) claim of an item of `wikidata_cultural_entity.parquet`, whatever its kind.
+Deprecated statements are excluded. See `wikidata_client.item_claims_queries`.
 
 | Column         | Type | Meaning                                                                                                               |
 | -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
