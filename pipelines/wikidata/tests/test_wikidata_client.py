@@ -435,8 +435,20 @@ def test_cultural_entity_alias_query_reads_english_alt_labels_of_the_kind() -> N
     query = wikidata_client.cultural_entity_alias_query("country")
 
     assert wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS["country"] in query
-    assert "?item skos:altLabel ?alias ." in query
+    assert "?item skos:altLabel ?alias" in query
+    assert "?item rdfs:label ?alias" in query
     assert 'FILTER(LANG(?alias) = "en")' in query
+
+
+def test_admin_alias_query_reads_the_english_names_of_the_p131_chains() -> None:
+    query = wikidata_client.admin_alias_query(["Q12642", "Q90"])
+
+    assert "VALUES ?seed { wd:Q12642 wd:Q90 }" in query
+    assert "?seed wdt:P131* ?item ." in query
+    assert "?item skos:altLabel ?alias" in query
+    assert "?item rdfs:label ?alias" in query
+    with pytest.raises(ValueError, match="QIDs"):
+        wikidata_client.admin_alias_query(["nope"])
 
 
 def test_admin_hierarchy_query_walks_p131_chains_from_the_seeds() -> None:

@@ -567,6 +567,23 @@ def test_ingest_cultural_entity_aliases_keeps_one_row_per_item_and_alias(
     assert pl.read_parquet(result).rows() == [("Q12130", "Bretagne")]
 
 
+def test_ingest_cultural_entity_aliases_adds_the_names_of_admin_units(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run_query = MagicMock(
+        side_effect=[
+            [{"item": "http://www.wikidata.org/entity/Q142", "alias": "France"}],
+            [{"item": "http://www.wikidata.org/entity/Q6543", "alias": "Khakassia"}],
+        ]
+    )
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1"}, ["Q6543"])
+
+    assert "VALUES ?seed { wd:Q6543 }" in run_query.call_args_list[1].args[0]
+    assert pl.read_parquet(result).rows() == [("Q142", "France"), ("Q6543", "Khakassia")]
+
+
 def test_ingest_cultural_entity_aliases_raises_on_empty_results(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

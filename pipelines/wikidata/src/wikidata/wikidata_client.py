@@ -256,10 +256,37 @@ def cultural_entity_alias_query(kind: str, patterns: Mapping[str, str] = CULTURA
     return f"""
 SELECT DISTINCT ?item ?alias WHERE {{
   {patterns[kind]}
-  ?item skos:altLabel ?alias .
-  FILTER(LANG(?alias) = "en")
+  {_ENGLISH_NAMES}
 }}
 """
+
+
+# The main label is a name too: "Khakassia" is the alias of Q6543 but "Republic of Khakassia" is its label, and an
+# overview titled "music of <name>" must find the place under either.
+_ENGLISH_NAMES = '{ ?item skos:altLabel ?alias } UNION { ?item rdfs:label ?alias } FILTER(LANG(?alias) = "en")'
+
+
+# Admin units come from the P131 chains of the Natural Earth seeds, not from a cultural-entity kind, so their names
+# need their own query (same chains as `admin_hierarchy_query`).
+def admin_alias_query(seed_qids: Sequence[str]) -> str:
+    invalid = [qid for qid in seed_qids if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"admin alias seeds must be Wikidata QIDs, got {invalid[:5]}")
+    return f"""
+SELECT DISTINCT ?item ?alias WHERE {{
+  hint:Query hint:optimizer "None" .
+  VALUES ?seed {{ {" ".join(f"wd:{qid}" for qid in seed_qids)} }}
+  ?seed wdt:P131* ?item .
+  {_ENGLISH_NAMES}
+}}
+"""
+
+
+def admin_alias_queries(seed_qids: Sequence[str]) -> list[str]:
+    seeds = sorted(set(seed_qids))
+    return [
+        admin_alias_query(seeds[start : start + ADMIN_SEED_CHUNK]) for start in range(0, len(seeds), ADMIN_SEED_CHUNK)
+    ]
 
 
 ADMIN_HIERARCHY_QUERY_VARIABLES = ("item", "property", "value", "itemLabel")
