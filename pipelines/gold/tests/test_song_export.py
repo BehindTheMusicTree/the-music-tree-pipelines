@@ -109,8 +109,15 @@ def _write_silver(tmp_path: Path) -> Path:
     pl.DataFrame(schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(
         silver_dir / "5_secondary_parents.parquet"
     )
-    pl.DataFrame({"item_id": ["Q10"], "item_label": ["samba"]}).write_parquet(
-        silver_dir / "8_regional_hierarchy.parquet"
+    pl.DataFrame(
+        {
+            "item_id": ["Q10", "Q11", "Q12"],
+            "item_label": ["samba", "samba de roda", "music of Brazil"],
+            "parent_id": [None, "Q10", None],
+        }
+    ).write_parquet(silver_dir / "8_regional_hierarchy.parquet")
+    pl.DataFrame({"item_id": ["Q10", "Q11", "Q12"], "is_regional_overview": [False, False, True]}).write_parquet(
+        silver_dir / "4_regional_classification.parquet"
     )
     return silver_dir
 
@@ -151,6 +158,7 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "youtube_view_count": 1234,
         "first_release_year": 1977,
         "genre_name": "jazz",
+        "genre_wikidata_id": "Q4",
     }
     assert songs[4]["youtube_video_id"] is None
 
@@ -270,7 +278,13 @@ def test_export_songs_applies_song_genre_overrides(
         export_songs(_write_genre_match(tmp_path), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
     )
 
-    assert [song["genre_name"] for song in songs] == [None, "jazz", "Punk", "samba", None]
+    assert [(song["genre_name"], song["genre_wikidata_id"]) for song in songs] == [
+        (None, None),
+        ("jazz", "Q4"),
+        ("Punk", "Q2"),
+        ("samba", "Q10"),
+        (None, None),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -283,6 +297,7 @@ def test_export_songs_applies_song_genre_overrides(
         ),
         ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
         ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q3", "reason": "x"}, "umbrella"),
+        ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q12", "reason": "x"}, "overview"),
         ("song_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
     ],
 )
@@ -340,6 +355,30 @@ def test_export_songs_override_drops_secondaries_its_genre_is_or_beats(
     ).collect()
 
     assert songs[0, "secondary_genre_item_ids"].to_list() == expected
+
+
+def test_export_songs_regional_override_drops_its_regional_ancestors(
+    tmp_path: Path, curation_dir: Path, write_curation: Callable[[str, list[dict[str, str]]], None]
+) -> None:
+    write_curation("song_genre", [{"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q11", "reason": "x"}])
+    row = {**MATCH_ROWS[0], "secondary_genre_item_ids": ["Q10", "Q4"]}
+
+    lazy_songs = pl.scan_parquet(_write_genre_match(tmp_path, rows=[row])).select(
+        "musicbrainz_recording_id",
+        "secondary_genre_item_ids",
+        genre_item_id=pl.col("wikidata_genre_item_id"),
+    )
+    silver_dir = _write_silver(tmp_path)
+
+    songs = _apply_recording_overrides(
+        lazy_songs, _genre_names_by_item_id(silver_dir), silver_dir, curation_dir
+    ).collect()
+
+    assert songs.select("genre_name", "genre_wikidata_id", "secondary_genre_item_ids").row(0) == (
+        "samba de roda",
+        "Q11",
+        ["Q4"],
+    )
 
 
 def test_export_songs_raises_on_genre_among_its_secondaries(tmp_path: Path, curation_dir: Path) -> None:
