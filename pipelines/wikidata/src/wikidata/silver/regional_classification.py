@@ -127,8 +127,14 @@ def _read_manual_parents(path: Path, parent_column: str) -> pl.DataFrame:
     manual = manual.select(
         pl.col("item_id").str.strip_chars(),
         pl.col(parent_column).str.strip_chars().alias("parent_item_id"),
-        exclude_other_parents=pl.col("exclude_other_parents").str.strip_chars().str.to_lowercase().eq("true"),
+        exclude_other_parents=pl.col("exclude_other_parents").str.strip_chars().str.to_lowercase(),
     )
+    invalid_flags = manual.filter(
+        pl.col("exclude_other_parents").is_not_null() & ~pl.col("exclude_other_parents").is_in(["", "true", "false"])
+    )
+    if not invalid_flags.is_empty():
+        raise ValueError(f"{path.name} exclude_other_parents must be true, false or blank: {invalid_flags.rows()}")
+    manual = manual.with_columns(exclude_other_parents=pl.col("exclude_other_parents").eq("true"))
     blank = manual.filter(
         pl.col("item_id").is_null()
         | (pl.col("item_id") == "")

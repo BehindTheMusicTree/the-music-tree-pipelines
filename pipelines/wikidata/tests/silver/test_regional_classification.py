@@ -437,6 +437,11 @@ def test_classify_regional_genres_keeps_other_edges_of_manual_parent_item(tmp_pa
         # Portuguese folk music is regional, popular music canonical
         ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q106556293"}], "not canonical"),
         ("regional_genre_parent", [{"item_id": "Q1198131", "parent_item_id": "Q9778"}], "not regional"),
+        (
+            "canonical_parent",
+            [{"item_id": "Q1198131", "parent_item_id": "Q9778", "exclude_other_parents": "yes"}],
+            "true, false or blank",
+        ),
     ],
 )
 def test_classify_regional_genres_validates_manual_parents(
