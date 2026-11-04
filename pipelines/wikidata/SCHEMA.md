@@ -32,7 +32,7 @@ pipeline overview.
     - [3.3 2_non_genre_pruning](#33-2_non_genre_pruning)
     - [3.4 3_regional_overview_classification](#34-3_regional_overview_classification)
     - [3.5 4_regional_classification](#35-4_regional_classification)
-    - [3.6 5_main_parent_selection](#36-5_main_parent_selection)
+    - [3.6 5_parent_selection](#36-5_parent_selection)
     - [3.7 6_canonical_parents](#37-6_canonical_parents)
     - [3.8 7_canonical_hierarchy](#38-7_canonical_hierarchy)
     - [3.9 8_regional_hierarchy](#39-8_regional_hierarchy)
@@ -295,9 +295,9 @@ manual CSV backstops (theme/technique/out-of-scope items — see
 every step downstream works with a smaller, cleaner tree. `3_regional_overview_classification` and
 `4_regional_classification` preserve whatever grain they receive unchanged aside from their own
 added columns (`4_regional_classification` also injects one synthetic edge per
-`manual_main_parent.csv` row — see below). `5_main_parent_selection` is the step that collapses
-each item down to exactly one main-parent edge, splitting every other candidate parent edge off
-into a sibling `5_secondary_parents.parquet` rather than dropping it; `6_canonical_parents`
+curated parent row — see below). `5_parent_selection` is the step that collapses
+each item down to one anchor parent edge, recording its parents on all three axes and splitting
+the other candidates off into a sibling `5_secondary_parents.parquet` rather than dropping them; `6_canonical_parents`
 preserves that one-row-per-item grain unchanged aside from its own added column.
 `7_canonical_hierarchy` and `8_regional_hierarchy` are the steps that prune to the final hierarchy
 shape — see below.
@@ -309,9 +309,9 @@ shape — see below.
 | [`1_item_links`](#32-1_item_links)                                          | Bronze `wikidata_genre_tree.parquet`, `manual_label_overrides.csv`, `manual_capitalized_words.csv` | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label`, `item_display_label`, `parent_display_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
 | [`2_non_genre_pruning`](#33-2_non_genre_pruning)                            | `1_item_links.parquet`, `manual_theme_genres.csv`, `manual_technique_genres.csv`, `manual_out_of_scope_genres.csv` | `2_non_genre_pruning.parquet`                                                | none — drops rows only              | theme/technique/out-of-scope items dropped entirely (see [DESIGN.md#21-2_non_genre_pruning](DESIGN.md#21-2_non_genre_pruning))                                                    |
 | [`3_regional_overview_classification`](#34-3_regional_overview_classification) | `2_non_genre_pruning.parquet`                | `3_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,729 rows (299 of 6,344 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
-| [`4_regional_classification`](#35-4_regional_classification)                | `3_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `manual_regional_overrides.csv`, `manual_main_parent.csv` | `4_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 remaining items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_override, 1,614 direct, 1,547 inherited (see [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification))                                      |
-| [`5_main_parent_selection`](#36-5_main_parent_selection)                    | `4_regional_classification.parquet`          | `5_main_parent_selection.parquet`, `5_secondary_parents.parquet`             | none — selects/splits rows only     | collapses every item to exactly one main-parent edge (manual override wins, else lowest-QID); all other candidate edges kept in `5_secondary_parents.parquet` |
-| [`6_canonical_parents`](#37-6_canonical_parents)                            | `5_main_parent_selection.parquet`            | `6_canonical_parents.parquet`                                                | `parent_is_canonical`               | flags whether each item's chosen main parent is itself an actual musical style |
+| [`4_regional_classification`](#35-4_regional_classification)                | `3_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `manual_canonical_parent.csv`, `manual_regional_genre_parent.csv`, `manual_regional_overviews.csv`, `manual_canonical_overrides.csv` | `4_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 remaining items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_regional_overview, 1,614 direct, 1,547 inherited (see [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification))                                      |
+| [`5_parent_selection`](#36-5_parent_selection)                              | `4_regional_classification.parquet`          | `5_parent_selection.parquet`, `5_secondary_parents.parquet`                  | `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` | collapses every item to one anchor parent edge and records its parents per axis (curated edge wins, else lowest-QID); other canonical/regional-genre candidates kept in `5_secondary_parents.parquet` |
+| [`6_canonical_parents`](#37-6_canonical_parents)                            | `5_parent_selection.parquet`                 | `6_canonical_parents.parquet`                                                | `canonical_parent_is_genre`         | flags whether each item's anchor parent is itself an actual musical style |
 | [`7_canonical_hierarchy`](#38-7_canonical_hierarchy)                        | `6_canonical_parents.parquet`                | `7_canonical_hierarchy.parquet`                                              | prunes to one row per `item_id` (canonical only) | clean, one-parent-per-item canonical edge list |
 | [`8_regional_hierarchy`](#39-8_regional_hierarchy)                          | `6_canonical_parents.parquet`                | `8_regional_hierarchy.parquet`                                               | prunes to one row per `item_id` (regional only) | clean, one-parent-per-item regional edge list |
 | [`9_canonical_roots`](#310-9_canonical_roots)                               | `7_canonical_hierarchy.parquet`, `manual_accepted_canonical_roots.csv` | `9_canonical_roots.parquet`                                                  | filters to root items, `is_accepted` | for manual exploration of the "too many roots" open question (see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) |
@@ -407,17 +407,20 @@ will drift as Wikidata's live genre tree changes.
 `4_regional_classification.parquet`: `3_regional_overview_classification.parquet` unchanged aside from two added
 columns flagging whether each row's `item_id` is a **regional genre** — nationally or ethnically
 specific (e.g. "morna", "fado", and the "music of X" seed items themselves), as opposed to a genre
-with no particular regional grounding (e.g. "rock music"). This step also reads `manual_main_parent.csv`
-and, before the cascade below runs, injects one synthetic edge per row (tagged
-`relation_type = "manual_main_parent"`) — a data expert's explicit main-parent pick for an item,
-consumed downstream by [`5_main_parent_selection`](#36-5_main_parent_selection). See
+with no particular regional grounding (e.g. "rock music"). This step also reads the three curated parent lists and,
+before the cascade below runs, injects one synthetic edge per row — tagged
+`relation_type = "manual_canonical_parent"` (`manual_canonical_parent.csv`),
+`"manual_regional_genre_parent"` (`manual_regional_genre_parent.csv`) or
+`"manual_regional_overview"` (`manual_regional_overviews.csv`) — a data expert's explicit parent
+pick for an item on one axis, consumed downstream by [`5_parent_selection`](#36-5_parent_selection).
+Items in `manual_canonical_overrides.csv` are never flagged regional. See
 [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification) for why this step
 reads the extra Bronze/CSV inputs, its seeding/cascade rule, and open caveats.
 
 | Column          | Type | Meaning                                                                               |
 | --------------- | ---- | ------------------------------------------------------------------------------------- |
 | is_regional     | bool | Whether `item_id` is a regional genre — set for every item, including non-genre items |
-| regional_reason | str? | `"seed"`, `"indigenous_to"`, `"manual_override"`, `"direct"`, `"inherited"`, or null |
+| regional_reason | str? | `"seed"`, `"indigenous_to"`, `"manual_regional_overview"`, `"direct"`, `"inherited"`, or null |
 
 **Data profile (as of this writing):**
 
@@ -428,7 +431,7 @@ reads the extra Bronze/CSV inputs, its seeding/cascade rule, and open caveats.
 | `is_regional = false`                     |          2,525 |
 | `regional_reason = "seed"`                |            359 |
 | `regional_reason = "indigenous_to"`       |            179 |
-| `regional_reason = "manual_override"`     |            180 |
+| `regional_reason = "manual_regional_overview"` |      180 |
 | `regional_reason = "direct"`              |          1,614 |
 | `regional_reason = "inherited"`           |          1,547 |
 
@@ -436,51 +439,61 @@ Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (r
 `SILVER_OUTPUT_DIR/4_regional_classification.parquet`, read-only, no new data fetched) — these
 numbers will drift as Wikidata's live genre tree changes.
 
-### 3.6 5_main_parent_selection
+### 3.6 5_parent_selection
 
-`5_main_parent_selection.parquet` / `5_secondary_parents.parquet`: the first Silver step that
-actually prunes rather than flags. Reads `4_regional_classification.parquet` and, for every item
-with more than one candidate parent edge, picks exactly one as that item's **main** parent — a
-`manual_main_parent.csv` override (already injected as a synthetic edge tagged
-`relation_type = "manual_main_parent"` in `4_regional_classification`, see
-[3.5 4_regional_classification](#35-4_regional_classification)) wins if present, otherwise the
-candidate with the lowest numeric QID is picked as a provisional heuristic. Every other candidate
-edge is not dropped — it's written to the sibling `5_secondary_parents.parquet` instead. See
-[DESIGN.md#24-5_main_parent_selection](DESIGN.md#24-5_main_parent_selection) for the full rule and
-its provisional/trial-and-error caveat.
+`5_parent_selection.parquet` / `5_secondary_parents.parquet`: the first Silver step that
+actually prunes rather than flags. Reads `4_regional_classification.parquet` and splits each item's
+candidate parent edges into three axes — canonical parent, regional genre parent, regional overviews —
+picking at most one parent on each of the first two and keeping every overview not already reached
+through another of the item's parents. A curated edge (injected in
+[3.5 4_regional_classification](#35-4_regional_classification)) wins its axis, otherwise a parent that
+is a genre item, then the lowest numeric QID, as a provisional heuristic. See
+[DESIGN.md#24-5_parent_selection](DESIGN.md#24-5_parent_selection) for the full rule and its
+provisional/trial-and-error caveat.
 
-`5_main_parent_selection.parquet` has the exact same schema as
-[`4_regional_classification.parquet`](#35-4_regional_classification) (every column is carried
-through unchanged) but is reduced to one row per `item_id`.
+`5_parent_selection.parquet` has the same columns as
+[`4_regional_classification.parquet`](#35-4_regional_classification), reduced to one row per
+`item_id` whose edge columns describe the item's **anchor** parent (its regional genre parent, else its
+first overview, when the item is regional; its canonical parent otherwise), plus:
 
-`5_secondary_parents.parquet` — one row per demoted candidate parent edge:
+| Column                   | Type      | Meaning                                                                                             |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
+| canonical_parent_id      | str?      | The selected parent that is a canonical genre or lies outside the tree, or null                    |
+| regional_genre_parent_id | str?      | The selected parent that is a regional genre (not an overview), or null                            |
+| regional_overview_ids    | list[str] | The kept "music of `<place>`" parents, by ascending QID; empty when none                           |
 
-| Column        | Type | Meaning                                                                          |
-| ------------- | ---- | ---------------------------------------------------------------------------------- |
-| item_id       | str  | Wikidata QID of the genre (e.g. `Q133687529`)                                    |
-| item_label    | str  | Same English/`mul`-fallback label as in `1_item_links` (see above), for `item_id`  |
-| item_url      | str  | `https://www.wikidata.org/wiki/` + `item_id`                                     |
-| parent_id     | str  | QID of this demoted candidate parent                                             |
-| parent_label  | str  | Same fallback as `item_label`, for `parent_id`                                    |
-| parent_url    | str  | `https://www.wikidata.org/wiki/` + `parent_id`                                   |
-| relation_type | str? | `"P279"` or `"P361"` — which property produced this edge, or `"manual_main_parent"` if a manual override lost to another manual override's edge |
+`5_secondary_parents.parquet` — one row per candidate parent edge not selected on the canonical or
+regional-genre axis:
 
-An item with only one candidate parent (or none — a root) never produces a `5_secondary_parents`
-row.
+| Column               | Type | Meaning                                                                          |
+| -------------------- | ---- | ---------------------------------------------------------------------------------- |
+| item_id              | str  | Wikidata QID of the genre (e.g. `Q133687529`)                                    |
+| item_label           | str  | Same English/`mul`-fallback label as in `1_item_links` (see above), for `item_id`  |
+| item_display_label   | str  | Same as in `1_item_links`, for `item_id`                                          |
+| item_url             | str  | `https://www.wikidata.org/wiki/` + `item_id`                                     |
+| parent_id            | str  | QID of this demoted candidate parent                                             |
+| parent_label         | str  | Same fallback as `item_label`, for `parent_id`                                    |
+| parent_display_label | str  | Same as in `1_item_links`, for `parent_id`                                        |
+| parent_url           | str  | `https://www.wikidata.org/wiki/` + `parent_id`                                   |
+| relation_type        | str? | `"P279"` or `"P361"` — which property produced this edge                         |
+
+An item with at most one candidate per axis (or none — a root), or whose curated edge sets
+`exclude_other_parents`, never produces a `5_secondary_parents` row for that axis. Overviews dropped
+by the reduction aren't written either.
 
 Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
-`SILVER_OUTPUT_DIR/5_main_parent_selection.parquet` and `SILVER_OUTPUT_DIR/5_secondary_parents.parquet`,
+`SILVER_OUTPUT_DIR/5_parent_selection.parquet` and `SILVER_OUTPUT_DIR/5_secondary_parents.parquet`,
 read-only, no new data fetched) — these numbers will drift as Wikidata's live genre tree changes.
 
 ### 3.7 6_canonical_parents
 
-`6_canonical_parents.parquet`: `5_main_parent_selection.parquet` unchanged, plus one column flagging
-whether each row's (now single, main) `parent_id` is itself an actual musical style. See
+`6_canonical_parents.parquet`: `5_parent_selection.parquet` unchanged, plus one column flagging
+whether each row's anchor `parent_id` is itself an actual musical style. See
 [DESIGN.md#25-6_canonical_parents](DESIGN.md#25-6_canonical_parents) for the classification rule.
 
-| Column              | Type  | Meaning                                                                                                                    |
-| ------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| parent_is_canonical | bool? | Whether `parent_id` is `is_regional_overview = False` in `3_regional_overview_classification`; null for root rows (`parent_id` is null) |
+| Column                    | Type  | Meaning                                                                                                                                  |
+| ------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| canonical_parent_is_genre | bool? | Whether `parent_id` is `is_regional_overview = False` in `3_regional_overview_classification`; null for root rows (`parent_id` is null) |
 
 Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/6_canonical_parents.parquet`, read-only, no new data fetched) — these numbers will
@@ -492,7 +505,7 @@ drift as Wikidata's live genre tree changes.
 non-regional genre item, producing a clean, directly-consumable canonical genre hierarchy edge
 list — excluding every `is_regional = true` item (see
 [3.9 8_regional_hierarchy](#39-8_regional_hierarchy) for those). Since
-`5_main_parent_selection` already collapsed every item to a single parent edge upstream, this step
+`5_parent_selection` already collapsed every item to a single anchor parent edge upstream, this step
 only needs to prune to same-graph edges (dropping/promoting items whose sole parent points outside
 the canonical set) — no further multi-parent collapse happens here. See
 [DESIGN.md#26-7_canonical_hierarchy](DESIGN.md#26-7_canonical_hierarchy) for the pruning rule and
@@ -510,7 +523,7 @@ run earlier, in `2_non_genre_pruning` — see
 | parent_label  | str? | Same fallback as `item_label`, for `parent_id`, or null                                           |
 | parent_display_label | str? | Same as in `1_item_links`, for `parent_id`, or null |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
-| relation_type | str? | `"P279"`, `"P361"`, or `"manual_main_parent"` — which property/source produced this edge, or null for a root row |
+| relation_type | str? | `"P279"`, `"P361"`, `"manual_canonical_parent"`, `"manual_regional_genre_parent"` or `"manual_regional_overview"` — which property/source produced this edge, or null for a root row |
 | is_umbrella | bool | `true` when `item_id` is in `manual_umbrella_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
 
 Genre items with zero surviving rows in _either_ this output or `8_regional_hierarchy` (the silent
@@ -540,7 +553,7 @@ collapse needed" property as `7_canonical_hierarchy`, for the same reason. See
 | parent_id     | str? | QID of the single chosen parent, or null for a root                              |
 | parent_label  | str? | Same fallback as `item_label`, for `parent_id`, or null                                           |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
-| relation_type | str? | `"P279"`, `"P361"`, or `"manual_main_parent"` — which property/source produced this edge, or null for a root row |
+| relation_type | str? | `"P279"`, `"P361"`, `"manual_canonical_parent"`, `"manual_regional_genre_parent"` or `"manual_regional_overview"` — which property/source produced this edge, or null for a root row |
 
 Regenerate with `uv run --package wikidata python -m wikidata.silver.profile` (reads
 `SILVER_OUTPUT_DIR/6_canonical_parents.parquet`, `SILVER_OUTPUT_DIR/7_canonical_hierarchy.parquet`, and

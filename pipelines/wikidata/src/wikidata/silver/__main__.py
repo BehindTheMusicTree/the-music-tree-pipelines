@@ -15,8 +15,8 @@ from wikidata.silver.commons_image_metadata import commons_image_metadata
 from wikidata.silver.curation_items import write_curation_items
 from wikidata.silver.curation_resolution import resolve_curation_qids
 from wikidata.silver.item_links import add_item_links
-from wikidata.silver.main_parent_selection import select_main_parents
 from wikidata.silver.non_genre_pruning import prune_non_genre_items
+from wikidata.silver.parent_selection import select_parents
 from wikidata.silver.regional_classification import classify_regional_genres
 from wikidata.silver.regional_hierarchy import prune_regional_hierarchy
 from wikidata.silver.regional_overview_classification import classify_regional_from_overviews
@@ -65,17 +65,19 @@ with step("classify_regional_genres"):
     regional_classification_path = classify_regional_genres(
         regional_overview_classification_path,
         bronze_dir / "wikidata_genre_indigenous_to.parquet",
-        curation_dir / "manual_regional_overrides.csv",
         curation_dir / "manual_canonical_parent_additions.csv",
-        curation_dir / "manual_main_parent.csv",
+        curation_dir / "manual_canonical_parent.csv",
+        curation_dir / "manual_regional_genre_parent.csv",
+        curation_dir / "manual_regional_overviews.csv",
+        curation_dir / "manual_canonical_overrides.csv",
         curation_dir / "manual_accepted_canonical_roots.csv",
         curation_dir / "manual_indigenous_to_exclusions.csv",
         silver_dir,
     )
-with step("select_main_parents"):
-    main_parent_selection_path, _secondary_parents_path = select_main_parents(regional_classification_path, silver_dir)
+with step("select_parents"):
+    parent_selection_path, _secondary_parents_path = select_parents(regional_classification_path, silver_dir)
 with step("flag_canonical_parents"):
-    canonical_parents_path = flag_canonical_parents(main_parent_selection_path, silver_dir)
+    canonical_parents_path = flag_canonical_parents(parent_selection_path, silver_dir)
 with step("prune_canonical_hierarchy"):
     canonical_hierarchy_path = prune_canonical_hierarchy(
         canonical_parents_path, curation_dir / "manual_umbrella_genres.csv", silver_dir

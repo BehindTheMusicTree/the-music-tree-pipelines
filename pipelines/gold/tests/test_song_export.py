@@ -110,6 +110,15 @@ def _write_silver(tmp_path: Path) -> Path:
         silver_dir / "5_secondary_parents.parquet"
     )
     pl.DataFrame(
+        schema={
+            "item_id": pl.Utf8,
+            "parent_id": pl.Utf8,
+            "canonical_parent_id": pl.Utf8,
+            "regional_genre_parent_id": pl.Utf8,
+            "regional_overview_ids": pl.List(pl.Utf8),
+        }
+    ).write_parquet(silver_dir / "5_parent_selection.parquet")
+    pl.DataFrame(
         {
             "item_id": ["Q10", "Q11", "Q12"],
             "item_label": ["samba", "samba de roda", "music of Brazil"],

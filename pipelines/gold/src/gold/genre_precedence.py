@@ -4,20 +4,19 @@ from pathlib import Path
 import polars as pl
 
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
-from gold.genre_tree_builder import load_extra_parent_edges
+from gold.genre_tree_builder import load_extra_parent_edges, load_selected_parent_edges
 
 logger = logging.getLogger(__name__)
 
 PRECEDENCE_CSV = "manual_genre_precedence.csv"
 
 
-def _lineage_edges(hierarchy: pl.DataFrame, secondary_parents_path: Path) -> pl.DataFrame:
+def _lineage_edges(hierarchy: pl.DataFrame, parent_selection_path: Path, secondary_parents_path: Path) -> pl.DataFrame:
     item_ids = set(hierarchy.get_column("item_id"))
-    primary = hierarchy.filter(pl.col("parent_id").is_in(list(item_ids))).select(winner="item_id", loser="parent_id")
-    secondary = load_extra_parent_edges(secondary_parents_path, item_ids, item_ids).select(
-        winner="item_id", loser="parent_id"
-    )
-    return pl.concat([primary, secondary])
+    anchor = hierarchy.filter(pl.col("parent_id").is_in(list(item_ids))).select("item_id", "parent_id")
+    selected = load_selected_parent_edges(parent_selection_path, item_ids, item_ids)
+    secondary = load_extra_parent_edges(secondary_parents_path, item_ids, item_ids)
+    return pl.concat([anchor, selected, secondary]).select(winner="item_id", loser="parent_id")
 
 
 def _manual_edges(path: Path, item_ids: set[str]) -> pl.DataFrame:
@@ -34,15 +33,15 @@ def _manual_edges(path: Path, item_ids: set[str]) -> pl.DataFrame:
 
 
 def precedence_closure(
-    hierarchy: pl.DataFrame, secondary_parents_path: Path, manual_precedence_path: Path
+    hierarchy: pl.DataFrame, parent_selection_path: Path, secondary_parents_path: Path, manual_precedence_path: Path
 ) -> pl.DataFrame:
     """Every `(winner, loser)` pair where a song carrying both genres keeps only `winner`: a genre beats
-    its ancestors in `hierarchy` (primary and secondary parents) and whatever `manual_genre_precedence.csv`
-    says, transitively (ska > reggae > dub => ska > dub). Raises on a self-pair or cycle, e.g. a manual
-    rule reversing a lineage edge."""
+    its ancestors (its `hierarchy` anchor, its other parents picked in `5_parent_selection.parquet` and its
+    secondary parents) and whatever `manual_genre_precedence.csv` says, transitively (ska > reggae > dub =>
+    ska > dub). Raises on a self-pair or cycle, e.g. a manual rule reversing a lineage edge."""
     edges = pl.concat(
         [
-            _lineage_edges(hierarchy, secondary_parents_path),
+            _lineage_edges(hierarchy, parent_selection_path, secondary_parents_path),
             _manual_edges(manual_precedence_path, set(hierarchy.get_column("item_id"))),
         ]
     ).unique()

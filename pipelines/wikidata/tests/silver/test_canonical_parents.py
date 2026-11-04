@@ -4,7 +4,7 @@ import polars as pl
 
 from wikidata.silver import canonical_parents as sg
 
-REGIONAL_CLASSIFICATION_ROWS = [
+PARENT_SELECTION_ROWS = [
     # rock music -> popular music: popular music is a real genre (is_regional_overview=False)
     {
         "item_id": "Q11399",
@@ -77,23 +77,23 @@ REGIONAL_CLASSIFICATION_ROWS = [
 ]
 
 
-def _write_main_parent_selection(tmp_path: Path) -> Path:
-    main_parent_selection_path = tmp_path / "5_main_parent_selection.parquet"
-    pl.DataFrame(REGIONAL_CLASSIFICATION_ROWS).write_parquet(main_parent_selection_path)
-    return main_parent_selection_path
+def _write_parent_selection(tmp_path: Path) -> Path:
+    parent_selection_path = tmp_path / "5_parent_selection.parquet"
+    pl.DataFrame(PARENT_SELECTION_ROWS).write_parquet(parent_selection_path)
+    return parent_selection_path
 
 
 def test_flag_canonical_parents_marks_parent_status(tmp_path: Path) -> None:
-    main_parent_selection_path = _write_main_parent_selection(tmp_path)
+    parent_selection_path = _write_parent_selection(tmp_path)
     output_dir = tmp_path / "silver"
 
-    result = sg.flag_canonical_parents(main_parent_selection_path, output_dir)
+    result = sg.flag_canonical_parents(parent_selection_path, output_dir)
 
     assert result == output_dir / "6_canonical_parents.parquet"
-    parent_is_canonical_by_item = {
-        row["item_id"]: row["parent_is_canonical"] for row in pl.read_parquet(result).to_dicts()
+    canonical_parent_is_genre_by_item = {
+        row["item_id"]: row["canonical_parent_is_genre"] for row in pl.read_parquet(result).to_dicts()
     }
-    assert parent_is_canonical_by_item == {
+    assert canonical_parent_is_genre_by_item == {
         "Q11399": True,  # parent (popular music) is_regional_overview=False
         "Q9778": None,  # root item, no parent
         "Q1344": False,  # parent not in the genre extension at all
@@ -103,9 +103,9 @@ def test_flag_canonical_parents_marks_parent_status(tmp_path: Path) -> None:
 
 
 def test_flag_canonical_parents_creates_output_dir(tmp_path: Path) -> None:
-    main_parent_selection_path = _write_main_parent_selection(tmp_path)
+    parent_selection_path = _write_parent_selection(tmp_path)
     output_dir = tmp_path / "does" / "not" / "exist"
 
-    sg.flag_canonical_parents(main_parent_selection_path, output_dir)
+    sg.flag_canonical_parents(parent_selection_path, output_dir)
 
     assert output_dir.is_dir()
