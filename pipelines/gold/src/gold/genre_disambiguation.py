@@ -31,12 +31,13 @@ def load_curated_disambiguation(
     disambiguation_path: Path,
     context_path: Path,
     item_ids: set[str],
+    context_item_ids: set[str],
     taken_keys: pl.Series,
     closure: pl.DataFrame,
     genre_key: Callable[[pl.Expr], pl.Expr],
 ) -> Disambiguation:
     """`manual_genre_disambiguation.csv` + `manual_genre_disambiguation_context.csv`, keyed by genre key. Raises
-    on an unknown item, a key an earlier cascade step other than `normalized` already resolves (`taken_keys`:
+    on a candidate not in `item_ids` (the genres a song may get), a hint context not in `context_item_ids`, a key an earlier cascade step other than `normalized` already resolves (`taken_keys`:
     lowercase labels, alias and non-genre keys), a key with fewer than 2 candidates or several defaults, or a hint
     on an unlisted candidate."""
     candidates = read_curation_csv(
@@ -52,7 +53,7 @@ def load_curated_disambiguation(
     name = disambiguation_path.name
     unknown = sorted(set(candidates["item_id"]) - item_ids)
     if unknown:
-        raise ValueError(f"{name} references item_id(s) not found in the canonical hierarchy: {unknown}")
+        raise ValueError(f"{name} references item_id(s) that are no genre target (canonical or regional): {unknown}")
     taken = sorted(candidates.filter(pl.col("key").is_in(taken_keys.implode()))["key"].unique())
     if taken:
         raise ValueError(f"{name} has genre key(s) already resolved by a label, alias or non-genre entry: {taken}")
@@ -72,10 +73,10 @@ def load_curated_disambiguation(
         key=("musicbrainz_genre_name", "item_id", "context_item_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "context_item_id": ITEM_ID_PATTERN},
     ).select(key=genre_key(pl.col("musicbrainz_genre_name")), item_id="item_id", context_item_id="context_item_id")
-    unknown_context = sorted(set(hints["context_item_id"]) - item_ids)
+    unknown_context = sorted(set(hints["context_item_id"]) - context_item_ids)
     if unknown_context:
         raise ValueError(
-            f"{context_path.name} references context_item_id(s) not found in the canonical hierarchy: {unknown_context}"
+            f"{context_path.name} references context_item_id(s) not found in either genre tree: {unknown_context}"
         )
     unlisted = hints.join(candidates, on=["key", "item_id"], how="anti")
     if not unlisted.is_empty():

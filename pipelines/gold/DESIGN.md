@@ -8,7 +8,7 @@ All `manual_*.csv` files below are curation rules owned by `grow-the-music-tree-
 
 ## Why reconciliation lives here, not in either source pipeline
 
-Matching musicbrainz's raw tag names against wikidata's canonical genre labels needs both pipelines'
+Matching musicbrainz's raw tag names against wikidata's genre labels needs both pipelines'
 Silver output at once — the first genuine cross-pipeline join in this repo. Neither `wikidata` nor
 `musicbrainz` should depend on the other's output (they stay independently runnable, independently
 testable), so the join lives in a new layer downstream of both.
@@ -16,7 +16,7 @@ testable), so the join lives in a new layer downstream of both.
 ## Match cascade
 
 Empirical check (musicbrainz `tag.name`, as used by `2_recording_genre`, against wikidata canonical
-`item_label`s): 77.0% match case-insensitive exact, 83.4% after stripping a trailing `" music"` suffix.
+`item_label`s, before regional targets): 77.0% match case-insensitive exact, 83.4% after stripping a trailing `" music"` suffix.
 The remaining ~17% splits between real naming-convention mismatches (fixable via alias, e.g. musicbrainz
 "drum and bass" vs. wikidata's actual label) and permanent non-genre folksonomy noise (`asmr`,
 `birdsong`, personal-taste tags, etc.) that should never match.
@@ -26,22 +26,23 @@ at the first that succeeds:
 
 0. `no_genre` — the song has no genre tag at any level (recording, release group, artist; see [Inherited genres](#inherited-genres)). Kept with
    a `null` `wikidata_genre_name`: every song is exported, genre or not.
-1. `exact` — case-insensitive equality against a canonical `item_label`.
+1. `exact` — case-insensitive equality against a target `item_label` (canonical or regional, see
+   [Regional targets](#regional-targets)).
 2. `normalized` — (skipped for a key curated in `manual_genre_disambiguation.csv`, which resolves as `ambiguous`
    instead: `trap` is `trap music` by key, yet means EDM trap on an EDM song) equality of *genre keys*, computed the same way on both sides: lowercase, `-`/`_`/runs of
    whitespace collapsed to one space, trailing `" music"` dropped. Covers the bulk of the naming-convention
    gap in both directions: musicbrainz `rock`/`hip hop`/`jazz music` meet wikidata `rock music`/`hip-hop`/
-   `jazz`. When two canonical labels share a key (`dance`/`dance music`, `bass`/`bass music` are distinct
+   `jazz`. When two target labels share a key (`dance`/`dance music`, `bass`/`bass music` are distinct
    wikidata genres), neither is reachable by that key (logged); each still matches by `exact`.
 3. `manual_alias` — looked up in `manual_genre_alias.csv`, a data expert's curated real-genre alias.
 4. `accepted_non_genre` — looked up in `manual_accepted_non_genre_tags.csv`, a data expert's curated
    permanent-noise list. Kept in the output (not dropped) with a `null` `wikidata_genre_name`, for
    audit visibility — a reviewer can see it was triaged, not silently missed.
 5. `wikidata_alias` — genre-key equality against an English Wikidata alias (`skos:altLabel`, wikidata
-   Bronze `wikidata_genre_aliases.parquet`) of a canonical item: IDM, EBM, chillout, psytrance. It runs after
+   Bronze `wikidata_genre_aliases.parquet`) of a target item: IDM, EBM, chillout, psytrance. It runs after
    both curation lists, so `manual_genre_alias.csv` re-targets a wrong alias and
    `manual_accepted_non_genre_tags.csv` blocks one. Dropped (one warning lists them): an alias whose key equals
-   its own label's (adds nothing), equals **any** canonical label key (the label always wins — `soft rock` is an
+   its own label's (adds nothing), equals **any** target label key (the label always wins — `soft rock` is an
    alias of sunshine pop and the label of soft rock; a label key shared by two labels is only reachable by
    exact name, so a differently spelled tag would otherwise fall to the alias). A key shared by aliases of
    several items keeps only the most precise of them (precedence closure): one left is a plain alias, several
@@ -51,14 +52,30 @@ at the first that succeeds:
    [Ambiguous tags](#ambiguous-tags); a tag a song picks a candidate for resolves as `disambiguated`.
 7. `unmatched` — anything left. **Not a hard failure.**
 
-The cascade runs per distinct tag name of `10_song_genre`. A song's resolved tags are summed per canonical
+The cascade runs per distinct tag name of `10_song_genre`. A song's resolved tags are summed per target
 `item_id` (several MusicBrainz tags can resolve to one item), then precedence applies (next section). An
 unresolved tag never wins: the best resolved item does, and the song's `match_method` is that item's
 method (else the top unresolved tag's method, else `no_genre`).
 
+## Regional targets
+
+The cascade matches against the union of `7_canonical_hierarchy` and `8_regional_hierarchy`: on staging 60% of the
+songs whose tags all failed to resolve carried a regional-only label (country, latin, j-pop, k-pop, reggaeton,
+tango, mpb). grow imports both trees, so a regional genre is a valid song genre.
+
+- **Canonical wins** on a label present in both trees (new wave, pub rock, …): `item_id_by_label` sorts canonical
+  first. Aliases resolve straight to an `item_id`, so a regional item's alias keeps its own item even when its
+  label is shared.
+- **Overviews are no targets**: the regional seed items (`is_regional_overview` in `4_regional_classification`,
+  "music of Japan") are places, not styles. They stay in the precedence closure as ancestors.
+- **Lineage** between a regional and a canonical genre only exists through `5_secondary_parents`; without such an
+  edge, k-pop + pop is decided by weight. Missing edges are wikidata Silver curation gaps, not Gold's.
+- A regional item is never an umbrella. `genre_tree` (`canonical` | `regional`) records which tree the genre
+  comes from, and `2_songs` ships its QID as `genre_wikidata_id` so grow resolves a shared label by id.
+
 ## Ambiguous tags
 
-Some tags mean several canonical genres: `r&b` is rhythm and blues or contemporary R&B. Per song and per
+Some tags mean several genres: `r&b` is rhythm and blues or contemporary R&B. Per song and per
 ambiguous tag, with the song's **context** = the genres its other tags resolved to without ambiguity, and
 "under" = beating in the precedence closure (lineage + `manual_genre_precedence.csv`):
 
@@ -80,7 +97,7 @@ Picking by weight alone lets broad tags win systematically (pop beat pop rock 65
 beat classic rock 330 times, reggae/dub beat ska on all 13 ska recordings). Per song, after resolution:
 
 - **Lineage**: a descendant beats its ancestors. Edges are the primary parents of
-  `7_canonical_hierarchy` plus the secondary parents of `5_secondary_parents` (so pop rock beats pop).
+  `7_canonical_hierarchy` and `8_regional_hierarchy` plus the secondary parents of `5_secondary_parents` (so pop rock beats pop).
 - **Manual precedence**: `manual_genre_precedence.csv` (`item_id, over_item_id, reason`, QIDs) adds rules for
   pairs the tree does not relate (ska over reggae).
 - Rules close transitively; every genre beaten by another on the same song is dropped, and each
@@ -95,7 +112,7 @@ secondaries, but every raw tag stays in `musicbrainz_genres` so it can be curate
 closure) from the secondaries.
 
 The run fails on a self-pair, a cycle (a manual pair reversing a lineage included), or an id absent from
-the canonical hierarchy.
+both genre trees.
 
 ## Inherited genres
 
@@ -104,7 +121,7 @@ groups' (`10_song_genre` `level = release_group`), else its artist's (`13_artist
 which. Eligibility of release groups is musicbrainz Silver's concern, see
 `pipelines/musicbrainz/DESIGN.md#inherited-genres`.
 
-- **Fallback after matching**: a level counts only if one of its tags resolves to a canonical genre. A release
+- **Fallback after matching**: a level counts only if one of its tags resolves to a genre. A release
   group tagged only with unmatched folksonomy must not hide a good artist genre.
 - **Never blended**: weights are summed within a level, never across. An artist's `rock` with weight 20 would
   otherwise outvote the song's own `shoegaze` with weight 1, the opposite of "most precise".
@@ -120,7 +137,7 @@ which. Eligibility of release groups is musicbrainz Silver's concern, see
 
 A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`) keeps it: the genre
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
-A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal.
+A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview raises too, an overview being no song's genre.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
 as triage for the `umbrella_genres` curation list.
 
@@ -174,16 +191,16 @@ each CSV is checked against the auto-match cascade and against each other, since
 that would already resolve automatically (or that conflicts with the other CSV) indicates stale or
 contradictory triage data:
 
-- `manual_genre_alias.csv`: `wikidata_genre_name` must exist in the canonical hierarchy;
+- `manual_genre_alias.csv`: `wikidata_genre_name` must be a target label (canonical or regional, not an overview);
   `musicbrainz_genre_name` must not already match via `exact`/`normalized` (dead-weight alias).
 - `manual_accepted_non_genre_tags.csv`: `musicbrainz_genre_name` must not already match via
   `exact`/`normalized`, nor share a genre key with a `manual_genre_alias.csv` entry (can't be both a real alias and
   permanent noise).
-- `manual_genre_disambiguation.csv`: every `item_id` in the canonical hierarchy; a genre key not already
+- `manual_genre_disambiguation.csv`: every `item_id` a target; a genre key not already
   resolved by a label (`exact`/`normalized`), `manual_genre_alias.csv` or `manual_accepted_non_genre_tags.csv`;
   at least 2 distinct candidates per key and at most one default. It replaces the key's automatic candidates.
 - `manual_genre_disambiguation_context.csv`: each `(musicbrainz_genre_name, item_id)` a candidate of
-  `manual_genre_disambiguation.csv`; `context_item_id` in the canonical hierarchy.
+  `manual_genre_disambiguation.csv`; `context_item_id` in either genre tree.
 
 ## Curation mechanics
 
@@ -244,8 +261,8 @@ corrupted export reach `grow-the-music-tree-api`:
   built tree's total node count — catching a `parent_id` cycle, which leaves both items out of
   `roots` (each has a known parent) and unreachable from any real root, silently vanishing from the
   tree instead of raising.
-- `genre_match` checks `7_canonical_hierarchy.parquet`'s `item_label` (the wikidata-side join key) is
-  non-null (`5_songs.parquet`'s `genre_name` may be null, matched as `no_genre`), and that
+- `genre_match` checks both hierarchies are non-empty with a non-null `item_label` (the wikidata-side join
+  key) and an `item_id` unique across the two (`5_songs.parquet`'s `genre_name` may be null, matched as `no_genre`), and that
   the matched output's row count exactly equals the input song count (a per-row lookup can never
   legitimately change height).
 

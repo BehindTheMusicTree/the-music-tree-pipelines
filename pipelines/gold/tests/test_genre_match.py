@@ -84,6 +84,24 @@ def _write_hierarchy(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     return path
 
 
+_OVERVIEW_ID = "Q999000"
+
+
+def _write_regional(tmp_path: Path, rows: list[dict] | None, overview_ids: set[str]) -> tuple[Path, Path]:
+    path = tmp_path / "8_regional_hierarchy.parquet"
+    if rows is None:
+        rows = [{"item_id": _OVERVIEW_ID, "item_label": "music of testland", "parent_id": None}]
+        overview_ids = overview_ids | {_OVERVIEW_ID}
+    pl.DataFrame(rows, schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(path)
+    classification_path = tmp_path / "4_regional_classification.parquet"
+    pl.DataFrame(
+        [(row["item_id"], row["item_id"] in overview_ids) for row in rows],
+        schema={"item_id": pl.Utf8, "is_regional_overview": pl.Boolean},
+        orient="row",
+    ).write_parquet(classification_path)
+    return path, classification_path
+
+
 def _write_secondary_parents(tmp_path: Path, rows: list[dict] | None = None) -> Path:
     path = tmp_path / "5_secondary_parents.parquet"
     pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(path)
@@ -151,6 +169,8 @@ def _run_genre_match(
     output_dir: Path | None = None,
     disambiguation_rows: list[tuple[str, str, bool]] | None = None,
     context_rows: list[tuple[str, str, str]] | None = None,
+    regional_rows: list[dict] | None = None,
+    overview_ids: set[str] | None = None,
 ) -> Path:
     song_path, song_genre_path, artist_genre_path = _write_songs(tmp_path, song_rows)
     return genre_match(
@@ -158,6 +178,7 @@ def _run_genre_match(
         song_genre_path,
         artist_genre_path,
         _write_hierarchy(tmp_path, hierarchy_rows),
+        *_write_regional(tmp_path, regional_rows, overview_ids or set()),
         _write_secondary_parents(tmp_path, secondary_rows),
         _write_alias_csv(tmp_path, alias_rows),
         _write_non_genre_csv(tmp_path, non_genre_rows),
@@ -333,7 +354,7 @@ def test_genre_match_raises_on_alias_keys_differing_only_by_separator(tmp_path: 
 
 
 def test_genre_match_raises_on_unknown_alias_wikidata_genre_name(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="not found in the canonical hierarchy"):
+    with pytest.raises(ValueError, match="not found in the canonical or regional hierarchy"):
         _run_genre_match(
             tmp_path,
             [_song("Rock")],
@@ -509,7 +530,7 @@ def test_genre_match_raises_on_precedence_reversing_lineage(tmp_path: Path) -> N
 
 
 def test_genre_match_raises_on_unknown_precedence_item(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="not found in the canonical hierarchy"):
+    with pytest.raises(ValueError, match="not found in either genre tree"):
         _run_genre_match(
             tmp_path,
             [_song("Rock")],
@@ -800,7 +821,7 @@ def test_genre_match_curated_disambiguation_without_default_leaves_tag_ambiguous
 @pytest.mark.parametrize(
     ("disambiguation_rows", "context_rows", "message"),
     [
-        ([("r&b", "Q11", True), ("r&b", "Q99", False)], [], "not found in the canonical hierarchy"),
+        ([("r&b", "Q11", True), ("r&b", "Q99", False)], [], "no genre target"),
         ([("r&b", "Q11", True)], [], "fewer than 2 candidates"),
         ([("r&b", "Q11", True), ("r&b", "Q12", True)], [], "several defaults"),
         ([("jazz", "Q11", True), ("jazz", "Q13", False)], [], "already resolved"),
@@ -958,3 +979,98 @@ def test_genre_match_unresolved_report_counts_subjects_per_level(tmp_path: Path)
         {"genre_name": "odd tag", "level": "artist", "subject_count": 1, "weight_sum": 3},
     ]
     assert json.loads((output_dir / "1_genre_match_report.json").read_text()) == {"unresolvedGenreTagCount": 1}
+
+
+REGIONAL_ROWS = [
+    {"item_id": "Q700", "item_label": "music of Japan", "parent_id": None},
+    {"item_id": "Q701", "item_label": "j-pop", "parent_id": "Q700"},
+    {"item_id": "Q702", "item_label": "new wave", "parent_id": "Q700"},
+]
+_SHARED_LABEL_HIERARCHY = [
+    *HIERARCHY_ROWS,
+    {"item_id": "Q7", "item_label": "new wave", "parent_id": None, "is_umbrella": False},
+]
+
+
+def _run_with_regional(tmp_path: Path, song_rows: list[dict], **kwargs) -> dict:
+    result = _run_genre_match(
+        tmp_path,
+        song_rows,
+        hierarchy_rows=kwargs.pop("hierarchy_rows", _SHARED_LABEL_HIERARCHY),
+        regional_rows=REGIONAL_ROWS,
+        overview_ids={"Q700"},
+        **kwargs,
+    )
+    return pl.read_parquet(result).to_dicts()[0]
+
+
+def _pick(row: dict) -> tuple:
+    return row["wikidata_genre_item_id"], row["genre_tree"], row["is_umbrella"], row["match_method"]
+
+
+def test_genre_match_resolves_a_regional_tag(tmp_path: Path) -> None:
+    assert _pick(_run_with_regional(tmp_path, [_song("J-Pop")])) == ("Q701", "regional", False, "exact")
+
+
+def test_genre_match_canonical_tree_wins_a_label_shared_with_the_regional_tree(tmp_path: Path) -> None:
+    assert _pick(_run_with_regional(tmp_path, [_song("New Wave")])) == ("Q7", "canonical", False, "exact")
+
+
+def test_genre_match_alias_to_a_shared_label_goes_to_the_canonical_item(tmp_path: Path) -> None:
+    alias = {"musicbrainz_genre_name": "nw", "wikidata_genre_name": "new wave", "reason": "abbreviation"}
+    row = _run_with_regional(tmp_path, [_song("nw")], alias_rows=[alias])
+
+    assert _pick(row) == ("Q7", "canonical", False, "manual_alias")
+
+
+def test_genre_match_never_targets_a_regional_overview(tmp_path: Path) -> None:
+    assert _pick(_run_with_regional(tmp_path, [_song("music of Japan")])) == (None, None, False, "unmatched")
+
+
+def test_genre_match_wikidata_alias_of_a_regional_item_sharing_a_label_keeps_its_item(tmp_path: Path) -> None:
+    row = _run_with_regional(
+        tmp_path, [_song("japanese new wave")], wikidata_alias_rows=[("Q702", "japanese new wave")]
+    )
+
+    assert _pick(row)[:2] == ("Q702", "regional")
+
+
+def test_genre_match_accepts_an_alias_to_a_regional_label(tmp_path: Path) -> None:
+    alias = {"musicbrainz_genre_name": "japanese pop", "wikidata_genre_name": "j-pop", "reason": "synonym"}
+    row = _run_with_regional(tmp_path, [_song("japanese pop")], alias_rows=[alias])
+
+    assert _pick(row) == ("Q701", "regional", False, "manual_alias")
+
+
+@pytest.mark.parametrize(
+    ("alias_rows", "non_genre_rows", "match"),
+    [
+        ([{"musicbrainz_genre_name": "J Pop", "wikidata_genre_name": "j-pop", "reason": "x"}], None, "dead-weight"),
+        ([{"musicbrainz_genre_name": "mj", "wikidata_genre_name": "music of Japan", "reason": "x"}], None, "overview"),
+        (None, [{"musicbrainz_genre_name": "j-pop", "reason": "x"}], "j-pop"),
+    ],
+)
+def test_genre_match_raises_on_curation_dead_because_of_a_regional_label(
+    tmp_path: Path, alias_rows: list[dict] | None, non_genre_rows: list[dict] | None, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        _run_with_regional(tmp_path, [_song("x")], alias_rows=alias_rows, non_genre_rows=non_genre_rows)
+
+
+def test_genre_match_regional_child_beats_its_secondary_canonical_parent(tmp_path: Path) -> None:
+    song = {**_song("x"), "genres": [("pop", 9), ("j-pop", 1)]}
+
+    assert _run_with_regional(tmp_path, [song])["wikidata_genre_item_id"] == "Q5"
+    assert (
+        _run_with_regional(tmp_path, [song], secondary_rows=[{"item_id": "Q701", "parent_id": "Q5"}])[
+            "wikidata_genre_item_id"
+        ]
+        == "Q701"
+    )
+
+
+def test_genre_match_raises_on_an_item_in_both_trees(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="'item_id' is not unique"):
+        _run_genre_match(
+            tmp_path, [_song("jazz")], regional_rows=[{"item_id": "Q2", "item_label": "jazz", "parent_id": None}]
+        )
