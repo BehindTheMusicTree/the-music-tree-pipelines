@@ -90,7 +90,7 @@ def _validate_manual_genre_alias(df: pl.DataFrame, index: _LabelIndex, target_la
     if unknown:
         raise ValueError(
             f"{csv_name} references wikidata_genre_name(s) not found in the canonical or regional hierarchy "
-            f"(or naming a regional overview): {unknown}"
+            f"(or naming a regional overview without sub-genres): {unknown}"
         )
 
     dead_weight = df.filter(index.auto_matches(pl.col("musicbrainz_genre_name")))["musicbrainz_genre_name"].to_list()
@@ -337,7 +337,7 @@ def genre_match(
     )
     songs = pl.scan_parquet(songs_path)
     targets = load_genre_targets(canonical_hierarchy_path, regional_hierarchy_path, regional_classification_path)
-    matchable = targets.filter(~pl.col("is_overview"))
+    matchable = targets.filter(~pl.col("is_leaf_overview"))
 
     check_non_empty(songs.head(1).collect(), songs_path.name)
 
@@ -369,7 +369,7 @@ def genre_match(
     )
     non_genre_keys = non_genre_df.select(_genre_key(pl.col("musicbrainz_genre_name"))).to_series()
 
-    # Overviews stay in the closure, so lineage through them and disambiguation context hints on them still apply.
+    # Childless overviews stay in the closure, so lineage through them and disambiguation context hints on them still apply.
     closure = precedence_closure(targets, parent_selection_path, secondary_parents_path, manual_genre_precedence_path)
     exact_labels = pl.Series([label.lower() for label in target_labels])
     curated = load_curated_disambiguation(

@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking:** a genre's parents are now split into three axes instead of a single main parent: 0 or 1 canonical parent, 0 or 1 regional genre parent (both axes' other candidates becoming secondary parents), and 0 to n regional overviews, minus any overview that is an ancestor of another kept parent (Breton rock sits under French rock and music of Brittany, not also music of France). `5_main_parent_selection.parquet` becomes `5_parent_selection.parquet`, with `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` and the tree anchor `parent_id`. The curation lists become `canonical_parent` (was `main_parent`), `regional_genre_parent` (new) and `regional_overviews` (was `regional_overrides`, keyed by item and overview), and must be migrated in grow-api in lockstep.
 - **Breaking:** `6_canonical_parents`' `parent_is_canonical` is renamed `canonical_parent_is_genre`, and `4_regional_classification`'s `regional_reason` `manual_override` becomes `manual_regional_overview`.
 - The regional genre tree export lists a genre's other selected parents (canonical parent, other overviews) as `primaryParents` and its secondary parents as `secondaryParents` (they were `primaryParents`); parent lists are sorted by QID. The canonical export no longer raises on a curated `add` of a regional parent, which goes to `crossTreeSecondaryParents` instead.
@@ -83,12 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `match_method` `no_genre` now means no genre tag at any level. The new Bronze queries force one full re-ingest, and the first run changes `genre_name` for millions of songs in `2_songs_delta`.
 
 ## [9.0.0] - 2026-11-03
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - The "genealogy column(s) have no region" error now lists the entity ids to add to `region_overrides` (it listed column ids).
 - **Breaking:** the region map index matches grow-api 15.0.0: `tileset` is the bare sha256 of `regions/<sha256>.pmtiles` (it was an object `{path, sha256, bytes}`) and is required, and `files` is gone. Gold no longer writes the simplified `geometry/` and `zones/` GeoJSON, so `parts/` holds a single `part-00000.ndjson.gz` with only the index line, and `5_region_map_report.json` drops `files`.
 
@@ -107,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - Geohistory's `bbox`/`main_bbox` follow the narrower side of the antimeridian (`east` may exceed 180, e.g. Russia, Fiji, United States), and the entity `centroid` is the pole of inaccessibility of the mainland; the region map schema allows `east` up to 360.
 - The bulk `religion` kind matches items whose `P31` is religion, "religion or world view", "Christian denominational family" or "major religious group" (367 items instead of 313). An item matching both `ethnic_group` and `religion` now gets the `religion` kind (it still ranks below country, civilization, historical region and archaeological culture), so 23 Christian denominations, including Catholicism and Lutheranism, go to the `religions` column region.
 - Geohistory `column_region` raises when a column cannot be placed instead of assigning `other`. **Deploy order:** grow-api must expose `region_overrides` in `curation/export/` before the curation ingest runs.
@@ -132,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `manual_canonical_genre_pop_side.csv` is keyed by item id (`root_item_id, pop_child_item_id, reason`) instead of genre names, matching grow-the-music-tree-api's re-keyed `canonical_genre_pop_side` list, so a Wikidata label change no longer breaks the gold export. `_load_pop_sides` validates roots and direct children by item id, and `build_genre_tree` matches pop sides on `item_id`.
 
 ## [8.4.0] - 2026-10-30
@@ -154,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `gold` Region map hierarchy: a region's parent is its nearest admin ancestor, Natural Earth countries nest only when at least 90% inside their parent, a mainland intermediate holding at least half of its parent is dissolved into it, genres without an anchor inherit their regional parent's region (`regional_parent`), genre-less admin children of a listed region are listed at count 0, and admin `songCount`/`genreCount` roll up over descendants.
 - `geohistory` Music anchors collapse an overview label matching one admin unit and zones whose footprint is exactly that admin to the admin, so "music of Brittany" anchors on Brittany; `music_anchor` now reads `8_entity_footprint.parquet`.
 - `geohistory` Point footprints match the admin polygon that intersects the coordinates (border points no longer drop), and `8_entity_geometry` is only built for entities Gold can draw.
@@ -176,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `geohistory` Anchoring moves out of `5_tradition` into a new Silver step `5_music_anchor` (+ `5_music_anchor_unplaced.csv`): every candidate (override, `P2596`, `P1269`, lifted `P495`, place-valued `P17`/`P276`/`P921`/`P361`, and for overviews the label matched against entity labels and aliases) is collected, ancestors of another candidate are dropped, then the first rule wins. `5_tradition` keeps its schema and becomes a dated filter over it; it now also keeps overviews anchored by the new rules.
 - `gold` A curated `manual_genre_disambiguation.csv` key now outranks the `normalized` match, so a tag whose key equals a label's (`trap` → `trap music`) can be disambiguated per song from its other genres (hip-hop trap by default, EDM trap on an EDM context hint). Keys matching an exact label, `manual_genre_alias` or `accepted_non_genre_tags` still raise.
 - The `live-contract` issue closes itself when the next live run passes and reopens on a new failure.
@@ -191,6 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - Live Wikidata and Commons tests carry a new `live` marker and run in a scheduled, non-blocking `Live contract` workflow (daily before the prod run, plus manual dispatch) that opens or updates a `live-contract` issue on failure; they assert invariants only. PR CI replays recorded real WDQS and Commons responses instead (`tests/fixtures`, `tests/silver/fixtures`), and the `Integration` job runs only the MusicBrainz sample DB tests, without reruns (`pytest-rerunfailures` dropped).
 - `gold` artist export enforces grow's image contract (`license_url` http(s), URLs at most 2048 bytes, non-blank `author`) and `artist.schema.json` mirrors it (URL length in characters; the byte limit is checked in code), so a violation fails Gold instead of a rejected grow import part.
 - `wikidata.ingest` runs its SPARQL queries and its wikidata.org/Wikipedia API calls in two concurrent lanes (serial per host), and `4_youtube_video_status` fetches its batches with 4 workers; the nightly compute critical path drops by about 3.5 minutes with the same request and quota volume.
@@ -243,6 +251,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking** (deploy with grow-the-music-tree-api 13.2.0): curation lists `recording_genre` and `essential_tracks` are now `song_genre` and `essential_songs` (CSVs `manual_song_genre.csv`, `manual_essential_songs.csv`), and the genre tree node key `essentialTracks` is now `essentialSongs`.
 - **Breaking** (deploy with grow-the-music-tree-api's `feature/curation-drop-derived-labels`): curation lists no longer carry derived names. `item_label`, `parent_label` and `recording_label` are dropped from every list; `manual_canonical_parent_additions.csv` and `manual_regional_overview_additions.csv` name their new node in `label`, and `manual_overview_reclassifications.csv` no longer checks a name against Bronze. Names are resolved from the item catalog instead.
 
@@ -266,12 +275,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `musicbrainz` Bronze extracts tables as Arrow batches through ADBC (replacing psycopg + `pl.read_database`), four tables at a time on separate connections: a full extraction drops from ~11 min to ~1.5 min on prod. Column types are read from the catalog and cast so Parquet dtypes stay as before (integers `Int64`, uuids `String`); the all-null `parent` columns of `release_group_primary_type`/`release_group_secondary_type` are now `Int64` instead of `Null`. The first run after deploy re-extracts every table (queries changed).
 
 ## [7.1.0] - 2026-10-22
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `musicbrainz` Bronze skips re-extraction when the mirror's replication sequence and the table queries are unchanged since the last ingestion (recorded in `BRONZE_OUTPUT_DIR/_snapshot.json`); a standalone database without replication always re-extracts.
 - `gold` genre matching compares one normalized genre key on both sides (case, `-`/`_`/whitespace and a trailing `" music"` ignored), so musicbrainz `rock`/`pop`/`hip hop` now match wikidata `rock music`/`pop music`/`hip-hop`. The `music_suffix` `match_method` is renamed `normalized`. Curation CSV duplicate and dead-weight checks use the same key. Canonical labels that share a key (`dance`/`dance music`) match by exact name only.
 
@@ -300,6 +311,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `musicbrainz` README and `CLAUDE.md` now describe Silver → `gold` → `grow-the-music-tree-api` as the consumer path.
 
 ## [6.7.0] - 2026-10-20
@@ -339,6 +351,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `gold` no longer applies `manual_recording_youtube_video.csv` (moved to `musicbrainz` Silver).
 - `gold` logs and ignores a `manual_secondary_parents.csv` `remove` whose parent is outside the tree's resolvable set instead of raising; a `remove` of a resolvable parent that is not an extra edge still raises.
 - `musicbrainz` Bronze ingests only the columns Silver reads for `recording` (`id`, `gid`, `name`, `artist_credit`) and `url` (`id`, `url`), the two largest tables, instead of `SELECT *`.
@@ -368,6 +381,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `gold` reads `manual_secondary_parents.csv` (`add`/`remove` per `(item_id, parent_id)`, both trees) instead of `manual_regional_secondary_parents.csv`: an added edge is a `secondaryParents` ref, a removed Wikidata extra edge is dropped (stale removes raise). `curation` no longer ingests `regional_secondary_parents`.
 
 ## [6.2.5] - 2026-10-15
@@ -455,6 +469,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking:** every MusicBrainz song now goes through the pipelines. `musicbrainz` Silver's `5_songs` keeps every recording with a primary artist, deduplicated into songs (recordings of one work grouped per primary artist, others by normalized title per primary artist; key `musicbrainz_recording_id` = the group's lowest recording id's MBID), with a nullable `youtube_video_id` and `genre_name`, and no longer raises on unchecked YouTube candidates. Built lazily and streamed to Parquet.
 - **Breaking:** `musicbrainz` Silver requires `YOUTUBE_STATUS_MAX_BATCHES_PER_RUN`: `4_youtube_video_status` fetches at most that many 50-id batches per run, never-checked ids first, then ids past the 7-day TTL, stalest first. `3_youtube_candidates` no longer requires a genre.
 - **Breaking:** `gold` exports every song as gzip NDJSON parts `2_songs/part-NNNNN.ndjson.gz` (250,000 rows each, fields `musicbrainz_recording_id`, `title`, `artist`, `youtube_video_id`, `youtube_unplayable_reason`, `genre_name`), replacing `2_songs.json` and `songs.schema.json`; checks run in Polars. `genre_match` tags songs without a genre `no_genre` instead of raising, and clears a malformed video id instead of dropping the song. Consumers (`infrastructure`'s grow sync, grow-the-music-tree-api's import) must read the new parts.
@@ -468,6 +483,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking** `musicbrainz` Silver requires `YOUTUBE_API_KEY`; its songs output is now `5_songs.parquet` (was `3_songs.parquet`).
 
 ## [4.0.0] - 2026-10-01
@@ -478,6 +494,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking** `wikidata` Silver and `gold` now read their `manual_*.csv` curation rules from the required `CURATION_BRONZE_DIR` (the `curation` pipeline's Bronze output); `curation.ingest` must run before them.
 
 ### Removed
@@ -488,12 +505,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking** `gold`: genre tree exports now identify their tree by name, `{"treeName": "canonical" | "regional", "tree": [...]}`, replacing the `allowsMultiplePrimaryParents` flag — matching `grow-the-music-tree-api`'s new tree import contract.
 
 ## [2.1.0] - 2026-09-28
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `wikidata`: a canonical root missing from `manual_accepted_canonical_roots.csv` no longer fails the Silver run — `9_canonical_roots.parquet` gains an `is_accepted` column and unaccepted roots are logged as a WARNING (`N unaccepted canonical root(s), flagged for review: [...]`).
 - `gold`: `1_canonical_genre_tree.json` marks unaccepted canonical roots with `"isUnacceptedRoot": true` (emitted only when true; schema updated) so grow-the-music-tree-api queues them for admin review.
 
@@ -501,6 +520,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `gold`: genre-name slugify logic moved from `playground_fixture_export` to `gold.genre_slug.slugify_genre_name`, the helper `pipelines/wikidata/DESIGN.md` §2.3.5 already references.
 
 ## [2.0.0] - 2026-09-26
@@ -511,6 +531,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking** `gold`: genre tree exports are now `{"allowsMultiplePrimaryParents": bool, "tree": [...]}` (`false` canonical, `true` regional), the payload `grow-the-music-tree-api`'s tree import requires; the regional export also reads `7_canonical_hierarchy.parquet`.
 
 ## [1.4.0] - 2026-09-25
@@ -521,6 +542,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - Docs: branching conventions now list only strict Gitflow prefixes (`feature/`, `release/`, `hotfix/`); `fix/` and `chore/` are no longer valid.
 
 ## [1.3.0] - 2026-09-22
@@ -532,6 +554,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `wikidata`: added synthetic `LOCAL:malay-world` "music of the Malay world" regional overview (nested under music of Asia) and routed `Q12501487` (Malay orchestra) to it — it has no `P279` parent and a multi-country `P495`, and its appearance as an unaccepted canonical root failed the 2026-09-21 daily run at `9_canonical_roots`.
 - `musicbrainz`: renamed the Silver `song_example` step to `songs` (`3_song_example.parquet` → `3_songs.parquet`, `scripts/export_song_example_json.py` → `scripts/export_songs_json.py`) and removed the `RECORDINGS_PER_GENRE` cap — this dataset is production data consumed by `gold`, not a demo fixture.
 
@@ -566,6 +589,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - CI: added `mypy` to the `Lint` job (`uv run mypy pipelines`), type-checking `pipelines` source excluding tests. Config in root `pyproject.toml`'s `[tool.mypy]`, matching `grow-the-music-tree-api`'s CI-only (no pre-commit hook) setup.
 
 ### Added
@@ -585,6 +609,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `wikidata` Silver: split "ska" (Q54365) back out of the synthetic `LOCAL:ska-reggae-dub` grouping node into its own standalone canonical root, renaming the node back to `LOCAL:reggae-dub` ("Reggae/Dub") with just "reggae" and "dub music" as direct children (musically distinct in tempo/instrumentation despite the shared offbeat "skank" rhythmic tradition). Also added a new synthetic `LOCAL:pop-reggae` ("Pop reggae") node under `LOCAL:reggae-dub`, reparenting "ragga pop" (Q7282874) under it from its previous direct parent "reggae" — same pop/core crossover pattern as `LOCAL:pop-electronic`/`LOCAL:pop-hip-hop`/`LOCAL:pop-funk`. See `pipelines/gold/DESIGN.md#pop-core-genre-sides`.
 - `wikidata` Silver: split "jazz" (Q8341)'s 59 direct children into two new synthetic nodes, `LOCAL:pop-jazz` ("Pop jazz") and `LOCAL:core-jazz` ("Core jazz") — unlike electronic/hip-hop/funk/reggae, no Wikidata item was already labeled "pop jazz", so "smooth jazz" (Q831354) and "vocal jazz" (Q1530455) were hand-picked as jazz's pop/mainstream-crossover subgenres and moved under `LOCAL:pop-jazz`; the remaining 57 children moved under `LOCAL:core-jazz`. Same pop/core crossover pattern as `LOCAL:pop-electronic`/`LOCAL:pop-hip-hop`/`LOCAL:pop-funk`/`LOCAL:pop-reggae`. See `pipelines/gold/DESIGN.md#pop-core-genre-sides`.
 
@@ -602,6 +627,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - `wikidata` Silver: `5_main_parent_selection`'s automated fallback now prefers a candidate parent that is itself a genre item in the dataset (present as its own `item_id`, not just referenced as a `parent_label`) over one that isn't, before falling back to the lowest QID as a final tiebreak. Fixes 15 items (e.g. "expressionist music", previously mis-parented to the non-genre "Expressionism" art-movement item instead of "modern classical music") that were surfacing as unreviewed orphan roots in `9_canonical_roots.parquet` purely because their real genre parent had a numerically higher QID than a non-genre candidate. Collapsed the canonical root count from hundreds down to 19. See `pipelines/wikidata/DESIGN.md#241-rule-manual-override-else-lowest-qid-heuristic`.
 - `wikidata` Silver: `manual_overview_reclassifications.csv` now also reclassifies "religious music" as a regional-overview grouping node (overriding its prior `manual_theme_genres.csv` exclusion), so "Christian music" and "Islamic music" nest under it via `manual_regional_overrides.csv` (with `exclude_other_parents=true`, to drop their conflicting `P279` edges into the regional seed set) instead of remaining ungrouped canonical roots in `manual_accepted_canonical_roots.csv`.
 - `wikidata` Silver: `manual_main_parent.csv` gains an optional `exclude_other_parents` column (blank/`"false"` by default, preserving existing behavior) — when `"true"`, the overridden item's other candidate parent edges are dropped entirely rather than just supplemented, needed when an item has a genuine conflicting edge into the regional seed set (e.g. "reggae" → "music of Jamaica" via `P279`) that would otherwise keep it `is_regional=True` via the cascade regardless of the override, since `is_regional` is computed from any of an item's parent edges, not just its eventual main parent. Used to regroup "reggae" and "dub music" as canonical children of the new synthetic "Reggae/Dub" root above, instead of reggae resolving `is_regional`. Note: 18 items previously nested under reggae in the regional hierarchy (e.g. "roots reggae", "dub reggae", "lovers rock") lose their inherited regional status as a result and now appear as reggae's canonical children instead. See `pipelines/wikidata/DESIGN.md#234-manual_main_parentcsv-main-parent-override`.
@@ -715,6 +741,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - Renamed `musicbrainz.bronze_musicbrainz` → `musicbrainz.ingest`, `wikidata.bronze_wikidata` → `wikidata.ingest`, and `wikidata.silver_wikidata` → `wikidata.silver`. Each pipeline now lives in its own package (`pipelines/musicbrainz`, `pipelines/wikidata`), so the source-disambiguating suffix from when both were modules inside one shared package no longer applies; the Bronze module is further renamed to `ingest` since `bronze` only restated the layer it already lives in.
 - `wikidata.silver` is now a package, one module per Silver step (`silver/classification.py`, `silver/genre_parents.py`) instead of a single flat `silver.py`, with `silver/__main__.py` chaining them so `python -m wikidata.silver` still runs the whole layer. `wikidata.profile_silver` moved to `silver/profile.py` (`python -m wikidata.silver.profile`) alongside the steps it profiles. Tests mirror the split (`test_silver_classification.py`, `test_silver_genre_parents.py`). See `CONTRIBUTING.md#code-style` for the naming convention.
 
@@ -755,6 +782,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - Renamed the repo from `root-the-music-tree` to `the-music-tree-pipelines` and restructured it into a `uv` workspace monorepo, one directory per pipeline (`pipelines/musicbrainz_to_the_music_tree_api/`), to hold every data pipeline in the stack going forward instead of just the genre-hierarchy one. CI now uses `uv sync`/`uv run` instead of `pip install -e ".[dev]"`.
 - Adopted a `<source>_to_<target>` naming convention for pipeline directories, documented in `CONTRIBUTING.md`; the genre-hierarchy pipeline is renamed `root_the_music_tree` → `musicbrainz_to_the_music_tree_api` to match (source: MusicBrainz, target: TheMusicTreeAPI, the eventual consumer of its output dataset).
 - Renamed the pipeline directory and Python package `musicbrainz_to_the_music_tree_api` → `musicbrainz`, since the verbose `<source>_to_<target>` form only earned its keep while disambiguating against other pipelines that don't exist yet.

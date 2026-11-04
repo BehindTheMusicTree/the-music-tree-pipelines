@@ -121,7 +121,7 @@ def _write_silver(tmp_path: Path) -> Path:
     pl.DataFrame(
         {
             "item_id": ["Q10", "Q11", "Q12"],
-            "item_label": ["samba", "samba de roda", "music of Brazil"],
+            "item_label": ["samba", "samba de roda", "music of Nowhere"],
             "parent_id": [None, "Q10", None],
         }
     ).write_parquet(silver_dir / "8_regional_hierarchy.parquet")

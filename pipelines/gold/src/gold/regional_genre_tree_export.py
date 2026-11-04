@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
+from gold.genre_targets import TREE_REGIONAL, load_genre_trees
 from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
     build_genre_tree,
@@ -69,6 +70,11 @@ def export_regional_genre_tree(
     )
     cross_tree_parents = edges_to_parent_map(pl.concat([cross_untouched, cross_added]))
 
+    targets = load_genre_trees(wikidata_silver_dir)
+    umbrella_ids = set(
+        targets.filter((pl.col("genre_tree") == TREE_REGIONAL) & pl.col("is_umbrella")).get_column("item_id")
+    )
+
     tree = {
         "treeName": "regional",
         "curationExportedOn": curation_exported_on,
@@ -77,6 +83,7 @@ def export_regional_genre_tree(
             primary_parents=edges_to_parent_map(primary_edges),
             secondary_parents=edges_to_parent_map(secondary_edges),
             external_ids=canonical_ids,
+            umbrella_ids=umbrella_ids,
             essential_songs=curation.essential_songs,
             summaries=curation.summaries,
             scenes=curation.scenes,

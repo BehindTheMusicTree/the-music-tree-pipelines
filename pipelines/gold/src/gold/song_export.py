@@ -135,10 +135,12 @@ def _apply_recording_overrides(
     umbrella_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & umbrella_ids)
     if umbrella_overrides:
         raise ValueError(f"{genre_csv} assigns songs to umbrella genre(s), pick a subgenre: {umbrella_overrides}")
-    overview_ids = set(hierarchy.filter(pl.col("is_overview")).get_column("item_id"))
+    overview_ids = set(hierarchy.filter(pl.col("is_leaf_overview")).get_column("item_id"))
     overview_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & overview_ids)
     if overview_overrides:
-        raise ValueError(f"{genre_csv} assigns songs to regional overview(s), pick a genre: {overview_overrides}")
+        raise ValueError(
+            f"{genre_csv} assigns songs to regional overview(s) without sub-genres, pick a genre: {overview_overrides}"
+        )
     unknown_genres = sorted(set(genres.get_column("genre_item_id").drop_nulls()) - names_by_id.keys())
     if unknown_genres:
         raise ValueError(f"{genre_csv} references genre_item_id(s) not found in either genre tree: {unknown_genres}")

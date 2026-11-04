@@ -67,6 +67,9 @@ def _write_silver(
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet")
     pl.DataFrame(
+        {"item_id": [row["item_id"] for row in TREE_ROWS], "is_regional_overview": [True, False, True, False]}
+    ).write_parquet(wikidata_silver_dir / "4_regional_classification.parquet")
+    pl.DataFrame(
         [{**row, "is_umbrella": False} for row in CANONICAL_ROWS], schema_overrides={"parent_id": pl.Utf8}
     ).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
     pl.DataFrame(selection_rows or [], schema=SELECTION_SCHEMA).write_parquet(
@@ -106,6 +109,17 @@ def test_export_regional_genre_tree_writes_tree_shape(
     tree = json.loads(result.read_text())
     assert {node["name"] for node in tree["tree"]} == {"music of Brazil", "music of Cape Verde"}
     assert tree["curationExportedOn"] == CURATION_EXPORTED_ON
+
+
+def test_export_regional_genre_tree_flags_overviews_with_sub_genres_as_umbrellas(
+    tmp_path: Path, curation_dir: Path, descriptions_path: Path
+) -> None:
+    tree = _export(tmp_path, curation_dir, descriptions_path)
+
+    by_name = {node["name"]: node for node in tree["tree"]}
+    assert by_name["music of Brazil"]["isUmbrella"] is True
+    assert "isUmbrella" not in by_name["music of Cape Verde"]
+    assert "isUmbrella" not in _samba(tree)
 
 
 def test_export_regional_genre_tree_creates_output_dir(

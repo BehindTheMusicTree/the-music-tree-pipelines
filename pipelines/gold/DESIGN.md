@@ -66,12 +66,16 @@ tango, mpb). grow imports both trees, so a regional genre is a valid song genre.
 - **Canonical wins** on a label present in both trees (new wave, pub rock, …): `item_id_by_label` sorts canonical
   first. Aliases resolve straight to an `item_id`, so a regional item's alias keeps its own item even when its
   label is shared.
-- **Overviews are no targets**: the regional seed items (`is_regional_overview` in `4_regional_classification`,
-  "music of Japan") are places, not styles. They stay in the precedence closure as ancestors.
+- **Overviews are umbrella targets**: the regional seed items (`is_regional_overview` in
+  `4_regional_classification`, "music of Japan") are places, but a tag like `latin` has nowhere else to go. Each
+  overview with sub-genres is a target with `is_umbrella = true`, so its songs are flagged "to refine" like a
+  canonical umbrella's, and the regional tree export marks it `isUmbrella`. An overview without sub-genres can't be
+  an umbrella (grow rejects a childless one) and stays no target (`is_leaf_overview`); it remains in the precedence
+  closure as an ancestor.
 - **Lineage** between a regional and a canonical genre only exists through a non-anchor parent (a canonical
   parent picked in `5_parent_selection` or a `5_secondary_parents` edge); without such an edge, k-pop + pop is
   decided by weight. Missing edges are wikidata Silver curation gaps, not Gold's.
-- A regional item is never an umbrella. `genre_tree` (`canonical` | `regional`) records which tree the genre
+- A regional item is an umbrella only if it is an overview with sub-genres. `genre_tree` (`canonical` | `regional`) records which tree the genre
   comes from, and `2_songs` ships its QID as `genre_wikidata_id` so grow resolves a shared label by id.
 
 ## Ambiguous tags
@@ -140,7 +144,7 @@ which. Eligibility of release groups is musicbrainz Silver's concern, see
 
 A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`) keeps it: the genre
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
-A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview raises too, an overview being no song's genre.
+A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview without sub-genres raises too, being no song's genre.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
 as triage for the `umbrella_genres` curation list.
 
@@ -194,7 +198,7 @@ each CSV is checked against the auto-match cascade and against each other, since
 that would already resolve automatically (or that conflicts with the other CSV) indicates stale or
 contradictory triage data:
 
-- `manual_genre_alias.csv`: `wikidata_genre_name` must be a target label (canonical or regional, not an overview);
+- `manual_genre_alias.csv`: `wikidata_genre_name` must be a target label (canonical or regional, not an overview without sub-genres);
   `musicbrainz_genre_name` must not already match via `exact`/`normalized` (dead-weight alias).
 - `manual_accepted_non_genre_tags.csv`: `musicbrainz_genre_name` must not already match via
   `exact`/`normalized`, nor share a genre key with a `manual_genre_alias.csv` entry (can't be both a real alias and
