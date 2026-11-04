@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.2.0] - 2026-11-04
+
 ### Added
 
 - The region map index gains `overviewItemId` per region (its own "music of X" genre, picked by the new `5_music_anchor.overview_rank`), drillable zones (`childIds` of a zone are its top-most member regions) and top-level `worldChildIds` / `worldZoneIds`; the export report lists `regionsWithoutOverview`. grow-api must accept these keys before the index reaches an environment.
