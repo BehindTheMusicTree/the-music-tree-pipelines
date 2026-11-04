@@ -29,7 +29,7 @@ def _manual_edges(path: Path, item_ids: set[str]) -> pl.DataFrame:
     ).select(winner="item_id", loser="over_item_id")
     unknown = sorted((set(rules["winner"]) | set(rules["loser"])) - item_ids)
     if unknown:
-        raise ValueError(f"{path.name} references item_id(s) not found in the canonical hierarchy: {unknown}")
+        raise ValueError(f"{path.name} references item_id(s) not found in either genre tree: {unknown}")
     return rules
 
 
@@ -37,7 +37,7 @@ def precedence_closure(
     hierarchy: pl.DataFrame, secondary_parents_path: Path, manual_precedence_path: Path
 ) -> pl.DataFrame:
     """Every `(winner, loser)` pair where a song carrying both genres keeps only `winner`: a genre beats
-    its canonical ancestors (primary and secondary parents) and whatever `manual_genre_precedence.csv`
+    its ancestors in `hierarchy` (primary and secondary parents) and whatever `manual_genre_precedence.csv`
     says, transitively (ska > reggae > dub => ska > dub). Raises on a self-pair or cycle, e.g. a manual
     rule reversing a lineage edge."""
     edges = pl.concat(

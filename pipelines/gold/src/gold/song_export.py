@@ -17,6 +17,7 @@ from common.quality_checks import (
 from gold.curation_csv import ITEM_ID_PATTERN, read_curation_csv
 from gold.delta_export import write_delta
 from gold.genre_precedence import PRECEDENCE_CSV, precedence_closure
+from gold.genre_targets import load_genre_trees
 from gold.match_method import RESOLVED_METHODS
 from gold.ndjson_parts import write_ndjson_parts
 
@@ -29,6 +30,7 @@ _PATTERNS = {
     "musicbrainz_recording_id": MBID_PATTERN,
     "artist_musicbrainz_id": MBID_PATTERN,
     "youtube_video_id": r"^[A-Za-z0-9_-]{11}$",
+    "genre_wikidata_id": ITEM_ID_PATTERN,
 }
 _SYNCED_COLUMNS = [
     "title",
@@ -38,6 +40,7 @@ _SYNCED_COLUMNS = [
     "youtube_unplayable_reason",
     "youtube_view_count",
     "genre_name",
+    "genre_wikidata_id",
     "first_release_year",
 ]
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
@@ -127,7 +130,7 @@ def _apply_recording_overrides(
         .collect()
     )
     check_known_recordings(genres, known, genre_csv)
-    hierarchy = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    hierarchy = load_genre_trees(wikidata_silver_dir)
     umbrella_ids = set(hierarchy.filter(pl.col("is_umbrella")).get_column("item_id"))
     umbrella_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & umbrella_ids)
     if umbrella_overrides:
@@ -155,6 +158,7 @@ def _apply_recording_overrides(
             .otherwise(pl.col("genre_item_id")),
         )
         .with_columns(genre_name=pl.col("genre_item_id").replace_strict(names_by_id, default=None))
+        .with_columns(genre_wikidata_id=pl.when(pl.col("genre_name").is_not_null()).then(pl.col("genre_item_id")))
         .drop("has_genre_override", "override_item_id")
     )
 

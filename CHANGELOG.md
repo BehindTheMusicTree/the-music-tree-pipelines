@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Song genres also resolve against the regional genre tree (country, k-pop, reggaeton, …), the canonical genre winning on a shared label and regional overviews ("music of Japan") never picked. `1_genre_match.parquet` gains `genre_tree`; `2_songs` gains `genre_wikidata_id`, which grow-api must accept before this reaches an environment. Curation entries made redundant by a regional label now fail the run.
+
 ## [9.1.0] - 2026-11-03
 
 ### Added
