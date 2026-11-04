@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Gold `genre_match` picks each distinct set of genre tags once instead of once per song, release group or artist: 5.7x faster (759 s to 134 s on staging) and 3 GB lower peak memory, with an identical `1_genre_match.parquet`.
+
 ## [9.2.0] - 2026-11-04
 
 ### Added
