@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Gold `genre_match` picks each distinct set of genre tags once instead of once per song, release group or artist: 5.7x faster (759 s to 134 s on staging) and 3 GB lower peak memory, with an identical `1_genre_match.parquet`.
 - Silver `music_anchor` anchors a sub-place overview ("Music of Scotland", Catalonia, Galicia, Aragon, Occitania, Khakassia, Kalmykia) on its own region instead of its country: an ambiguous label is narrowed by the places the genre claims, then to the current place over a historical state. Labels that stay ambiguous are listed in the new `5_music_anchor_ambiguous.csv`.
+- Silver `music_anchor` also prefers the current place over a historical state when the overview claims no place at all ("Music of Finland" on Finland, not the Grand Duchy), instead of leaving it without an anchor.
 - Wikidata `cultural_entity_alias` also indexes each place's English main label, and the English names of the admin units under the seed countries, so aliases like "Khakassia" resolve.
 
 ## [9.2.0] - 2026-11-04
