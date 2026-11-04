@@ -33,7 +33,7 @@ REGIONAL_OVERVIEW_PREFIX = "music of "
 # all (not even as a `parent_label` for orphan-promotion above to pick up, e.g. because no genre in
 # the dataset happens to declare it as a P279/P361 parent) can be added here by a data expert who
 # looked up its real Wikidata QID (or, as a last resort when no matching Wikidata item exists,
-# a synthetic `LOCAL:`-prefixed id), so it becomes a legal `manual_regional_overrides.csv`
+# a synthetic `LOCAL:`-prefixed id), so it becomes a legal `manual_regional_overviews.csv`
 # `overview_item_id` target. See DESIGN.md#22-3_regional_overview_classification.
 
 # manual_overview_reclassifications.csv, curated the same way, covers the opposite case: an item that already has its own row in Bronze/`1_item_links` (usually a real
@@ -157,7 +157,7 @@ def _promote_orphan_overview_parents(df: pl.DataFrame) -> pl.DataFrame:
     """Some "music of <place>" items (e.g. "music of Wales") are never themselves classified P31
     instance-of music genre, so Bronze never fetches their own row — they only ever show up as a
     parent_label on their subgenres (e.g. "Welsh folk music"). That makes them invisible to the
-    prefix classification below and illegal as a manual_regional_overrides.csv overview_item_id
+    prefix classification below and illegal as a manual_regional_overviews.csv overview_item_id
     target. Promoting them to their own root row (parent_id=null, same as any other unparented item)
     is mechanical - the id/label pair is already in the data - so it's done for every such item here,
     rather than one at a time by hand."""

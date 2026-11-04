@@ -89,6 +89,7 @@ def build_gold(
             wikidata_silver_dir / "7_canonical_hierarchy.parquet",
             wikidata_silver_dir / "8_regional_hierarchy.parquet",
             wikidata_silver_dir / "4_regional_classification.parquet",
+            wikidata_silver_dir / "5_parent_selection.parquet",
             wikidata_silver_dir / "5_secondary_parents.parquet",
             curation_dir / "manual_genre_alias.csv",
             curation_dir / "manual_accepted_non_genre_tags.csv",

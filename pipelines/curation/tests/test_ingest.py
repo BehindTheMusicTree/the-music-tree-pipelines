@@ -17,7 +17,7 @@ EXPORTED_ON = "2026-10-16T08:00:00+00:00"
 def _export() -> dict[str, Any]:
     export: dict[str, Any] = {name: [] for name in ingest.CURATION_LISTS}
     export["exported_on"] = EXPORTED_ON
-    export["main_parent"] = [
+    export["canonical_parent"] = [
         {
             "item_id": "Q9794",
             "reason": 'regrouped under "Reggae/Dub", see DESIGN.md',
@@ -58,10 +58,10 @@ def test_fetch_and_write_round_trips_csvs(monkeypatch: pytest.MonkeyPatch, tmp_p
     )
     assert json.loads((tmp_path / "manual_export.json").read_text()) == {"exportedOn": EXPORTED_ON}
 
-    main_parent = pl.read_csv(tmp_path / "manual_main_parent.csv")
-    assert main_parent.columns == list(ingest.CURATION_LISTS["main_parent"])
-    assert main_parent.get_column("exclude_other_parents").to_list() == [True, None]
-    assert main_parent.get_column("reason")[0] == 'regrouped under "Reggae/Dub", see DESIGN.md'
+    canonical_parent = pl.read_csv(tmp_path / "manual_canonical_parent.csv")
+    assert canonical_parent.columns == list(ingest.CURATION_LISTS["canonical_parent"])
+    assert canonical_parent.get_column("exclude_other_parents").to_list() == [True, None]
+    assert canonical_parent.get_column("reason")[0] == 'regrouped under "Reggae/Dub", see DESIGN.md'
 
     empty = pl.read_csv(tmp_path / "manual_genre_alias.csv")
     assert empty.is_empty()

@@ -318,6 +318,7 @@ def genre_match(
     canonical_hierarchy_path: Path,
     regional_hierarchy_path: Path,
     regional_classification_path: Path,
+    parent_selection_path: Path,
     secondary_parents_path: Path,
     manual_genre_alias_path: Path,
     manual_accepted_non_genre_tags_path: Path,
@@ -369,7 +370,7 @@ def genre_match(
     non_genre_keys = non_genre_df.select(_genre_key(pl.col("musicbrainz_genre_name"))).to_series()
 
     # Overviews stay in the closure, so lineage through them and disambiguation context hints on them still apply.
-    closure = precedence_closure(targets, secondary_parents_path, manual_genre_precedence_path)
+    closure = precedence_closure(targets, parent_selection_path, secondary_parents_path, manual_genre_precedence_path)
     exact_labels = pl.Series([label.lower() for label in target_labels])
     curated = load_curated_disambiguation(
         manual_genre_disambiguation_path,

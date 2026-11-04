@@ -149,7 +149,10 @@ def _apply_recording_overrides(
         override_item_id="genre_item_id",
     )
     closure = precedence_closure(
-        hierarchy, wikidata_silver_dir / "5_secondary_parents.parquet", curation_dir / PRECEDENCE_CSV
+        hierarchy,
+        wikidata_silver_dir / "5_parent_selection.parquet",
+        wikidata_silver_dir / "5_secondary_parents.parquet",
+        curation_dir / PRECEDENCE_CSV,
     )
     return (
         _drop_beaten_secondaries(

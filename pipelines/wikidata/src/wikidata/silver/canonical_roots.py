@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # already triaged and accepted as genuinely standalone canonical genres (see
 # .claude/skills/wikidata-canonical-roots/SKILL.md). A root that isn't in this list is new since the
 # last triage pass: it's flagged (`is_accepted` false, carried into Gold as `isUnacceptedRoot`) for
-# review rather than failing the run — either given a real parent (manual_main_parent.csv), flagged as
+# review rather than failing the run — either given a real parent (manual_canonical_parent.csv), flagged as
 # theme/technique/out-of-scope, or added here once confirmed standalone.
 # regional_classification.py also pins every listed item as a root, so Wikidata can't re-parent it.
 

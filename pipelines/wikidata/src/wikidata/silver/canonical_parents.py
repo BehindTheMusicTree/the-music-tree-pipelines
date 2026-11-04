@@ -6,13 +6,15 @@ import polars as pl
 logger = logging.getLogger(__name__)
 
 
-def flag_canonical_parents(main_parent_selection_path: Path, output_dir: Path) -> Path:
-    logger.info("flagging canonical-only parents in %s", main_parent_selection_path)
-    df = pl.read_parquet(main_parent_selection_path)
+def flag_canonical_parents(parent_selection_path: Path, output_dir: Path) -> Path:
+    logger.info("flagging canonical-only parents in %s", parent_selection_path)
+    df = pl.read_parquet(parent_selection_path)
+
+    # Computed on each item's anchor parent (parent_id): its canonical parent when the item is canonical.
 
     genre_ids = df.filter(~pl.col("is_regional_overview")).select("item_id").unique().to_series().to_list()
     df = df.with_columns(
-        parent_is_canonical=pl.when(pl.col("parent_id").is_null())
+        canonical_parent_is_genre=pl.when(pl.col("parent_id").is_null())
         .then(None)
         .otherwise(pl.col("parent_id").is_in(genre_ids))
     )
@@ -24,7 +26,7 @@ def flag_canonical_parents(main_parent_selection_path: Path, output_dir: Path) -
         "wrote %d rows to %s (%d non-canonical parent edges flagged)",
         df.height,
         output_path,
-        df.filter(~pl.col("parent_is_canonical")).height,
+        df.filter(~pl.col("canonical_parent_is_genre")).height,
     )
 
     return output_path

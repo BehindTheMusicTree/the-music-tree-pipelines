@@ -48,8 +48,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Wikidata Silver reads `manual_canonical_overrides.csv` (from grow's new `canonical_overrides` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
+- The regional genre tree export gains a top-level `crossTreeSecondaryParents` (`[{id, secondaryParents}]`, always present), carrying canonical genres' regional parents, which the canonical import cannot resolve. Requires grow-api with `the-music-tree-genre-kit` 0.54.0.
+
 ### Changed
 
+- **Breaking:** a genre's parents are now split into three axes instead of a single main parent: 0 or 1 canonical parent, 0 or 1 regional genre parent (both axes' other candidates becoming secondary parents), and 0 to n regional overviews, minus any overview that is an ancestor of another kept parent (Breton rock sits under French rock and music of Brittany, not also music of France). `5_main_parent_selection.parquet` becomes `5_parent_selection.parquet`, with `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` and the tree anchor `parent_id`. The curation lists become `canonical_parent` (was `main_parent`), `regional_genre_parent` (new) and `regional_overviews` (was `regional_overrides`, keyed by item and overview), and must be migrated in grow-api in lockstep.
+- **Breaking:** `6_canonical_parents`' `parent_is_canonical` is renamed `canonical_parent_is_genre`, and `4_regional_classification`'s `regional_reason` `manual_override` becomes `manual_regional_overview`.
+- The regional genre tree export lists a genre's other selected parents (canonical parent, other overviews) as `primaryParents` and its secondary parents as `secondaryParents` (they were `primaryParents`); parent lists are sorted by QID. The canonical export no longer raises on a curated `add` of a regional parent, which goes to `crossTreeSecondaryParents` instead.
+- Genre precedence also follows a genre's selected non-anchor parents, so a regional genre beats its canonical parent.
 - Wikidata Bronze reads cultural-entity and music-tradition claims by item, 1,000 items and every property per query, instead of once per (kind, property): 31 queries instead of 164, 122 s instead of 389–958 s on staging's data, with identical output. WDQS queries are now sent as POST.
 - Gold `genre_match` picks each distinct set of genre tags once instead of once per song, release group or artist: 5.7x faster (759 s to 134 s on staging) and 3 GB lower peak memory, with an identical `1_genre_match.parquet`.
 - Silver `music_anchor` anchors a sub-place overview ("Music of Scotland", Catalonia, Galicia, Aragon, Occitania, Khakassia, Kalmykia) on its own region instead of its country: an ambiguous label is narrowed by the places the genre claims, then to the current place over a historical state. Labels that stay ambiguous are listed in the new `5_music_anchor_ambiguous.csv`.

@@ -199,7 +199,7 @@ def _rule_inputs() -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     return hierarchy, edges, rules
 
 
-def test_apply_secondary_parent_rules_ignores_removal_of_main_parent() -> None:
+def test_apply_secondary_parent_rules_ignores_removal_of_anchor_parent() -> None:
     hierarchy, edges, rules = _rule_inputs()
 
     untouched, added = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3"})
@@ -234,7 +234,7 @@ def test_apply_secondary_parent_rules_with_mixed_rules(caplog: pytest.LogCapture
     assert added.rows() == [("Q2", "Q4")]
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 1
-    assert "main parent" in warnings[0].getMessage()
+    assert "anchor parent" in warnings[0].getMessage()
 
 
 def test_build_genre_tree_sets_scene_on_listed_nodes_only() -> None:

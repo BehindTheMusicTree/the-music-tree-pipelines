@@ -13,27 +13,83 @@ TREE_ROWS = [
     {"item_id": "Q10", "item_label": "music of Brazil", "parent_id": None},
     {"item_id": "Q11", "item_label": "samba", "parent_id": "Q10"},
     {"item_id": "Q12", "item_label": "music of Cape Verde", "parent_id": None},
+    {"item_id": "Q13", "item_label": "forró", "parent_id": "Q10"},
 ]
 
 
-CANONICAL_ROWS = [{"item_id": "Q1", "item_label": "rock", "parent_id": None}]
+CANONICAL_ROWS = [
+    {"item_id": "Q1", "item_label": "rock", "parent_id": None},
+    {"item_id": "Q2", "item_label": "baroque", "parent_id": None},
+]
+
+SELECTION_SCHEMA = {
+    "item_id": pl.Utf8,
+    "parent_id": pl.Utf8,
+    "canonical_parent_id": pl.Utf8,
+    "regional_genre_parent_id": pl.Utf8,
+    "regional_overview_ids": pl.List(pl.Utf8),
+}
+
+
+def _selection(item_id: str, parent_id: str | None = None, canonical=None, regional_genre=None, overviews=()):
+    return {
+        "item_id": item_id,
+        "parent_id": parent_id,
+        "canonical_parent_id": canonical,
+        "regional_genre_parent_id": regional_genre,
+        "regional_overview_ids": list(overviews),
+    }
+
+
+# Samba is anchored on its first overview (Q10); its canonical parent (Q1) and other overview (Q12) are
+# selected parents, Q13 is a regional genre parent that lost its axis.
+SELECTION_ROWS = [
+    _selection("Q10"),
+    _selection("Q11", "Q10", canonical="Q1", overviews=["Q10", "Q12"]),
+    _selection("Q12", canonical="Q99"),
+    _selection("Q13", "Q10", overviews=["Q10"]),
+    _selection("Q1"),
+    _selection("Q2"),
+]
+SECONDARY_ROWS = [{"item_id": "Q11", "parent_id": "Q13"}, {"item_id": "Q12", "parent_id": "Q98"}]
 
 
 def _hierarchy() -> pl.DataFrame:
     return pl.DataFrame(TREE_ROWS)
 
 
-def _write_silver(tmp_path: Path, secondary_rows: list[dict[str, str]] | None = None) -> Path:
+def _write_silver(
+    tmp_path: Path,
+    selection_rows: list[dict] | None = None,
+    secondary_rows: list[dict[str, str]] | None = None,
+) -> Path:
     wikidata_silver_dir = tmp_path / "wikidata_silver"
     wikidata_silver_dir.mkdir()
     _hierarchy().write_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet")
-    pl.DataFrame([{**row, "is_umbrella": False} for row in CANONICAL_ROWS]).write_parquet(
-        wikidata_silver_dir / "7_canonical_hierarchy.parquet"
+    pl.DataFrame(
+        [{**row, "is_umbrella": False} for row in CANONICAL_ROWS], schema_overrides={"parent_id": pl.Utf8}
+    ).write_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    pl.DataFrame(selection_rows or [], schema=SELECTION_SCHEMA).write_parquet(
+        wikidata_silver_dir / "5_parent_selection.parquet"
     )
     pl.DataFrame(secondary_rows or [], schema={"item_id": pl.Utf8, "parent_id": pl.Utf8}).write_parquet(
         wikidata_silver_dir / "5_secondary_parents.parquet"
     )
     return wikidata_silver_dir
+
+
+def _export(tmp_path: Path, curation_dir: Path, descriptions_path: Path, **silver) -> dict:
+    wikidata_silver_dir = _write_silver(tmp_path, **silver)
+    return json.loads(
+        export_regional_genre_tree(
+            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
+        ).read_text()
+    )
+
+
+def _samba(tree: dict) -> dict:
+    brazil = next(node for node in tree["tree"] if node["name"] == "music of Brazil")
+    return next(node for node in brazil["children"] if node["name"] == "samba")
 
 
 def test_export_regional_genre_tree_writes_tree_shape(
@@ -81,56 +137,69 @@ def test_export_regional_genre_tree_raises_on_schema_violation(
         )
 
 
-EXTRA_EDGES = [
-    {"item_id": "Q11", "parent_id": "Q12"},
-    {"item_id": "Q11", "parent_id": "Q1"},
-    {"item_id": "Q12", "parent_id": "Q99"},
-]
+AXES = {"selection_rows": SELECTION_ROWS, "secondary_rows": SECONDARY_ROWS}
 
 
-def test_export_regional_genre_tree_emits_extra_parents_as_primary_by_default(
+def test_export_regional_genre_tree_splits_selected_and_secondary_parents(
     tmp_path: Path, curation_dir: Path, descriptions_path: Path
 ) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
-
-    tree = json.loads(
-        export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
-        ).read_text()
-    )
+    tree = _export(tmp_path, curation_dir, descriptions_path, **AXES)
 
     assert tree["treeName"] == "regional"
-    samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
+    samba = _samba(tree)
     assert samba["primaryParents"] == ["Q1", "Q12"]
-    assert "secondaryParents" not in samba
+    assert samba["secondaryParents"] == ["Q13"]
     cape_verde = next(node for node in tree["tree"] if node["name"] == "music of Cape Verde")
     assert "primaryParents" not in cape_verde
+    assert "secondaryParents" not in cape_verde
+    assert tree["crossTreeSecondaryParents"] == []
 
 
-def test_export_regional_genre_tree_moves_added_extra_edge_to_secondary(
+def test_export_regional_genre_tree_moves_added_selected_edge_to_secondary(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation(
         "secondary_parents",
         [
             {"item_id": "Q11", "parent_id": "Q1", "action": "add", "reason": "classification only"},
             {"item_id": "Q11", "parent_id": "Q12", "action": "remove", "reason": "wrong"},
+            {"item_id": "Q11", "parent_id": "Q13", "action": "remove", "reason": "wrong"},
         ],
     )
 
-    tree = json.loads(
-        export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
-        ).read_text()
-    )
+    samba = _samba(_export(tmp_path, curation_dir, descriptions_path, **AXES))
 
-    samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
     assert "primaryParents" not in samba
     assert samba["secondaryParents"] == ["Q1"]
+
+
+def test_export_regional_genre_tree_emits_cross_tree_secondary_parents(
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+) -> None:
+    selection_rows = [*SELECTION_ROWS[:4], _selection("Q1", regional_genre="Q13"), _selection("Q2")]
+    secondary_rows = [*SECONDARY_ROWS, {"item_id": "Q1", "parent_id": "Q11"}, {"item_id": "Q1", "parent_id": "Q2"}]
+    write_curation(
+        "secondary_parents",
+        [
+            {"item_id": "Q2", "parent_id": "Q10", "action": "add", "reason": "baroque in Brazil"},
+            {"item_id": "Q1", "parent_id": "Q11", "action": "remove", "reason": "wrong"},
+        ],
+    )
+
+    tree = _export(
+        tmp_path, curation_dir, descriptions_path, selection_rows=selection_rows, secondary_rows=secondary_rows
+    )
+
+    assert tree["crossTreeSecondaryParents"] == [
+        {"id": "Q1", "secondaryParents": ["Q13"]},
+        {"id": "Q2", "secondaryParents": ["Q10"]},
+    ]
 
 
 def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
@@ -139,13 +208,10 @@ def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q1", "action": "remove", "reason": "x"}])
 
     with pytest.raises(ValueError, match="not extra parent edges"):
-        export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
-        )
+        _export(tmp_path, curation_dir, descriptions_path, **AXES)
 
 
 def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
@@ -154,16 +220,10 @@ def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
 ) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q99", "action": "remove", "reason": "x"}])
 
-    tree = json.loads(
-        export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
-        ).read_text()
-    )
+    samba = _samba(_export(tmp_path, curation_dir, descriptions_path, **AXES))
 
-    samba = next(node for node in tree["tree"] if node["name"] == "music of Brazil")["children"][0]
     assert samba["primaryParents"] == ["Q1", "Q12"]
 
 
@@ -171,7 +231,7 @@ def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
     ("row", "match"),
     [
         ({"item_id": "Q11", "parent_id": "Q99", "action": "add", "reason": "x"}, "outside"),
-        ({"item_id": "Q11", "parent_id": "Q10", "action": "add", "reason": "x"}, "main parent"),
+        ({"item_id": "Q11", "parent_id": "Q10", "action": "add", "reason": "x"}, "anchor parent"),
     ],
 )
 def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
@@ -182,13 +242,10 @@ def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
     row: dict[str, str],
     match: str,
 ) -> None:
-    wikidata_silver_dir = _write_silver(tmp_path, EXTRA_EDGES)
     write_curation("secondary_parents", [row])
 
     with pytest.raises(ValueError, match=f"manual_secondary_parents.csv adds edge.*{match}"):
-        export_regional_genre_tree(
-            wikidata_silver_dir, tmp_path / "gold", curation_dir, descriptions_path, CURATION_EXPORTED_ON
-        )
+        _export(tmp_path, curation_dir, descriptions_path, **AXES)
 
 
 def test_export_regional_genre_tree_emits_essential_songs_and_summary(
