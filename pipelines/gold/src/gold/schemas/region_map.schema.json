@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["regions", "tileset"],
+  "required": ["regions", "tileset", "worldChildIds", "worldZoneIds"],
   "definitions": {
     "box": {
       "type": "array",
@@ -19,13 +19,15 @@
   },
   "properties": {
     "tileset": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "worldChildIds": {"$ref": "#/definitions/ids"},
+    "worldZoneIds": {"$ref": "#/definitions/ids"},
     "regions": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "genres", "songCount", "genreCount"],
+        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "overviewItemId", "genres", "songCount", "genreCount"],
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "name": {"type": "string", "minLength": 1},
@@ -37,6 +39,7 @@
           "mainBbox": {"$ref": "#/definitions/box"},
           "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
           "drillable": {"type": "boolean"},
+          "overviewItemId": {"type": ["string", "null"], "minLength": 1},
           "genres": {
             "type": "array",
             "items": {
