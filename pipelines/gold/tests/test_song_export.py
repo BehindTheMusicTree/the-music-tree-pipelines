@@ -110,9 +110,13 @@ def _write_silver(tmp_path: Path) -> Path:
         silver_dir / "5_secondary_parents.parquet"
     )
     pl.DataFrame(
-        {"item_id": ["Q10", "Q11"], "item_label": ["samba", "samba de roda"], "parent_id": [None, "Q10"]}
+        {
+            "item_id": ["Q10", "Q11", "Q12"],
+            "item_label": ["samba", "samba de roda", "music of Brazil"],
+            "parent_id": [None, "Q10", None],
+        }
     ).write_parquet(silver_dir / "8_regional_hierarchy.parquet")
-    pl.DataFrame({"item_id": ["Q10", "Q11"], "is_regional_overview": [False, False]}).write_parquet(
+    pl.DataFrame({"item_id": ["Q10", "Q11", "Q12"], "is_regional_overview": [False, False, True]}).write_parquet(
         silver_dir / "4_regional_classification.parquet"
     )
     return silver_dir
@@ -293,6 +297,7 @@ def test_export_songs_applies_song_genre_overrides(
         ),
         ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q404", "reason": "x"}, "Q404"),
         ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q3", "reason": "x"}, "umbrella"),
+        ("song_genre", {"musicbrainz_recording_id": _mbid(0), "genre_item_id": "Q12", "reason": "x"}, "overview"),
         ("song_genre", {"musicbrainz_recording_id": _mbid(99), "reason": "x"}, "unknown musicbrainz_recording_id"),
     ],
 )
