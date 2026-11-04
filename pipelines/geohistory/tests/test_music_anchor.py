@@ -137,6 +137,27 @@ def test_overview_label_matches_labels_and_aliases(tmp_path):
     assert unplaced.height == 0
 
 
+def test_overview_ranks_only_when_its_label_names_the_anchor(tmp_path):
+    claims = [
+        label("Q1", "music of France"),
+        label("Q2", "music of Occitania"),
+        claim("Q2", "P17", "Q142"),
+        label("Q3", "Not an overview"),
+        claim("Q3", "P17", "Q142"),
+    ]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("fr", 0)
+    assert (anchors["Q2"]["anchor_id"], anchors["Q2"]["overview_rank"]) == ("fr", None)
+    assert anchors["Q3"]["overview_rank"] is None
+
+
+def test_overviews_naming_the_same_anchor_are_ranked_by_rule_priority(tmp_path):
+    claims = [label("Q1", "music of France"), label("Q2", "music of the French Republic"), claim("Q2", "P1269", "Q142")]
+    anchors, _ = run(tmp_path, claims, aliases=[("Q142", "French Republic")])
+    assert (anchors["Q2"]["rule"], anchors["Q2"]["overview_rank"]) == ("P1269", 0)
+    assert (anchors["Q1"]["rule"], anchors["Q1"]["overview_rank"]) == ("label", 1)
+
+
 def test_ambiguous_overview_label_is_unplaced(tmp_path):
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia")])
     assert "Q1" not in anchors
