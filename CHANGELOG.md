@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `common.step_timer.step` appends one NDJSON record (`ts`, `run_id`, `pipeline`, `step`, `seconds`, `max_rss_gb`) to `PIPELINE_TIMINGS_FILE` when set, requiring `PIPELINE_RUN_ID` and `PIPELINE_NAME`, so run times can be compared across releases; wikidata Silver now times each of its steps.
+
 ## [9.1.0] - 2026-11-03
 
 ### Added
