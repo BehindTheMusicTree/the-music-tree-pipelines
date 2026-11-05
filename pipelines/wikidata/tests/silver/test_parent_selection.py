@@ -197,6 +197,21 @@ def test_select_parents_keeps_several_unrelated_overviews_sorted(
     assert breton_music["parent_id"] == "Q1062222"
 
 
+def test_select_parents_curated_overview_is_anchor_ahead_of_lower_qid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(LABELS, "Q2062222", "music of Brittany")
+    monkeypatch.setattr(f"{__name__}.OVERVIEW_IDS", OVERVIEW_IDS | {"Q2062222"})
+    rows = [*BASE_ROWS, _row("Q2062222", None), _row("Q1050379", "Q2062222", "manual_regional_overview")]
+
+    selection, _ = _select(tmp_path, rows)
+
+    breton_music = _item(selection, "Q1050379")
+    assert breton_music["regional_overview_ids"] == ["Q2062222", "Q1640319"]
+    assert breton_music["parent_id"] == "Q2062222"
+    assert breton_music["relation_type"] == "manual_regional_overview"
+
+
 def test_select_parents_exclusive_manual_overview_drops_other_overviews(tmp_path: Path) -> None:
     rows = [
         *BASE_ROWS,

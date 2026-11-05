@@ -555,8 +555,10 @@ music of Brittany. An overview is dropped only when another of the item's parent
 ([2.4.2](#242-overview-reduction)).
 
 The item's **anchor** `parent_id` — the single edge steps 6–8 build the hierarchies on — is its regional
-genre parent, else its first overview (lowest QID), when the item is regional, and its canonical parent
-otherwise. Every selected parent is also written to `canonical_parent_id`, `regional_genre_parent_id`
+genre parent, else its first overview, when the item is regional, and its canonical parent otherwise.
+Overviews are ordered curated first (a `regional_overviews.csv` row, e.g. Latin music → world music
+ahead of a lower-QID Wikidata overview), then by ascending QID, so a curated overview becomes the anchor
+and the others stay in `regional_overview_ids`. Every selected parent is also written to `canonical_parent_id`, `regional_genre_parent_id`
 and `regional_overview_ids`; Gold feeds tracks to the non-anchor ones too (see
 [`../gold/DESIGN.md`](../gold/DESIGN.md)).
 
