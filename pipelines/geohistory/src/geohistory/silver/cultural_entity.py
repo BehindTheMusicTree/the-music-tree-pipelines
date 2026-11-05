@@ -63,10 +63,6 @@ def _admin_entities(
     """Admin-1 units and P131 intermediates as `admin_unit` entities, plus the NE polygon → entity map."""
     item_entity = dict(crosswalk.sort("entity_id", descending=True).select("wikidata_id", "entity_id").rows())
     countries = natural_earth.filter(pl.col("level") == 0)
-    country_entity = {
-        adm0: item_entity.get(qid) for adm0, qid in countries.select("adm0_a3", "wikidata_id").rows() if qid
-    }
-    country_qids = set(countries["wikidata_id"].drop_nulls())
     country_qid = dict(countries.filter(pl.col("wikidata_id").is_not_null()).select("adm0_a3", "wikidata_id").rows())
     admin1 = natural_earth.filter(pl.col("level") == 1)
     single_unit = set(admin1.group_by("adm0_a3").len().filter(pl.col("len") == 1)["adm0_a3"])
@@ -79,25 +75,31 @@ def _admin_entities(
         .rows()
     )
     units: dict[str, str] = {}
+    # A Natural Earth country whose item is no Wikidata entity (a dependency such as Jersey, Hong Kong or the US
+    # Virgin Islands) is an admin unit of its own, so its polygon and its admin-1 units still reach the map. NE
+    # abbreviates its country names ("U.S. Virgin Is."), so the item's label wins.
+    for qid, name in countries.sort("ne_id").select("wikidata_id", "name").rows():
+        if qid is not None and qid not in item_entity:
+            units.setdefault(qid, labels.get(qid) or name)
+    entity_of = item_entity | {qid: qid for qid in units}
+    country_entity = {adm0: entity_of[qid] for adm0, qid in country_qid.items()}
+
     ne_rows = []
     for ne_id, adm0, qid, name in admin1.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id", "name").rows():
         # NE leaves the sole unit of an unsubdivided territory (`VGB+00?`) without a QID; it is the country's extent,
-        # though its NE name can be a part of it (Guernsey's unit is named "Sark"), so the QID's label wins.
-        inherited = qid is None and adm0 in single_unit and adm0 in country_qid
-        if inherited:
+        # though its NE name can be a part of it (Guernsey's unit is named "Sark").
+        if qid is None and adm0 in single_unit and adm0 in country_qid:
             qid = country_qid[adm0]
-        if qid in country_qids and not (inherited and qid not in item_entity):
-            entity_id = item_entity.get(qid)
-        elif qid in item_entity:
-            entity_id = item_entity[qid]
-        elif (label := (labels.get(qid) or name) if inherited else (name or labels.get(qid))) is None:
+        if qid in entity_of:
+            entity_id = entity_of[qid]
+        elif (label := name or labels.get(qid)) is None:
             entity_id = None
         else:
             entity_id = qid or f"ne:{ne_id}"
             units.setdefault(entity_id, label)
         ne_rows.append((ne_id, 1, entity_id, country_entity.get(adm0)))
     for ne_id, adm0, qid in countries.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id").rows():
-        ne_rows.append((ne_id, 0, item_entity.get(qid), country_entity.get(adm0)))
+        ne_rows.append((ne_id, 0, entity_of.get(qid), country_entity.get(adm0)))
 
     known = set(item_entity) | {qid for qid in natural_earth["wikidata_id"].drop_nulls()} | set(units)
     parents = hierarchy.filter(pl.col("property") == "P131").select("item_id", "value")

@@ -518,7 +518,10 @@ def test_cultural_entity_gives_the_sole_unit_of_an_unsubdivided_territory_its_co
             ("c-ggy", 0, "Q25230", "GGY", "Guernsey"),
             ("GGY+00?", 1, None, "GGY", "Sark"),
         ],
-        hierarchy=[("Q25230", "label", None, "Bailiwick of Guernsey")],
+        hierarchy=[
+            ("Q25230", "label", None, "Bailiwick of Guernsey"),
+            ("Q25305", "label", None, "British Virgin Islands"),
+        ],
     )
     cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
 
@@ -532,3 +535,33 @@ def test_cultural_entity_gives_the_sole_unit_of_an_unsubdivided_territory_its_co
     assert ne_map["VGB+00?"] == "Q25305" and ne_map["TUV+00?"] == "Q672"
     crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
     assert ("Q25305", "Q25305") in crosswalk.rows()
+
+
+def test_cultural_entity_makes_a_country_without_an_entity_an_admin_unit(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(dirs)
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c-jey", 0, "Q785", "JEY", "Jersey"),
+            ("JEY+00?", 1, "Q785", "JEY", "Jersey"),
+            ("c-vir", 0, "Q11703", "VIR", "U.S. Virgin Is."),
+            ("VIR-4868", 1, None, "VIR", "Saint Thomas"),
+            ("VIR-4869", 1, "Q548816", "VIR", "Saint John"),
+            ("c-kas", 0, "Q333946", "KAS", "Siachen Glacier"),
+        ],
+        hierarchy=[("Q11703", "P361", "Q1", "United States Virgin Islands")],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
+    assert kinds["Q785"] == kinds["Q11703"] == kinds["Q333946"] == kinds["ne:VIR-4868"] == "admin_unit"
+    assert labels["Q11703"] == "United States Virgin Islands" and labels["Q333946"] == "Siachen Glacier"
+    ne_map = {r["ne_id"]: r for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
+    assert ne_map["JEY+00?"]["entity_id"] == ne_map["c-jey"]["entity_id"] == "Q785"
+    assert ne_map["c-vir"]["entity_id"] == "Q11703"
+    assert ne_map["VIR-4868"]["country_entity_id"] == ne_map["VIR-4869"]["country_entity_id"] == "Q11703"
+    crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
+    assert ("Q785", "Q785") in crosswalk.rows() and ("Q11703", "Q11703") in crosswalk.rows()
