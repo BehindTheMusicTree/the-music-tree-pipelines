@@ -37,7 +37,7 @@ def _write_item_links(tmp_path: Path) -> Path:
 
 
 def _write_manual_additions(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    manual_additions_path = tmp_path / "manual_regional_overview_additions.csv"
+    manual_additions_path = tmp_path / "regional_overview_additions.csv"
     pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "label": pl.Utf8, "reason": pl.Utf8}).write_csv(
         manual_additions_path
     )
@@ -45,7 +45,7 @@ def _write_manual_additions(tmp_path: Path, rows: list[dict] | None = None) -> P
 
 
 def _write_reclassifications(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    reclassifications_path = tmp_path / "manual_overview_reclassifications.csv"
+    reclassifications_path = tmp_path / "overview_reclassifications.csv"
     pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "reason": pl.Utf8}).write_csv(reclassifications_path)
     return reclassifications_path
 

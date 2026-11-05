@@ -19,7 +19,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "duplicate_genres": ("item_id", "reason"),
     "indigenous_to_exclusions": ("item_id", "reason"),
     "label_overrides": ("item_id", "display_label", "reason"),
-    "canonical_overrides": ("item_id", "reason"),
+    "forced_canonical_genres": ("item_id", "reason"),
     "canonical_parent": ("item_id", "reason", "parent_item_id", "exclude_other_parents"),
     "out_of_scope_genres": ("item_id", "reason"),
     "overview_reclassifications": ("item_id", "reason"),
@@ -83,13 +83,13 @@ def write_curation_csvs(export: dict[str, Any], output_dir: Path) -> list[Path]:
             schema=dict.fromkeys(columns, pl.Utf8),
             orient="row",
         ).with_columns(pl.all().replace("", None))
-        path = output_dir / f"manual_{list_name}.csv"
+        path = output_dir / f"{list_name}.csv"
         df.write_csv(path)
         logger.info("wrote %d rows to %s", df.height, path)
         paths.append(path)
 
     # Gold stamps this into its tree exports so grow can tell which curation a tree was built from.
-    path = output_dir / "manual_export.json"
+    path = output_dir / "export.json"
     path.write_text(json.dumps({"exportedOn": exported_on}))
     logger.info("wrote curation export timestamp %s to %s", exported_on, path)
     paths.append(path)

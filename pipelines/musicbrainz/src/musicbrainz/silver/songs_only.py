@@ -25,7 +25,7 @@ def main() -> None:
     curation_dir = resolve_pipeline_path(musicbrainz.__file__, require_env("CURATION_BRONZE_DIR"))
     inputs = [bronze_dir / f"{name}.parquet" for name in _BRONZE_INPUTS]
     inputs += [silver_dir / f"{name}.parquet" for name in _SILVER_INPUTS]
-    manual_youtube_video_path = curation_dir / "manual_recording_youtube_video.csv"
+    manual_youtube_video_path = curation_dir / "recording_youtube_video.csv"
     inputs.append(manual_youtube_video_path)
     missing = [str(path) for path in inputs if not path.is_file()]
     if missing:

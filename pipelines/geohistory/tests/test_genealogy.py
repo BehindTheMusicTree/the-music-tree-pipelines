@@ -40,7 +40,7 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     curation.mkdir(exist_ok=True)
     for list_name, columns in LISTS.items():
         lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     return curation
 
 

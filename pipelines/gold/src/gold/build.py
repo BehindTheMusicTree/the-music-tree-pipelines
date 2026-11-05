@@ -30,9 +30,9 @@ def pipelines_commit() -> str:
 
 
 def read_curation_exported_on(curation_dir: Path) -> str:
-    exported_on = json.loads((curation_dir / "manual_export.json").read_text()).get("exportedOn")
+    exported_on = json.loads((curation_dir / "export.json").read_text()).get("exportedOn")
     if not isinstance(exported_on, str) or not exported_on:
-        raise ValueError(f"{curation_dir / 'manual_export.json'} has no 'exportedOn': {exported_on!r}")
+        raise ValueError(f"{curation_dir / 'export.json'} has no 'exportedOn': {exported_on!r}")
     return exported_on
 
 
@@ -68,7 +68,7 @@ def build_gold(
         export_canonical_genre_tree(
             wikidata_silver_dir,
             gold_output_dir,
-            curation_dir / "manual_canonical_genre_pop_side.csv",
+            curation_dir / "canonical_genre_pop_side.csv",
             curation_dir,
             descriptions_path,
             curation_exported_on,
@@ -91,15 +91,15 @@ def build_gold(
             wikidata_silver_dir / "4_regional_classification.parquet",
             wikidata_silver_dir / "5_parent_selection.parquet",
             wikidata_silver_dir / "5_secondary_parents.parquet",
-            curation_dir / "manual_genre_alias.csv",
-            curation_dir / "manual_accepted_non_genre_tags.csv",
-            curation_dir / "manual_genre_precedence.csv",
-            curation_dir / "manual_genre_disambiguation.csv",
-            curation_dir / "manual_genre_disambiguation_context.csv",
+            curation_dir / "genre_alias.csv",
+            curation_dir / "accepted_non_genre_tags.csv",
+            curation_dir / "genre_precedence.csv",
+            curation_dir / "genre_disambiguation.csv",
+            curation_dir / "genre_disambiguation_context.csv",
             wikidata_bronze_dir / "wikidata_genre_aliases.parquet",
             gold_output_dir,
         )
-    essential_songs_csv = "manual_essential_songs.csv"
+    essential_songs_csv = "essential_songs.csv"
     check_known_recordings(
         pl.read_csv(curation_dir / essential_songs_csv, columns=["musicbrainz_recording_id"], infer_schema=False),
         pl.read_parquet(genre_match_path, columns=["musicbrainz_recording_id"]),

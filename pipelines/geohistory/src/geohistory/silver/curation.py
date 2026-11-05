@@ -18,7 +18,7 @@ TRADITION_LINK_KINDS = ("lineage", "association")
 
 
 def read_curation_list(curation_dir: Path, list_name: str) -> pl.DataFrame:
-    path = curation_dir / f"manual_{list_name}.csv"
+    path = curation_dir / f"{list_name}.csv"
     rules = pl.read_csv(path, infer_schema=False)
     if rules.columns != list(LISTS[list_name]):
         raise ValueError(f"{path} has columns {rules.columns}, expected {list(LISTS[list_name])}")

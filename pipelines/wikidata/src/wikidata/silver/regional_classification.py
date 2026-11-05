@@ -10,44 +10,44 @@ logger = logging.getLogger(__name__)
 WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 
 # Three curated parent lists (in grow-the-music-tree-api, pulled into Bronze by the curation pipeline), one
-# per parent axis parent_selection.py picks: manual_canonical_parent.csv (an item's canonical parent),
-# manual_regional_genre_parent.csv (its regional genre parent) and manual_regional_overviews.csv (one of its
+# per parent axis parent_selection.py picks: canonical_parent.csv (an item's canonical parent),
+# regional_genre_parent.csv (its regional genre parent) and regional_overviews.csv (one of its
 # "music of <place>" overviews, keyed by (item_id, overview_item_id)). Each row becomes a synthetic edge here,
 # before the cascade below, so is_regional flows through it like through a Bronze edge. Its
 # `exclude_other_parents` flag is only carried on that edge: parent_selection.py drops the item's other
 # parents of the same axis, which never changes is_regional since the edge kept is of that same kind.
-# Leaving an item's edges into the regional graph is canonical_overrides' job. See
+# Leaving an item's edges into the regional graph is forced_canonical_genres' job. See
 # DESIGN.md#23-4_regional_classification.
 MANUAL_CANONICAL_PARENT_RELATION_TYPE = "manual_canonical_parent"
 MANUAL_REGIONAL_GENRE_PARENT_RELATION_TYPE = "manual_regional_genre_parent"
 MANUAL_REGIONAL_OVERVIEW_RELATION_TYPE = "manual_regional_overview"
 
-# manual_canonical_overrides.csv, curated the same way: genres kept canonical although an edge leads them into the
+# forced_canonical_genres.csv, curated the same way: genres kept canonical although an edge leads them into the
 # regional graph (e.g. a period of Western art music filed under a "music of <place>" item). The cascade
 # below stops at them, so their own subgenres only turn regional through another regional edge. An id
 # absent from the tree or flagged is_regional_overview raises.
 
-# manual_canonical_parent_additions.csv, curated the same way: a canonical (non-regional,
+# canonical_parent_additions.csv, curated the same way: a canonical (non-regional,
 # non-overview) grouping node that has no real Wikidata QID of its own — e.g. "Reggae/Dub", a
 # grouping Gold-layer wants but that no single Wikidata item represents — so a data expert can still
 # give real genre items (like "reggae" and "dub music") a real parent to nest under in
-# manual_canonical_parent.csv. `item_id` must be a synthetic `LOCAL:`-prefixed id (never a fabricated
+# canonical_parent.csv. `item_id` must be a synthetic `LOCAL:`-prefixed id (never a fabricated
 # QID-shaped id) and must not already be present in the genre tree. Applied before
 # the manual parent edges so the new node is a legal parent_item_id target. See
 # DESIGN.md#23-4_regional_classification.
 MANUAL_CANONICAL_PARENT_ADDITION_REASON = "manual_canonical_parent_addition"
 LOCAL_ID_PREFIX = "LOCAL:"
 
-# manual_accepted_canonical_roots.csv, curated the same way (also read by canonical_roots.py): roots a
+# accepted_canonical_roots.csv, curated the same way (also read by canonical_roots.py): roots a
 # data expert has accepted as standalone canonical genres. Every parent edge of those items is dropped
 # here, before the cascade, so a Wikidata re-parenting (e.g. hip-hop moved under the regional "urban
 # contemporary" on 2026-10-09) can't silently pull an accepted root into another subtree or the
-# regional graph — Gold's per-root curation (manual_canonical_genre_pop_side.csv) depends on them
+# regional graph — Gold's per-root curation (canonical_genre_pop_side.csv) depends on them
 # staying roots. A Wikidata P2341 value on one is ignored the same way; a curated contradiction (a manual
 # parent, overview or overview reclassification) or an accepted id missing from the tree (deleted/merged QID) raises,
 # freezing the run until a curator or a Wikidata revert resolves it.
 
-# manual_indigenous_to_exclusions.csv, curated the same way: P2341 ("indigenous to") is
+# indigenous_to_exclusions.csv, curated the same way: P2341 ("indigenous to") is
 # treated as an automatic regional-seed signal below, but — like P495 ("country of origin", see the
 # comment in classify_regional_genres for why that property is excluded entirely) — it's sometimes
 # set on a broad canonical umbrella genre pointing at a whole continent rather than a specific
@@ -73,7 +73,7 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
     )
     if not blank.is_empty():
         raise ValueError(
-            "manual_canonical_parent_additions.csv rows must not have a blank item_id or label: "
+            "canonical_parent_additions.csv rows must not have a blank item_id or label: "
             f"{blank.select('item_id').to_series().to_list()}"
         )
 
@@ -84,19 +84,19 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
     non_local = manual_additions.filter(~pl.col("item_id").str.starts_with(LOCAL_ID_PREFIX))
     if not non_local.is_empty():
         raise ValueError(
-            f"manual_canonical_parent_additions.csv rows must have an item_id starting with '{LOCAL_ID_PREFIX}' "
+            f"canonical_parent_additions.csv rows must have an item_id starting with '{LOCAL_ID_PREFIX}' "
             f"(never a fabricated QID-shaped id): {non_local.select('item_id').to_series().to_list()}"
         )
 
     added_ids = manual_additions.select("item_id").to_series().to_list()
     if len(added_ids) != len(set(added_ids)):
-        raise ValueError("manual_canonical_parent_additions.csv contains duplicate item_id rows")
+        raise ValueError("canonical_parent_additions.csv contains duplicate item_id rows")
 
     known_item_ids = set(df.select("item_id").unique().to_series())
     already_present = [item_id for item_id in added_ids if item_id in known_item_ids]
     if already_present:
         raise ValueError(
-            "manual_canonical_parent_additions.csv rows already present in the genre tree "
+            "canonical_parent_additions.csv rows already present in the genre tree "
             f"(remove them, they don't need manual addition): {already_present}"
         )
 
@@ -168,7 +168,7 @@ def _validate_manual_parents(
         checks.append(
             (
                 sorted(parent_ids & overview_ids),
-                "parent(s) flagged is_regional_overview (use manual_regional_overviews.csv for those)",
+                "parent(s) flagged is_regional_overview (use regional_overviews.csv for those)",
             )
         )
     for ids, problem in checks:
@@ -211,11 +211,11 @@ def _pin_accepted_roots(df: pl.DataFrame, accepted_roots: pl.DataFrame, manual_p
     accepted_ids = set(accepted_roots.select("item_id").to_series())
     absent = sorted(accepted_ids - set(df.select("item_id").to_series()))
     if absent:
-        raise ValueError(f"manual_accepted_canonical_roots.csv item_id(s) not found in the genre tree: {absent}")
+        raise ValueError(f"accepted_canonical_roots.csv item_id(s) not found in the genre tree: {absent}")
     conflicting = sorted(accepted_ids & manual_parent_ids)
     if conflicting:
         raise ValueError(
-            f"manual_accepted_canonical_roots.csv item_id(s) also have a curated parent or overview: {conflicting}"
+            f"accepted_canonical_roots.csv item_id(s) also have a curated parent or overview: {conflicting}"
         )
     pinned = (
         df.filter(pl.col("item_id").is_in(list(accepted_ids)))
@@ -234,7 +234,7 @@ def _pin_accepted_roots(df: pl.DataFrame, accepted_roots: pl.DataFrame, manual_p
     return pl.concat([df.filter(~pl.col("item_id").is_in(list(accepted_ids))), pinned])
 
 
-def _read_canonical_overrides(df: pl.DataFrame, path: Path) -> set[str]:
+def _read_forced_canonical_genres(df: pl.DataFrame, path: Path) -> set[str]:
     ids = pl.read_csv(path, infer_schema=False).get_column("item_id").str.strip_chars().to_list()
     if len(ids) != len(set(ids)):
         raise ValueError(f"{path.name} contains duplicate item_id rows")
@@ -249,7 +249,7 @@ def _read_canonical_overrides(df: pl.DataFrame, path: Path) -> set[str]:
 
 def _validate_parent_axes(df: pl.DataFrame, manual: dict[str, pl.DataFrame]) -> None:
     is_regional = dict(df.select("item_id", "is_regional").unique(subset="item_id").iter_rows())
-    for list_name, expected in (("manual_canonical_parent.csv", False), ("manual_regional_genre_parent.csv", True)):
+    for list_name, expected in (("canonical_parent.csv", False), ("regional_genre_parent.csv", True)):
         wrong = sorted(
             (item_id, parent_id)
             for item_id, parent_id in manual[list_name].select("item_id", "parent_item_id").iter_rows()
@@ -268,23 +268,23 @@ def _apply_indigenous_to_exclusions(indigenous_ids: set[str], exclusions: pl.Dat
     unknown_ids = sorted(exclusion_ids - indigenous_ids)
     if unknown_ids:
         raise ValueError(
-            "manual_indigenous_to_exclusions.csv rows reference item_id(s) with no P2341 value in "
+            "indigenous_to_exclusions.csv rows reference item_id(s) with no P2341 value in "
             f"wikidata_genre_indigenous_to.parquet: {unknown_ids}"
         )
     return indigenous_ids - exclusion_ids
 
 
 MANUAL_PARENT_LISTS = (
-    ("manual_canonical_parent.csv", "parent_item_id", ["item_id"], False, MANUAL_CANONICAL_PARENT_RELATION_TYPE),
+    ("canonical_parent.csv", "parent_item_id", ["item_id"], False, MANUAL_CANONICAL_PARENT_RELATION_TYPE),
     (
-        "manual_regional_genre_parent.csv",
+        "regional_genre_parent.csv",
         "parent_item_id",
         ["item_id"],
         False,
         MANUAL_REGIONAL_GENRE_PARENT_RELATION_TYPE,
     ),
     (
-        "manual_regional_overviews.csv",
+        "regional_overviews.csv",
         "overview_item_id",
         ["item_id", "parent_item_id"],
         True,
@@ -300,7 +300,7 @@ def classify_regional_genres(
     manual_canonical_parent_path: Path,
     manual_regional_genre_parent_path: Path,
     manual_regional_overviews_path: Path,
-    manual_canonical_overrides_path: Path,
+    forced_canonical_genres_path: Path,
     manual_accepted_roots_path: Path,
     manual_indigenous_to_exclusions_path: Path,
     output_dir: Path,
@@ -323,9 +323,9 @@ def classify_regional_genres(
     )
 
     paths = {
-        "manual_canonical_parent.csv": manual_canonical_parent_path,
-        "manual_regional_genre_parent.csv": manual_regional_genre_parent_path,
-        "manual_regional_overviews.csv": manual_regional_overviews_path,
+        "canonical_parent.csv": manual_canonical_parent_path,
+        "regional_genre_parent.csv": manual_regional_genre_parent_path,
+        "regional_overviews.csv": manual_regional_overviews_path,
     }
     manual: dict[str, pl.DataFrame] = {}
     for list_name, parent_column, key_columns, parent_is_overview, _ in MANUAL_PARENT_LISTS:
@@ -336,25 +336,25 @@ def classify_regional_genres(
     manual_parent_ids = set().union(*(set(m.get_column("item_id")) for m in manual.values()))
     df = _pin_accepted_roots(df, accepted_roots, manual_parent_ids)
 
-    canonical_override_ids = _read_canonical_overrides(df, manual_canonical_overrides_path)
-    if indigenous_ids & canonical_override_ids:
-        logger.warning("ignoring P2341 on canonical override(s): %s", sorted(indigenous_ids & canonical_override_ids))
-        indigenous_ids -= canonical_override_ids
-    manual_overview_ids = set(manual["manual_regional_overviews.csv"].get_column("item_id")) - canonical_override_ids
+    forced_canonical_ids = _read_forced_canonical_genres(df, forced_canonical_genres_path)
+    if indigenous_ids & forced_canonical_ids:
+        logger.warning("ignoring P2341 on forced canonical genre(s): %s", sorted(indigenous_ids & forced_canonical_ids))
+        indigenous_ids -= forced_canonical_ids
+    manual_overview_ids = set(manual["regional_overviews.csv"].get_column("item_id")) - forced_canonical_ids
 
     # Seeds: the "music of <place>" items themselves (plus items reclassified into that same
-    # non-genre-overview role via manual_overview_reclassifications.csv, e.g. "European folk music"
+    # non-genre-overview role via overview_reclassifications.csv, e.g. "European folk music"
     # — see regional_overview_classification.py), plus every item Wikidata's P2341 ("indigenous to")
     # flags as belonging to a specific people (e.g. "Han Chinese music" -> "Han Chinese people", see
     # bronze wikidata_genre_indigenous_to.parquet), plus every item a data expert filed under an overview
-    # in manual_regional_overviews.csv. P495 ("country of origin") is deliberately not used as a seed
+    # in regional_overviews.csv. P495 ("country of origin") is deliberately not used as a seed
     # source: it's set on broad canonical umbrella genres too (jazz -> United States, heavy metal music
     # -> United Kingdom), which would wrongly cascade regional status onto their real subgenres. A genre
     # item is "direct" regional if any one of its parent edges points at a seed — not all of them, since
     # e.g. "Australian rock" has one parent into "rock music" (clean) and another into "music of
     # Australia" (a seed), and is still considered regional. Regional status then cascades to children
     # layer by layer: any genre item with a parent edge into an already-regional item is "inherited"
-    # regional, repeated until no new items are found. manual_canonical_overrides.csv items are never
+    # regional, repeated until no new items are found. forced_canonical_genres.csv items are never
     # flagged, so the cascade does not pass through them either.
     seed_ids = set(
         df.filter(pl.col("classification_reason").is_in(["regional_overview", MANUAL_OVERVIEW_RECLASSIFICATION_REASON]))
@@ -363,7 +363,7 @@ def classify_regional_genres(
         .to_series()
     )
     source_ids = seed_ids | indigenous_ids | manual_overview_ids
-    blocked_ids = list(source_ids | canonical_override_ids)
+    blocked_ids = list(source_ids | forced_canonical_ids)
     direct_ids = set(
         df.filter(
             ~pl.col("is_regional_overview")
@@ -381,7 +381,7 @@ def classify_regional_genres(
         candidates = df.filter(
             ~pl.col("is_regional_overview")
             & pl.col("parent_id").is_in(list(frontier))
-            & ~pl.col("item_id").is_in(list(regional_ids | source_ids | canonical_override_ids))
+            & ~pl.col("item_id").is_in(list(regional_ids | source_ids | forced_canonical_ids))
         )
         frontier = set(candidates.select("item_id").unique().to_series())
         regional_ids |= frontier
@@ -416,7 +416,7 @@ def classify_regional_genres(
         .rows()
     )
     if regional_roots:
-        raise ValueError(f"manual_accepted_canonical_roots.csv item_id(s) classified regional: {regional_roots}")
+        raise ValueError(f"accepted_canonical_roots.csv item_id(s) classified regional: {regional_roots}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "4_regional_classification.parquet"

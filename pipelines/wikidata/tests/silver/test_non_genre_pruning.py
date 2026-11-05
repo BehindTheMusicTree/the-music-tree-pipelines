@@ -7,35 +7,35 @@ from wikidata.silver import non_genre_pruning as ngp
 
 
 def _write_manual_theme_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_theme_genres.csv"
+    path = tmp_path / "theme_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_technique_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_technique_genres.csv"
+    path = tmp_path / "technique_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_out_of_scope_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_out_of_scope_genres.csv"
+    path = tmp_path / "out_of_scope_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_non_stylistic_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_non_stylistic_genres.csv"
+    path = tmp_path / "non_stylistic_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_duplicate_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_duplicate_genres.csv"
+    path = tmp_path / "duplicate_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path

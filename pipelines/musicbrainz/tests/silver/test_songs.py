@@ -79,7 +79,7 @@ ALL_PLAYABLE = {
 }
 
 
-VIDEO_CSV = "manual_recording_youtube_video.csv"
+VIDEO_CSV = "recording_youtube_video.csv"
 VIDEO_COLUMNS = ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason")
 
 

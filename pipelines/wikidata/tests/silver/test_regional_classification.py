@@ -118,7 +118,7 @@ GENRE_CLASSIFICATION_ROWS = [
         "classification_reason": None,
     },
     # mezwed: a root item (no P279/P361 parent, no P2341 value) filed under an overview in
-    # manual_regional_overviews.csv — regional via manual_regional_overview, not via any automated source.
+    # regional_overviews.csv — regional via manual_regional_overview, not via any automated source.
     {
         "item_id": "Q4118941",
         "item_label": "mezwed",
@@ -203,7 +203,7 @@ def _classify_regional_genres(
     canonical_parent: list[dict] | None = None,
     regional_genre_parent: list[dict] | None = None,
     regional_overviews: list[dict] | None = None,
-    canonical_overrides: list[str] | None = None,
+    forced_canonical_genres: list[str] | None = None,
     accepted_roots: list[str] | None = None,
     indigenous_to_exclusions: list[str] | None = None,
     regional_overviews_path: Path | None = None,
@@ -214,18 +214,18 @@ def _classify_regional_genres(
     return sr.classify_regional_genres(
         genre_classification_path or _write_genre_classification(tmp_path),
         _write_indigenous_to(tmp_path),
-        _write_csv(tmp_path / "manual_canonical_parent_additions.csv", [], {"item_id": pl.Utf8, "label": pl.Utf8}),
-        _write_csv(tmp_path / "manual_canonical_parent.csv", canonical_parent or [], PARENT_SCHEMA),
-        _write_csv(tmp_path / "manual_regional_genre_parent.csv", regional_genre_parent or [], PARENT_SCHEMA),
+        _write_csv(tmp_path / "canonical_parent_additions.csv", [], {"item_id": pl.Utf8, "label": pl.Utf8}),
+        _write_csv(tmp_path / "canonical_parent.csv", canonical_parent or [], PARENT_SCHEMA),
+        _write_csv(tmp_path / "regional_genre_parent.csv", regional_genre_parent or [], PARENT_SCHEMA),
         regional_overviews_path
         or _write_csv(
-            tmp_path / "manual_regional_overviews.csv",
+            tmp_path / "regional_overviews.csv",
             DEFAULT_OVERVIEW_ROWS if regional_overviews is None else regional_overviews,
             OVERVIEW_SCHEMA,
         ),
-        _write_csv(tmp_path / "manual_canonical_overrides.csv", ids(canonical_overrides), ITEM_SCHEMA),
-        _write_csv(tmp_path / "manual_accepted_canonical_roots.csv", ids(accepted_roots), ITEM_SCHEMA),
-        _write_csv(tmp_path / "manual_indigenous_to_exclusions.csv", ids(indigenous_to_exclusions), ITEM_SCHEMA),
+        _write_csv(tmp_path / "forced_canonical_genres.csv", ids(forced_canonical_genres), ITEM_SCHEMA),
+        _write_csv(tmp_path / "accepted_canonical_roots.csv", ids(accepted_roots), ITEM_SCHEMA),
+        _write_csv(tmp_path / "indigenous_to_exclusions.csv", ids(indigenous_to_exclusions), ITEM_SCHEMA),
         output_dir or tmp_path / "silver",
     )
 
@@ -360,14 +360,14 @@ def test_classify_regional_genres_validates_manual_regional_overviews(
 
 
 def test_classify_regional_genres_requires_overview_item_id_column(tmp_path: Path) -> None:
-    path = _write_csv(tmp_path / "manual_regional_overviews.csv", [{"item_id": "Q4118941"}], ITEM_SCHEMA)
+    path = _write_csv(tmp_path / "regional_overviews.csv", [{"item_id": "Q4118941"}], ITEM_SCHEMA)
 
     with pytest.raises(ValueError, match="overview_item_id"):
         _classify_regional_genres(tmp_path, regional_overviews_path=path)
 
 
 def test_classify_regional_genres_requires_overview_item_id_value_when_column_is_all_null(tmp_path: Path) -> None:
-    path = tmp_path / "manual_regional_overviews.csv"
+    path = tmp_path / "regional_overviews.csv"
     path.write_text(
         "item_id,item_label,reason,overview_item_id,exclude_other_parents\nQ4118941,mezwed,test override,,\n"
     )
@@ -429,8 +429,8 @@ def test_classify_regional_genres_keeps_other_edges_of_manual_parent_item(tmp_pa
         ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q0000000"}], "Q0000000"),
         ("canonical_parent", [{"item_id": "Q0000000", "parent_item_id": "Q9778"}], "Q0000000"),
         ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q1198131"}], "self-parent"),
-        # music of Portugal is an overview: manual_regional_overviews.csv is the list for it
-        ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q2579987"}], "manual_regional_overviews"),
+        # music of Portugal is an overview: regional_overviews.csv is the list for it
+        ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q2579987"}], "regional_overviews.csv"),
         ("regional_genre_parent", [{"item_id": "Q1198131", "parent_item_id": "Q2579987"}], "Q2579987"),
         ("canonical_parent", [{"item_id": "Q2579987", "parent_item_id": "Q9778"}], "Q2579987"),
         ("canonical_parent", [{"item_id": "Q1198131", "parent_item_id": "Q8341"}] * 2, "duplicate"),
@@ -452,14 +452,14 @@ def test_classify_regional_genres_validates_manual_parents(
 
 
 def test_classify_regional_genres_raises_on_missing_parent_item_id_column(tmp_path: Path) -> None:
-    path = _write_csv(tmp_path / "manual_canonical_parent.csv", [{"item_id": "Q1198131"}], ITEM_SCHEMA)
+    path = _write_csv(tmp_path / "canonical_parent.csv", [{"item_id": "Q1198131"}], ITEM_SCHEMA)
 
     with pytest.raises(ValueError, match="parent_item_id"):
         sr._read_manual_parents(path, "parent_item_id")
 
 
 def test_classify_regional_genres_raises_on_missing_exclude_other_parents_column(tmp_path: Path) -> None:
-    path = tmp_path / "manual_canonical_parent.csv"
+    path = tmp_path / "canonical_parent.csv"
     path.write_text("item_id,item_label,reason,parent_item_id\nQ1198131,morna,test,Q9778\n")
 
     with pytest.raises(ValueError, match="exclude_other_parents"):
@@ -543,19 +543,19 @@ def test_add_manual_canonical_parent_items_raises_on_item_id_already_present() -
         sr._add_manual_canonical_parent_items(df, manual_additions)
 
 
-def test_classify_regional_genres_canonical_override_stops_cascade(tmp_path: Path) -> None:
+def test_classify_regional_genres_forced_canonical_genre_stops_cascade(tmp_path: Path) -> None:
     # Portuguese folk music sits under music of Portugal; kept canonical, it no longer passes regional
     # status down to fado, whose only parent it is.
-    by_item = _by_item(_classify_regional_genres(tmp_path, canonical_overrides=["Q106556293"]))
+    by_item = _by_item(_classify_regional_genres(tmp_path, forced_canonical_genres=["Q106556293"]))
 
     assert by_item["Q106556293"] == (False, None)
     assert by_item["Q185676"] == (False, None)
 
 
-def test_classify_regional_genres_canonical_override_beats_indigenous_to_and_manual_overview(
+def test_classify_regional_genres_forced_canonical_genre_beats_indigenous_to_and_manual_overview(
     tmp_path: Path,
 ) -> None:
-    by_item = _by_item(_classify_regional_genres(tmp_path, canonical_overrides=["Q10376827", "Q4118941"]))
+    by_item = _by_item(_classify_regional_genres(tmp_path, forced_canonical_genres=["Q10376827", "Q4118941"]))
 
     assert by_item["Q10376827"] == (False, None)
     assert by_item["Q999999991"] == (False, None)
@@ -567,11 +567,11 @@ def test_classify_regional_genres_canonical_override_beats_indigenous_to_and_man
     ("item_ids", "match"),
     [(["Q999999999"], "Q999999999"), (["Q2579987"], "is_regional_overview"), (["Q8341", "Q8341"], "duplicate")],
 )
-def test_classify_regional_genres_validates_canonical_overrides(
+def test_classify_regional_genres_validates_forced_canonical_genres(
     tmp_path: Path, item_ids: list[str], match: str
 ) -> None:
     with pytest.raises(ValueError, match=match):
-        _classify_regional_genres(tmp_path, canonical_overrides=item_ids)
+        _classify_regional_genres(tmp_path, forced_canonical_genres=item_ids)
 
 
 def test_classify_regional_genres_pins_accepted_roots(tmp_path: Path) -> None:
@@ -607,7 +607,7 @@ def test_classify_regional_genres_ignores_indigenous_to_on_accepted_root(tmp_pat
 
 @pytest.mark.parametrize("item_id", ["Q4118941", "Q2579987", "Q999999999"])
 def test_classify_regional_genres_accepted_root_regional_or_absent_raises(tmp_path: Path, item_id: str) -> None:
-    # mezwed has a manual_regional_overviews.csv row, music of Portugal is a regional overview, and
+    # mezwed has a regional_overviews.csv row, music of Portugal is a regional overview, and
     # Q999999999 is absent from the tree (e.g. a deleted or merged QID).
     with pytest.raises(ValueError, match=item_id):
         _classify_regional_genres(tmp_path, accepted_roots=[item_id])

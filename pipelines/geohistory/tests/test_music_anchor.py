@@ -74,7 +74,7 @@ def run(
             "tradition_exclusions": [(q, "r") for q in exclusions],
         }.get(list_name, ())
         lines = [",".join(columns), *(",".join(row) for row in rows)]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     pl.DataFrame(
         [(e, kind, name, None, None) for e, kind, name in ENTITIES],
         schema=["entity_id", "kind", "label", "latitude", "longitude"],

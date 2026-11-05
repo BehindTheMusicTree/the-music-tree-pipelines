@@ -139,7 +139,7 @@ def _description_inputs(tmp_path: Path, additions: list[dict[str, str]]) -> tupl
             "parent_id": ["Q188451", None, "Q11399"],
         }
     ).write_parquet(tree_path)
-    additions_path = tmp_path / "manual_regional_overview_additions.csv"
+    additions_path = tmp_path / "regional_overview_additions.csv"
     pl.DataFrame(additions, schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
         additions_path
     )
@@ -267,7 +267,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
 
 
 def test_read_entity_additions_returns_the_listed_qids(tmp_path: Path) -> None:
-    path = tmp_path / "manual_entity_additions.csv"
+    path = tmp_path / "entity_additions.csv"
     path.write_text("entity_id,reason\nQ123559,al-Andalus\nQ141814080,Oued Beht\n")
 
     assert bw.read_entity_additions(path) == ["Q123559", "Q141814080"]

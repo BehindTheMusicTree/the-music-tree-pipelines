@@ -258,7 +258,7 @@ def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
 ) -> None:
     write_curation("secondary_parents", [row])
 
-    with pytest.raises(ValueError, match=f"manual_secondary_parents.csv adds edge.*{match}"):
+    with pytest.raises(ValueError, match=f"secondary_parents.csv adds edge.*{match}"):
         _export(tmp_path, curation_dir, descriptions_path, **AXES)
 
 

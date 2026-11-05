@@ -55,7 +55,7 @@ def export_regional_genre_tree(
     )
 
     # The canonical import runs before the regional rows exist, so a canonical item's regional parents
-    # (only a canonical_overrides item keeps any) ride on this import as crossTreeSecondaryParents.
+    # (only a forced_canonical_genres item keeps any) ride on this import as crossTreeSecondaryParents.
     canonical_curation = load_tree_curation(curation_dir, canonical_ids, ref_ids)
     cross_untouched, cross_added = apply_secondary_parent_rules(
         pl.concat(

@@ -29,7 +29,7 @@ def write_curation(curation, **rows):
     curation.mkdir()
     for list_name, columns in LISTS.items():
         lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     return curation
 
 

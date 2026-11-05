@@ -126,20 +126,20 @@ def _write_secondary_parents(tmp_path: Path, rows: list[dict] | None = None) -> 
 
 
 def _write_precedence_csv(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_genre_precedence.csv"
+    path = tmp_path / "genre_precedence.csv"
     pl.DataFrame(rows or [], schema={"item_id": pl.Utf8, "over_item_id": pl.Utf8, "reason": pl.Utf8}).write_csv(path)
     return path
 
 
 def _write_alias_csv(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_genre_alias.csv"
+    path = tmp_path / "genre_alias.csv"
     schema = {"musicbrainz_genre_name": pl.Utf8, "wikidata_genre_name": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_non_genre_csv(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_accepted_non_genre_tags.csv"
+    path = tmp_path / "accepted_non_genre_tags.csv"
     schema = {"musicbrainz_genre_name": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
@@ -154,13 +154,13 @@ def _write_wikidata_aliases(tmp_path: Path, rows: list[tuple[str, str]] | None =
 def _write_disambiguation_csvs(
     tmp_path: Path, rows: list[tuple[str, str, bool]] | None, context_rows: list[tuple[str, str, str]] | None
 ) -> tuple[Path, Path]:
-    path = tmp_path / "manual_genre_disambiguation.csv"
+    path = tmp_path / "genre_disambiguation.csv"
     pl.DataFrame(
         [(name, item_id, "true" if is_default else "", "x") for name, item_id, is_default in rows or []],
         schema={"musicbrainz_genre_name": pl.Utf8, "item_id": pl.Utf8, "is_default": pl.Utf8, "reason": pl.Utf8},
         orient="row",
     ).write_csv(path)
-    context_path = tmp_path / "manual_genre_disambiguation_context.csv"
+    context_path = tmp_path / "genre_disambiguation_context.csv"
     pl.DataFrame(
         [(*row, "x") for row in context_rows or []],
         schema={
@@ -852,7 +852,7 @@ def test_genre_match_curated_disambiguation_without_default_leaves_tag_ambiguous
         ([("jazz", "Q11", True), ("jazz", "Q13", False)], [], "already resolved"),
         ([("d&b", "Q11", True), ("d&b", "Q12", False)], [], "already resolved"),
         ([("asmr", "Q11", True), ("asmr", "Q12", False)], [], "already resolved"),
-        (R_AND_B, [("r&b", "Q13", "Q15")], "not in manual_genre_disambiguation.csv"),
+        (R_AND_B, [("r&b", "Q13", "Q15")], "not in genre_disambiguation.csv"),
         (R_AND_B, [("r&b", "Q12", "Q99")], "context_item_id"),
         ([("r n b", "Q11", True), ("R-n-B", "Q11", False), ("r n b", "Q12", False)], [], "twice"),
     ],

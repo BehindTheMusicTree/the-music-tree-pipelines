@@ -39,7 +39,7 @@ def _setup(
     curation_dir.mkdir()
     for name, columns in LIST_COLUMNS.items():
         df = pl.DataFrame(rows.get(name, []), schema=dict.fromkeys(columns, pl.Utf8))
-        df.write_csv(curation_dir / f"manual_{name}.csv")
+        df.write_csv(curation_dir / f"{name}.csv")
     tree = [{"item_id": i, "parent_id": None, "parent_label": None} for i in tree_ids]
     tree += [{"item_id": tree_ids[0], "parent_id": i, "parent_label": f"music of {i}"} for i in orphan_parent_ids]
     pl.DataFrame(tree, schema={"item_id": pl.Utf8, "parent_id": pl.Utf8, "parent_label": pl.Utf8}).write_parquet(
@@ -97,7 +97,7 @@ def _item(item_id: str) -> dict:
 
 
 def _read(curation_dir: Path, name: str) -> list[dict]:
-    return pl.read_csv(curation_dir / f"manual_{name}.csv", infer_schema=False).to_dicts()
+    return pl.read_csv(curation_dir / f"{name}.csv", infer_schema=False).to_dicts()
 
 
 def test_no_unknown_ids_skips_http_and_writes_empty_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -169,9 +169,9 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
     pl.DataFrame({"item_id": ["Q1", "Q64152411", "Q8"]}).write_parquet(item_links)
     output = prune_non_genre_items(
         item_links,
-        *(curation_dir / f"manual_{name}.csv" for name in ("theme_genres", "technique_genres", "out_of_scope_genres")),
-        curation_dir / "manual_non_stylistic_genres.csv",
-        curation_dir / "manual_duplicate_genres.csv",
+        *(curation_dir / f"{name}.csv" for name in ("theme_genres", "technique_genres", "out_of_scope_genres")),
+        curation_dir / "non_stylistic_genres.csv",
+        curation_dir / "duplicate_genres.csv",
         tmp_path / "silver",
     )
     assert pl.read_parquet(output).get_column("item_id").to_list() == ["Q1", "Q8"]
