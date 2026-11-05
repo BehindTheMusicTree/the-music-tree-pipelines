@@ -1,0 +1,3681 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><meta http-equiv="Content-Type" content="text&#47;html;charset=UTF-8"><title>blazegraph&trade; by SYSTAP</title
+></head
+><body<h1>Query</h1
+><h2>SPARQL</h2
+><pre>PREFIX wd: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;&gt;
+PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+SELECT ?item ?mbid ?image WHERE {
+  VALUES ?item { wd:Q1000015 wd:Q1000171 wd:Q1000238 wd:Q100028 wd:Q1000309 wd:Q1000342 wd:Q1000359 wd:Q1000366 wd:Q1000416 wd:Q1000421 wd:Q1000521 wd:Q1000534 wd:Q1000588 wd:Q1000592 wd:Q1000626 wd:Q1000631 wd:Q1000663 wd:Q1000664 wd:Q100068177 wd:Q1000691 wd:Q100069392 wd:Q1000698 wd:Q100072420 wd:Q1000748 wd:Q100076115 wd:Q100076969 wd:Q100077889 wd:Q1000788 wd:Q100093027 wd:Q1000943 wd:Q1000945 wd:Q1000964 wd:Q1001 wd:Q100101247 wd:Q1001073 wd:Q1001090 wd:Q1001114 wd:Q1001117 wd:Q1001119 wd:Q1001122 wd:Q1001130 wd:Q1001135 wd:Q1001142 wd:Q1001145 wd:Q1001146 wd:Q1001147 wd:Q1001162 wd:Q1001166 wd:Q1001169 wd:Q100117216 wd:Q1001188 wd:Q1001190 wd:Q100119314 wd:Q1001195 wd:Q1001203 wd:Q1001205 wd:Q1001209 wd:Q1001214 wd:Q1001230 wd:Q1001234 wd:Q1001240 wd:Q1001242 wd:Q1001250 wd:Q1001254 wd:Q1001257 wd:Q1001285 wd:Q1001305 wd:Q1001311 wd:Q100131661 wd:Q1001328 wd:Q100134 wd:Q100136962 wd:Q100137351 wd:Q100137671 wd:Q100137708 wd:Q100137717 wd:Q100139176 wd:Q100139328 wd:Q100139779 wd:Q100144360 wd:Q100144645 wd:Q100144813 wd:Q1001450 wd:Q100145261 wd:Q100145442 wd:Q100145468 wd:Q100146358 wd:Q100146369 wd:Q100146398 wd:Q100146626 wd:Q100147499 wd:Q100148106 wd:Q100148220 wd:Q1001487 wd:Q100148848 wd:Q100148950 wd:Q100148960 wd:Q100148996 wd:Q1001491 wd:Q100149232 wd:Q100149278 wd:Q100149288 wd:Q100149340 wd:Q100150850 wd:Q100151303 wd:Q1001514 wd:Q100151442 wd:Q100151777 wd:Q100151982 wd:Q100152078 wd:Q100153616 wd:Q100153927 wd:Q100154032 wd:Q100154338 wd:Q100157364 wd:Q100157912 wd:Q100158009 wd:Q1001616 wd:Q100165501 wd:Q100165631 wd:Q100166303 wd:Q100166315 wd:Q100166417 wd:Q100166477 wd:Q1001688 wd:Q100170383 wd:Q1001724 wd:Q1001867 wd:Q1001890 wd:Q100191992 wd:Q100193034 wd:Q100194041 wd:Q100198686 wd:Q100199073 wd:Q1001992 wd:Q100203917 wd:Q1002101 wd:Q100223 wd:Q1002248 wd:Q100225 wd:Q1002277 wd:Q100231119 wd:Q100233778 wd:Q100234924 wd:Q100235316 wd:Q100235664 wd:Q100236 wd:Q100237698 wd:Q100241 wd:Q100243 wd:Q100244556 wd:Q100249 wd:Q100249671 wd:Q100249768 wd:Q100249904 wd:Q100250324 wd:Q100250335 wd:Q100251627 wd:Q100253451 wd:Q100253617 wd:Q100254234 wd:Q100254879 wd:Q100254915 wd:Q100254925 wd:Q100255655 wd:Q100256262 wd:Q100256269 wd:Q100256287 wd:Q100256342 wd:Q100256387 wd:Q100256440 wd:Q100257686 wd:Q100258 wd:Q100258774 wd:Q1002589 wd:Q100260161 wd:Q100260890 wd:Q100261161 wd:Q100261588 wd:Q100262243 wd:Q100264 wd:Q100266694 wd:Q100266724 wd:Q100267549 wd:Q100268282 wd:Q100268968 wd:Q100269 wd:Q100269171 wd:Q100269399 wd:Q100269425 wd:Q100270758 wd:Q100270842 wd:Q100271096 wd:Q100271504 wd:Q100271526 wd:Q100272221 wd:Q100272912 wd:Q100272975 wd:Q100273062 wd:Q100273688 wd:Q100275176 wd:Q100276051 wd:Q100276313 wd:Q100276667 wd:Q100276699 wd:Q100276701 wd:Q100278799 wd:Q100285491 wd:Q100288104 wd:Q1002920 wd:Q100292088 wd:Q100293 wd:Q100299 wd:Q100304023 wd:Q100304046 wd:Q100304510 wd:Q100307846 wd:Q100307869 wd:Q100308576 wd:Q100309 wd:Q100309042 wd:Q1003115 wd:Q100312 wd:Q100314210 wd:Q100314823 wd:Q100315776 wd:Q100316 wd:Q100316237 wd:Q100319853 wd:Q100319930 wd:Q100319931 wd:Q100319986 wd:Q100319988 wd:Q100320717 wd:Q100320810 wd:Q100321101 wd:Q100321325 wd:Q100323015 wd:Q100323847 wd:Q100323935 wd:Q100324086 wd:Q100324384 wd:Q100325225 wd:Q1003254 wd:Q100325478 wd:Q100326055 wd:Q1003262 wd:Q100326524 wd:Q100330 wd:Q1003303 wd:Q100331604 wd:Q100332226 wd:Q100333 wd:Q100333277 wd:Q100337 wd:Q100337333 wd:Q100340757 wd:Q100343048 wd:Q100347102 wd:Q100347107 wd:Q100347139 wd:Q100347144 wd:Q100347166 wd:Q100348395 wd:Q100348438 wd:Q100348697 wd:Q100348739 wd:Q100348860 wd:Q100348881 wd:Q100349273 wd:Q100349555 wd:Q100349694 wd:Q100350829 wd:Q100351 wd:Q100351043 wd:Q100353966 wd:Q100357122 wd:Q100357940 wd:Q100358355 wd:Q100358909 wd:Q100359256 wd:Q100360 wd:Q100360414 wd:Q100361853 wd:Q100362310 wd:Q100366487 wd:Q100368675 wd:Q100368791 wd:Q1003742 wd:Q100376 wd:Q100376270 wd:Q100377976 wd:Q100378 wd:Q100378387 wd:Q100378947 wd:Q100378977 wd:Q1003820 wd:Q1003829 wd:Q1003833 wd:Q100384568 wd:Q100384991 wd:Q100385063 wd:Q100385482 wd:Q100385579 wd:Q100385674 wd:Q100385731 wd:Q100385863 wd:Q100385871 wd:Q100387607 wd:Q100394925 wd:Q100395 wd:Q100397019 wd:Q100397038 wd:Q100401181 wd:Q100401184 wd:Q100401221 wd:Q100406682 wd:Q100409 wd:Q100409380 wd:Q1004132 wd:Q100413600 wd:Q100414305 wd:Q100414785 wd:Q100416304 wd:Q100417 wd:Q100417863 wd:Q1004206 wd:Q1004217 wd:Q100427785 wd:Q100428190 wd:Q100430041 wd:Q1004336 wd:Q100433730 wd:Q100434 wd:Q1004342 wd:Q1004356 wd:Q1004381 wd:Q1004398 wd:Q100440 wd:Q100442422 wd:Q1004442 wd:Q100447377 wd:Q100448674 wd:Q100448942 wd:Q100448943 wd:Q1004497 wd:Q100450275 wd:Q100450715 wd:Q1004508 wd:Q100452124 wd:Q100452980 wd:Q100453237 wd:Q100453263 wd:Q100453269 wd:Q100453270 wd:Q100453273 wd:Q100453420 wd:Q100453443 wd:Q100453584 wd:Q100453681 wd:Q100453724 wd:Q100453838 wd:Q100453935 wd:Q100454113 wd:Q100454125 wd:Q100454262 wd:Q100454280 wd:Q100454330 wd:Q100454347 wd:Q100454390 wd:Q100454447 wd:Q100454541 wd:Q100454746 wd:Q100454991 wd:Q100454994 wd:Q100454995 wd:Q100454998 wd:Q100455 wd:Q100455000 wd:Q100455002 wd:Q1004571 wd:Q100458 wd:Q1004583 wd:Q1004594 wd:Q1004620 wd:Q100462270 wd:Q100464 wd:Q100471 wd:Q1004786 wd:Q1004804 wd:Q100481346 wd:Q100485476 wd:Q100486 wd:Q1004874 wd:Q100489 wd:Q100489196 wd:Q100490194 wd:Q100491219 wd:Q100491576 wd:Q100492977 wd:Q100493000 wd:Q100499013 wd:Q100503509 wd:Q10050466 wd:Q100505969 wd:Q1005225 wd:Q100527758 wd:Q100528370 wd:Q100530 wd:Q100530422 wd:Q100541238 wd:Q100547795 wd:Q100553013 wd:Q1005543 wd:Q100555 wd:Q1005559 wd:Q100556077 wd:Q100556920 wd:Q100557644 wd:Q100559017 wd:Q100562 wd:Q100570 wd:Q100571 wd:Q100581922 wd:Q100583464 wd:Q100587767 wd:Q100588095 wd:Q1005882 wd:Q100588726 wd:Q100588898 wd:Q100591061 wd:Q100591417 wd:Q100591471 wd:Q100592016 wd:Q100592185 wd:Q100595483 wd:Q1005957 wd:Q100597036 wd:Q100599254 wd:Q100600884 wd:Q100601022 wd:Q100605067 wd:Q100605223 wd:Q100606439 wd:Q100606508 wd:Q100620741 wd:Q1006236 wd:Q1006242 wd:Q100627443 wd:Q100627627 wd:Q100628657 wd:Q100634 wd:Q100641 wd:Q1006482 wd:Q1006496 wd:Q100650 wd:Q100651 wd:Q1006517 wd:Q1006518 wd:Q1006616 wd:Q100663057 wd:Q100671 wd:Q100687626 wd:Q100687708 wd:Q1006904 wd:Q100691236 wd:Q1006939 wd:Q100695371 wd:Q100695832 wd:Q100696446 wd:Q100699034 wd:Q100699208 wd:Q100699792 wd:Q100699801 wd:Q100699810 wd:Q100699855 wd:Q10070 wd:Q100700 wd:Q100700181 wd:Q100702045 wd:Q100702061 wd:Q100704296 wd:Q100705214 wd:Q100705247 wd:Q100705257 wd:Q100705390 wd:Q100705519 wd:Q100706152 wd:Q100707364 wd:Q100707619 wd:Q100708 wd:Q100708392 wd:Q100709326 wd:Q100710 wd:Q100710412 wd:Q100712 wd:Q100713 wd:Q100713017 wd:Q100713379 wd:Q100713427 wd:Q100713441 wd:Q100715225 wd:Q100715720 wd:Q100715862 wd:Q100715870 wd:Q100717588 wd:Q100717768 wd:Q100717799 wd:Q100720626 wd:Q100721103 wd:Q100721144 wd:Q100722754 wd:Q100724189 wd:Q100724788 wd:Q100725175 wd:Q100727 wd:Q100727818 wd:Q100731387 wd:Q100732881 wd:Q100733063 wd:Q100733527 wd:Q100740750 wd:Q100740757 wd:Q1007412 wd:Q100741329 wd:Q100741385 wd:Q100741390 wd:Q100742592 wd:Q100742661 wd:Q100743617 wd:Q100744874 wd:Q1007476 wd:Q1007478 wd:Q100748 wd:Q1007482 wd:Q100749182 wd:Q100751345 wd:Q100754444 wd:Q100759 wd:Q100761772 wd:Q100762350 wd:Q100762585 wd:Q1007692 wd:Q100772400 wd:Q100773541 wd:Q100774863 wd:Q100774917 wd:Q100777 wd:Q1007781 wd:Q100782913 wd:Q100784878 wd:Q1007850 wd:Q100785983 wd:Q100786659 wd:Q100787336 wd:Q100791350 wd:Q100794150 wd:Q100794612 wd:Q100794734 wd:Q100794759 wd:Q100795156 wd:Q1007984 wd:Q100799 wd:Q100801000 wd:Q100801324 wd:Q100802 wd:Q100802087 wd:Q100804515 wd:Q1008047 wd:Q100805026 wd:Q100806312 wd:Q100806733 wd:Q100811459 wd:Q1008154 wd:Q100823951 wd:Q1008271 wd:Q100836 wd:Q100838 wd:Q100841 wd:Q1008422 wd:Q1008449 wd:Q1008489 wd:Q100853 wd:Q100855 wd:Q1008634 wd:Q100866 wd:Q100868946 wd:Q100869591 wd:Q100877 wd:Q100877982 wd:Q10087931 wd:Q100880 wd:Q1008851 wd:Q100885871 wd:Q1008863 wd:Q100890 wd:Q100890920 wd:Q100890925 wd:Q100891163 wd:Q100893907 wd:Q100894866 wd:Q100896145 wd:Q100897 wd:Q100898134 wd:Q1008988 wd:Q1009034 wd:Q1009050 wd:Q1009073 wd:Q100909504 wd:Q100913 wd:Q100913542 wd:Q100914 wd:Q1009181 wd:Q100919071 wd:Q100925726 wd:Q100925797 wd:Q100937 wd:Q100940028 wd:Q100948 wd:Q1009499 wd:Q1009512 wd:Q100956 wd:Q1009609 wd:Q1009640 wd:Q1009645 wd:Q100965443 wd:Q1009665 wd:Q1009666 wd:Q1009687 wd:Q100969202 wd:Q100970320 wd:Q1009710 wd:Q100973486 wd:Q100975209 wd:Q100975216 wd:Q100975217 wd:Q100975310 wd:Q100976760 wd:Q1009770 wd:Q100977064 wd:Q100977319 wd:Q100977813 wd:Q1009782 wd:Q100978614 wd:Q100980727 wd:Q100981428 wd:Q100981747 wd:Q100982200 wd:Q100982392 wd:Q100982422 wd:Q1009825 wd:Q100983263 wd:Q100986598 wd:Q100987 wd:Q100988340 wd:Q100989 wd:Q100989009 wd:Q100989048 wd:Q100989049 wd:Q100989183 wd:Q100989429 wd:Q100989438 wd:Q100989680 wd:Q100990 wd:Q100995191 wd:Q100995739 wd:Q1009965 wd:Q100997387 wd:Q100997658 wd:Q100997746 wd:Q100997871 wd:Q100997874 wd:Q100997887 wd:Q100998006 wd:Q100998571 wd:Q100998826 wd:Q1010022 wd:Q101002775 wd:Q101003114 wd:Q101003699 wd:Q101005068 wd:Q101005245 wd:Q1010061 wd:Q1010077 wd:Q101010873 wd:Q101011174 wd:Q101011306 wd:Q101011807 wd:Q101011988 wd:Q101015793 wd:Q1010187 wd:Q1010190 wd:Q101020021 wd:Q1010201 wd:Q101021607 wd:Q1010243 wd:Q101025890 wd:Q101025975 wd:Q101026827 wd:Q101028862 wd:Q10102972 wd:Q101030913 wd:Q101031198 wd:Q101033 wd:Q101038899 wd:Q101039957 wd:Q101041004 wd:Q1010420 wd:Q101042418 wd:Q1010425 wd:Q101043 wd:Q101044 wd:Q101045143 wd:Q101045664 wd:Q101046013 wd:Q101046462 wd:Q1010493 wd:Q1010504 wd:Q101050912 wd:Q101051535 wd:Q101052801 wd:Q101054 wd:Q101054419 wd:Q101058 wd:Q1010586 wd:Q101058775 wd:Q101058862 wd:Q101059 wd:Q1010591 wd:Q1010602 wd:Q101061880 wd:Q101062937 wd:Q101064387 wd:Q101064400 wd:Q1010648 wd:Q101067892 wd:Q101068123 wd:Q101068272 wd:Q101068386 wd:Q1010712 wd:Q101072266 wd:Q101072276 wd:Q101072337 wd:Q101072618 wd:Q101072638 wd:Q101073304 wd:Q101075593 wd:Q101076301 wd:Q101077730 wd:Q101078539 wd:Q101080458 wd:Q101081848 wd:Q101082919 wd:Q101084 wd:Q101084288 wd:Q101084302 wd:Q101084308 wd:Q101084801 wd:Q101085064 wd:Q101085653 wd:Q101086168 wd:Q101086405 wd:Q101087528 wd:Q101092228 wd:Q101093842 wd:Q101093845 wd:Q101093917 wd:Q101093977 wd:Q101094 wd:Q101094336 wd:Q101094338 wd:Q101094709 wd:Q101095355 wd:Q101095634 wd:Q101095814 wd:Q101095857 wd:Q101095969 wd:Q101096411 wd:Q101096426 wd:Q101096477 wd:Q101097165 wd:Q101101899 wd:Q101103548 wd:Q101103818 wd:Q101103820 wd:Q101104152 wd:Q101105 wd:Q101109125 wd:Q101109314 wd:Q101109940 wd:Q101110 wd:Q101110382 wd:Q101111 wd:Q101112196 wd:Q101112277 wd:Q101113452 wd:Q101113707 wd:Q101114278 wd:Q101114473 wd:Q101116609 wd:Q101119398 wd:Q101120 wd:Q1011235 wd:Q1011241 wd:Q101127345 wd:Q101130405 wd:Q101130448 wd:Q101130464 wd:Q101130621 wd:Q101134482 wd:Q101137091 wd:Q1011412 wd:Q101149 wd:Q101158997 wd:Q1011592 wd:Q101160334 wd:Q101161002 wd:Q101161168 wd:Q101161289 wd:Q101161499 wd:Q1011620 wd:Q101168 wd:Q101171 wd:Q101186551 wd:Q101193334 wd:Q101195583 wd:Q101197410 wd:Q101198091 wd:Q101198429 wd:Q101199736 wd:Q101199738 wd:Q101199774 wd:Q101199868 wd:Q10120 wd:Q101200010 wd:Q101200210 wd:Q101200306 wd:Q101200383 wd:Q101200544 wd:Q101200766 wd:Q101202349 wd:Q101203 wd:Q101204337 wd:Q101204743 wd:Q101205187 wd:Q101205709 wd:Q101208094 wd:Q101208151 wd:Q101208352 wd:Q101208383 wd:Q101208386 wd:Q101208589 wd:Q101208628 wd:Q101209669 wd:Q101209835 wd:Q101210358 wd:Q101210423 wd:Q1012206 wd:Q101221 wd:Q101221340 wd:Q101223 wd:Q101225172 wd:Q101227948 wd:Q101229230 wd:Q101231485 wd:Q101235468 wd:Q101235723 wd:Q101242508 wd:Q101242552 wd:Q101242590 wd:Q101242635 wd:Q101242682 wd:Q101242989 wd:Q101243111 wd:Q101243158 wd:Q101243256 wd:Q101243282 wd:Q101243703 wd:Q101244865 wd:Q101244910 wd:Q101245742 wd:Q101246356 wd:Q101246914 wd:Q101247304 wd:Q101248865 wd:Q101249734 wd:Q101251149 wd:Q101251256 wd:Q101251331 wd:Q101251506 wd:Q101251509 wd:Q101253620 wd:Q1012658 wd:Q101267 wd:Q1012674 wd:Q1012742 wd:Q101278426 wd:Q1012790 wd:Q101281 wd:Q1012900 wd:Q101294179 wd:Q101305130 wd:Q101307495 wd:Q101308 wd:Q101311 wd:Q101314 wd:Q101325026 wd:Q101326447 wd:Q101329 wd:Q10133 wd:Q101343727 wd:Q101345301 wd:Q101365068 wd:Q101380 wd:Q101383 wd:Q1013868 wd:Q101396 wd:Q101397 wd:Q101413590 wd:Q101413724 wd:Q101414510 wd:Q101416917 wd:Q101418024 wd:Q101420740 wd:Q101421766 wd:Q101422089 wd:Q101422556 wd:Q101424804 wd:Q101425520 wd:Q101427292 wd:Q101427929 wd:Q101428652 wd:Q101429285 wd:Q101429412 wd:Q101429444 wd:Q101429533 wd:Q101432261 wd:Q101432630 wd:Q101432832 wd:Q101435155 wd:Q101435207 wd:Q101436391 wd:Q101436392 wd:Q101439186 wd:Q101439748 wd:Q101439810 wd:Q101440425 wd:Q1014432 wd:Q101444653 wd:Q101444698 wd:Q1014447 wd:Q1014451 wd:Q101445684 wd:Q101445925 wd:Q101446679 wd:Q101448 wd:Q101452299 wd:Q101453255 wd:Q1014535 wd:Q101461756 wd:Q101464389 wd:Q101466457 wd:Q101468978 wd:Q101472942 wd:Q101477682 wd:Q101482846 wd:Q101483688 wd:Q101494197 wd:Q1014953 wd:Q101500110 wd:Q101500284 wd:Q101503506 wd:Q101504558 wd:Q101505 wd:Q101507837 wd:Q101507859 wd:Q101507863 wd:Q101507869 wd:Q101508923 wd:Q101513258 wd:Q101514881 wd:Q101515812 wd:Q101516161 wd:Q101516802 wd:Q101517573 wd:Q101518 wd:Q101519692 wd:Q101521 wd:Q1015233 wd:Q101524 wd:Q1015241 wd:Q101526443 wd:Q101526444 wd:Q101529383 wd:Q101529768 wd:Q101533258 wd:Q101533850 wd:Q101533864 wd:Q101534582 wd:Q101535375 }
+  OPTIONAL { ?item wdt:P434 ?mbid . }
+  OPTIONAL { ?item wdt:P18 ?image . }
+}</pre
+><h2>Parse Tree</h2
+><pre>QueryContainer
+ PrefixDecl (prefix=wd)
+  IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;)
+ PrefixDecl (prefix=wdt)
+  IRI (http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;)
+ SelectQuery
+  Select
+   ProjectionElem
+    Var (item)
+   ProjectionElem
+    Var (mbid)
+   ProjectionElem
+    Var (image)
+  WhereClause
+   GraphPatternGroup
+    InlineData
+     Var (item)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000015)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000171)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000238)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100028)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000309)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000342)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000359)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000366)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000416)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000421)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000521)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000534)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000588)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000592)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000626)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000631)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000663)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000664)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100068177)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000691)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100069392)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000698)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100072420)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000748)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100076115)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100076969)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100077889)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000788)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100093027)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000943)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000945)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1000964)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100101247)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001073)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001090)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001114)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001117)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001119)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001122)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001130)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001135)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001142)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001145)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001146)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001147)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001162)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001166)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001169)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100117216)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001188)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001190)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100119314)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001195)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001203)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001205)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001209)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001214)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001230)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001234)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001240)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001242)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001250)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001254)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001257)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001285)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001305)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001311)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100131661)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001328)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100134)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100136962)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100137351)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100137671)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100137708)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100137717)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100139176)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100139328)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100139779)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100144360)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100144645)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100144813)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001450)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100145261)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100145442)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100145468)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100146358)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100146369)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100146398)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100146626)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100147499)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148106)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148220)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001487)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148848)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148950)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148960)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100148996)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001491)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100149232)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100149278)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100149288)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100149340)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100150850)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100151303)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001514)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100151442)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100151777)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100151982)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100152078)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100153616)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100153927)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100154032)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100154338)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100157364)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100157912)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100158009)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001616)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100165501)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100165631)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100166303)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100166315)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100166417)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100166477)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001688)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100170383)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001724)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001867)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001890)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100191992)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100193034)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100194041)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100198686)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100199073)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1001992)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100203917)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1002101)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100223)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1002248)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100225)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1002277)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100231119)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100233778)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100234924)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100235316)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100235664)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100236)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100237698)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100241)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100243)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100244556)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100249)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100249671)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100249768)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100249904)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100250324)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100250335)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100251627)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100253451)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100253617)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100254234)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100254879)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100254915)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100254925)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100255655)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256262)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256269)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256287)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256342)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256387)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100256440)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100257686)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100258)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100258774)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1002589)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100260161)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100260890)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100261161)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100261588)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100262243)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100264)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100266694)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100266724)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100267549)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100268282)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100268968)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100269)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100269171)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100269399)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100269425)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100270758)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100270842)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100271096)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100271504)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100271526)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100272221)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100272912)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100272975)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100273062)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100273688)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100275176)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100276051)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100276313)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100276667)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100276699)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100276701)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100278799)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100285491)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100288104)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1002920)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100292088)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100293)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100299)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100304023)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100304046)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100304510)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100307846)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100307869)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100308576)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100309)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100309042)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003115)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100312)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100314210)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100314823)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100315776)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100316)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100316237)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100319853)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100319930)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100319931)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100319986)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100319988)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100320717)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100320810)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100321101)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100321325)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100323015)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100323847)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100323935)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100324086)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100324384)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100325225)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003254)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100325478)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100326055)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003262)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100326524)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100330)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003303)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100331604)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100332226)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100333)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100333277)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100337)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100337333)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100340757)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100343048)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100347102)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100347107)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100347139)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100347144)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100347166)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348395)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348438)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348697)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348739)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348860)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100348881)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100349273)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100349555)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100349694)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100350829)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100351)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100351043)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100353966)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100357122)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100357940)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100358355)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100358909)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100359256)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100360)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100360414)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100361853)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100362310)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100366487)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100368675)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100368791)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003742)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100376)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100376270)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100377976)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100378)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100378387)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100378947)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100378977)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003820)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003829)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1003833)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100384568)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100384991)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385063)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385482)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385579)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385674)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385731)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385863)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100385871)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100387607)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100394925)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100395)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100397019)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100397038)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100401181)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100401184)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100401221)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100406682)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100409)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100409380)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004132)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100413600)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100414305)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100414785)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100416304)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100417)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100417863)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004206)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004217)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100427785)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100428190)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100430041)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004336)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100433730)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100434)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004342)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004356)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004381)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004398)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100440)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100442422)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004442)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100447377)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100448674)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100448942)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100448943)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004497)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100450275)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100450715)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004508)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100452124)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100452980)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453237)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453263)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453269)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453270)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453273)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453420)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453443)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453584)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453681)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453724)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453838)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100453935)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454113)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454125)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454262)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454280)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454330)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454347)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454390)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454447)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454541)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454746)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454991)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454994)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454995)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100454998)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100455)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100455000)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100455002)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004571)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100458)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004583)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004594)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004620)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100462270)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100464)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100471)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004786)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004804)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100481346)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100485476)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100486)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1004874)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100489)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100489196)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100490194)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100491219)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100491576)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100492977)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100493000)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100499013)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100503509)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10050466)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100505969)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1005225)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100527758)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100528370)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100530)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100530422)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100541238)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100547795)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100553013)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1005543)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100555)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1005559)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100556077)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100556920)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100557644)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100559017)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100562)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100570)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100571)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100581922)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100583464)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100587767)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100588095)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1005882)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100588726)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100588898)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100591061)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100591417)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100591471)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100592016)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100592185)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100595483)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1005957)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100597036)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100599254)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100600884)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100601022)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100605067)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100605223)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100606439)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100606508)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100620741)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006236)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006242)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100627443)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100627627)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100628657)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100634)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100641)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006482)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006496)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100650)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100651)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006517)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006518)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006616)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100663057)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100671)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100687626)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100687708)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006904)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100691236)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1006939)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100695371)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100695832)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100696446)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699034)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699208)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699792)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699801)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699810)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100699855)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10070)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100700)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100700181)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100702045)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100702061)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100704296)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100705214)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100705247)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100705257)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100705390)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100705519)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100706152)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100707364)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100707619)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100708)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100708392)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100709326)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100710)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100710412)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100712)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100713)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100713017)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100713379)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100713427)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100713441)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100715225)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100715720)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100715862)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100715870)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100717588)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100717768)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100717799)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100720626)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100721103)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100721144)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100722754)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100724189)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100724788)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100725175)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100727)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100727818)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100731387)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100732881)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100733063)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100733527)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100740750)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100740757)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007412)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100741329)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100741385)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100741390)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100742592)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100742661)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100743617)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100744874)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007476)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007478)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100748)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007482)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100749182)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100751345)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100754444)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100759)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100761772)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100762350)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100762585)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007692)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100772400)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100773541)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100774863)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100774917)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100777)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007781)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100782913)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100784878)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007850)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100785983)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100786659)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100787336)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100791350)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100794150)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100794612)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100794734)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100794759)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100795156)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1007984)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100799)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100801000)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100801324)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100802)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100802087)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100804515)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008047)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100805026)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100806312)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100806733)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100811459)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008154)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100823951)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008271)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100836)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100838)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100841)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008422)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008449)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008489)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100853)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100855)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008634)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100866)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100868946)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100869591)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100877)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100877982)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10087931)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100880)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008851)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100885871)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008863)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100890)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100890920)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100890925)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100891163)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100893907)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100894866)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100896145)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100897)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100898134)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1008988)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009034)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009050)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009073)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100909504)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100913)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100913542)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100914)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009181)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100919071)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100925726)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100925797)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100937)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100940028)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100948)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009499)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009512)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100956)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009609)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009640)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009645)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100965443)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009665)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009666)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009687)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100969202)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100970320)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009710)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100973486)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100975209)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100975216)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100975217)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100975310)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100976760)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009770)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100977064)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100977319)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100977813)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009782)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100978614)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100980727)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100981428)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100981747)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100982200)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100982392)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100982422)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009825)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100983263)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100986598)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100987)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100988340)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989009)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989048)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989049)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989183)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989429)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989438)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100989680)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100990)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100995191)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100995739)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1009965)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997387)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997658)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997746)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997871)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997874)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100997887)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100998006)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100998571)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q100998826)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010022)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101002775)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101003114)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101003699)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101005068)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101005245)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010061)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010077)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101010873)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101011174)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101011306)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101011807)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101011988)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101015793)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010187)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010190)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101020021)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010201)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101021607)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010243)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101025890)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101025975)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101026827)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101028862)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10102972)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101030913)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101031198)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101033)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101038899)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101039957)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101041004)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010420)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101042418)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010425)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101043)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101044)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101045143)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101045664)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101046013)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101046462)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010493)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010504)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101050912)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101051535)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101052801)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101054)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101054419)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101058)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010586)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101058775)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101058862)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101059)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010591)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010602)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101061880)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101062937)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101064387)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101064400)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010648)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101067892)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101068123)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101068272)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101068386)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1010712)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101072266)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101072276)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101072337)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101072618)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101072638)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101073304)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101075593)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101076301)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101077730)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101078539)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101080458)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101081848)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101082919)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101084)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101084288)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101084302)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101084308)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101084801)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101085064)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101085653)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101086168)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101086405)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101087528)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101092228)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101093842)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101093845)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101093917)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101093977)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101094)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101094336)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101094338)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101094709)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101095355)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101095634)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101095814)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101095857)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101095969)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101096411)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101096426)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101096477)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101097165)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101101899)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101103548)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101103818)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101103820)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101104152)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101105)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101109125)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101109314)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101109940)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101110)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101110382)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101111)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101112196)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101112277)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101113452)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101113707)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101114278)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101114473)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101116609)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101119398)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101120)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1011235)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1011241)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101127345)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101130405)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101130448)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101130464)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101130621)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101134482)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101137091)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1011412)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101149)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101158997)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1011592)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101160334)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101161002)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101161168)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101161289)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101161499)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1011620)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101168)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101171)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101186551)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101193334)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101195583)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101197410)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101198091)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101198429)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101199736)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101199738)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101199774)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101199868)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10120)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200010)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200210)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200306)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200383)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200544)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101200766)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101202349)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101203)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101204337)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101204743)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101205187)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101205709)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208094)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208151)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208352)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208383)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208386)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208589)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101208628)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101209669)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101209835)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101210358)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101210423)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012206)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101221)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101221340)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101223)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101225172)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101227948)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101229230)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101231485)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101235468)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101235723)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242508)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242552)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242590)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242635)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242682)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101242989)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101243111)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101243158)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101243256)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101243282)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101243703)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101244865)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101244910)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101245742)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101246356)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101246914)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101247304)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101248865)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101249734)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101251149)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101251256)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101251331)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101251506)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101251509)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101253620)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012658)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101267)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012674)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012742)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101278426)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012790)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101281)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1012900)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101294179)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101305130)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101307495)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101308)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101311)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101314)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101325026)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101326447)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101329)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q10133)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101343727)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101345301)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101365068)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101380)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101383)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1013868)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101396)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101397)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101413590)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101413724)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101414510)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101416917)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101418024)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101420740)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101421766)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101422089)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101422556)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101424804)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101425520)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101427292)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101427929)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101428652)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101429285)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101429412)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101429444)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101429533)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101432261)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101432630)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101432832)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101435155)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101435207)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101436391)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101436392)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101439186)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101439748)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101439810)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101440425)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1014432)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101444653)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101444698)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1014447)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1014451)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101445684)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101445925)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101446679)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101448)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101452299)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101453255)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1014535)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101461756)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101464389)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101466457)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101468978)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101472942)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101477682)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101482846)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101483688)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101494197)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1014953)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101500110)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101500284)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101503506)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101504558)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101505)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101507837)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101507859)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101507863)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101507869)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101508923)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101513258)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101514881)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101515812)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101516161)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101516802)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101517573)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101518)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101519692)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101521)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1015233)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101524)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q1015241)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101526443)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101526444)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101529383)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101529768)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101533258)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101533850)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101533864)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101534582)
+     BindingSet
+      BindingValue
+       IRI (http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q101535375)
+    OptionalGraphPattern
+     BasicGraphPattern
+      TriplesSameSubjectPath
+       Var (item)
+       PropertyListPath
+        PathAlternative
+         PathSequence
+          PathElt
+           IRI (http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P434)
+        ObjectList
+         Var (mbid)
+    OptionalGraphPattern
+     BasicGraphPattern
+      TriplesSameSubjectPath
+       Var (item)
+       PropertyListPath
+        PathAlternative
+         PathSequence
+          PathElt
+           IRI (http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P18)
+        ObjectList
+         Var (image)</pre
+><h2>Original AST</h2
+><pre>
+PREFIX wd: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;&gt;
+PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+PREFIX rdf: &lt;http:&#47;&#47;www.w3.org&#47;1999&#47;02&#47;22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http:&#47;&#47;www.w3.org&#47;2000&#47;01&#47;rdf-schema#&gt;
+PREFIX sesame: &lt;http:&#47;&#47;www.openrdf.org&#47;schema&#47;sesame#&gt;
+PREFIX owl: &lt;http:&#47;&#47;www.w3.org&#47;2002&#47;07&#47;owl#&gt;
+PREFIX xsd: &lt;http:&#47;&#47;www.w3.org&#47;2001&#47;XMLSchema#&gt;
+PREFIX fn: &lt;http:&#47;&#47;www.w3.org&#47;2005&#47;xpath-functions#&gt;
+PREFIX foaf: &lt;http:&#47;&#47;xmlns.com&#47;foaf&#47;0.1&#47;&gt;
+PREFIX dc: &lt;http:&#47;&#47;purl.org&#47;dc&#47;elements&#47;1.1&#47;&gt;
+PREFIX hint: &lt;http:&#47;&#47;www.bigdata.com&#47;queryHints#&gt;
+PREFIX bd: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf#&gt;
+PREFIX bds: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;search#&gt;
+PREFIX psn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value-normalized&#47;&gt;
+PREFIX pqn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value-normalized&#47;&gt;
+PREFIX prn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value-normalized&#47;&gt;
+PREFIX mwapi: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#API&#47;&gt;
+PREFIX gas: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;gas#&gt;
+PREFIX wdsubgraph: &lt;https:&#47;&#47;query.wikidata.org&#47;subgraph&#47;&gt;
+PREFIX wdtn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct-normalized&#47;&gt;
+PREFIX psv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value&#47;&gt;
+PREFIX ps: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;&gt;
+PREFIX pqv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value&#47;&gt;
+PREFIX pq: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;&gt;
+PREFIX prv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value&#47;&gt;
+PREFIX pr: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;&gt;
+PREFIX wdno: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;novalue&#47;&gt;
+PREFIX p: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;&gt;
+PREFIX wikibase: &lt;http:&#47;&#47;wikiba.se&#47;ontology#&gt;
+PREFIX wdata: &lt;http:&#47;&#47;www.wikidata.org&#47;wiki&#47;Special:EntityData&#47;&gt;
+PREFIX wds: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;statement&#47;&gt;
+PREFIX wdv: &lt;http:&#47;&#47;www.wikidata.org&#47;value&#47;&gt;
+PREFIX wdref: &lt;http:&#47;&#47;www.wikidata.org&#47;reference&#47;&gt;
+PREFIX schema: &lt;http:&#47;&#47;schema.org&#47;&gt;
+PREFIX prov: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;prov#&gt;
+PREFIX skos: &lt;http:&#47;&#47;www.w3.org&#47;2004&#47;02&#47;skos&#47;core#&gt;
+PREFIX geo: &lt;http:&#47;&#47;www.opengis.net&#47;ont&#47;geosparql#&gt;
+PREFIX geof: &lt;http:&#47;&#47;www.opengis.net&#47;def&#47;geosparql&#47;function&#47;&gt;
+PREFIX mediawiki: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#&gt;
+PREFIX ontolex: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;lemon&#47;ontolex#&gt;
+PREFIX dct: &lt;http:&#47;&#47;purl.org&#47;dc&#47;terms&#47;&gt;
+PREFIX wikibaseqs: &lt;http:&#47;&#47;wikiba.se&#47;queryService#&gt;
+QueryType: SELECT
+includeInferred=true
+timeout=60000
+SELECT VarNode(item) VarNode(mbid) VarNode(image)
+  JoinGroupNode {
+    BindingsClause ?item
+    {
+      [ count=1000 ]
+    }
+    JoinGroupNode [optional] {
+      StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434)), VarNode(mbid)) [scope=DEFAULT_CONTEXTS]
+    }
+    JoinGroupNode [optional] {
+      StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedByte(18)), VarNode(image)) [scope=DEFAULT_CONTEXTS]
+    }
+  }</pre
+><h2>Static Analysis Statistics</h2
+><table><tr><th>object</th
+><th>category</th
+><th>elapsed [ms]</th
+><th>elapsed [us]</th
+><th>numCalls</th
+></tr
+><tr><td>ParseTime</td
+><td>Parser</td
+><td>9</td
+><td>9352</td
+><td>1</td
+></tr
+><tr><td>ResolveValues</td
+><td>Resolve Values</td
+><td>1</td
+><td>1452</td
+><td>1</td
+></tr
+><tr><td>Optimizers</td
+><td>Optimizers (all)</td
+><td>4</td
+><td>4355</td
+><td>1</td
+></tr
+><tr><td>ASTOrderByAggregateFlatteningOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTQueryHintOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>99</td
+><td>1</td
+></tr
+><tr><td>ASTFilterNormalizationOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTStaticBindingsOptimizer</td
+><td>Optimizer</td
+><td>2</td
+><td>2727</td
+><td>1</td
+></tr
+><tr><td>ASTSearchInSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTPropertyPathOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTSetValueExpressionsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>81</td
+><td>1</td
+></tr
+><tr><td>ASTFlattenUnionsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTUnionFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTEmptyGroupOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTWildcardProjectionOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>34</td
+><td>1</td
+></tr
+><tr><td>ASTSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTFulltextSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTGeoSpatialSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>AskOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>1</td
+><td>1</td
+></tr
+><tr><td>ASTDescribeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTConstructOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTExistsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTGraphGroupOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTLiftPreFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>1</td
+><td>1</td
+></tr
+><tr><td>ASTALPServiceOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTBottomUpOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>98</td
+><td>1</td
+></tr
+><tr><td>ASTSimpleOptionalOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTFlattenJoinGroupsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTServiceNodeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>LabelServiceExtractOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTJoinGroupOrderOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>70</td
+><td>2</td
+></tr
+><tr><td>ASTRunFirstRunLastOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>2</td
+></tr
+><tr><td>ASTRangeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>1</td
+><td>1</td
+></tr
+><tr><td>ASTRangeCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>611</td
+><td>1</td
+></tr
+><tr><td>ASTCardinalityOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTFastRangeCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>6</td
+><td>1</td
+></tr
+><tr><td>ASTSimpleGroupByAndCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTDistinctTermScanOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTStaticJoinOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>13</td
+><td>1</td
+></tr
+><tr><td>MWApiServicePlacementOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>LabelServicePlacementOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>2</td
+></tr
+><tr><td>EmptyLabelServiceOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>421</td
+><td>1</td
+></tr
+><tr><td>ASTAttachJoinFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>12</td
+><td>1</td
+></tr
+><tr><td>ASTSparql11SubqueryOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTNamedSubqueryOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTSubGroupJoinVarOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>RangeCount</td
+><td>Range Count</td
+><td>0</td
+><td>408</td
+><td>2</td
+></tr
+></table
+><h2>Optimized AST</h2
+><pre>
+PREFIX wd: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;&gt;
+PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+PREFIX rdf: &lt;http:&#47;&#47;www.w3.org&#47;1999&#47;02&#47;22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http:&#47;&#47;www.w3.org&#47;2000&#47;01&#47;rdf-schema#&gt;
+PREFIX sesame: &lt;http:&#47;&#47;www.openrdf.org&#47;schema&#47;sesame#&gt;
+PREFIX owl: &lt;http:&#47;&#47;www.w3.org&#47;2002&#47;07&#47;owl#&gt;
+PREFIX xsd: &lt;http:&#47;&#47;www.w3.org&#47;2001&#47;XMLSchema#&gt;
+PREFIX fn: &lt;http:&#47;&#47;www.w3.org&#47;2005&#47;xpath-functions#&gt;
+PREFIX foaf: &lt;http:&#47;&#47;xmlns.com&#47;foaf&#47;0.1&#47;&gt;
+PREFIX dc: &lt;http:&#47;&#47;purl.org&#47;dc&#47;elements&#47;1.1&#47;&gt;
+PREFIX hint: &lt;http:&#47;&#47;www.bigdata.com&#47;queryHints#&gt;
+PREFIX bd: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf#&gt;
+PREFIX bds: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;search#&gt;
+PREFIX psn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value-normalized&#47;&gt;
+PREFIX pqn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value-normalized&#47;&gt;
+PREFIX prn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value-normalized&#47;&gt;
+PREFIX mwapi: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#API&#47;&gt;
+PREFIX gas: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;gas#&gt;
+PREFIX wdsubgraph: &lt;https:&#47;&#47;query.wikidata.org&#47;subgraph&#47;&gt;
+PREFIX wdtn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct-normalized&#47;&gt;
+PREFIX psv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value&#47;&gt;
+PREFIX ps: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;&gt;
+PREFIX pqv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value&#47;&gt;
+PREFIX pq: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;&gt;
+PREFIX prv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value&#47;&gt;
+PREFIX pr: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;&gt;
+PREFIX wdno: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;novalue&#47;&gt;
+PREFIX p: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;&gt;
+PREFIX wikibase: &lt;http:&#47;&#47;wikiba.se&#47;ontology#&gt;
+PREFIX wdata: &lt;http:&#47;&#47;www.wikidata.org&#47;wiki&#47;Special:EntityData&#47;&gt;
+PREFIX wds: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;statement&#47;&gt;
+PREFIX wdv: &lt;http:&#47;&#47;www.wikidata.org&#47;value&#47;&gt;
+PREFIX wdref: &lt;http:&#47;&#47;www.wikidata.org&#47;reference&#47;&gt;
+PREFIX schema: &lt;http:&#47;&#47;schema.org&#47;&gt;
+PREFIX prov: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;prov#&gt;
+PREFIX skos: &lt;http:&#47;&#47;www.w3.org&#47;2004&#47;02&#47;skos&#47;core#&gt;
+PREFIX geo: &lt;http:&#47;&#47;www.opengis.net&#47;ont&#47;geosparql#&gt;
+PREFIX geof: &lt;http:&#47;&#47;www.opengis.net&#47;def&#47;geosparql&#47;function&#47;&gt;
+PREFIX mediawiki: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#&gt;
+PREFIX ontolex: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;lemon&#47;ontolex#&gt;
+PREFIX dct: &lt;http:&#47;&#47;purl.org&#47;dc&#47;terms&#47;&gt;
+PREFIX wikibaseqs: &lt;http:&#47;&#47;wikiba.se&#47;queryService#&gt;
+QueryType: SELECT
+includeInferred=true
+timeout=60000
+SELECT ( VarNode(item) AS VarNode(item) ) ( VarNode(mbid) AS VarNode(mbid) ) ( VarNode(image) AS VarNode(image) )
+  JoinGroupNode {
+    StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434)), VarNode(mbid)) [scope=DEFAULT_CONTEXTS] [optional]
+      AST2BOpBase.estimatedCardinality=1000
+      AST2BOpBase.originalIndex=SPO
+    StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedByte(18)), VarNode(image)) [scope=DEFAULT_CONTEXTS] [optional]
+      AST2BOpBase.estimatedCardinality=1000
+      AST2BOpBase.originalIndex=SPO
+  }
+
+with static (exogeneous) bindings defined as follows: 
+{
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000015) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000171) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000238) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(100028) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000309) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000342) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000359) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000366) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000416) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000421) },
+  { item=Vocab(2)[http:&#47;&#47;www.wikidata.org&#47;entity&#47;Q]:XSDUnsignedInt(1000521) },
+  ... (990 more)
+}
+</pre
+><h2>Query Plan</h2
+><pre>com.bigdata.bop.rdf.join.ChunkedMaterializationOp[6](ProjectionOp[5])[ ChunkedMaterializationOp.vars=[item, mbid, image], IPredicate.relationName=[wdq.lex], IPredicate.timestamp=1793888213631, ChunkedMaterializationOp.materializeAll=true, PipelineOp.sharedState=true, BOp.bopId=6, BOp.timeout=60000, BOp.namespace=wdq, QueryEngine.queryId=7da5a1fe-468f-454a-8860-ad7a3fe93ed1, QueryEngine.chunkHandler=com.bigdata.bop.engine.NativeHeapStandloneChunkHandler@44a6983c]
+  com.bigdata.bop.solutions.ProjectionOp[5](PipelineJoin[4])[ BOp.bopId=5, BOp.evaluationContext=CONTROLLER, PipelineOp.sharedState=true, JoinAnnotations.select=[item, mbid, image]]
+    com.bigdata.bop.join.PipelineJoin[4](PipelineJoin[2])[ BOp.bopId=4, JoinAnnotations.constraints=null, AST2BOpBase.simpleJoin=true, BOp.evaluationContext=ANY, AccessPathJoinAnnotations.predicate=com.bigdata.rdf.spo.SPOPredicate[3](item=null, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedByte(18), image=null)[ IPredicate.relationName=[wdq.spo], IPredicate.timestamp=1793888213631, BOp.bopId=3, AST2BOpBase.estimatedCardinality=1000, AST2BOpBase.originalIndex=SPO, IPredicate.optional=true, IPredicate.flags=[KEYS,VALS,READONLY,PARALLEL]]]
+      com.bigdata.bop.join.PipelineJoin[2]()[ BOp.bopId=2, JoinAnnotations.constraints=null, AST2BOpBase.simpleJoin=true, BOp.evaluationContext=ANY, AccessPathJoinAnnotations.predicate=com.bigdata.rdf.spo.SPOPredicate[1](item=null, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434), mbid=null)[ IPredicate.relationName=[wdq.spo], IPredicate.timestamp=1793888213631, BOp.bopId=1, AST2BOpBase.estimatedCardinality=1000, AST2BOpBase.originalIndex=SPO, IPredicate.optional=true, IPredicate.flags=[KEYS,VALS,READONLY,PARALLEL]]]</pre
+><pre></pre><h2>Query Evaluation Statistics</h2
+><p>solutions=1060, chunks=18, subqueries=0, elapsed=63ms.</p
+><table border="1" summary="Query Statistics"
+><tr
+><th>queryId</th><th>beginTime</th><th>doneTime</th><th>deadline</th><th>elapsed</th><th>cause</th><th>evalOrder</th><th>controller</th><th>bopId</th><th>predId</th><th>bopSummary</th><th>predSummary</th><th>bopAnnotations</th><th>predAnnotations</th><th>staticBestKeyOrder</th><th>overriddenKeyOrder</th><th>nvars</th><th>fastRangeCount</th><th>runState</th><th>sumMillis</th><th>opCount</th><th>numRunning</th><th>queueChunks</th><th>queueSolutions</th><th>chunksIn</th><th>unitsIn</th><th>unitsInPerChunk</th><th>chunksOut</th><th>unitsOut</th><th>unitsOutPerChunk</th><th>typeErrors</th><th>joinRatio</th><th>accessPathDups</th><th>accessPathCount</th><th>accessPathRangeCount</th><th>accessPathChunksIn</th><th>accessPathUnitsIn</th><th>solutions&#47;ms</th></tr
+><tr
+><td>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:17:53 PM UTC</td
+><td>63</td
+><td></td
+><td>total</td
+><td></td
+><td>total</td
+><td></td
+><td>total</td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>156</td
+><td>48</td
+><td>0</td
+><td></td
+><td></td
+><td>48</td
+><td>4158</td
+><td>86.625</td
+><td>65</td
+><td>4218</td
+><td>64.8923076923077</td
+><td>0</td
+><td>1.0144300144300145</td
+><td>37</td
+><td>2001</td
+><td>1408</td
+><td>1349</td
+><td>1408</td
+><td>66</td
+></tr
+><tr
+><td>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:17:53 PM UTC</td
+><td>63</td
+><td></td
+><td>0</td
+><td>false</td
+><td>2</td
+><td>1</td
+><td>PipelineJoin[2]</td
+><td>SPOPredicate[1](?item, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434), ?mbid)</td
+><td><dl><dt>com.bigdata.bop.BOp.bopId</dt><dd>2</dd><dt>com.bigdata.bop.join.JoinAnnotations.constraints</dt><dd>null</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.simpleJoin</dt><dd>true</dd><dt>com.bigdata.bop.BOp.evaluationContext</dt><dd>ANY</dd><dt>com.bigdata.bop.join.AccessPathJoinAnnotations.predicate</dt><dd>SPOPredicate[1]</dd></dl></td
+><td><dl><dt>com.bigdata.bop.IPredicate.relationName</dt><dd>[wdq.spo]</dd><dt>com.bigdata.bop.IPredicate.timestamp</dt><dd>1793888213631</dd><dt>com.bigdata.bop.BOp.bopId</dt><dd>1</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.estimatedCardinality</dt><dd>1000</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.originalIndex</dt><dd>SPO</dd><dt>com.bigdata.bop.IPredicate.optional</dt><dd>true</dd><dt>com.bigdata.bop.IPredicate.flags</dt><dd>[KEYS,VALS,READONLY,PARALLEL]</dd></dl></td
+><td>SPO</td
+><td></td
+><td>2</td
+><td>1000</td
+><td>AllDone</td
+><td>57</td
+><td>1</td
+><td>0</td
+><td></td
+><td></td
+><td>1</td
+><td>1000</td
+><td>1000.0</td
+><td>11</td
+><td>1038</td
+><td>94.36363636363636</td
+><td>0</td
+><td>1.038</td
+><td>0</td
+><td>1000</td
+><td>1038</td
+><td>1000</td
+><td>1038</td
+><td>16</td
+></tr
+><tr
+><td>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:17:53 PM UTC</td
+><td>63</td
+><td></td
+><td>1</td
+><td>false</td
+><td>4</td
+><td>3</td
+><td>PipelineJoin[4]</td
+><td>SPOPredicate[3](?item, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedByte(18), ?image)</td
+><td><dl><dt>com.bigdata.bop.BOp.bopId</dt><dd>4</dd><dt>com.bigdata.bop.join.JoinAnnotations.constraints</dt><dd>null</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.simpleJoin</dt><dd>true</dd><dt>com.bigdata.bop.BOp.evaluationContext</dt><dd>ANY</dd><dt>com.bigdata.bop.join.AccessPathJoinAnnotations.predicate</dt><dd>SPOPredicate[3]</dd></dl></td
+><td><dl><dt>com.bigdata.bop.IPredicate.relationName</dt><dd>[wdq.spo]</dd><dt>com.bigdata.bop.IPredicate.timestamp</dt><dd>1793888213631</dd><dt>com.bigdata.bop.BOp.bopId</dt><dd>3</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.estimatedCardinality</dt><dd>1000</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.originalIndex</dt><dd>SPO</dd><dt>com.bigdata.bop.IPredicate.optional</dt><dd>true</dd><dt>com.bigdata.bop.IPredicate.flags</dt><dd>[KEYS,VALS,READONLY,PARALLEL]</dd></dl></td
+><td>SPO</td
+><td></td
+><td>2</td
+><td>1000</td
+><td>AllDone</td
+><td>42</td
+><td>11</td
+><td>0</td
+><td></td
+><td></td
+><td>11</td
+><td>1038</td
+><td>94.36363636363636</td
+><td>18</td
+><td>1060</td
+><td>58.888888888888886</td
+><td>0</td
+><td>1.0211946050096339</td
+><td>37</td
+><td>1001</td
+><td>370</td
+><td>349</td
+><td>370</td
+><td>16</td
+></tr
+><tr
+><td>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:17:53 PM UTC</td
+><td>63</td
+><td></td
+><td>2</td
+><td>false</td
+><td>5</td
+><td></td
+><td>ProjectionOp[5]</td
+><td>[item, mbid, image]</td
+><td><dl><dt>com.bigdata.bop.BOp.bopId</dt><dd>5</dd><dt>com.bigdata.bop.BOp.evaluationContext</dt><dd>CONTROLLER</dd><dt>com.bigdata.bop.PipelineOp.sharedState</dt><dd>true</dd><dt>com.bigdata.bop.join.JoinAnnotations.select</dt><dd>[item, mbid, image]</dd></dl></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>9</td
+><td>18</td
+><td>0</td
+><td></td
+><td></td
+><td>18</td
+><td>1060</td
+><td>58.888888888888886</td
+><td>18</td
+><td>1060</td
+><td>58.888888888888886</td
+><td>0</td
+><td>1.0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>16</td
+></tr
+><tr
+><td>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:16:53 PM UTC</td
+><td>Thursday, November 5, 2026 2:17:53 PM UTC</td
+><td>63</td
+><td></td
+><td>3</td
+><td>false</td
+><td>6</td
+><td></td
+><td>ChunkedMaterializationOp[6]</td
+><td>vars=[item, mbid, image],materializeInlineIVs=true</td
+><td><dl><dt>com.bigdata.bop.rdf.join.ChunkedMaterializationOp.vars</dt><dd>[item, mbid, image]</dd><dt>com.bigdata.bop.IPredicate.relationName</dt><dd>[wdq.lex]</dd><dt>com.bigdata.bop.IPredicate.timestamp</dt><dd>1793888213631</dd><dt>com.bigdata.bop.rdf.join.ChunkedMaterializationOp.materializeAll</dt><dd>true</dd><dt>com.bigdata.bop.PipelineOp.sharedState</dt><dd>true</dd><dt>com.bigdata.bop.BOp.bopId</dt><dd>6</dd><dt>com.bigdata.bop.BOp.timeout</dt><dd>60000</dd><dt>com.bigdata.bop.BOp.namespace</dt><dd>wdq</dd><dt>com.bigdata.bop.engine.QueryEngine.queryId</dt><dd>7da5a1fe-468f-454a-8860-ad7a3fe93ed1</dd><dt>com.bigdata.bop.engine.QueryEngine.chunkHandler</dt><dd>com.bigdata.bop.engine.NativeHeapStandloneChunkHandler@44a6983c</dd></dl></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>48</td
+><td>18</td
+><td>0</td
+><td></td
+><td></td
+><td>18</td
+><td>1060</td
+><td>58.888888888888886</td
+><td>18</td
+><td>1060</td
+><td>58.888888888888886</td
+><td>0</td
+><td>1.0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>16</td
+></tr
+></table
+></html
+>

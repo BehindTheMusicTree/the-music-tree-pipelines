@@ -1,0 +1,172 @@
+import asyncio
+import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import polars as pl
+import pytest
+from common.artist_image_snapshot import resolve_artist_image_snapshot
+
+from wikidata.artist_images.bootstrap import bootstrap_snapshot
+from wikidata.artist_images.config import WorkerConfig
+from wikidata.artist_images.state import ImageState, compact_state, load_state
+from wikidata.artist_images.transport import ProviderUnavailable
+from wikidata.artist_images.worker import run_refresh
+from wikidata.silver.artist_images import select_artist_images
+from wikidata.silver.commons_image_metadata import _SCHEMA
+
+
+@pytest.fixture
+def settings(tmp_path: Path):
+    now = datetime.now(UTC)
+    bronze, silver = tmp_path / "bronze", tmp_path / "silver"
+    bronze.mkdir()
+    silver.mkdir()
+    claims = pl.DataFrame(
+        {
+            "item_id": ["Q1"],
+            "musicbrainz_artist_id": ["00000000-0000-0000-0000-000000000001"],
+            "image_file": ["a.jpg"],
+            "fetched_at": [now],
+        }
+    )
+    metadata = pl.DataFrame(
+        [
+            {
+                "image_file": "a.jpg",
+                "thumb_url": "https://upload.wikimedia.org/a.jpg",
+                "page_url": "https://commons.wikimedia.org/a.jpg",
+                "license": "CC0",
+                "non_free": False,
+                "attribution_required": False,
+                "checked_at": now,
+            }
+        ],
+        schema=_SCHEMA,
+    )
+    claims.write_parquet(bronze / "wikidata_artist_images.parquet")
+    metadata.write_parquet(silver / "10_commons_image_metadata.parquet")
+    select_artist_images(claims, metadata).write_parquet(silver / "11_artist_images.parquet")
+    catalogue = tmp_path / "catalogue.lock"
+    catalogue.touch()
+    config = WorkerConfig(
+        state_root=tmp_path / "state",
+        published_root=tmp_path / "published",
+        writer_lock=tmp_path / "writer.lock",
+        background_lock=tmp_path / "background.lock",
+        catalogue_lock=catalogue,
+        producer_commit="commit",
+        wdqs_attempts=8,
+        entity_attempts=8,
+        commons_attempts=8,
+        run_seconds=60,
+        discovery_days=7,
+        positive_days=7,
+        negative_days=30,
+    )
+    bootstrap_snapshot(bronze, silver, config.state_root, config.published_root, catalogue, "commit")
+    state = load_state(config.state_root)
+    compact_state(
+        config.state_root,
+        ImageState(
+            state.generation,
+            state.sequence,
+            state.tables,
+            {
+                **state.provenance,
+                "discovery": {"coverage": "complete", "completedAt": now.isoformat()},
+            },
+        ),
+    )
+    # First refresh publishes the updated discovery provenance.
+    return config
+
+
+def test_provider_failure_never_promotes_partial_progress(settings) -> None:
+    old = resolve_artist_image_snapshot(settings.published_root)
+    with patch(
+        "wikidata.artist_images.worker.refresh_claim_queue", new=AsyncMock(side_effect=ProviderUnavailable("outage"))
+    ):
+        with pytest.raises(ProviderUnavailable, match="outage"):
+            asyncio.run(run_refresh(settings))
+    status = json.loads((settings.published_root / "status.json").read_text())
+    assert status["outcome"] == "failed"
+    assert status["snapshotId"] == old.snapshot_id
+    assert status["stages"]["claims"] == "failed"
+    assert resolve_artist_image_snapshot(settings.published_root).snapshot_id == old.snapshot_id
+
+
+def test_healthy_noop_retains_snapshot_and_records_success(settings) -> None:
+    with (
+        patch(
+            "wikidata.artist_images.worker.refresh_claim_queue",
+            new=AsyncMock(side_effect=lambda *args, **kwargs: load_state(settings.state_root)),
+        ),
+        patch(
+            "wikidata.artist_images.worker.refresh_metadata_queue",
+            new=AsyncMock(side_effect=lambda *args, **kwargs: load_state(settings.state_root)),
+        ),
+    ):
+        first = asyncio.run(run_refresh(settings))
+        second = asyncio.run(run_refresh(settings))
+    assert second["outcome"] == "healthy"
+    assert second["snapshotId"] == first["snapshotId"]
+    assert second["lastSuccessfulRunAt"] is not None
+
+
+def test_failure_keeps_historical_success(settings) -> None:
+    path = settings.published_root / "status.json"
+    earlier = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    path.write_text(json.dumps({"lastSuccessfulRunAt": earlier}))
+    with patch(
+        "wikidata.artist_images.worker.refresh_claim_queue", new=AsyncMock(side_effect=ProviderUnavailable("outage"))
+    ):
+        with pytest.raises(ProviderUnavailable):
+            asyncio.run(run_refresh(settings))
+    assert json.loads(path.read_text())["lastSuccessfulRunAt"] == earlier
+
+
+def test_status_write_failure_does_not_mask_provider_error(settings) -> None:
+    with (
+        patch(
+            "wikidata.artist_images.worker.refresh_claim_queue",
+            new=AsyncMock(side_effect=ProviderUnavailable("outage")),
+        ),
+        patch("wikidata.artist_images.worker._write_status", side_effect=OSError("disk full")),
+    ):
+        with pytest.raises(ProviderUnavailable, match="outage"):
+            asyncio.run(run_refresh(settings))
+
+
+def test_complete_refresh_commits_claims_and_publishes_same_selected_image(settings):
+    import httpx
+
+    old = resolve_artist_image_snapshot(settings.published_root)
+    payload = {
+        "results": {
+            "bindings": [
+                {
+                    "item": {"type": "uri", "value": "http://www.wikidata.org/entity/Q1"},
+                    "mbid": {"type": "literal", "value": "00000000-0000-0000-0000-000000000001"},
+                    "image": {"type": "uri", "value": "http://commons.wikimedia.org/wiki/Special:FilePath/a.jpg"},
+                }
+            ]
+        }
+    }
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json=payload)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    with patch("wikidata.artist_images.worker.httpx.AsyncClient", return_value=client):
+        status = asyncio.run(run_refresh(settings))
+    current = resolve_artist_image_snapshot(settings.published_root)
+    assert status["outcome"] == "healthy"
+    assert current.snapshot_id != old.snapshot_id
+    assert len(requests) == 1
+    assert status["refreshCoverage"]["claims"] == {"attempted": 1, "succeeded": 1, "failed": 0, "deferred": 0}
+    assert load_state(settings.state_root).tables["registry"]["claims_status"].to_list() == ["has_image"]
+    assert pl.read_parquet(current.lineage_path)["claims_checked_at"][0] is not None

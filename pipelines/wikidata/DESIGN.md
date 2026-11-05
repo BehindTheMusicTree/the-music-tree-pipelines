@@ -718,3 +718,73 @@ through older revisions and isn't followed.
 `11_artist_images` drops anything that can't be shown legally: non-free files, files without a license, and files
 whose license requires attribution but have no author. One image per artist; the smallest file name wins when an
 artist has several, which keeps the choice stable from run to run without needing a quality signal.
+
+## Independent image publication migration
+
+The independent `wikidata.artist_images` entrypoint supports `bootstrap`, read-only `status`, bounded `refresh` and
+full-universe `discover`. Normal Bronze and Silver no longer perform artist image acquisition. Set the absolute
+`ARTIST_IMAGES_STATE_DIR`, `ARTIST_IMAGES_PUBLISHED_DIR`, `ARTIST_IMAGES_WRITER_LOCK_FILE` and existing
+`MUSIC_TREE_PIPELINES_LOCK_FILE` paths. Bootstrap takes the image writer lock and captures the legacy files under
+the catalogue lock, then validates that the captured Bronze/Commons inputs reproduce the captured selected images.
+
+```sh
+uv run --package wikidata python -m wikidata.artist_images bootstrap \
+  --source-bronze /absolute/legacy/bronze --source-silver /absolute/legacy/silver \
+  --producer-commit <pipeline-commit>
+uv run --package wikidata python -m wikidata.artist_images status
+```
+
+Use `--resume` explicitly after interruption. It verifies the original capture checksums and source identities;
+it does not recapture a newer legacy generation. A resumed initialized state must still be the unrefreshed seed,
+and an existing publication must refer to that same state generation. Unknown source observation times remain
+unknown. Legacy positive associations do not establish complete QID coverage: registry claim checks and completed
+discovery remain unset, making the seed immediately due for future acquisition.
+
+Internal state uses immutable base generations and ordered replacement checkpoints. Each checkpoint declares the
+covered QIDs/files; an empty claims replacement removes only those QIDs' associations. Restart loads the base and
+replays committed checkpoints above its sequence watermark. Temporary directories are ignored; damaged committed
+artifacts and sequence gaps fail explicitly. Compaction switches an atomic pointer after writing and validating a
+new generation, retaining older generations. Every state mutation requires the environment's single-writer lock.
+
+The six-hour worker is provisioned separately, with its timer disabled until bootstrap and validation succeed.
+Claims requests retain optional outer-QID observations, validate RDF types and full requested-QID coverage,
+and quarantine all rows of a malformed QID. Missing P434 observations require a separate entity confirmation;
+API failures preserve associations. Redirect sources merge only after a complete target claims observation,
+with historical aliases retargeted to the canonical registry row in one immutable base transaction.
+
+All HTTP attempts use a shared run budget and per-family deadline, including retries and Commons continuation.
+After three consecutive provider failures the provider circuit prevents more requests. Permanent client errors
+fail immediately; throttling honors Retry-After and does not trigger query splitting. Timeout splitting retains
+the original family deadline and emits complete batches for checkpointing before acquiring the next child.
+Each Wikidata request briefly takes the existing catalogue lock in shared mode nonblockingly and releases it before
+retry backoff. Commons does not take that lock.
+The environment writer lock and cross-environment background lock cover the image job.
+
+Commons refresh validates all title mappings and continuation pages before accepting a file result. An omitted
+page is an incomplete response, not a missing file. The cache preserves requested filenames, canonical titles,
+confirmed missing status, attribution fields and original success times. Missing files are due after seven days;
+other observed metadata after thirty. Half each batch is reserved for overdue existing cache entries, with unused
+capacity transferred to new work. Shared files are requested once per run and unreferenced cache entries remain.
+
+
+Refresh requires every setting listed in `.env.example` and a valid initial state/publication. Full discovery uses
+P434 alone, including entities without images. Discovery failure retains the completed registry. Successful claims
+and metadata batches are checkpointed before further HTTP work; incomplete responses preserve earlier associations.
+Retry deferrals survive restart and do not replace successful observation times. No state or publication retention
+runs automatically. Keep older snapshots for Gold overrides and rollback.
+
+Gold requires `ARTIST_IMAGES_PUBLISHED_DIR`. It resolves and validates `current.json` once before any export, passes
+the immutable image path to the artist exporter, and records its ID, digest and provenance in `_manifest.json`.
+`ARTIST_IMAGES_SNAPSHOT_ID` selects an explicit retained snapshot. Missing configuration or invalid snapshots fail
+before exports; artists without a selected image still export with a null image. Publication freshness is separate
+from source freshness, which comes only from successful claims and metadata observations.
+
+The publisher rejects source validation failures, more than one percent rejected selected rows, unexplained losses,
+and selected artist losses above five percent. A small loss needs a newer complete claims or metadata observation
+for each removed artist. A provider failure cannot switch the publication pointer. Status retains historical
+success timestamps and reports current selected-source ages even on no-op runs.
+
+
+An absent Commons attribution flag is treated conservatively as requiring credit when an author is present;
+selection still excludes unknown attribution with no author. Redirect targets without P434 receive an independent
+entity confirmation before their associations are replaced with a negative observation and aliases are merged.

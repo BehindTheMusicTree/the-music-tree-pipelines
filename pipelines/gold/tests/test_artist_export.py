@@ -160,7 +160,7 @@ def _write_inputs(
     pl.DataFrame(image_rows, schema={column: pl.Utf8 for column in IMAGE_ROWS[0]}).write_parquet(
         wikidata_silver_dir / "11_artist_images.parquet"
     )
-    return genre_match_path, silver_dir, wikidata_silver_dir
+    return genre_match_path, silver_dir, wikidata_silver_dir / "11_artist_images.parquet"
 
 
 def _read_parts(parts_dir: Path) -> list[dict]:

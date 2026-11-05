@@ -1,0 +1,10 @@
+[
+  {
+    "status": 200,
+    "elapsedSeconds": 9.07,
+    "responseBytes": 41020070,
+    "observedAt": "2026-11-05T14:25:59.574483+00:00",
+    "rows": 346486,
+    "distinctQids": 336365
+  }
+]

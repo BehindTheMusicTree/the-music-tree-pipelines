@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -468,8 +468,6 @@ def _ingest_sparql_lane(
                 read_tradition_additions(curation_dir / "tradition_additions.csv"),
             ),
         )
-    with step("artist_images"):
-        ingest_artist_images(output_dir, datetime.now(UTC))
     with step("admin_hierarchy"):
         ingest_admin_hierarchy(output_dir, admin_seed_qids)
     with step("cultural_entity_aliases"):
