@@ -146,7 +146,7 @@ A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
 A `song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview without sub-genres raises too, being no song's genre.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
-as triage for the `umbrella_genres` curation list.
+as triage for the `umbrella_stylistic_genres` curation list.
 
 ## Why `unmatched` is a soft warning, not a raise
 

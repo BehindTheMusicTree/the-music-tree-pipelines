@@ -50,7 +50,7 @@ with step("prune_non_genre_items"):
         curation_dir / "theme_genres.csv",
         curation_dir / "technique_genres.csv",
         curation_dir / "out_of_scope_genres.csv",
-        curation_dir / "non_stylistic_genres.csv",
+        curation_dir / "umbrella_non_stylistic_genres.csv",
         curation_dir / "duplicate_genres.csv",
         silver_dir,
     )
@@ -80,7 +80,7 @@ with step("flag_canonical_parents"):
     canonical_parents_path = flag_canonical_parents(parent_selection_path, silver_dir)
 with step("prune_canonical_hierarchy"):
     canonical_hierarchy_path = prune_canonical_hierarchy(
-        canonical_parents_path, curation_dir / "umbrella_genres.csv", silver_dir
+        canonical_parents_path, curation_dir / "umbrella_stylistic_genres.csv", silver_dir
     )
 with step("prune_regional_hierarchy"):
     prune_regional_hierarchy(canonical_parents_path, silver_dir)
