@@ -446,6 +446,7 @@ def genre_match(
             "youtube_unplayable_reason",
             "youtube_view_count",
             "first_release_year",
+            "recording_count",
             "wikidata_genre_name",
             wikidata_genre_item_id="item_id",
             is_umbrella=pl.col("is_umbrella").fill_null(False),
