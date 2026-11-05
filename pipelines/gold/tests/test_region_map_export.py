@@ -678,3 +678,27 @@ def test_export_region_map_makes_a_zone_drillable_through_its_member_regions(tmp
     assert "CE" in document["worldZoneIds"]
     assert set(document["worldChildIds"]) == {"FR", "DE"}
     assert set(document) >= {"regions", "worldChildIds", "worldZoneIds"}
+
+
+def test_export_region_map_lists_a_zone_member_dissolved_through_a_chain(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "TOP": ("country", box(100, 0, 120, 10), "natural_earth"),
+            "MID": ("admin_unit", box(100, 0, 116, 10), "x"),
+            "LOW": ("admin_unit", box(100, 0, 112, 10), "x"),
+            "ISL": ("admin_unit", box(118, 0, 120, 2), "x"),
+            "ISL2": ("admin_unit", box(113, 0, 115, 2), "x"),
+            "ZZ": ("cultural_region", box(100, 0, 112, 10), "wikidata"),
+        },
+        containment=[("TOP", "MID"), ("TOP", "ISL"), ("MID", "LOW"), ("MID", "ISL2")],
+        anchors=[("Q20", "LOW"), ("Q21", "ISL"), ("Q22", "ISL2"), ("Q23", "ZZ")],
+    )
+    _append(geohistory / "8_entity_footprint.parquet", [("ZZ", "LOW", "cover")])
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert {"LOW", "MID"}.isdisjoint(regions)
+    assert regions["ZZ"]["childIds"] == ["TOP"]

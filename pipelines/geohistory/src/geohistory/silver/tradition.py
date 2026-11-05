@@ -66,6 +66,8 @@ def _placement_overrides(overrides: pl.DataFrame, entity_ids: set[str], item_ent
     for qid, entity_id, start, end in overrides.select("wikidata_id", "entity_id", "start_year", "end_year").rows():
         if not (entity_id or start or end):
             raise ValueError(f"tradition_placement_overrides row for {qid} sets neither entity_id nor a year")
+        if qid in resolved:
+            raise ValueError(f"tradition_placement_overrides has several rows for {qid}")
         entity = None
         if entity_id:
             entity = entity_id if entity_id in entity_ids else item_entity.get(entity_id)

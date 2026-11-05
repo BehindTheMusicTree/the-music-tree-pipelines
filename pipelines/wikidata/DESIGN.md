@@ -182,6 +182,21 @@ empty.
 
 ### 2.1 2_non_genre_pruning
 
+#### Genre taxonomy
+
+Every Wikidata "music genre" item falls in exactly one category, which decides the curation list that
+holds it and what the pipeline does with it. Only category 1 reaches grow's songs; a category 1.2 genre
+stays in the tree but receives no song directly (`is_umbrella`, i.e. "imprecise, to be refined").
+
+| Category | Meaning | Example | List | Effect |
+| --- | --- | --- | --- | --- |
+| 1.1 precise style | a style a song can be filed under | detroit techno | none (default) | canonical target, receives songs |
+| 1.2.1 imprecise style | a real style too broad to file a song under | techno | `umbrella_stylistic_genres` | kept in the tree, `is_umbrella`, never assigned songs directly |
+| 1.2.2 regional overview | "music of <place>" article, or an item reclassified as one | music of France, Latin music | `regional_overview_additions`, `overview_reclassifications` | kept as a regional overview; an umbrella when it has children |
+| 2.1 commercial appellation | a marketing label with no coherent style | French touch | `umbrella_non_stylistic_genres` | pruned from the tree |
+| 2.2 too vague / heterogeneous | spans countless unrelated styles | alternative music | `umbrella_non_stylistic_genres` | pruned from the tree |
+| 3 not a genre | theme, technique, out of scope, duplicate | steampunk music, crab canon | `theme_genres`, `technique_genres`, `out_of_scope_genres`, `duplicate_genres` | pruned from the tree |
+
 Five curated CSVs (same columns: `item_id`, `item_label`, `reason`) each list
 items that no automated signal distinguishes from a real genre, so a data expert reviewing the
 root lists adds them by hand. Every `item_id` across all five is dropped from the genre tree
@@ -198,8 +213,8 @@ down to a real genre beneath it, and can never survive as a dangling parent for
   "music genre" classification was simply wrong (e.g. a near-empty stub with no real description,
   a record label, an event, a person) — as opposed to a real but off-topic genre
   (`theme_genres.csv`) or a technique (`technique_genres.csv`).
-- `non_stylistic_genres.csv` — genuine music genres, correctly classified, but too
-  broad to serve as a useful canonical grouping node (e.g. "alternative music", spanning countless
+- `umbrella_non_stylistic_genres.csv` — category 2 of the [taxonomy](#genre-taxonomy): genuine music
+  genres, correctly classified, but not a style (a commercial appellation) or too broad to serve as a useful canonical grouping node (e.g. "alternative music", spanning countless
   pop/rock-deviating subgenres with no single coherent style) — as opposed to a misclassification
   (`out_of_scope_genres.csv`), an off-topic theme (`theme_genres.csv`), or a
   technique (`technique_genres.csv`). Dropping it lets its children (or the item itself, if
@@ -596,10 +611,13 @@ item, producing a clean, directly-consumable canonical genre hierarchy edge list
 
 #### Umbrella genres
 
-`umbrella_genres.csv` (`item_id,item_label,reason`, curated in grow-the-music-tree-api's
-`umbrella_genres` list) marks genres that stay in the tree but never receive songs directly: a song is
-never just "techno", it is detroit techno or melodic techno. Distinct from
-`non_stylistic_genres.csv`, which prunes appellations with no coherent style (French touch).
+`umbrella_stylistic_genres.csv` (`item_id,item_label,reason`, curated in grow-the-music-tree-api's
+`umbrella_stylistic_genres` list) holds category 1.2.1 of the [taxonomy](#genre-taxonomy): genres that
+stay in the tree but are too imprecise to receive songs directly: a song is never just "techno", it
+is detroit techno or melodic techno. `is_umbrella` means "imprecise, to be refined" and is also set
+on regional overviews with children (category 1.2.2). Distinct from
+`umbrella_non_stylistic_genres.csv`, which prunes category 2 (appellations with no coherent style,
+French touch) from the tree.
 Each id must be a canonical (non-regional) item with at least one child in this table — a leaf umbrella
 would leave its songs no sub-genre to move to — otherwise the run raises. `gold/umbrella_candidates.py`
 writes `1_umbrella_candidates.csv` to help find candidates.
