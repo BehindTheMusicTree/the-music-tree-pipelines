@@ -476,7 +476,7 @@ def test_classify_regional_genres_manual_edge_replaces_identical_bronze_edge(tmp
 
 
 def test_add_manual_canonical_parent_items_adds_synthetic_node() -> None:
-    df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS)
+    df = pl.DataFrame(GENRE_CLASSIFICATION_ROWS).with_columns(exclude_other_parents=pl.lit(None, dtype=pl.Boolean))
     manual_additions = pl.DataFrame(
         {"item_id": ["LOCAL:reggae-dub"], "label": ["Reggae/Dub"], "reason": ["synthetic grouping node"]}
     )
@@ -489,6 +489,7 @@ def test_add_manual_canonical_parent_items_adds_synthetic_node() -> None:
     assert added_row["item_url"] == "https://www.wikidata.org/wiki/LOCAL:reggae-dub"
     assert added_row["is_regional_overview"] is False
     assert added_row["classification_reason"] == "manual_canonical_parent_addition"
+    assert added_row["exclude_other_parents"] is None
     assert result.height == df.height + 1
 
 

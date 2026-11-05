@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
+- Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `manual_canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
 
 ### Fixed
 
