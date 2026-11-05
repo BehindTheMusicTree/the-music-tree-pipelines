@@ -66,7 +66,9 @@ for curation.
 
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
 one; the sole unit of an unsubdivided territory, which Natural Earth leaves without one, takes its country's
-item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`) plus P131 intermediates holding more than
+item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`), the Natural Earth countries whose item is
+no Wikidata entity (dependencies such as Jersey `Q785`, Hong Kong `Q8646` or the US Virgin Islands `Q11703`, labelled
+with their item's label, then their NE name, and holding their admin-1 units) plus P131 intermediates holding more than
 one known child. Containment edges come from P131, P361, P30 and
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
