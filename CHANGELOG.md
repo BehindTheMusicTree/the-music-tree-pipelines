@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Songs carry `recording_count`, the number of recordings in their song group (live versions, remasters, re-recordings), as a popularity signal: musicbrainz Silver `5_songs`, Gold `1_genre_match.parquet` and `2_songs` (non-null, at least 1). Requires the grow-the-music-tree-api release that accepts `recording_count` on song import. The first run after deploy has new snapshot columns, so it does a full song sync.
+
 ### Changed
 
 - Wikidata Bronze reads cultural-entity and music-tradition claims by item, 1,000 items and every property per query, instead of once per (kind, property): 31 queries instead of 164, 122 s instead of 389–958 s on staging's data, with identical output. WDQS queries are now sent as POST.

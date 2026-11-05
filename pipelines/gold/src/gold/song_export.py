@@ -42,14 +42,18 @@ _SYNCED_COLUMNS = [
     "genre_name",
     "genre_wikidata_id",
     "first_release_year",
+    "recording_count",
 ]
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
 
 def _check_songs(songs: pl.DataFrame) -> None:
     check_non_empty(songs, OUTPUT_DIRNAME)
-    for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id"):
+    for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id", "recording_count"):
         check_null_rate(songs, column, OUTPUT_DIRNAME)
+    bad_recording_count = songs.filter(pl.col("recording_count") < 1).height
+    if bad_recording_count:
+        raise ValueError(f"{OUTPUT_DIRNAME}: {bad_recording_count} row(s) with a recording_count below 1")
     check_unique_key(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME)
     check_max_length(songs, "title", SONG_TITLE_LEN_MAX, OUTPUT_DIRNAME)
     check_max_length(songs, "artist", ARTIST_NAME_LEN_MAX, OUTPUT_DIRNAME)
@@ -178,6 +182,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         "youtube_unplayable_reason",
         "youtube_view_count",
         "first_release_year",
+        "recording_count",
         "secondary_genre_item_ids",
         "musicbrainz_genres",
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),
