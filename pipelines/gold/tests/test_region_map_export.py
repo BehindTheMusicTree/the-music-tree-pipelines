@@ -665,6 +665,7 @@ def test_export_region_map_inherits_the_overview_a_dissolved_mainland_hands_its_
     assert "MAIN" not in regions and regions["BIG"]["overviewItemId"] == "Q20"
     assert regions["SUB"]["inheritedOverviewItemId"] == "Q20"
     assert regions["ISL"]["inheritedOverviewItemId"] == "Q20"
+    assert (regions["CE"]["overviewItemId"], regions["CE"]["inheritedOverviewItemId"]) == (None, None)
 
 
 def test_export_region_map_makes_a_zone_drillable_through_its_member_regions(tmp_path: Path) -> None:
