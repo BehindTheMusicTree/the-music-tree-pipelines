@@ -67,6 +67,9 @@ def _admin_entities(
         adm0: item_entity.get(qid) for adm0, qid in countries.select("adm0_a3", "wikidata_id").rows() if qid
     }
     country_qids = set(countries["wikidata_id"].drop_nulls())
+    country_qid = dict(countries.filter(pl.col("wikidata_id").is_not_null()).select("adm0_a3", "wikidata_id").rows())
+    admin1 = natural_earth.filter(pl.col("level") == 1)
+    single_unit = set(admin1.group_by("adm0_a3").len().filter(pl.col("len") == 1)["adm0_a3"])
 
     labels = dict(
         hierarchy.filter(pl.col("label").is_not_null())
@@ -77,13 +80,12 @@ def _admin_entities(
     )
     units: dict[str, str] = {}
     ne_rows = []
-    for ne_id, adm0, qid, name in (
-        natural_earth.filter(pl.col("level") == 1)
-        .sort("ne_id")
-        .select("ne_id", "adm0_a3", "wikidata_id", "name")
-        .rows()
-    ):
-        if qid in country_qids:
+    for ne_id, adm0, qid, name in admin1.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id", "name").rows():
+        # NE leaves the sole unit of an unsubdivided territory (`VGB+00?`) without a QID; it is the country's extent.
+        inherited = qid is None and adm0 in single_unit and adm0 in country_qid
+        if inherited:
+            qid = country_qid[adm0]
+        if qid in country_qids and not (inherited and qid not in item_entity):
             entity_id = item_entity.get(qid)
         elif qid in item_entity:
             entity_id = item_entity[qid]
