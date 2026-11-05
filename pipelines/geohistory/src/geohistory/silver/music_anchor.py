@@ -26,8 +26,11 @@ HISTORICAL_KINDS = ("historical_country", "historical_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
 NAMES_BY_LABEL = 0
 # Every place the label names has no geometry ("music of China" names only the civilization), so the
-# place the overview's claims pick (the People's Republic) is the one it names on the map.
+# place the overview is the music of (a curated override, or a culture/facet-of claim: the People's Republic)
+# is the one it names on the map. A country of origin or a location only places it there ("music of Latin
+# America" originating in Mexico is not Mexico's music).
 NAMES_BY_CLAIM = 1
+NAMING_RULES = ("override", *CULTURE_PROPERTIES)
 ANCHOR_SCHEMA = {
     "wikidata_id": pl.String,
     "anchor_id": pl.String,
@@ -66,7 +69,7 @@ def _rank_overviews(
 
     An overview that merely falls back to a country (P17, P495...) because its own place did not resolve
     ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank. An overview naming
-    its anchor by label ranks before one naming it only by claim (`NAMES_BY_CLAIM`).
+    its anchor by label ranks before one naming it only by a culture claim or override (`NAMES_BY_CLAIM`).
     """
     naming: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
     for qid, anchor_id, rule, _, names_anchor in anchors:
@@ -241,7 +244,12 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         naming: int | None = None
         if is_overview and picked[0] in label_matches:
             naming = NAMES_BY_LABEL
-        elif is_overview and label_matches and not any(footprint_admins.get(e) for e in label_matches):
+        elif (
+            is_overview
+            and picked[1] in NAMING_RULES
+            and label_matches
+            and not any(footprint_admins.get(e) for e in label_matches)
+        ):
             naming = NAMES_BY_CLAIM
         anchors.append((qid, picked[0], picked[1], is_overview, naming))
 

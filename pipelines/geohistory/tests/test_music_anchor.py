@@ -306,6 +306,24 @@ def test_overview_naming_its_anchor_by_label_ranks_before_one_naming_it_by_claim
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("prc", 1)
 
 
+def test_overview_whose_label_names_only_placeless_entities_does_not_name_its_country_of_origin(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of China"), claim("Q1", "P495", "Q148")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("prc", None)
+
+
+def test_overviews_naming_an_anchor_by_claim_rank_by_rule_then_qid(tmp_path):
+    claims = [
+        label("Q3", "music of China"),
+        claim("Q3", "P1269", "Q148"),
+        label("Q2", "music of China"),
+        claim("Q2", "P2596", "Q148"),
+        label("Q1", "music of China"),
+        claim("Q1", "P1269", "Q148"),
+    ]
+    anchors, _ = run(tmp_path, claims)
+    assert [anchors[q]["overview_rank"] for q in ("Q2", "Q1", "Q3")] == [0, 1, 2]
+
+
 def test_claimed_anchor_does_not_take_the_name_of_a_placeable_label_match(tmp_path):
     claims = [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")]
     anchors, _ = run(tmp_path, claims, footprint=[("chn", "khk", "cover")])
