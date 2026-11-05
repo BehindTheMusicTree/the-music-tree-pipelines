@@ -243,7 +243,9 @@ being its anchor lifted to a non-admin place (an `entity_id` of the lane or band
 
 `6_column_region.parquet`: one row per column, `column_id` (str), `region_id` (str), `region_label` (str),
 `region_rank` (i32). `region_id` is one of `americas`, `europe`, `africa`, `asia`, `oceania`, `religions`, ranked in that
-order. Every column has a region; the step raises otherwise.
+order. A column takes the plurality of its members' overrides, else of their footprint votes, else of the countries
+their coordinates fall in, else of their predecessors' and successors' votes. Every column has a region; the step
+raises otherwise.
 
 ### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
 

@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates.
+- Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates, and `column_region` falls back to their predecessors' and successors' regions when they have none.
 
 ## [9.2.0] - 2026-11-04
 

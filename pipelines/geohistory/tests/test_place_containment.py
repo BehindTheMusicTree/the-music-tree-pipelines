@@ -233,6 +233,16 @@ def test_footprint_succession_takes_the_sole_predecessor_of_a_split(tmp_path):
     assert found[("old", "bre")] == "succession"
 
 
+def test_footprint_succession_skips_a_predecessor_split_among_several_entities(tmp_path):
+    found = footprint(
+        tmp_path,
+        containment=[],
+        ne_ids=["bre"],
+        succession=[("bre", "old", "P1366"), ("bre", "pen", "P1366")],
+    )
+    assert not any(entity in {"old", "pen"} for entity, _ in found)
+
+
 def test_footprint_places_a_point_entity_in_the_admin_polygon_containing_it(tmp_path):
     found = footprint(
         tmp_path,
