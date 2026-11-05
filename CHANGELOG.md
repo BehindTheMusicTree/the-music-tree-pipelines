@@ -66,6 +66,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Silver `music_anchor` anchors a sub-place overview ("Music of Scotland", Catalonia, Galicia, Aragon, Occitania, Khakassia, Kalmykia) on its own region instead of its country: an ambiguous label is narrowed by the places the genre claims, then to the current place over a historical state. Labels that stay ambiguous are listed in the new `5_music_anchor_ambiguous.csv`.
 - Silver `music_anchor` also prefers the current place over a historical state when the overview claims no place at all ("Music of Finland" on Finland, not the Grand Duchy), instead of leaving it without an anchor.
 - Wikidata `cultural_entity_alias` also indexes each place's English main label, and the English names of the admin units under the seed countries, so aliases like "Khakassia" resolve.
+- README lists each data source and its license; data derived from MusicBrainz tags stays under CC BY-NC-SA 3.0.
+
+### Fixed
+
+- Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
 
 ### Fixed
 
