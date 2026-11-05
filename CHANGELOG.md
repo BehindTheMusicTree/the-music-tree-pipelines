@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking** curation lists renamed to match the genre taxonomy: `umbrella_genres` → `umbrella_stylistic_genres` and `non_stylistic_genres` → `umbrella_non_stylistic_genres` (`curation.ingest` writes `<list>.csv`, every reader follows); `is_umbrella` is unchanged and now documented as "imprecise, to be refined"; `wikidata/DESIGN.md` gains the taxonomy table. Merge together with grow-the-music-tree-api and grow-the-music-tree-frontend
+- Repository releases use an explicit `VERSION` and CI-owned tags and GitHub Releases; workspace package versions remain independent.
+
 - **Breaking** curation CSVs drop the `manual_` prefix: `curation.ingest` writes `<list>.csv` and `export.json` (was `manual_<list>.csv`, `manual_export.json`), and every reader follows. The `canonical_overrides` list becomes `forced_canonical_genres` (`forced_canonical_genres.csv`), which needs grow-the-music-tree-api with the renamed list. Old `manual_*` files left in `CURATION_BRONZE_DIR` are no longer read.
 
 - Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
