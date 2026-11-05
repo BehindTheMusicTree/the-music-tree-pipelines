@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [10.0.0](#1000---2026-11-05)
 - [6.7.0](#670---2026-10-20)
 - [6.6.0](#660---2026-10-20)
 - [6.5.1](#651---2026-10-20)
@@ -48,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0] - 2026-11-05
+
 ### Added
 
 - Independent artist-image enrichment with resumable state, bounded Wikidata/Commons refreshes and immutable publications pinned once per Gold build. Requires a bootstrapped publication before catalogue cutover; scheduling remains opt-in.
@@ -60,7 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Preserve complete release notes when Markdown examples contain version headings.
-
 - `geohistory` Silver gives the sole Natural Earth admin-1 unit of an unsubdivided territory (British Virgin Islands, Isle of Man, Cayman Islands, Guernsey, Gibraltar, Tuvalu… 24 on staging) its country's Wikidata QID instead of an unstable `ne:<adm1_code>` id, so curation lists, which accept only QIDs and Glottocodes, can name it and genre claims on that QID anchor there.
 - **Breaking** curation lists renamed to match the genre taxonomy: `umbrella_genres` → `umbrella_stylistic_genres` and `non_stylistic_genres` → `umbrella_non_stylistic_genres` (`curation.ingest` writes `<list>.csv`, every reader follows); `is_umbrella` is unchanged and now documented as "imprecise, to be refined"; `wikidata/DESIGN.md` gains the taxonomy table. Merge together with grow-the-music-tree-api and grow-the-music-tree-frontend
 - Repository releases use an explicit `VERSION` and CI-owned tags and GitHub Releases; workspace package versions remain independent.
@@ -87,9 +89,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - geohistory Silver raises when `tradition_placement_overrides` lists the same `wikidata_id` twice, instead of silently keeping the last row.
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
 - Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
-
-### Fixed
-
 - Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates, and `column_region` falls back to their predecessors' and successors' regions when they have none.
 
 ## [9.2.0] - 2026-11-04
