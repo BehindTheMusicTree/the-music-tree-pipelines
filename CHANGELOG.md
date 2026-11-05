@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `geohistory` Silver makes a Natural Earth country whose item is no Wikidata entity (Jersey, Hong Kong, Macau, the US Virgin Islands, Bermuda, New Caledonia… 32 on staging) an admin unit labelled with its item's label, instead of dropping its polygon and leaving its admin-1 units under no entity, so these territories, their admin-1 units and their "music of X" overviews (Hong Kong, New Caledonia) reach the map.
 - Region map: a zone member whose admin region was dissolved into a parent that was itself dissolved now resolves to the final region instead of dropping out of the zone's `childIds` (`test_export_region_map_lists_a_zone_member_dissolved_through_a_chain`).
 - geohistory Silver raises when `tradition_placement_overrides` lists the same `wikidata_id` twice, instead of silently keeping the last row.
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
