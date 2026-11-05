@@ -168,7 +168,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | ----------------------------------------------------------------------------- |
 | entity_id | str  | `1_cultural_entity.entity_id`                                                 |
 | admin_id  | str  | `1_cultural_entity.entity_id` of kind `admin_unit`                            |
-| rule      | str  | `self`, `cover` (contained admin units), `succession` (a successor's units) or `point` (admin unit intersecting its coordinates) |
+| rule      | str  | `self`, `cover` (contained admin units), `succession` (units of the successors it is the sole predecessor of, else of the predecessors it is the sole successor of) or `point` (admin unit intersecting its coordinates) |
 
 `8_entity_geometry.parquet`: the map geometry of every country, admin unit and zone-kind entity with a footprint, `entity_id` unique.
 
@@ -243,7 +243,9 @@ being its anchor lifted to a non-admin place (an `entity_id` of the lane or band
 
 `6_column_region.parquet`: one row per column, `column_id` (str), `region_id` (str), `region_label` (str),
 `region_rank` (i32). `region_id` is one of `americas`, `europe`, `africa`, `asia`, `oceania`, `religions`, ranked in that
-order. Every column has a region; the step raises otherwise.
+order. A column takes the plurality of its members' overrides, else of their footprint votes, else of the countries
+their coordinates fall in, else of their predecessors' and successors' votes. Every column has a region; the step
+raises otherwise.
 
 ### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
 

@@ -1,5 +1,5 @@
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import polars as pl
@@ -118,6 +118,21 @@ def _plurality(tally: Counter[str]) -> str | None:
     return min(tally, key=lambda region: (-tally[region], REGION_RANK[region])) if tally else None
 
 
+def _neighbour_votes(
+    members: list[str], neighbours: dict[str, list[str]], votes: dict[str, Counter[str]]
+) -> Counter[str]:
+    """Votes of the members' predecessors and successors.
+
+    The footprint only inherits a neighbour that is the member's sole counterpart, but a continent survives a
+    merger: West Germany shares Germany with East Germany and is still in Europe.
+    """
+    tally: Counter[str] = Counter()
+    for entity_id in members:
+        for other in neighbours.get(entity_id, ()):
+            tally.update(votes.get(other, ()))
+    return tally
+
+
 def column_region(bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
     lanes = pl.read_parquet(silver_dir / "6_genealogy_lane.parquet")
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet")
@@ -128,6 +143,12 @@ def column_region(bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Pat
         **dict.fromkeys(entities.filter(pl.col("kind") == RELIGION_KIND)["entity_id"], RELIGIONS_REGION),
         **overrides,
     }
+
+    neighbours: dict[str, list[str]] = defaultdict(list)
+    succession = pl.read_parquet(silver_dir / "3_entity_succession.parquet").sort("predecessor_id", "successor_id")
+    for predecessor, successor in succession.select("predecessor_id", "successor_id").rows():
+        neighbours[predecessor].append(successor)
+        neighbours[successor].append(predecessor)
 
     columns = lanes.group_by("column_id").agg("entity_id").sort("column_id").rows()
     unvoted = {entity_id for _, members in columns for entity_id in members if not votes.get(entity_id)} - set(forced)
@@ -147,7 +168,11 @@ def column_region(bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Pat
             tally: Counter[str] = Counter()
             for entity_id in members:
                 tally.update(votes.get(entity_id, ()))
-            region = _plurality(tally) or _plurality(Counter(fallback[e] for e in members if e in fallback))
+            region = (
+                _plurality(tally)
+                or _plurality(Counter(fallback[e] for e in members if e in fallback))
+                or _plurality(_neighbour_votes(members, neighbours, votes))
+            )
         if region is None:
             unplaced.append((column_id, members))
             continue
