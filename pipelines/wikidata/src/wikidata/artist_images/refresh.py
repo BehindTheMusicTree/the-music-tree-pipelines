@@ -123,7 +123,7 @@ async def refresh_claim_queue(
 
     from wikidata.artist_images.progress import defer_failed
 
-    attempted = set()
+    attempted: set[str] = set()
     while True:
         registry = state.tables["registry"].filter(~pl.col("item_id").is_in(list(attempted)))
         qids = due_qids(registry, now, 1000)

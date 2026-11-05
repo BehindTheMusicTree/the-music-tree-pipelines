@@ -146,7 +146,7 @@ def load_state(root: Path) -> ImageState:
     return state
 
 
-def _apply(state: ImageState, replacements: dict[str, pl.DataFrame], covered: dict, sequence: int) -> ImageState:
+def _apply(state: ImageState, replacements: dict[str, pl.DataFrame], covered: object, sequence: int) -> ImageState:
     if not isinstance(covered, dict) or set(covered) != set(replacements):
         raise ValueError("Invalid checkpoint coverage")
     tables = dict(state.tables)

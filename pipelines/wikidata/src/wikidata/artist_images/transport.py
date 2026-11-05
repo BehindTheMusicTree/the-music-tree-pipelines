@@ -44,7 +44,7 @@ class RequestBudget:
         self.failures = dict.fromkeys(attempts, 0)
         self.deadline = time.monotonic() + seconds
         self.catalogue_lock = catalogue_lock
-        self.work = {
+        self.work: dict[str, dict[str, set[str]]] = {
             kind: {result: set() for result in ("attempted", "succeeded", "failed")} for kind in ("claims", "metadata")
         }
         self.next_wikidata_attempt = 0.0
@@ -95,7 +95,7 @@ async def request_json(
     data: dict | None = None,
 ) -> dict:
     """At most two attempts, charged before I/O, sharing family and run deadlines."""
-    last_error = None
+    last_error: Exception | None = None
     timed_out = False
     for attempt in range(2):
         delay = random.uniform(1.0, 2.0)

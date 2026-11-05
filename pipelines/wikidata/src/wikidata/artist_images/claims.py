@@ -94,8 +94,8 @@ def parse_claims(qids: list[str], payload: object) -> ClaimBatch:
     expected = set(qids)
     seen = set()
     rejected = set()
-    mbids = {qid: set() for qid in qids}
-    associations = {qid: set() for qid in qids}
+    mbids: dict[str, set[str]] = {qid: set() for qid in qids}
+    associations: dict[str, set[tuple[str, str]]] = {qid: set() for qid in qids}
     for binding in bindings:
         if not isinstance(binding, dict):
             raise ValueError("Invalid SPARQL binding")

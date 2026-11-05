@@ -6,6 +6,7 @@ import os
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import polars as pl
@@ -63,7 +64,7 @@ async def _run_locked(config: WorkerConfig, *, discover_only: bool) -> dict:
     previous_status = json.loads(previous_status_path.read_text()) if previous_status_path.exists() else {}
     if not isinstance(previous_status, dict):
         raise ValueError("Invalid previous image status")
-    status = {
+    status: dict[str, Any] = {
         key: previous_status.get(key)
         for key in ("lastSuccessfulRunAt", "lastDueWorkProgressAt", "lastSuccessfulPublicationAt")
     }
@@ -80,7 +81,7 @@ async def _run_locked(config: WorkerConfig, *, discover_only: bool) -> dict:
         config.run_seconds,
         catalogue_lock=config.catalogue_lock,
     )
-    due = {"claims": set(), "metadata": set()}
+    due: dict[str, set[str]] = {"claims": set(), "metadata": set()}
     stage = "preflight"
     try:
         with step(stage):

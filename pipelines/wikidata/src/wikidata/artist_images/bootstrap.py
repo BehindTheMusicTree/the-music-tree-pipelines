@@ -221,6 +221,8 @@ def bootstrap_snapshot(
         frame = pl.read_parquet(capture / name)
         column = "fetched_at" if name == _BRONZE_FILE else "checked_at"
         observed = frame[column].min() if column in frame.columns else None
+        if observed is not None and not isinstance(observed, datetime):
+            raise ValueError("Invalid bootstrap observation time")
         bootstrap[name] = {"sha256": digest, "observedAt": observed.isoformat() if observed is not None else None}
     if (state_root / "current.json").exists():
         if not resume:
@@ -270,6 +272,8 @@ def bootstrap_snapshot(
     age_summary = {}
     for kind, column in (("claims", "claims_checked_at"), ("metadata", "metadata_checked_at")):
         oldest = lineage[column].min()
+        if oldest is not None and not isinstance(oldest, datetime):
+            raise ValueError("Invalid bootstrap selected source observation time")
         age_summary[kind] = {
             "overdueCount": lineage.height,
             "oldestCheckedAt": oldest.isoformat() if oldest is not None else None,

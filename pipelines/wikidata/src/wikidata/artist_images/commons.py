@@ -29,7 +29,10 @@ async def acquire_metadata(client: httpx.AsyncClient, budget: RequestBudget, fil
         "format": "json",
         "formatversion": 2,
     }
-    renamed, pages, continuation, seen = {}, {}, {}, set()
+    renamed: dict[str, str] = {}
+    pages: dict[str, dict] = {}
+    continuation: dict = {}
+    seen: set[str] = set()
     while True:
         body = await request_json(
             client,
@@ -149,7 +152,7 @@ async def refresh_metadata_queue(
 
     if now.tzinfo is None or min(positive_days, negative_days) <= 0:
         raise ValueError("Metadata refresh requires aware time and positive TTLs")
-    attempted = set()
+    attempted: set[str] = set()
     while True:
         cached = state.tables["commons"]
         due = due_files(state, now, positive_days, negative_days).filter(

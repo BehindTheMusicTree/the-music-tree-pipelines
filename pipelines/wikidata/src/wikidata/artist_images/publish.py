@@ -73,7 +73,7 @@ def publish_snapshot(root: Path, images: pl.DataFrame, lineage: pl.DataFrame, pr
             if len(explained) != len(set(explained)) or set(explained) != lost:
                 raise ValueError("Every image removal requires source observation evidence")
             old_lineage = pl.read_parquet(previous.lineage_path)
-            counts = {}
+            counts: dict[str, int] = {}
             for item in evidence:
                 reason = item.get("reason")
                 if reason not in ("claims_changed", "metadata_changed"):

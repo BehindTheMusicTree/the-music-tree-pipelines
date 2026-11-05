@@ -85,6 +85,8 @@ def summarize_age(lineage: pl.DataFrame, now: datetime, claims_days: int, metada
         ("metadata", "metadata_checked_at", metadata_days),
     ):
         oldest = lineage[column].min()
+        if oldest is not None and not isinstance(oldest, datetime):
+            raise ValueError("Invalid selected source observation time")
         age_summary[kind] = {
             "oldestCheckedAt": oldest.isoformat() if oldest is not None else None,
             "overdueCount": lineage.filter(
@@ -121,7 +123,7 @@ def removal_evidence(state: ImageState, previous, images: pl.DataFrame) -> list[
             row["metadata_checked_at"] is None or metadata_time > row["metadata_checked_at"]
         ):
             reason, checked = "metadata_changed", metadata_time
-        if reason is None:
+        if reason is None or checked is None:
             raise ValueError("Image removal lacks a newer successful source observation")
         evidence.append(
             {
