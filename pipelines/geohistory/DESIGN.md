@@ -92,7 +92,7 @@ Glottocodes or QIDs.
 
 - `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
   covers them. A curated item already covered by a bulk kind keeps that kind and is logged; a QID absent from Bronze
-  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog.
+  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog. An optional `entity_kind` (`cultural_region` or `macro_region`, anything else raises) gives the item that kind instead of `curated`, so it is drawn (from its membership children, see `entity_footprint`) and becomes a map zone; blank keeps `curated`.
 - `entity_exclusions` removes the entity from `1_cultural_entity` and the crosswalk, so its edges, successions and
   dates disappear downstream. An id out of scope is logged.
 - `entity_membership_overrides` runs after the source edges and before the cycle check, so it is the way to break a
