@@ -35,7 +35,7 @@ several daily runs; songs whose candidates aren't checked yet export without a v
 
 ## Curated video override
 
-`manual_recording_youtube_video.csv` used to be applied in Gold, after Silver had picked and checked a
+`recording_youtube_video.csv` used to be applied in Gold, after Silver had picked and checked a
 video, so a curated video was never checked for playability. It is applied here instead: each curated
 video is a `pinned` rank-0 candidate, `youtube_video_status` spends budget on pinned ids first, and
 `songs` always keeps the curated video (or no video, when its id is empty), with the curated

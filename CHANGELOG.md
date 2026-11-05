@@ -51,11 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Songs carry `recording_count`, the number of recordings in their song group (live versions, remasters, re-recordings), as a popularity signal: musicbrainz Silver `5_songs`, Gold `1_genre_match.parquet` and `2_songs` (non-null, at least 1). Requires the grow-the-music-tree-api release that accepts `recording_count` on song import. The first run after deploy has new snapshot columns, so it does a full song sync.
-- Wikidata Silver reads `manual_canonical_overrides.csv` (from grow's new `canonical_overrides` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
+- Wikidata Silver reads `forced_canonical_genres.csv` (from grow's new `forced_canonical_genres` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
 - The regional genre tree export gains a top-level `crossTreeSecondaryParents` (`[{id, secondaryParents}]`, always present), carrying canonical genres' regional parents, which the canonical import cannot resolve. Requires grow-api with `the-music-tree-genre-kit` 0.54.0.
 - The region map index gains `inheritedOverviewItemId` per region: for an admin region without its own "music of X" genre, the overview of its nearest admin ancestor that has one (Normandie opens "Music of France"); null otherwise and on zones. The frontend's strict index schema must accept the key before this index reaches an environment; grow-api already accepts it.
 
 ### Changed
+
+- **Breaking** curation CSVs drop the `manual_` prefix: `curation.ingest` writes `<list>.csv` and `export.json` (was `manual_<list>.csv`, `manual_export.json`), and every reader follows. The `canonical_overrides` list becomes `forced_canonical_genres` (`forced_canonical_genres.csv`), which needs grow-the-music-tree-api with the renamed list. Old `manual_*` files left in `CURATION_BRONZE_DIR` are no longer read.
 
 - Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking:** a genre's parents are now split into three axes instead of a single main parent: 0 or 1 canonical parent, 0 or 1 regional genre parent (both axes' other candidates becoming secondary parents), and 0 to n regional overviews, minus any overview that is an ancestor of another kept parent (Breton rock sits under French rock and music of Brittany, not also music of France). `5_main_parent_selection.parquet` becomes `5_parent_selection.parquet`, with `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` and the tree anchor `parent_id`. The curation lists become `canonical_parent` (was `main_parent`), `regional_genre_parent` (new) and `regional_overviews` (was `regional_overrides`, keyed by item and overview), and must be migrated in grow-api in lockstep.
@@ -73,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
-- Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `manual_canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
+- Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
 
 ### Fixed
 

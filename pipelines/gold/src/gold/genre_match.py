@@ -16,10 +16,10 @@ GENRE_MATCH_REPORT_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_matc
 
 logger = logging.getLogger(__name__)
 
-# manual_genre_alias.csv / manual_accepted_non_genre_tags.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's triage decisions for
+# genre_alias.csv / accepted_non_genre_tags.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's triage decisions for
 # musicbrainz tag names that don't auto-match a wikidata genre label (canonical or regional) — either a real genre
 # just named differently (this CSV) or permanent non-genre folksonomy noise
-# (manual_accepted_non_genre_tags.csv). See 1_genre_match_unresolved.csv for the names still awaiting
+# (accepted_non_genre_tags.csv). See 1_genre_match_unresolved.csv for the names still awaiting
 # triage.
 
 # A real YouTube video id is always exactly 11 characters. Malformed ids (seen in real MusicBrainz
@@ -108,9 +108,7 @@ def _validate_manual_accepted_non_genre_tags(
         "musicbrainz_genre_name"
     ].to_list()
     if conflicts:
-        raise ValueError(
-            f"{csv_name} has entr(y/ies) that conflict with an auto-match or manual_genre_alias.csv: {conflicts}"
-        )
+        raise ValueError(f"{csv_name} has entr(y/ies) that conflict with an auto-match or genre_alias.csv: {conflicts}")
 
 
 def _wikidata_alias_by_key(

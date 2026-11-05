@@ -15,15 +15,13 @@ def _flag_umbrellas(df: pl.DataFrame, canonical: pl.DataFrame, manual_umbrella_g
     parent_ids = set(canonical.get_column("parent_id").drop_nulls())
     unknown = sorted(i for i in ids if i not in canonical_ids and i not in regional_ids)
     if unknown:
-        raise ValueError(f"manual_umbrella_genres.csv rows reference item_id(s) not found in the genre tree: {unknown}")
+        raise ValueError(f"umbrella_genres.csv rows reference item_id(s) not found in the genre tree: {unknown}")
     regional = sorted(i for i in ids if i in regional_ids)
     if regional:
-        raise ValueError(f"manual_umbrella_genres.csv rows reference regional item_id(s): {regional}")
+        raise ValueError(f"umbrella_genres.csv rows reference regional item_id(s): {regional}")
     leaves = sorted(i for i in ids if i not in parent_ids)
     if leaves:
-        raise ValueError(
-            f"manual_umbrella_genres.csv rows reference leaf item_id(s), which have no sub-genre: {leaves}"
-        )
+        raise ValueError(f"umbrella_genres.csv rows reference leaf item_id(s), which have no sub-genre: {leaves}")
     return canonical.with_columns(is_umbrella=pl.col("item_id").is_in(ids))
 
 

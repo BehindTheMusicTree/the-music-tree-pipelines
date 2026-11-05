@@ -25,7 +25,7 @@ CURATION_RESOLUTIONS_SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "c
 # (Gold, edge-checked).
 QID_COLUMNS: dict[str, tuple[str, ...]] = {
     "accepted_canonical_roots": ("item_id",),
-    "canonical_overrides": ("item_id",),
+    "forced_canonical_genres": ("item_id",),
     "canonical_parent": ("item_id", "parent_item_id"),
     "duplicate_genres": ("item_id",),
     "indigenous_to_exclusions": ("item_id",),
@@ -52,7 +52,7 @@ _QID_PATTERN = re.compile(r"Q[0-9]+")
 
 
 def _csv_path(curation_dir: Path, list_name: str) -> Path:
-    return curation_dir / f"manual_{list_name}.csv"
+    return curation_dir / f"{list_name}.csv"
 
 
 def _ids(df: pl.DataFrame, column: str) -> set[str]:

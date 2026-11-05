@@ -61,7 +61,7 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     curation.mkdir(exist_ok=True)
     for list_name, columns in LISTS.items():
         lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     return curation
 
 
@@ -426,7 +426,7 @@ def test_read_curation_list_raises_on_unexpected_columns(dirs):
     base_bronze(dirs)
     bronze, wikidata, silver = dirs
     curation = silver.parent / "curation"
-    (curation / "manual_entity_exclusions.csv").write_text("entity_id\n")
+    (curation / "entity_exclusions.csv").write_text("entity_id\n")
 
     with pytest.raises(ValueError, match="expected"):
         cultural_entity(bronze, wikidata, silver, curation)

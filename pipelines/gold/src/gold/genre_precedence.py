@@ -8,7 +8,7 @@ from gold.genre_tree_builder import load_extra_parent_edges, load_selected_paren
 
 logger = logging.getLogger(__name__)
 
-PRECEDENCE_CSV = "manual_genre_precedence.csv"
+PRECEDENCE_CSV = "genre_precedence.csv"
 
 
 def _lineage_edges(hierarchy: pl.DataFrame, parent_selection_path: Path, secondary_parents_path: Path) -> pl.DataFrame:
@@ -37,7 +37,7 @@ def precedence_closure(
 ) -> pl.DataFrame:
     """Every `(winner, loser)` pair where a song carrying both genres keeps only `winner`: a genre beats
     its ancestors (its `hierarchy` anchor, its other parents picked in `5_parent_selection.parquet` and its
-    secondary parents) and whatever `manual_genre_precedence.csv` says, transitively (ska > reggae > dub =>
+    secondary parents) and whatever `genre_precedence.csv` says, transitively (ska > reggae > dub =>
     ska > dub). Raises on a self-pair or cycle, e.g. a manual rule reversing a lineage edge."""
     edges = pl.concat(
         [

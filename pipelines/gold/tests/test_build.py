@@ -14,10 +14,10 @@ MBID_B = "00000000-0000-0000-0000-00000000000b"
 
 def _write_curation(curation_dir: Path, payload: dict[str, str], essential_song_ids: list[str] | None = None) -> None:
     curation_dir.mkdir()
-    (curation_dir / "manual_export.json").write_text(json.dumps(payload))
+    (curation_dir / "export.json").write_text(json.dumps(payload))
     pl.DataFrame(
         {"musicbrainz_recording_id": essential_song_ids or []}, schema={"musicbrainz_recording_id": pl.Utf8}
-    ).write_csv(curation_dir / "manual_essential_songs.csv")
+    ).write_csv(curation_dir / "essential_songs.csv")
 
 
 def _fake_genre_match(gold_dir: Path, calls: list[str]) -> Callable[..., Path]:
@@ -88,7 +88,7 @@ def test_build_gold_raises_on_unknown_essential_track(monkeypatch: pytest.Monkey
     monkeypatch.setattr(build, "export_songs", lambda *_: calls.append("songs"))
     monkeypatch.setattr(build, "pipelines_commit", lambda: "abc123")
 
-    with pytest.raises(ValueError, match=f"manual_essential_songs.csv references unknown.*{MBID_B}"):
+    with pytest.raises(ValueError, match=f"essential_songs.csv references unknown.*{MBID_B}"):
         build.build_gold(tmp_path / "mb", tmp_path / "wd", tmp_path / "wb", tmp_path / "gh", curation_dir, gold_dir)
 
     assert calls == ["match"]

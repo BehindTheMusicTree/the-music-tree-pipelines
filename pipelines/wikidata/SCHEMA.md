@@ -160,7 +160,7 @@ own (as of this writing: 2,496 rows).
 ### 2.4 wikidata_genre_descriptions.parquet
 
 One row per tree QID: every `item_id` and `parent_id` of `wikidata_genre_tree.parquet` plus every
-`Q…` `item_id` of the curation Bronze `manual_regional_overview_additions.csv` (`CURATION_BRONZE_DIR`;
+`Q…` `item_id` of the curation Bronze `regional_overview_additions.csv` (`CURATION_BRONZE_DIR`;
 `LOCAL:` ids have no Wikidata item and get no row), so `item_id` is unique (checked before the write).
 The English short description (CC0) and the English Wikipedia article come from `wbgetentities`
 (`wikidata_client.fetch_descriptions`, `props=descriptions|aliases|sitelinks/urls`, `sitefilter=enwiki`); the
@@ -224,8 +224,8 @@ As of this writing: 16,596 rows.
 
 Raw claims of the music-tradition candidates, one row per (item, property, value), unfiltered by date (the ≤ 1950 rule
 is semantic and applied in `geohistory` Silver). Candidates are every `P31` music genre item (`Q188451`), the "music
-of <place>" overviews the genre tree only knows as parents, the `manual_regional_overview_additions.csv` QIDs and the
-`manual_tradition_additions.csv` QIDs. Deduplicated.
+of <place>" overviews the genre tree only knows as parents, the `regional_overview_additions.csv` QIDs and the
+`tradition_additions.csv` QIDs. Deduplicated.
 
 | Column         | Type | Meaning                                                                                                                      |
 | -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -306,15 +306,15 @@ shape — see below.
 
 | Step                                                                        | Reads                                        | Writes                                                                       | Adds                                | Key result (as of this writing)                                                                                                                                                 |
 | --------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`1_item_links`](#32-1_item_links)                                          | Bronze `wikidata_genre_tree.parquet`, `manual_label_overrides.csv`, `manual_capitalized_words.csv` | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label`, `item_display_label`, `parent_display_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
-| [`2_non_genre_pruning`](#33-2_non_genre_pruning)                            | `1_item_links.parquet`, `manual_theme_genres.csv`, `manual_technique_genres.csv`, `manual_out_of_scope_genres.csv` | `2_non_genre_pruning.parquet`                                                | none — drops rows only              | theme/technique/out-of-scope items dropped entirely (see [DESIGN.md#21-2_non_genre_pruning](DESIGN.md#21-2_non_genre_pruning))                                                    |
+| [`1_item_links`](#32-1_item_links)                                          | Bronze `wikidata_genre_tree.parquet`, `label_overrides.csv`, `capitalized_words.csv` | `1_item_links.parquet`                                                       | `item_url`, `parent_url`, `has_item_label`, `has_parent_label`, `item_display_label`, `parent_display_label` | `item_url` populated for all 9,729 rows; `parent_url` null only for the 486 root rows                                                                                            |
+| [`2_non_genre_pruning`](#33-2_non_genre_pruning)                            | `1_item_links.parquet`, `theme_genres.csv`, `technique_genres.csv`, `out_of_scope_genres.csv` | `2_non_genre_pruning.parquet`                                                | none — drops rows only              | theme/technique/out-of-scope items dropped entirely (see [DESIGN.md#21-2_non_genre_pruning](DESIGN.md#21-2_non_genre_pruning))                                                    |
 | [`3_regional_overview_classification`](#34-3_regional_overview_classification) | `2_non_genre_pruning.parquet`                | `3_regional_overview_classification.parquet`                                 | `is_regional_overview`, `classification_reason` | 401 of 9,729 rows (299 of 6,344 items) tagged `is_regional_overview = true` / `regional_overview` (e.g. "music of Kenya") — not dropped                                          |
-| [`4_regional_classification`](#35-4_regional_classification)                | `3_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `manual_canonical_parent.csv`, `manual_regional_genre_parent.csv`, `manual_regional_overviews.csv`, `manual_canonical_overrides.csv` | `4_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 remaining items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_regional_overview, 1,614 direct, 1,547 inherited (see [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification))                                      |
+| [`4_regional_classification`](#35-4_regional_classification)                | `3_regional_overview_classification.parquet`, Bronze `wikidata_genre_indigenous_to.parquet`, `canonical_parent.csv`, `regional_genre_parent.csv`, `regional_overviews.csv`, `forced_canonical_genres.csv` | `4_regional_classification.parquet`                                          | `is_regional`, `regional_reason`    | 3,879 of 6,404 remaining items flagged `is_regional` — 359 seed, 179 indigenous_to, 180 manual_regional_overview, 1,614 direct, 1,547 inherited (see [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification))                                      |
 | [`5_parent_selection`](#36-5_parent_selection)                              | `4_regional_classification.parquet`          | `5_parent_selection.parquet`, `5_secondary_parents.parquet`                  | `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` | collapses every item to one anchor parent edge and records its parents per axis (curated edge wins, else lowest-QID); other canonical/regional-genre candidates kept in `5_secondary_parents.parquet` |
 | [`6_canonical_parents`](#37-6_canonical_parents)                            | `5_parent_selection.parquet`                 | `6_canonical_parents.parquet`                                                | `canonical_parent_is_genre`         | flags whether each item's anchor parent is itself an actual musical style |
 | [`7_canonical_hierarchy`](#38-7_canonical_hierarchy)                        | `6_canonical_parents.parquet`                | `7_canonical_hierarchy.parquet`                                              | prunes to one row per `item_id` (canonical only) | clean, one-parent-per-item canonical edge list |
 | [`8_regional_hierarchy`](#39-8_regional_hierarchy)                          | `6_canonical_parents.parquet`                | `8_regional_hierarchy.parquet`                                               | prunes to one row per `item_id` (regional only) | clean, one-parent-per-item regional edge list |
-| [`9_canonical_roots`](#310-9_canonical_roots)                               | `7_canonical_hierarchy.parquet`, `manual_accepted_canonical_roots.csv` | `9_canonical_roots.parquet`                                                  | filters to root items, `is_accepted` | for manual exploration of the "too many roots" open question (see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) |
+| [`9_canonical_roots`](#310-9_canonical_roots)                               | `7_canonical_hierarchy.parquet`, `accepted_canonical_roots.csv` | `9_canonical_roots.parquet`                                                  | filters to root items, `is_accepted` | for manual exploration of the "too many roots" open question (see [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count)) |
 
 Each step's own section below has the full column definitions and profiling detail behind these
 numbers; see [DESIGN.md](DESIGN.md) for why each step exists and its rules.
@@ -340,7 +340,7 @@ display-only label columns (see [DESIGN.md#20-1_item_links--display-label-casing
 | parent_url            | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null when `parent_id` is null    |
 | has_item_label        | bool | `False` when `item_label == item_id` (Wikidata's label service found no English/`mul` label and fell back to printing the QID) |
 | has_parent_label      | bool? | Same check for `parent_label`/`parent_id`, or null when `parent_id` is null       |
-| item_display_label    | str  | Display-only genre name: `manual_label_overrides.csv` override, else `item_label` sentence-cased (word-list capitalization from `manual_capitalized_words.csv`, then first-character capitalization) |
+| item_display_label    | str  | Display-only genre name: `label_overrides.csv` override, else `item_label` sentence-cased (word-list capitalization from `capitalized_words.csv`, then first-character capitalization) |
 | parent_display_label  | str? | Same derivation for `parent_label`, or null when `parent_id` is null              |
 
 **Data profile (as of this writing):**
@@ -409,11 +409,11 @@ columns flagging whether each row's `item_id` is a **regional genre** — nation
 specific (e.g. "morna", "fado", and the "music of X" seed items themselves), as opposed to a genre
 with no particular regional grounding (e.g. "rock music"). This step also reads the three curated parent lists and,
 before the cascade below runs, injects one synthetic edge per row — tagged
-`relation_type = "manual_canonical_parent"` (`manual_canonical_parent.csv`),
-`"manual_regional_genre_parent"` (`manual_regional_genre_parent.csv`) or
-`"manual_regional_overview"` (`manual_regional_overviews.csv`) — a data expert's explicit parent
+`relation_type = "manual_canonical_parent"` (`canonical_parent.csv`),
+`"manual_regional_genre_parent"` (`regional_genre_parent.csv`) or
+`"manual_regional_overview"` (`regional_overviews.csv`) — a data expert's explicit parent
 pick for an item on one axis, consumed downstream by [`5_parent_selection`](#36-5_parent_selection).
-Items in `manual_canonical_overrides.csv` are never flagged regional. See
+Items in `forced_canonical_genres.csv` are never flagged regional. See
 [DESIGN.md#23-4_regional_classification](DESIGN.md#23-4_regional_classification) for why this step
 reads the extra Bronze/CSV inputs, its seeding/cascade rule, and open caveats.
 
@@ -524,7 +524,7 @@ run earlier, in `2_non_genre_pruning` — see
 | parent_display_label | str? | Same as in `1_item_links`, for `parent_id`, or null |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
 | relation_type | str? | `"P279"`, `"P361"`, `"manual_canonical_parent"`, `"manual_regional_genre_parent"` or `"manual_regional_overview"` — which property/source produced this edge, or null for a root row |
-| is_umbrella | bool | `true` when `item_id` is in `manual_umbrella_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
+| is_umbrella | bool | `true` when `item_id` is in `umbrella_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
 
 Genre items with zero surviving rows in _either_ this output or `8_regional_hierarchy` (the silent
 vanish) are all non-regional, i.e. every one is an "opera"-shaped item, not a regional one. See
@@ -577,7 +577,7 @@ Gold's `canonical_genre_tree_export.py`, which marks roots with `is_accepted = f
 | item_id    | str  | Wikidata QID of the root genre (e.g. `Q11399`) |
 | item_label | str  | English label for `item_id`                    |
 | item_url   | str  | `https://www.wikidata.org/wiki/` + `item_id`   |
-| is_accepted | bool | `item_id` is in `manual_accepted_canonical_roots.csv`; false = new since last triage, logged as a WARNING and flagged for review |
+| is_accepted | bool | `item_id` is in `accepted_canonical_roots.csv`; false = new since last triage, logged as a WARNING and flagged for review |
 
 See [DESIGN.md#263-under-exploration--root-count](DESIGN.md#263-under-exploration--root-count) for
 context on why this count is expected to shrink as the lowest-QID main-parent heuristic and

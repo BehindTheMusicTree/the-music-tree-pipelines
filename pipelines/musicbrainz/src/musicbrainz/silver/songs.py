@@ -25,7 +25,7 @@ _UNPLAYABLE_REASONS = ("not_found", "not_embeddable", "private", "not_processed"
 
 
 def _manual_videos(manual_youtube_video_path: Path, bronze_dir: Path) -> pl.DataFrame:
-    """`manual_recording_youtube_video.csv` rules (curated in grow-the-music-tree-api) as `(recording_id,
+    """`recording_youtube_video.csv` rules (curated in grow-the-music-tree-api) as `(recording_id,
     youtube_video_id, unplayable_reason)`; a null `youtube_video_id` means the song has no video."""
     name = manual_youtube_video_path.name
     rules = pl.read_csv(manual_youtube_video_path, infer_schema=False).select(

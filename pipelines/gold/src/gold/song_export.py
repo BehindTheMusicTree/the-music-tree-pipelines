@@ -121,7 +121,7 @@ def _drop_beaten_secondaries(songs: pl.LazyFrame, closure: pl.DataFrame) -> pl.L
 def _apply_recording_overrides(
     songs: pl.LazyFrame, names_by_id: dict[str, str], wikidata_silver_dir: Path, curation_dir: Path
 ) -> pl.LazyFrame:
-    genre_csv = "manual_song_genre.csv"
+    genre_csv = "song_genre.csv"
     genres = read_curation_csv(
         curation_dir / genre_csv,
         required=("musicbrainz_recording_id", "reason"),

@@ -80,37 +80,37 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
     """The per-genre curation lists shared by both trees, validated against `all_item_ids` (both trees'
     items) and restricted to `tree_item_ids`."""
     secondary_parents = read_curation_csv(
-        curation_dir / "manual_secondary_parents.csv",
+        curation_dir / "secondary_parents.csv",
         required=("item_id", "parent_id", "action", "reason"),
         key=("item_id", "parent_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "parent_id": ITEM_ID_PATTERN, "action": r"^(add|remove)$"},
     )
     essential_songs = read_curation_csv(
-        curation_dir / "manual_essential_songs.csv",
+        curation_dir / "essential_songs.csv",
         required=("item_id", "musicbrainz_recording_id", "position", "reason"),
         key=("item_id", "musicbrainz_recording_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "musicbrainz_recording_id": MBID_PATTERN, "position": r"^[0-9]+$"},
     ).with_columns(pl.col("position").cast(pl.Int64))
     if essential_songs.select("item_id", "position").is_duplicated().any():
-        raise ValueError("manual_essential_songs.csv has duplicate ('item_id', 'position') row(s)")
+        raise ValueError("essential_songs.csv has duplicate ('item_id', 'position') row(s)")
     summaries = read_curation_csv(
-        curation_dir / "manual_summary_overrides.csv",
+        curation_dir / "summary_overrides.csv",
         required=("item_id", "reason"),
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN},
     )
     scenes = read_curation_csv(
-        curation_dir / "manual_canonical_genre_scene.csv",
+        curation_dir / "canonical_genre_scene.csv",
         required=("item_id", "scene", "reason"),
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN, "scene": r"^(commercial|underground)$"},
     )
 
     for name, df in (
-        ("manual_secondary_parents.csv", secondary_parents),
-        ("manual_essential_songs.csv", essential_songs),
-        ("manual_summary_overrides.csv", summaries),
-        ("manual_canonical_genre_scene.csv", scenes),
+        ("secondary_parents.csv", secondary_parents),
+        ("essential_songs.csv", essential_songs),
+        ("summary_overrides.csv", summaries),
+        ("canonical_genre_scene.csv", scenes),
     ):
         unknown = sorted(set(df.get_column("item_id")) - all_item_ids)
         if unknown:
@@ -157,13 +157,13 @@ def apply_secondary_parent_rules(
     }
     for problem, bad in bad_adds.items():
         if not bad.is_empty():
-            raise ValueError(f"manual_secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
+            raise ValueError(f"secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
 
     removed = rules.filter(pl.col("action") == "remove").select("item_id", "parent_id")
     unresolvable = removed.filter(~pl.col("parent_id").is_in(list(ref_ids)))
     if not unresolvable.is_empty():
         logger.info(
-            "ignoring %d manual_secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
+            "ignoring %d secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
             unresolvable.height,
             unresolvable.rows(),
         )
@@ -171,16 +171,14 @@ def apply_secondary_parent_rules(
     of_anchor = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
     if not of_anchor.is_empty():
         logger.warning(
-            "ignoring %d manual_secondary_parents.csv removal(s) of the item's anchor parent: %s",
+            "ignoring %d secondary_parents.csv removal(s) of the item's anchor parent: %s",
             of_anchor.height,
             of_anchor.rows(),
         )
         removed = removed.join(of_anchor, on=["item_id", "parent_id"], how="anti")
     stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
     if not stale.is_empty():
-        raise ValueError(
-            f"manual_secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}"
-        )
+        raise ValueError(f"secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}")
     untouched = edges.join(pl.concat([added, removed]), on=["item_id", "parent_id"], how="anti")
     return untouched, added
 
@@ -237,7 +235,7 @@ def build_genre_tree(
     for row in hierarchy.iter_rows(named=True):
         children_by_parent.setdefault(row["parent_id"], []).append(row["item_id"])
 
-    # `item_display_label` (a manual_label_overrides.csv pick, falling back to item_label when absent)
+    # `item_display_label` (a label_overrides.csv pick, falling back to item_label when absent)
     # is what's actually emitted as a node's "name".
     labels_by_id = dict(hierarchy.select("item_id", "item_label").unique(subset="item_id").iter_rows())
     if "item_display_label" in hierarchy.columns:

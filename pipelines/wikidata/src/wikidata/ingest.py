@@ -453,7 +453,7 @@ def _ingest_sparql_lane(
     with step("country_of_origin"):
         ingest_country_of_origin(output_dir)
     entity_patterns = wikidata_client.curated_entity_patterns(
-        read_entity_additions(curation_dir / "manual_entity_additions.csv")
+        read_entity_additions(curation_dir / "entity_additions.csv")
     )
     with step("cultural_entities"):
         entity_path = ingest_cultural_entities(output_dir, entity_patterns)
@@ -464,8 +464,8 @@ def _ingest_sparql_lane(
             output_dir,
             tradition_candidate_qids(
                 genre_tree_path,
-                curation_dir / "manual_regional_overview_additions.csv",
-                read_tradition_additions(curation_dir / "manual_tradition_additions.csv"),
+                curation_dir / "regional_overview_additions.csv",
+                read_tradition_additions(curation_dir / "tradition_additions.csv"),
             ),
         )
     with step("artist_images"):
@@ -478,7 +478,7 @@ def _ingest_sparql_lane(
 
 def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
     with step("descriptions"):
-        ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
+        ingest_descriptions(genre_tree_path, curation_dir / "regional_overview_additions.csv", output_dir)
 
 
 if __name__ == "__main__":

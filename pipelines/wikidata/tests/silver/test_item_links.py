@@ -19,14 +19,14 @@ def _write_bronze(tmp_path: Path) -> Path:
 
 
 def _write_overrides(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    overrides_path = tmp_path / "manual_label_overrides.csv"
+    overrides_path = tmp_path / "label_overrides.csv"
     schema = {"item_id": pl.Utf8, "display_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(overrides_path)
     return overrides_path
 
 
 def _write_capitalized_words(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    capitalized_words_path = tmp_path / "manual_capitalized_words.csv"
+    capitalized_words_path = tmp_path / "capitalized_words.csv"
     schema = {"word": pl.Utf8, "capitalized": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(capitalized_words_path)
     return capitalized_words_path
