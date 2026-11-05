@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
 - **Breaking:** a genre's parents are now split into three axes instead of a single main parent: 0 or 1 canonical parent, 0 or 1 regional genre parent (both axes' other candidates becoming secondary parents), and 0 to n regional overviews, minus any overview that is an ancestor of another kept parent (Breton rock sits under French rock and music of Brittany, not also music of France). `5_main_parent_selection.parquet` becomes `5_parent_selection.parquet`, with `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` and the tree anchor `parent_id`. The curation lists become `canonical_parent` (was `main_parent`), `regional_genre_parent` (new) and `regional_overviews` (was `regional_overrides`, keyed by item and overview), and must be migrated in grow-api in lockstep.
+- `geohistory` An overview whose label names only places without a footprint now names the anchor its override or culture claim (`P2596`/`P1269`) picks: "music of China" names only the civilization, so it becomes the People's Republic's overview (`overview_rank` 0 when no overview names that anchor by label) instead of having no rank, and the map region can open it.
 - **Breaking:** `6_canonical_parents`' `parent_is_canonical` is renamed `canonical_parent_is_genre`, and `4_regional_classification`'s `regional_reason` `manual_override` becomes `manual_regional_overview`.
 - The regional genre tree export lists a genre's other selected parents (canonical parent, other overviews) as `primaryParents` and its secondary parents as `secondaryParents` (they were `primaryParents`); parent lists are sorted by QID. The canonical export no longer raises on a curated `add` of a regional parent, which goes to `crossTreeSecondaryParents` instead.
 - Genre precedence also follows a genre's selected non-anchor parents, so a regional genre beats its canonical parent.
@@ -72,6 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
+
+### Fixed
+
+- Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates, and `column_region` falls back to their predecessors' and successors' regions when they have none.
 
 ## [9.2.0] - 2026-11-04
 

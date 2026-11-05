@@ -132,7 +132,9 @@ is exactly that admin are the same place and collapse to the admin. A label stil
 ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
 An overview whose label resolves to its anchor "names" it and is ranked (`overview_rank`); several overviews can be
 anchored on one place because an overview that did not resolve its own place falls back to the country through
-`P17`/`P495`, so only the ones naming the anchor are candidates for the region's overview.
+`P17`/`P495`, so only the ones naming the anchor are candidates for the region's overview. When every place the
+label matches has no footprint ("music of China" names only the civilization), an anchor picked by an override
+or a culture claim (`P2596`/`P1269`: the People's Republic) is named too, ranked after those named by label.
 Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 
 Links: lineage from `P155`/`P156` and the genre tree's `P279`, association from `P737`, both between two traditions.

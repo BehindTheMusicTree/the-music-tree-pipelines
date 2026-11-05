@@ -168,7 +168,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | ----------------------------------------------------------------------------- |
 | entity_id | str  | `1_cultural_entity.entity_id`                                                 |
 | admin_id  | str  | `1_cultural_entity.entity_id` of kind `admin_unit`                            |
-| rule      | str  | `self`, `cover` (contained admin units), `succession` (a successor's units) or `point` (admin unit intersecting its coordinates) |
+| rule      | str  | `self`, `cover` (contained admin units), `succession` (units of the successors it is the sole predecessor of, else of the predecessors it is the sole successor of) or `point` (admin unit intersecting its coordinates) |
 
 `8_entity_geometry.parquet`: the map geometry of every country, admin unit and zone-kind entity with a footprint, `entity_id` unique.
 
@@ -196,7 +196,7 @@ dated or not.
 | anchor_id   | str  | `1_cultural_entity.entity_id` the item is placed on                                                  |
 | rule        | str  | `override`, `P2596`, `P1269`, `P495`, `P17`, `P276`, `P921`, `P361` or `label`                       |
 | is_overview | bool | The label starts with "music of "                                                                    |
-| overview_rank | int? | Per anchor, 0 for the overview whose label names the anchor, 1+ for further ones (ordered by rule, then QID); null for an overview that only fell back to the anchor through a property (an unresolved "music of Catalonia" landing on Spain) and for non-overviews |
+| overview_rank | int? | Per anchor, 0 for the overview naming the anchor, 1+ for further ones (an overview whose label names the anchor first, then one whose label names only places without a footprint and whose override or culture claim (`P2596`/`P1269`) picks the anchor, so "music of China" names the People's Republic; then by rule, then QID); null for an overview that only fell back to the anchor through a property while its label names a placeable entity (an unresolved "music of Catalonia" landing on Spain) and for non-overviews |
 
 `5_music_anchor_unplaced.csv`: `wikidata_id`, `label`, `candidate_ids` (the `|`-joined entities an ambiguous label
 matched, empty when none) of the overviews without anchor.
@@ -243,7 +243,9 @@ being its anchor lifted to a non-admin place (an `entity_id` of the lane or band
 
 `6_column_region.parquet`: one row per column, `column_id` (str), `region_id` (str), `region_label` (str),
 `region_rank` (i32). `region_id` is one of `americas`, `europe`, `africa`, `asia`, `oceania`, `religions`, ranked in that
-order. Every column has a region; the step raises otherwise.
+order. A column takes the plurality of its members' overrides, else of their footprint votes, else of the countries
+their coordinates fall in, else of their predecessors' and successors' votes. Every column has a region; the step
+raises otherwise.
 
 ### 2.8 7_lane_order.parquet and 7_band_fragment.parquet
 
