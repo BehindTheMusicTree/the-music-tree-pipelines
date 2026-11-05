@@ -9,6 +9,18 @@
     "tree": {
       "type": "array",
       "items": { "$ref": "#/$defs/node" }
+    },
+    "crossTreeSecondaryParents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "secondaryParents": { "$ref": "#/$defs/parentRefs" }
+        },
+        "required": ["id", "secondaryParents"],
+        "additionalProperties": false
+      }
     }
   },
   "required": ["treeName", "curationExportedOn", "tree"],

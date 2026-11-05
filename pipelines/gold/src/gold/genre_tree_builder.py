@@ -18,14 +18,43 @@ logger = logging.getLogger(__name__)
 
 
 def load_extra_parent_edges(secondary_parents_path: Path, item_ids: set[str], ref_ids: set[str]) -> pl.DataFrame:
-    """Wikidata's non-main parent edges (`5_secondary_parents.parquet`) of `item_ids`, restricted to
-    parents in `ref_ids` — the rows grow-the-music-tree-api can resolve when the tree is imported."""
-    edges = pl.read_parquet(secondary_parents_path).filter(pl.col("item_id").is_in(list(item_ids)))
+    """Wikidata's secondary parent edges (`5_secondary_parents.parquet`, the canonical and regional genre
+    parents that lost their axis) of `item_ids`, restricted to parents in `ref_ids` — the rows
+    grow-the-music-tree-api can resolve when the tree is imported."""
+    return _restrict_edges(pl.read_parquet(secondary_parents_path), item_ids, ref_ids, secondary_parents_path)
+
+
+def load_selected_parent_edges(parent_selection_path: Path, item_ids: set[str], ref_ids: set[str]) -> pl.DataFrame:
+    """The parents `5_parent_selection.parquet` picked for `item_ids` other than their tree anchor
+    (`parent_id`): the canonical parent, the regional genre parent and the regional overviews, restricted
+    to parents in `ref_ids`."""
+    selection = pl.read_parquet(
+        parent_selection_path,
+        columns=["item_id", "parent_id", "canonical_parent_id", "regional_genre_parent_id", "regional_overview_ids"],
+    )
+    edges = (
+        pl.concat(
+            [
+                selection.select("item_id", "parent_id", selected_id="canonical_parent_id"),
+                selection.select("item_id", "parent_id", selected_id="regional_genre_parent_id"),
+                selection.select("item_id", "parent_id", selected_id="regional_overview_ids").explode(
+                    "selected_id", empty_as_null=False
+                ),
+            ]
+        )
+        .filter(pl.col("selected_id").is_not_null() & (pl.col("selected_id") != pl.col("parent_id").fill_null("")))
+        .select("item_id", parent_id="selected_id")
+    )
+    return _restrict_edges(edges, item_ids, ref_ids, parent_selection_path)
+
+
+def _restrict_edges(edges: pl.DataFrame, item_ids: set[str], ref_ids: set[str], source: Path) -> pl.DataFrame:
+    edges = edges.filter(pl.col("item_id").is_in(list(item_ids)))
     kept = _sort_edges(edges.filter(pl.col("parent_id").is_in(list(ref_ids))).select("item_id", "parent_id").unique())
     logger.info(
         "kept %d extra parent edge(s) from %s, dropped %d pointing outside the resolvable set",
         kept.height,
-        secondary_parents_path,
+        source,
         edges.height - kept.height,
     )
     return kept
@@ -114,14 +143,15 @@ def apply_secondary_parent_rules(
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
     dropping the `remove`d ones. `ref_ids` are the parents this tree's import can resolve. An `add` to an
-    unresolvable parent, to the item itself or duplicating its main parent (`hierarchy`) raises; a
-    `remove` of an unresolvable parent or of the item's main parent is ignored (`edges` never hold either;
-    the latter is satisfied while that parent is main); any other `remove` matching no edge raises as stale."""
+    unresolvable parent, to the item itself or duplicating its anchor parent (`hierarchy`) raises; a
+    `remove` of an unresolvable parent or of the item's anchor parent is ignored (`edges` never hold either;
+    the latter is satisfied while that parent is the anchor); any other `remove` matching no edge raises as
+    stale."""
     added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
     bad_adds = {
         "to a parent outside this tree's resolvable set": added.filter(~pl.col("parent_id").is_in(list(ref_ids))),
         "of an item to itself": added.filter(pl.col("item_id") == pl.col("parent_id")),
-        "duplicating the main parent": added.join(
+        "duplicating the anchor parent": added.join(
             hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi"
         ),
     }
@@ -138,14 +168,14 @@ def apply_secondary_parent_rules(
             unresolvable.rows(),
         )
         removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
-    of_main = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
-    if not of_main.is_empty():
+    of_anchor = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
+    if not of_anchor.is_empty():
         logger.warning(
-            "ignoring %d manual_secondary_parents.csv removal(s) of the item's main parent: %s",
-            of_main.height,
-            of_main.rows(),
+            "ignoring %d manual_secondary_parents.csv removal(s) of the item's anchor parent: %s",
+            of_anchor.height,
+            of_anchor.rows(),
         )
-        removed = removed.join(of_main, on=["item_id", "parent_id"], how="anti")
+        removed = removed.join(of_anchor, on=["item_id", "parent_id"], how="anti")
     stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
     if not stale.is_empty():
         raise ValueError(
@@ -157,7 +187,7 @@ def apply_secondary_parent_rules(
 
 def edges_to_parent_map(edges: pl.DataFrame) -> dict[str, list[str]]:
     parents: dict[str, list[str]] = {}
-    for item_id, parent_id in edges.select("item_id", "parent_id").iter_rows():
+    for item_id, parent_id in _sort_edges(edges.select("item_id", "parent_id")).iter_rows():
         parents.setdefault(item_id, []).append(parent_id)
     return parents
 

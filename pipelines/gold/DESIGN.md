@@ -66,11 +66,16 @@ tango, mpb). grow imports both trees, so a regional genre is a valid song genre.
 - **Canonical wins** on a label present in both trees (new wave, pub rock, …): `item_id_by_label` sorts canonical
   first. Aliases resolve straight to an `item_id`, so a regional item's alias keeps its own item even when its
   label is shared.
-- **Overviews are no targets**: the regional seed items (`is_regional_overview` in `4_regional_classification`,
-  "music of Japan") are places, not styles. They stay in the precedence closure as ancestors.
-- **Lineage** between a regional and a canonical genre only exists through `5_secondary_parents`; without such an
-  edge, k-pop + pop is decided by weight. Missing edges are wikidata Silver curation gaps, not Gold's.
-- A regional item is never an umbrella. `genre_tree` (`canonical` | `regional`) records which tree the genre
+- **Overviews are umbrella targets**: the regional seed items (`is_regional_overview` in
+  `4_regional_classification`, "music of Japan") are places, but a tag like `latin` has nowhere else to go. Each
+  overview with sub-genres is a target with `is_umbrella = true`, so its songs are flagged "to refine" like a
+  canonical umbrella's, and the regional tree export marks it `isUmbrella`. An overview without sub-genres can't be
+  an umbrella (grow rejects a childless one) and stays no target (`is_leaf_overview`); it remains in the precedence
+  closure as an ancestor.
+- **Lineage** between a regional and a canonical genre only exists through a non-anchor parent (a canonical
+  parent picked in `5_parent_selection` or a `5_secondary_parents` edge); without such an edge, k-pop + pop is
+  decided by weight. Missing edges are wikidata Silver curation gaps, not Gold's.
+- A regional item is an umbrella only if it is an overview with sub-genres. `genre_tree` (`canonical` | `regional`) records which tree the genre
   comes from, and `2_songs` ships its QID as `genre_wikidata_id` so grow resolves a shared label by id.
 
 ## Ambiguous tags
@@ -96,8 +101,10 @@ The pick then joins the song's other genres and goes through precedence like any
 Picking by weight alone lets broad tags win systematically (pop beat pop rock 659 times on staging, rock
 beat classic rock 330 times, reggae/dub beat ska on all 13 ska recordings). Per song, after resolution:
 
-- **Lineage**: a descendant beats its ancestors. Edges are the primary parents of
-  `7_canonical_hierarchy` and `8_regional_hierarchy` plus the secondary parents of `5_secondary_parents` (so pop rock beats pop).
+- **Lineage**: a descendant beats its ancestors. Edges are the anchor parents of
+  `7_canonical_hierarchy` and `8_regional_hierarchy`, the other parents picked in `5_parent_selection` (canonical
+  parent, regional genre parent, regional overviews) and the secondary parents of `5_secondary_parents` (so pop
+  rock beats pop).
 - **Manual precedence**: `manual_genre_precedence.csv` (`item_id, over_item_id, reason`, QIDs) adds rules for
   pairs the tree does not relate (ska over reggae).
 - Rules close transitively; every genre beaten by another on the same song is dropped, and each
@@ -137,7 +144,7 @@ which. Eligibility of release groups is musicbrainz Silver's concern, see
 
 A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`) keeps it: the genre
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
-A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview raises too, an overview being no song's genre.
+A `manual_song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview without sub-genres raises too, being no song's genre.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
 as triage for the `umbrella_genres` curation list.
 
@@ -191,7 +198,7 @@ each CSV is checked against the auto-match cascade and against each other, since
 that would already resolve automatically (or that conflicts with the other CSV) indicates stale or
 contradictory triage data:
 
-- `manual_genre_alias.csv`: `wikidata_genre_name` must be a target label (canonical or regional, not an overview);
+- `manual_genre_alias.csv`: `wikidata_genre_name` must be a target label (canonical or regional, not an overview without sub-genres);
   `musicbrainz_genre_name` must not already match via `exact`/`normalized` (dead-weight alias).
 - `manual_accepted_non_genre_tags.csv`: `musicbrainz_genre_name` must not already match via
   `exact`/`normalized`, nor share a genre key with a `manual_genre_alias.csv` entry (can't be both a real alias and
@@ -206,14 +213,16 @@ contradictory triage data:
 
 grow-the-music-tree-api's curation lists reach Gold as `manual_*.csv` (shapes in [SCHEMA.md](SCHEMA.md#3-manual-csvs)):
 
-- `manual_secondary_parents.csv`: `add` exports `(item_id, parent_id)` as a `secondaryParents` ref. It
-  raises when `parent_id` can't resolve in the tree being built (the canonical tree for the canonical
-  export, canonical or regional for the regional one), equals `item_id`, or is already the item's main
-  parent: grow would reject such an edge, so the export fails instead of shipping it. `remove` drops a
-  Wikidata extra parent edge; it raises when the parent is resolvable but the edge is not an extra
-  parent edge, and is logged and ignored when the parent is outside the resolvable set or is the
-  item's main parent (a `main_parent` rule promoted it: the removal holds while it is main and applies
-  again if the main parent moves away).
+- `manual_secondary_parents.csv`: `add` exports `(item_id, parent_id)` as a `secondaryParents` ref. A
+  canonical item's add of a regional parent rides on the regional export's `crossTreeSecondaryParents`
+  (the canonical tree is imported first, before regional rows exist); every other add raises when
+  `parent_id` can't resolve in the tree being built (canonical or regional for the regional export),
+  equals `item_id`, or is already the item's anchor parent (`parent_id` of the hierarchy): grow would
+  reject such an edge, so the export fails instead of shipping it. `remove` drops a Wikidata extra parent
+  edge (a selected parent other than the anchor, or a `5_secondary_parents` edge); it raises when the
+  parent is resolvable but the edge is not an extra parent edge, and is logged and ignored when the
+  parent is outside the resolvable set or is the item's anchor parent (a curated parent rule made it the
+  anchor: the removal holds while it is the anchor and applies again if the anchor moves away).
 - `manual_essential_songs.csv`: a genre's `essentialSongs`, ordered by `position`. Every song id
   (`musicbrainz_recording_id`) is checked against `1_genre_match.parquet` before the songs and artists are
   exported, so an essential song missing from the songs fails the build.

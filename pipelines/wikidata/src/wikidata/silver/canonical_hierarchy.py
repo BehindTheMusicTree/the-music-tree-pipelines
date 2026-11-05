@@ -43,10 +43,9 @@ def prune_canonical_hierarchy(
     # Keep only edges to a canonical parent, or items with no parent at all. An item whose sole
     # parent edge points to a non-genre item (e.g. "electronic music" -> "music") loses its only
     # row here and drops out of `kept` entirely; promote_orphans_to_roots below adds it back as a
-    # root by diffing against the unfiltered canonical_items. main_parent_selection.py already
-    # collapsed each item to a single parent edge upstream, so no further multi-parent collapse is
-    # needed here.
-    parent_is_valid_genre_or_absent = pl.col("parent_id").is_null() | pl.col("parent_is_canonical")
+    # root by diffing against the unfiltered canonical_items. parent_selection.py already collapsed
+    # each item to its canonical parent upstream, so no further multi-parent collapse is needed here.
+    parent_is_valid_genre_or_absent = pl.col("parent_id").is_null() | pl.col("canonical_parent_is_genre")
     kept = canonical_items.filter(parent_is_valid_genre_or_absent).select(OUTPUT_COLUMNS)
     canonical = promote_orphans_to_roots(canonical_items, kept)
     canonical = _flag_umbrellas(df, canonical, pl.read_csv(manual_umbrella_genres_path))

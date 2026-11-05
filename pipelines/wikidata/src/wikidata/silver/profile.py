@@ -58,8 +58,8 @@ def profile_canonical_parents(silver_path: Path) -> None:
 
     print()
     print(f"rows: {df.height} ({df.select('item_id').n_unique()} distinct items)")
-    print("by parent_is_canonical (rows, null = root item with no parent):")
-    print(df.group_by("parent_is_canonical").len().sort("len", descending=True))
+    print("by canonical_parent_is_genre (rows, null = root item with no parent):")
+    print(df.group_by("canonical_parent_is_genre").len().sort("len", descending=True))
 
 
 def profile_hierarchy(
