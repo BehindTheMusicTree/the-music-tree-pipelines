@@ -169,7 +169,12 @@ def cultural_entity(
         wikidata.filter(pl.col("kind").is_in(WIKIDATA_ENTITY_KINDS))
         .join(linked.select("item_id").unique(), on="item_id", how="anti")
         .join(addition_kinds, on="item_id", how="left")
-        .with_columns(pl.coalesce("entity_kind", "kind").alias("kind"))
+        .with_columns(
+            pl.when(pl.col("kind") == "curated")
+            .then(pl.coalesce("entity_kind", "kind"))
+            .otherwise("kind")
+            .alias("kind")
+        )
         .sort(
             "item_id",
             pl.col("kind").replace_strict({kind: rank for rank, kind in enumerate(WIKIDATA_ENTITY_KINDS)}),

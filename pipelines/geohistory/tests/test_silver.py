@@ -432,6 +432,17 @@ def test_cultural_entity_gives_an_addition_its_entity_kind(dirs):
     }
 
 
+def test_cultural_entity_keeps_the_bulk_kind_of_an_addition_with_an_entity_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q2", "curated"), entity("Q2", "country")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q2", "macro_region", "dup")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id") == "Q2")
+    assert out["kind"].to_list() == ["country"]
+
+
 def test_cultural_entity_raises_on_an_unknown_addition_kind(dirs):
     base_bronze(dirs, entities=[entity("Q1", "curated")], claims=[])
     bronze, wikidata, silver = dirs
