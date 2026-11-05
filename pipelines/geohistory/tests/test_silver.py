@@ -501,3 +501,34 @@ def test_cultural_entity_builds_admin_units_from_natural_earth_and_p131_intermed
     assert ne_map["a1"]["country_entity_id"] == "Q142" and ne_map["c0"]["entity_id"] == "Q142"
     crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
     assert ("Q12130", "Q12130") in crosswalk.rows() and not any(e.startswith("ne:") for e in crosswalk["entity_id"])
+
+
+def test_cultural_entity_gives_the_sole_unit_of_an_unsubdivided_territory_its_country_qid(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(dirs, entities=[entity("Q672", "country")], claims=[claim("Q672", "P625", "Point(179 -8)")])
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c-vgb", 0, "Q25305", "VGB", "British Virgin Is."),
+            ("VGB+00?", 1, None, "VGB", "British Virgin Islands"),
+            ("c-tuv", 0, "Q672", "TUV", "Tuvalu"),
+            ("TUV+00?", 1, None, "TUV", "Tuvalu"),
+            ("c-xxx", 0, None, "XXX", "Nowhere"),
+            ("XXX+00?", 1, None, "XXX", "Nowhere"),
+            ("c-ggy", 0, "Q25230", "GGY", "Guernsey"),
+            ("GGY+00?", 1, None, "GGY", "Sark"),
+        ],
+        hierarchy=[("Q25230", "label", None, "Bailiwick of Guernsey")],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
+    assert labels["Q25230"] == "Bailiwick of Guernsey" and labels["Q25305"] == "British Virgin Islands"
+    assert kinds["Q25305"] == "admin_unit" and kinds["Q672"] == "country" and kinds["ne:XXX+00?"] == "admin_unit"
+    assert "ne:VGB+00?" not in kinds and "ne:TUV+00?" not in kinds
+    ne_map = {r["ne_id"]: r["entity_id"] for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
+    assert ne_map["VGB+00?"] == "Q25305" and ne_map["TUV+00?"] == "Q672"
+    crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
+    assert ("Q25305", "Q25305") in crosswalk.rows()

@@ -65,7 +65,9 @@ for curation.
 ## 8.1 Admin units, containment and footprints
 
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
-one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
+one; the sole unit of an unsubdivided territory, which Natural Earth leaves without one, takes its country's
+item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`) plus P131 intermediates holding more than
+one known child. Containment edges come from P131, P361, P30 and
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
 greater `(parent, child)` edge. Any longer cycle, including one that crosses `2_entity_membership`, drops its

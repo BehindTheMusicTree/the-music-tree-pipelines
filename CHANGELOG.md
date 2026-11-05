@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `geohistory` Silver gives the sole Natural Earth admin-1 unit of an unsubdivided territory (British Virgin Islands, Isle of Man, Cayman Islands, Guernsey, Gibraltar, Tuvalu… 24 on staging) its country's Wikidata QID instead of an unstable `ne:<adm1_code>` id, so curation lists, which accept only QIDs and Glottocodes, can name it and genre claims on that QID anchor there.
 - **Breaking** curation lists renamed to match the genre taxonomy: `umbrella_genres` → `umbrella_stylistic_genres` and `non_stylistic_genres` → `umbrella_non_stylistic_genres` (`curation.ingest` writes `<list>.csv`, every reader follows); `is_umbrella` is unchanged and now documented as "imprecise, to be refined"; `wikidata/DESIGN.md` gains the taxonomy table. Merge together with grow-the-music-tree-api and grow-the-music-tree-frontend
 - Repository releases use an explicit `VERSION` and CI-owned tags and GitHub Releases; workspace package versions remain independent.
 
