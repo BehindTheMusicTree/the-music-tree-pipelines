@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `entity_additions` gains an optional `entity_kind` column (`cultural_region` or `macro_region`; blank keeps kind `curated`, which is not drawn): geohistory Silver gives the item that kind, so a region absent from the bulk Wikidata classes becomes a map zone whose footprint comes from `entity_membership_overrides`. Any other value raises. Needs grow-api's matching `entity_additions` column deployed first (`curation.ingest` requires the exact header). Tests in `test_silver.py`.
 - Songs carry `recording_count`, the number of recordings in their song group (live versions, remasters, re-recordings), as a popularity signal: musicbrainz Silver `5_songs`, Gold `1_genre_match.parquet` and `2_songs` (non-null, at least 1). Requires the grow-the-music-tree-api release that accepts `recording_count` on song import. The first run after deploy has new snapshot columns, so it does a full song sync.
 - Wikidata Silver reads `forced_canonical_genres.csv` (from grow's new `forced_canonical_genres` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
 - The regional genre tree export gains a top-level `crossTreeSecondaryParents` (`[{id, secondaryParents}]`, always present), carrying canonical genres' regional parents, which the canonical import cannot resolve. Requires grow-api with `the-music-tree-genre-kit` 0.54.0.
@@ -77,6 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Region map: a zone member whose admin region was dissolved into a parent that was itself dissolved now resolves to the final region instead of dropping out of the zone's `childIds` (`test_export_region_map_lists_a_zone_member_dissolved_through_a_chain`).
+- geohistory Silver raises when `tradition_placement_overrides` lists the same `wikidata_id` twice, instead of silently keeping the last row.
 - Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
 - Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
 

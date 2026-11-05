@@ -405,7 +405,7 @@ def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
     entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q2", "country")]
     base_bronze(dirs, entities=entities, claims=[])
     bronze, wikidata, silver = dirs
-    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "site"), ("Q2", "dup")])
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "", "site"), ("Q2", "", "dup")])
 
     entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
 
@@ -413,10 +413,49 @@ def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
     assert dict(out.select("entity_id", "kind").rows()) == {"Q1": "curated", "Q2": "country"}
 
 
+def test_cultural_entity_gives_an_addition_its_entity_kind(dirs):
+    entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q3", "curated")]
+    base_bronze(dirs, entities=entities, claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(
+        silver.parent / "curation",
+        entity_additions=[("Q1", "cultural_region", "zone"), ("Q2", "macro_region", "zone"), ("Q3", "", "site")],
+    )
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    assert dict(out.select("entity_id", "kind").rows()) == {
+        "Q1": "cultural_region",
+        "Q2": "macro_region",
+        "Q3": "curated",
+    }
+
+
+def test_cultural_entity_keeps_the_bulk_kind_of_an_addition_with_an_entity_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q2", "curated"), entity("Q2", "country")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q2", "macro_region", "dup")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id") == "Q2")
+    assert out["kind"].to_list() == ["country"]
+
+
+def test_cultural_entity_raises_on_an_unknown_addition_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q1", "curated")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "country", "bad")])
+
+    with pytest.raises(ValueError, match="entity_kind"):
+        cultural_entity(bronze, wikidata, silver, curation)
+
+
 def test_cultural_entity_raises_when_an_addition_is_missing_from_the_bronze(dirs):
     base_bronze(dirs)
     bronze, wikidata, silver = dirs
-    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "gone")])
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "", "gone")])
 
     with pytest.raises(ValueError, match="Q999"):
         cultural_entity(bronze, wikidata, silver, curation)

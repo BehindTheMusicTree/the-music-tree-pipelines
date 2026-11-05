@@ -4,7 +4,7 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import check_non_empty, check_unique_key
 
-from geohistory.silver.curation import read_curation_list
+from geohistory.silver.curation import ADDITION_KINDS, read_curation_list
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,16 @@ def cultural_entity(
         logger.warning("%d Wikidata Glottocode(s) are absent from Glottolog and left out", unknown.height)
     linked = item_glottocodes.join(glottolog.select(pl.col("entity_id").alias("glottocode")), on="glottocode")
 
-    additions = read_curation_list(curation_dir, "entity_additions")["entity_id"].to_list()
+    addition_rows = read_curation_list(curation_dir, "entity_additions").with_columns(
+        pl.col("entity_kind").fill_null("")
+    )
+    invalid_kinds = sorted(set(addition_rows["entity_kind"].to_list()) - {"", *ADDITION_KINDS})
+    if invalid_kinds:
+        raise ValueError(f"entity_additions entity_kind must be blank or one of {ADDITION_KINDS}, got {invalid_kinds}")
+    additions = addition_rows["entity_id"].to_list()
+    addition_kinds = addition_rows.filter(pl.col("entity_kind") != "").select(
+        pl.col("entity_id").alias("item_id"), pl.col("entity_kind")
+    )
     unfetched = sorted(set(additions) - set(wikidata["item_id"].to_list()))
     if unfetched:
         raise ValueError(
@@ -159,6 +168,13 @@ def cultural_entity(
     wikidata_entities = (
         wikidata.filter(pl.col("kind").is_in(WIKIDATA_ENTITY_KINDS))
         .join(linked.select("item_id").unique(), on="item_id", how="anti")
+        .join(addition_kinds, on="item_id", how="left")
+        .with_columns(
+            pl.when(pl.col("kind") == "curated")
+            .then(pl.coalesce("entity_kind", "kind"))
+            .otherwise("kind")
+            .alias("kind")
+        )
         .sort(
             "item_id",
             pl.col("kind").replace_strict({kind: rank for rank, kind in enumerate(WIKIDATA_ENTITY_KINDS)}),
