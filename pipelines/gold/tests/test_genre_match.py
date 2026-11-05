@@ -32,6 +32,7 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path, Path]:
             "youtube_unplayable_reason": None,
             "youtube_view_count": None,
             "first_release_year": None,
+            "recording_count": 1,
             **row,
         }
         for i, row in enumerate(rows)
@@ -42,6 +43,7 @@ def _write_songs(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path, Path]:
             "youtube_unplayable_reason": pl.Utf8,
             "youtube_view_count": pl.Int64,
             "first_release_year": pl.Int16,
+            "recording_count": pl.UInt32,
         },
     ).write_parquet(path)
     genre_path = tmp_path / "10_song_genre.parquet"
@@ -219,6 +221,12 @@ def test_genre_match_exact_case_insensitive_match(tmp_path: Path) -> None:
     assert row["artist_musicbrainz_id"] == _mbid(100)
     assert row["wikidata_genre_name"] == "rock"
     assert row["match_method"] == "exact"
+
+
+def test_genre_match_passes_recording_count_through(tmp_path: Path) -> None:
+    result = _run_genre_match(tmp_path, [{**_song("Rock"), "recording_count": 12}])
+
+    assert pl.read_parquet(result).to_dicts()[0]["recording_count"] == 12
 
 
 def test_genre_match_passes_youtube_view_count_through(tmp_path: Path) -> None:
