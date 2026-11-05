@@ -34,6 +34,8 @@ The code in this repository is licensed under Apache 2.0. The data it ingests an
 | [Wikidata](https://www.wikidata.org) | Genre taxonomy, aliases, artist image references | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | [Wikimedia Commons](https://commons.wikimedia.org) | Artist images | Per-file license; author and license travel with each image |
 | [YouTube Data API](https://developers.google.com/youtube/v3) | Video candidates and playability | [YouTube API Services Terms of Service](https://developers.google.com/youtube/terms/api-services-terms-of-service) |
+| [Glottolog CLDF](https://github.com/glottolog/glottolog-cldf) | Languoids for the cultural-entity backbone and region maps | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [Natural Earth](https://www.naturalearthdata.com) | Admin boundaries and map background layers | Public domain |
 
 Data derived from MusicBrainz tags remains subject to CC BY-NC-SA 3.0: credit MusicBrainz, non-commercial use only, share-alike. See the [MusicBrainz data license](https://musicbrainz.org/doc/About/Data_License).
 
