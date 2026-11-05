@@ -142,7 +142,7 @@ def _write_canonical_parents(tmp_path: Path, rows: list[dict] | None = None) -> 
 
 
 def _write_umbrellas(tmp_path: Path, item_ids: list[str]) -> Path:
-    path = tmp_path / "umbrella_genres.csv"
+    path = tmp_path / "umbrella_stylistic_genres.csv"
     pl.DataFrame(
         {"item_id": item_ids, "item_label": item_ids, "reason": item_ids},
         schema=dict.fromkeys(("item_id", "item_label", "reason"), pl.Utf8),
