@@ -304,3 +304,12 @@ The nightly import into grow is a full snapshot (grow deletes whatever a run omi
 **Footprint anchors.** A genre anchored to an entity that is not itself a region (an ethnic group, a language) but has an admin footprint is listed on each footprint admin region with relation `tradition`. `civilization` and `curated` anchors are never placed this way; they go through curation.
 
 **Unplaced genres.** A genre anchored to a `civilization`/`curated` entity, or to an entity with no footprint or no geometry, is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.
+
+
+## Artist image snapshot consistency
+
+Each build validates and pins an immutable image snapshot before exporting anything. `ARTIST_IMAGES_PUBLISHED_DIR`
+is required; `ARTIST_IMAGES_SNAPSHOT_ID` can select a retained version explicitly. A pointer update during a build
+cannot change its image input. `_manifest.json` records `artistImagesSnapshot` with snapshot ID, image artifact
+SHA-256, producer commit, publication time, discovery provenance and source age summary. The artist join remains
+optional per artist; a missing image association produces null. An absent or damaged publication fails the build.

@@ -16,9 +16,7 @@ URL_BYTES_MAX = 2048
 MAX_REJECT_RATIO = 0.01
 
 
-def artist_images(bronze_dir: Path, silver_dir: Path) -> Path:
-    images = pl.read_parquet(bronze_dir / "wikidata_artist_images.parquet")
-    metadata = pl.read_parquet(silver_dir / COMMONS_METADATA_FILENAME)
+def select_artist_images_with_report(images: pl.DataFrame, metadata: pl.DataFrame) -> tuple[pl.DataFrame, int, int]:
     usable = images.join(metadata, on="image_file").filter(
         ~pl.col("non_free"),
         pl.col("thumb_url").is_not_null(),
@@ -48,16 +46,24 @@ def artist_images(bronze_dir: Path, silver_dir: Path) -> Path:
         )
     )
     contract_violations = result.filter(~meets_contract).height
+    input_rows = result.height
     check_reject_rate(contract_violations, result.height, OUTPUT_FILENAME, MAX_REJECT_RATIO)
     result = result.filter(meets_contract)
 
+    logger.info("selected %d artist images from %d associations", result.height, images.height)
+    return result, input_rows, contract_violations
+
+
+def select_artist_images(images: pl.DataFrame, metadata: pl.DataFrame) -> pl.DataFrame:
+    return select_artist_images_with_report(images, metadata)[0]
+
+
+def artist_images(bronze_dir: Path, silver_dir: Path) -> Path:
+    images = pl.read_parquet(bronze_dir / "wikidata_artist_images.parquet")
+    metadata = pl.read_parquet(silver_dir / COMMONS_METADATA_FILENAME)
+    result = select_artist_images(images, metadata)
     silver_dir.mkdir(parents=True, exist_ok=True)
     output_path = silver_dir / OUTPUT_FILENAME
     result.write_parquet(output_path)
-    logger.info(
-        "wrote %d rows to %s (%d artist image row(s) dropped: not checked yet, missing, non-free or unattributed)",
-        result.height,
-        output_path,
-        images.height - usable.height,
-    )
+    logger.info("wrote %d rows to %s", result.height, output_path)
     return output_path

@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Independent artist-image enrichment with resumable state, bounded Wikidata/Commons refreshes and immutable publications pinned once per Gold build. Requires a bootstrapped publication before catalogue cutover; scheduling remains opt-in.
 - `entity_additions` gains an optional `entity_kind` column (`cultural_region` or `macro_region`; blank keeps kind `curated`, which is not drawn): geohistory Silver gives the item that kind, so a region absent from the bulk Wikidata classes becomes a map zone whose footprint comes from `entity_membership_overrides`. Any other value raises. Needs grow-api's matching `entity_additions` column deployed first (`curation.ingest` requires the exact header). Tests in `test_silver.py`.
 - Songs carry `recording_count`, the number of recordings in their song group (live versions, remasters, re-recordings), as a popularity signal: musicbrainz Silver `5_songs`, Gold `1_genre_match.parquet` and `2_songs` (non-null, at least 1). Requires the grow-the-music-tree-api release that accepts `recording_count` on song import. The first run after deploy has new snapshot columns, so it does a full song sync.
 - Wikidata Silver reads `forced_canonical_genres.csv` (from grow's new `forced_canonical_genres` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
