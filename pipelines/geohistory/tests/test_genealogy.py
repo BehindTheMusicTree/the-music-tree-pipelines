@@ -40,7 +40,7 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     curation.mkdir(exist_ok=True)
     for list_name, columns in LISTS.items():
         lines = [",".join(columns), *(",".join(row) for row in rows.get(list_name, []))]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     return curation
 
 
@@ -171,6 +171,10 @@ def test_tradition_curation_overrides(paths):
         ({"tradition_additions": [("Q1", "r")], "tradition_exclusions": [("Q1", "r")]}, "share"),
         ({"tradition_placement_overrides": [("Q104", "Nope", "", "", "r")]}, "unknown entity"),
         ({"tradition_placement_overrides": [("Q104", "", "", "", "r")]}, "neither"),
+        (
+            {"tradition_placement_overrides": [("Q104", "E", "", "", "r"), ("Q104", "A", "", "", "r")]},
+            "several rows for Q104",
+        ),
         ({"tradition_link_overrides": [("Q100", "Q100", "lineage", "add", "r")]}, "itself"),
         ({"tradition_link_overrides": [("Q100", "Q103", "kin", "add", "r")]}, "kind"),
         ({"tradition_link_overrides": [("Q100", "Q103", "lineage", "drop", "r")]}, "action"),
@@ -254,7 +258,7 @@ def test_lane_order_keeps_regions_contiguous_even_when_a_swap_would_close_a_band
     ]
 
 
-def region_inputs(tmp_path, admin, ne_map, footprint, lanes, entities=(), overrides=()):
+def region_inputs(tmp_path, admin, ne_map, footprint, lanes, entities=(), overrides=(), succession=()):
     bronze, silver = tmp_path / "bronze", tmp_path / "silver"
     bronze.mkdir()
     silver.mkdir()
@@ -278,6 +282,9 @@ def region_inputs(tmp_path, admin, ne_map, footprint, lanes, entities=(), overri
     )
     pl.DataFrame(lanes, schema=["entity_id", "column_id"], orient="row").write_parquet(
         silver / "6_genealogy_lane.parquet"
+    )
+    pl.DataFrame(list(succession), schema=["predecessor_id", "successor_id"], orient="row").write_parquet(
+        silver / "3_entity_succession.parquet"
     )
     pl.DataFrame(
         entities,
@@ -341,6 +348,27 @@ def test_column_region_falls_back_to_the_entity_point(tmp_path):
     column_region(bronze, silver, curation)
 
     assert region_rows(silver) == {"BRITTANY": "europe", "STRAIT": "europe"}
+
+
+def test_column_region_falls_back_to_succession_neighbours_after_the_point(tmp_path):
+    admin = [
+        ("DEU", 0, "DEU", "Europe", 5.0, square(0, 0)),
+        ("USA", 0, "USA", "North America", 5.0, square(50, 0)),
+    ]
+    entities = [("WEST", "historical_country", None, None), ("POINTED", "historical_country", 5.0, 55.0)]
+    bronze, silver, curation = region_inputs(
+        tmp_path,
+        admin,
+        [("DEU", "de")],
+        [],
+        [("de", "de"), ("WEST", "WEST"), ("POINTED", "POINTED")],
+        entities,
+        succession=[("WEST", "de"), ("POINTED", "de")],
+    )
+
+    column_region(bronze, silver, curation)
+
+    assert region_rows(silver) == {"de": "europe", "WEST": "europe", "POINTED": "americas"}
 
 
 def test_column_region_ignores_a_point_beyond_the_tolerance(tmp_path):

@@ -17,7 +17,7 @@ EXPORTED_ON = "2026-10-16T08:00:00+00:00"
 def _export() -> dict[str, Any]:
     export: dict[str, Any] = {name: [] for name in ingest.CURATION_LISTS}
     export["exported_on"] = EXPORTED_ON
-    export["main_parent"] = [
+    export["canonical_parent"] = [
         {
             "item_id": "Q9794",
             "reason": 'regrouped under "Reggae/Dub", see DESIGN.md',
@@ -54,16 +54,16 @@ def test_fetch_and_write_round_trips_csvs(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert str(requests[0].url) == f"{BASE_URL}curation/export/"
     assert requests[0].headers["X-API-Key"] == "secret"
     assert sorted(path.name for path in paths) == sorted(
-        [f"manual_{name}.csv" for name in ingest.CURATION_LISTS] + ["manual_export.json"]
+        [f"{name}.csv" for name in ingest.CURATION_LISTS] + ["export.json"]
     )
-    assert json.loads((tmp_path / "manual_export.json").read_text()) == {"exportedOn": EXPORTED_ON}
+    assert json.loads((tmp_path / "export.json").read_text()) == {"exportedOn": EXPORTED_ON}
 
-    main_parent = pl.read_csv(tmp_path / "manual_main_parent.csv")
-    assert main_parent.columns == list(ingest.CURATION_LISTS["main_parent"])
-    assert main_parent.get_column("exclude_other_parents").to_list() == [True, None]
-    assert main_parent.get_column("reason")[0] == 'regrouped under "Reggae/Dub", see DESIGN.md'
+    canonical_parent = pl.read_csv(tmp_path / "canonical_parent.csv")
+    assert canonical_parent.columns == list(ingest.CURATION_LISTS["canonical_parent"])
+    assert canonical_parent.get_column("exclude_other_parents").to_list() == [True, None]
+    assert canonical_parent.get_column("reason")[0] == 'regrouped under "Reggae/Dub", see DESIGN.md'
 
-    empty = pl.read_csv(tmp_path / "manual_genre_alias.csv")
+    empty = pl.read_csv(tmp_path / "genre_alias.csv")
     assert empty.is_empty()
     assert empty.columns == ["musicbrainz_genre_name", "wikidata_genre_name", "reason"]
 
@@ -105,10 +105,10 @@ def test_write_accepts_api_column_order(tmp_path: Path) -> None:
 
     ingest.write_curation_csvs(export, tmp_path)
 
-    secondary = pl.read_csv(tmp_path / "manual_secondary_parents.csv")
+    secondary = pl.read_csv(tmp_path / "secondary_parents.csv")
     assert secondary.columns == list(ingest.CURATION_LISTS["secondary_parents"])
     assert secondary.row(0) == ("Q1", "Q2", "add", "r")
-    song_genre = pl.read_csv(tmp_path / "manual_song_genre.csv")
+    song_genre = pl.read_csv(tmp_path / "song_genre.csv")
     assert song_genre.columns == list(ingest.CURATION_LISTS["song_genre"])
     assert song_genre.row(0) == ("rec-1", "Q1", None)
 
@@ -120,4 +120,4 @@ def test_write_raises_on_missing_exported_on(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="exported_on"):
         ingest.write_curation_csvs(export, tmp_path)
 
-    assert not tmp_path.joinpath("manual_export.json").exists()
+    assert not tmp_path.joinpath("export.json").exists()

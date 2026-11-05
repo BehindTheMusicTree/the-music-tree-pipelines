@@ -18,14 +18,43 @@ logger = logging.getLogger(__name__)
 
 
 def load_extra_parent_edges(secondary_parents_path: Path, item_ids: set[str], ref_ids: set[str]) -> pl.DataFrame:
-    """Wikidata's non-main parent edges (`5_secondary_parents.parquet`) of `item_ids`, restricted to
-    parents in `ref_ids` — the rows grow-the-music-tree-api can resolve when the tree is imported."""
-    edges = pl.read_parquet(secondary_parents_path).filter(pl.col("item_id").is_in(list(item_ids)))
+    """Wikidata's secondary parent edges (`5_secondary_parents.parquet`, the canonical and regional genre
+    parents that lost their axis) of `item_ids`, restricted to parents in `ref_ids` — the rows
+    grow-the-music-tree-api can resolve when the tree is imported."""
+    return _restrict_edges(pl.read_parquet(secondary_parents_path), item_ids, ref_ids, secondary_parents_path)
+
+
+def load_selected_parent_edges(parent_selection_path: Path, item_ids: set[str], ref_ids: set[str]) -> pl.DataFrame:
+    """The parents `5_parent_selection.parquet` picked for `item_ids` other than their tree anchor
+    (`parent_id`): the canonical parent, the regional genre parent and the regional overviews, restricted
+    to parents in `ref_ids`."""
+    selection = pl.read_parquet(
+        parent_selection_path,
+        columns=["item_id", "parent_id", "canonical_parent_id", "regional_genre_parent_id", "regional_overview_ids"],
+    )
+    edges = (
+        pl.concat(
+            [
+                selection.select("item_id", "parent_id", selected_id="canonical_parent_id"),
+                selection.select("item_id", "parent_id", selected_id="regional_genre_parent_id"),
+                selection.select("item_id", "parent_id", selected_id="regional_overview_ids").explode(
+                    "selected_id", empty_as_null=False
+                ),
+            ]
+        )
+        .filter(pl.col("selected_id").is_not_null() & (pl.col("selected_id") != pl.col("parent_id").fill_null("")))
+        .select("item_id", parent_id="selected_id")
+    )
+    return _restrict_edges(edges, item_ids, ref_ids, parent_selection_path)
+
+
+def _restrict_edges(edges: pl.DataFrame, item_ids: set[str], ref_ids: set[str], source: Path) -> pl.DataFrame:
+    edges = edges.filter(pl.col("item_id").is_in(list(item_ids)))
     kept = _sort_edges(edges.filter(pl.col("parent_id").is_in(list(ref_ids))).select("item_id", "parent_id").unique())
     logger.info(
         "kept %d extra parent edge(s) from %s, dropped %d pointing outside the resolvable set",
         kept.height,
-        secondary_parents_path,
+        source,
         edges.height - kept.height,
     )
     return kept
@@ -51,37 +80,37 @@ def load_tree_curation(curation_dir: Path, tree_item_ids: set[str], all_item_ids
     """The per-genre curation lists shared by both trees, validated against `all_item_ids` (both trees'
     items) and restricted to `tree_item_ids`."""
     secondary_parents = read_curation_csv(
-        curation_dir / "manual_secondary_parents.csv",
+        curation_dir / "secondary_parents.csv",
         required=("item_id", "parent_id", "action", "reason"),
         key=("item_id", "parent_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "parent_id": ITEM_ID_PATTERN, "action": r"^(add|remove)$"},
     )
     essential_songs = read_curation_csv(
-        curation_dir / "manual_essential_songs.csv",
+        curation_dir / "essential_songs.csv",
         required=("item_id", "musicbrainz_recording_id", "position", "reason"),
         key=("item_id", "musicbrainz_recording_id"),
         patterns={"item_id": ITEM_ID_PATTERN, "musicbrainz_recording_id": MBID_PATTERN, "position": r"^[0-9]+$"},
     ).with_columns(pl.col("position").cast(pl.Int64))
     if essential_songs.select("item_id", "position").is_duplicated().any():
-        raise ValueError("manual_essential_songs.csv has duplicate ('item_id', 'position') row(s)")
+        raise ValueError("essential_songs.csv has duplicate ('item_id', 'position') row(s)")
     summaries = read_curation_csv(
-        curation_dir / "manual_summary_overrides.csv",
+        curation_dir / "summary_overrides.csv",
         required=("item_id", "reason"),
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN},
     )
     scenes = read_curation_csv(
-        curation_dir / "manual_canonical_genre_scene.csv",
+        curation_dir / "canonical_genre_scene.csv",
         required=("item_id", "scene", "reason"),
         key=("item_id",),
         patterns={"item_id": ITEM_ID_PATTERN, "scene": r"^(commercial|underground)$"},
     )
 
     for name, df in (
-        ("manual_secondary_parents.csv", secondary_parents),
-        ("manual_essential_songs.csv", essential_songs),
-        ("manual_summary_overrides.csv", summaries),
-        ("manual_canonical_genre_scene.csv", scenes),
+        ("secondary_parents.csv", secondary_parents),
+        ("essential_songs.csv", essential_songs),
+        ("summary_overrides.csv", summaries),
+        ("canonical_genre_scene.csv", scenes),
     ):
         unknown = sorted(set(df.get_column("item_id")) - all_item_ids)
         if unknown:
@@ -114,50 +143,49 @@ def apply_secondary_parent_rules(
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
     dropping the `remove`d ones. `ref_ids` are the parents this tree's import can resolve. An `add` to an
-    unresolvable parent, to the item itself or duplicating its main parent (`hierarchy`) raises; a
-    `remove` of an unresolvable parent or of the item's main parent is ignored (`edges` never hold either;
-    the latter is satisfied while that parent is main); any other `remove` matching no edge raises as stale."""
+    unresolvable parent, to the item itself or duplicating its anchor parent (`hierarchy`) raises; a
+    `remove` of an unresolvable parent or of the item's anchor parent is ignored (`edges` never hold either;
+    the latter is satisfied while that parent is the anchor); any other `remove` matching no edge raises as
+    stale."""
     added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
     bad_adds = {
         "to a parent outside this tree's resolvable set": added.filter(~pl.col("parent_id").is_in(list(ref_ids))),
         "of an item to itself": added.filter(pl.col("item_id") == pl.col("parent_id")),
-        "duplicating the main parent": added.join(
+        "duplicating the anchor parent": added.join(
             hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi"
         ),
     }
     for problem, bad in bad_adds.items():
         if not bad.is_empty():
-            raise ValueError(f"manual_secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
+            raise ValueError(f"secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
 
     removed = rules.filter(pl.col("action") == "remove").select("item_id", "parent_id")
     unresolvable = removed.filter(~pl.col("parent_id").is_in(list(ref_ids)))
     if not unresolvable.is_empty():
         logger.info(
-            "ignoring %d manual_secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
+            "ignoring %d secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
             unresolvable.height,
             unresolvable.rows(),
         )
         removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
-    of_main = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
-    if not of_main.is_empty():
+    of_anchor = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
+    if not of_anchor.is_empty():
         logger.warning(
-            "ignoring %d manual_secondary_parents.csv removal(s) of the item's main parent: %s",
-            of_main.height,
-            of_main.rows(),
+            "ignoring %d secondary_parents.csv removal(s) of the item's anchor parent: %s",
+            of_anchor.height,
+            of_anchor.rows(),
         )
-        removed = removed.join(of_main, on=["item_id", "parent_id"], how="anti")
+        removed = removed.join(of_anchor, on=["item_id", "parent_id"], how="anti")
     stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
     if not stale.is_empty():
-        raise ValueError(
-            f"manual_secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}"
-        )
+        raise ValueError(f"secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}")
     untouched = edges.join(pl.concat([added, removed]), on=["item_id", "parent_id"], how="anti")
     return untouched, added
 
 
 def edges_to_parent_map(edges: pl.DataFrame) -> dict[str, list[str]]:
     parents: dict[str, list[str]] = {}
-    for item_id, parent_id in edges.select("item_id", "parent_id").iter_rows():
+    for item_id, parent_id in _sort_edges(edges.select("item_id", "parent_id")).iter_rows():
         parents.setdefault(item_id, []).append(parent_id)
     return parents
 
@@ -207,7 +235,7 @@ def build_genre_tree(
     for row in hierarchy.iter_rows(named=True):
         children_by_parent.setdefault(row["parent_id"], []).append(row["item_id"])
 
-    # `item_display_label` (a manual_label_overrides.csv pick, falling back to item_label when absent)
+    # `item_display_label` (a label_overrides.csv pick, falling back to item_label when absent)
     # is what's actually emitted as a node's "name".
     labels_by_id = dict(hierarchy.select("item_id", "item_label").unique(subset="item_id").iter_rows())
     if "item_display_label" in hierarchy.columns:

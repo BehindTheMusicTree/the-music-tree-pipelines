@@ -21,7 +21,7 @@ GENRE_TREE_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_tree.schema.
 # than failing the downstream import.
 CANONICAL_MAINSTREAM_POP_ROOT_NAME = "Mainstream Pop"
 
-# manual_canonical_genre_pop_side.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's curated pick of which
+# canonical_genre_pop_side.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's curated pick of which
 # direct child of each canonical root is the-music-tree-genre-kit's "pop" side (crossover/mainstream
 # branch, e.g. Electropop under Electronic) — everything else defaults to "core". Wikidata has no
 # notion of this distinction, so it can't be derived automatically.
@@ -86,13 +86,17 @@ def export_canonical_genre_tree(
     hierarchy = pl.read_parquet(hierarchy_path)
     pop_sides = _load_pop_sides(manual_canonical_genre_pop_side_path, hierarchy)
     # Imported first into grow, so a secondary ref can only resolve against this tree's own rows —
-    # an edge to a regional (or unexported) item is dropped here rather than failing the import.
+    # an edge to a regional (or unexported) item is dropped here rather than failing the import, and a
+    # curated add of a regional parent is left to the regional export's crossTreeSecondaryParents.
     item_ids = set(hierarchy.get_column("item_id"))
     extra_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
     regional_ids = set(pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet").get_column("item_id"))
     curation = load_tree_curation(curation_dir, item_ids, item_ids | regional_ids)
     untouched_edges, added_edges = apply_secondary_parent_rules(
-        extra_edges, curation.secondary_parent_rules, hierarchy, item_ids
+        extra_edges,
+        curation.secondary_parent_rules.filter(pl.col("parent_id").is_in(list(item_ids))),
+        hierarchy,
+        item_ids,
     )
     roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))

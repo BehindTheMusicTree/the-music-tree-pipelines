@@ -22,7 +22,15 @@ PLACE_KINDS = (
     "macro_region",
     "admin_unit",
 )
+HISTORICAL_KINDS = ("historical_country", "historical_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
+NAMES_BY_LABEL = 0
+# Every place the label names has no geometry ("music of China" names only the civilization), so the
+# place the overview is the music of (a curated override, or a culture/facet-of claim: the People's Republic)
+# is the one it names on the map. A country of origin or a location only places it there ("music of Latin
+# America" originating in Mexico is not Mexico's music).
+NAMES_BY_CLAIM = 1
+NAMING_RULES = ("override", *CULTURE_PROPERTIES)
 ANCHOR_SCHEMA = {
     "wikidata_id": pl.String,
     "anchor_id": pl.String,
@@ -31,6 +39,7 @@ ANCHOR_SCHEMA = {
     "overview_rank": pl.Int32,
 }
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "candidate_ids": pl.String}
+AMBIGUOUS_SCHEMA = {"wikidata_id": pl.String, "label": pl.String, "match_ids": pl.String}
 
 
 def _ancestors(entity: str, parents: dict[str, list[str]]) -> set[str]:
@@ -53,20 +62,23 @@ def _pick(candidates: dict[str, str], parents: dict[str, list[str]]) -> tuple[st
     return min(remaining, key=lambda pair: (RULE_PRIORITY.index(pair[1]), pair[0]))
 
 
-def _rank_overviews(anchors: list[tuple[str, str, str, bool, bool]]) -> list[tuple[str, str, str, bool, int | None]]:
-    """Rank, per anchor, the overviews whose label names that anchor (0 is the best-ranked overview naming the anchor).
+def _rank_overviews(
+    anchors: list[tuple[str, str, str, bool, int | None]],
+) -> list[tuple[str, str, str, bool, int | None]]:
+    """Rank, per anchor, the overviews naming that anchor (0 is the best-ranked overview naming the anchor).
 
     An overview that merely falls back to a country (P17, P495...) because its own place did not resolve
-    ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank.
+    ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank. An overview naming
+    its anchor by label ranks before one naming it only by a culture claim or override (`NAMES_BY_CLAIM`).
     """
-    naming: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    naming: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
     for qid, anchor_id, rule, _, names_anchor in anchors:
-        if names_anchor:
-            naming[anchor_id].append((RULE_PRIORITY.index(rule), qid))
+        if names_anchor is not None:
+            naming[anchor_id].append((names_anchor, RULE_PRIORITY.index(rule), qid))
     rank = {
         (anchor_id, qid): position
         for anchor_id, candidates in naming.items()
-        for position, (_, qid) in enumerate(sorted(candidates))
+        for position, (_, _, qid) in enumerate(sorted(candidates))
     }
     return [
         (qid, anchor_id, rule, is_overview, rank.get((anchor_id, qid)))
@@ -103,6 +115,26 @@ def _collapse_equivalent(matches: set[str], kinds: dict[str, str], footprint_adm
     if all(footprint_admins.get(entity) == {admin} for entity in matches if entity != admin):
         return {admin}
     return matches
+
+
+def _narrow_label_matches(
+    matches: set[str], claimed: set[str], parents: dict[str, list[str]], kinds: dict[str, str]
+) -> set[str]:
+    """Resolve an ambiguous overview label with the places the genre itself claims, then by era.
+
+    "Music of Galicia" claims Spain (P495): of the places named Galicia, only the one inside Spain is meant.
+    Matches still tied, or with no claimed place at all, prefer a current place over a historical state
+    (Finland over the Grand Duchy of Finland): the overview is about the place as it is now.
+    """
+    if len(matches) < 2:
+        return matches
+    pool = _claim_backed(matches, claimed, parents) or matches
+    current = {m for m in pool if kinds.get(m) not in HISTORICAL_KINDS}
+    return current or pool
+
+
+def _claim_backed(matches: set[str], claimed: set[str], parents: dict[str, list[str]]) -> set[str]:
+    return {m for m in matches if m in claimed or _ancestors(m, parents) & claimed}
 
 
 def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
@@ -154,7 +186,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         footprint_admins[entity_id].add(admin_id)
     label_index = _label_index(entities, crosswalk, aliases)
 
-    anchors, unplaced = [], []
+    anchors, unplaced, ambiguous = [], [], []
     for qid, label in sorted(labels.items()):
         is_overview = label.startswith(OVERVIEW_PREFIX)
         if qid in exclusions or (qid not in genres and not is_overview and qid not in additions):
@@ -191,22 +223,47 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
                 kinds,
                 footprint_admins,
             )
-            if len(label_matches) == 1:
-                add(next(iter(label_matches)), "label")
+            resolved = _narrow_label_matches(label_matches, set(candidates), parents, kinds)
+            if len(resolved) == 1:
+                named = next(iter(resolved))
+                if len(label_matches) > 1 and named in _claim_backed(label_matches, set(candidates), parents):
+                    # A claim unrelated to the narrowed place must not outrank it once its ancestor is dominated.
+                    # Only when a claim chose the place: a label resolved on era alone must not discard a claim.
+                    related = _ancestors(named, parents) | {named}
+                    for entity in [e for e in candidates if e not in related and named not in _ancestors(e, parents)]:
+                        del candidates[entity]
+                add(named, "label")
+            elif len(label_matches) > 1:
+                ambiguous.append((qid, label, "|".join(sorted(label_matches))))
 
         picked = (override_entity, "override") if override_entity else _pick(candidates, parents)
         if picked is None:
             if is_overview:
                 unplaced.append((qid, label, "|".join(sorted(set(candidates) | label_matches))))
             continue
-        names_anchor = is_overview and picked[0] in label_matches
-        anchors.append((qid, picked[0], picked[1], is_overview, names_anchor))
+        naming: int | None = None
+        if is_overview and picked[0] in label_matches:
+            naming = NAMES_BY_LABEL
+        elif (
+            is_overview
+            and picked[1] in NAMING_RULES
+            and label_matches
+            and not any(footprint_admins.get(e) for e in label_matches)
+        ):
+            naming = NAMES_BY_CLAIM
+        anchors.append((qid, picked[0], picked[1], is_overview, naming))
 
     frame = pl.DataFrame(_rank_overviews(anchors), schema=ANCHOR_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
+    ambiguous_frame = pl.DataFrame(ambiguous, schema=AMBIGUOUS_SCHEMA, orient="row").sort("wikidata_id")
+    if ambiguous_frame.height:
+        logger.warning(
+            "%d overview label(s) name several places, see 5_music_anchor_ambiguous.csv", ambiguous_frame.height
+        )
     if unplaced_frame.height:
         logger.warning("%d overview(s) have no music anchor, see 5_music_anchor_unplaced.csv", unplaced_frame.height)
     frame.write_parquet(silver_dir / "5_music_anchor.parquet")
     unplaced_frame.write_csv(silver_dir / "5_music_anchor_unplaced.csv")
+    ambiguous_frame.write_csv(silver_dir / "5_music_anchor_ambiguous.csv")
     logger.info("wrote %d music anchors to %s", frame.height, silver_dir)
     return silver_dir / "5_music_anchor.parquet"

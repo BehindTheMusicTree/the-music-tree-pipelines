@@ -27,7 +27,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "overviewItemId", "genres", "songCount", "genreCount"],
+        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "overviewItemId", "inheritedOverviewItemId", "genres", "songCount", "genreCount"],
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "name": {"type": "string", "minLength": 1},
@@ -40,6 +40,7 @@
           "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
           "drillable": {"type": "boolean"},
           "overviewItemId": {"type": ["string", "null"], "minLength": 1},
+          "inheritedOverviewItemId": {"type": ["string", "null"], "minLength": 1},
           "genres": {
             "type": "array",
             "items": {

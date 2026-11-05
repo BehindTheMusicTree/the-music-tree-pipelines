@@ -16,10 +16,10 @@ GENRE_MATCH_REPORT_SCHEMA_PATH = Path(__file__).parent / "schemas" / "genre_matc
 
 logger = logging.getLogger(__name__)
 
-# manual_genre_alias.csv / manual_accepted_non_genre_tags.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's triage decisions for
+# genre_alias.csv / accepted_non_genre_tags.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a data expert's triage decisions for
 # musicbrainz tag names that don't auto-match a wikidata genre label (canonical or regional) — either a real genre
 # just named differently (this CSV) or permanent non-genre folksonomy noise
-# (manual_accepted_non_genre_tags.csv). See 1_genre_match_unresolved.csv for the names still awaiting
+# (accepted_non_genre_tags.csv). See 1_genre_match_unresolved.csv for the names still awaiting
 # triage.
 
 # A real YouTube video id is always exactly 11 characters. Malformed ids (seen in real MusicBrainz
@@ -90,7 +90,7 @@ def _validate_manual_genre_alias(df: pl.DataFrame, index: _LabelIndex, target_la
     if unknown:
         raise ValueError(
             f"{csv_name} references wikidata_genre_name(s) not found in the canonical or regional hierarchy "
-            f"(or naming a regional overview): {unknown}"
+            f"(or naming a regional overview without sub-genres): {unknown}"
         )
 
     dead_weight = df.filter(index.auto_matches(pl.col("musicbrainz_genre_name")))["musicbrainz_genre_name"].to_list()
@@ -108,9 +108,7 @@ def _validate_manual_accepted_non_genre_tags(
         "musicbrainz_genre_name"
     ].to_list()
     if conflicts:
-        raise ValueError(
-            f"{csv_name} has entr(y/ies) that conflict with an auto-match or manual_genre_alias.csv: {conflicts}"
-        )
+        raise ValueError(f"{csv_name} has entr(y/ies) that conflict with an auto-match or genre_alias.csv: {conflicts}")
 
 
 def _wikidata_alias_by_key(
@@ -283,6 +281,34 @@ def _pick(
     return picked, unresolved
 
 
+_TAG_SET = "tag_set_id"
+
+
+def _pick_by_tag_set(
+    tags: pl.LazyFrame,
+    subject: str,
+    resolution: pl.LazyFrame,
+    disambiguation: Disambiguation,
+    closure: pl.DataFrame,
+) -> tuple[pl.LazyFrame, pl.LazyFrame, pl.LazyFrame]:
+    """`_pick` depends only on a subject's own tags, and subjects share them massively (every song of a release
+    group carries the group's tags), so it runs once per distinct tag set and the result is joined back. Same
+    output as `_pick`, returned as the `(<subject>, tag_set_id)` map, the picks per set and the unresolved tags,
+    which carry `n`, the number of subjects sharing the set. Joining the picks per set, not per subject, keeps the
+    wide list columns out of the 30M-row song join."""
+    per_subject = tags.sort(["genre_name", "weight"]).group_by(subject).agg(tag_set=pl.struct("genre_name", "weight"))
+    keyed = per_subject.with_columns(pl.col("tag_set").hash().alias(_TAG_SET)).collect()
+    # A 64-bit hash collision would silently merge two different tag sets.
+    if keyed["tag_set"].n_unique() != keyed[_TAG_SET].n_unique():
+        raise ValueError(f"tag set hash collision while grouping {subject} tags")
+    sets = keyed.unique(subset=_TAG_SET).select(_TAG_SET, "tag_set")
+    sizes = keyed.group_by(_TAG_SET).agg(n=pl.len())
+    set_tags = sets.explode("tag_set", empty_as_null=False).unnest("tag_set").lazy()
+    picked, unresolved = _pick(set_tags, _TAG_SET, resolution, disambiguation, closure)
+    unresolved = unresolved.join(sizes.lazy(), on=_TAG_SET).drop(_TAG_SET)
+    return keyed.select(subject, _TAG_SET).lazy(), picked, unresolved
+
+
 def genre_match(
     songs_path: Path,
     song_genre_path: Path,
@@ -290,6 +316,7 @@ def genre_match(
     canonical_hierarchy_path: Path,
     regional_hierarchy_path: Path,
     regional_classification_path: Path,
+    parent_selection_path: Path,
     secondary_parents_path: Path,
     manual_genre_alias_path: Path,
     manual_accepted_non_genre_tags_path: Path,
@@ -308,7 +335,7 @@ def genre_match(
     )
     songs = pl.scan_parquet(songs_path)
     targets = load_genre_targets(canonical_hierarchy_path, regional_hierarchy_path, regional_classification_path)
-    matchable = targets.filter(~pl.col("is_overview"))
+    matchable = targets.filter(~pl.col("is_leaf_overview"))
 
     check_non_empty(songs.head(1).collect(), songs_path.name)
 
@@ -340,8 +367,8 @@ def genre_match(
     )
     non_genre_keys = non_genre_df.select(_genre_key(pl.col("musicbrainz_genre_name"))).to_series()
 
-    # Overviews stay in the closure, so lineage through them and disambiguation context hints on them still apply.
-    closure = precedence_closure(targets, secondary_parents_path, manual_genre_precedence_path)
+    # Childless overviews stay in the closure, so lineage through them and disambiguation context hints on them still apply.
+    closure = precedence_closure(targets, parent_selection_path, secondary_parents_path, manual_genre_precedence_path)
     exact_labels = pl.Series([label.lower() for label in target_labels])
     curated = load_curated_disambiguation(
         manual_genre_disambiguation_path,
@@ -378,14 +405,16 @@ def genre_match(
     matched = songs
     unresolved_by_level = []
     for level, (tags, subject) in level_tags.items():
-        picked, unresolved_tags = _pick(
+        tag_set_of, picked, unresolved_tags = _pick_by_tag_set(
             tags.select(subject, "genre_name", "weight"), subject, resolution, disambiguation, closure
         )
-        fields = picked.collect_schema().names()
-        matched = matched.join(
-            picked.rename({field: f"{level}_{field}" for field in fields if field != subject}), on=subject, how="left"
+        fields = [field for field in picked.collect_schema().names() if field != _TAG_SET]
+        matched = (
+            matched.join(tag_set_of, on=subject, how="left")
+            .join(picked.rename({field: f"{level}_{field}" for field in fields}), on=_TAG_SET, how="left")
+            .drop(_TAG_SET)
         )
-        unresolved_by_level.append(unresolved_tags.select("genre_name", "weight", level=pl.lit(level)))
+        unresolved_by_level.append(unresolved_tags.select("genre_name", "weight", "n", level=pl.lit(level)))
 
     resolved_level = pl.coalesce(
         pl.when(pl.col(f"{level}_item_id").is_not_null()).then(pl.lit(level)) for level in LEVELS
@@ -415,6 +444,7 @@ def genre_match(
             "youtube_unplayable_reason",
             "youtube_view_count",
             "first_release_year",
+            "recording_count",
             "wikidata_genre_name",
             wikidata_genre_item_id="item_id",
             is_umbrella=pl.col("is_umbrella").fill_null(False),
@@ -428,7 +458,7 @@ def genre_match(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "1_genre_match.parquet"
-    matched.sink_parquet(output_path)
+    matched.sink_parquet(output_path, engine="streaming")
 
     # genre_match is a per-song lookup, not a join — the row count must stay exactly equal to `songs`; any
     # drift would mean a future change accidentally turned this into a fan-out/fan-in join.
@@ -438,7 +468,7 @@ def genre_match(
     unresolved = (
         pl.concat(unresolved_by_level)
         .group_by("genre_name", "level")
-        .agg(subject_count=pl.len(), weight_sum=pl.col("weight").sum())
+        .agg(subject_count=pl.col("n").sum(), weight_sum=(pl.col("weight") * pl.col("n")).sum())
         .sort(["subject_count", "genre_name", "level"], descending=[True, False, False])
         .collect()
     )

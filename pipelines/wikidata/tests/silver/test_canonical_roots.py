@@ -58,7 +58,7 @@ def _write_hierarchy(tmp_path: Path) -> Path:
 
 
 def _write_accepted_roots(tmp_path: Path, item_ids: list[str]) -> Path:
-    accepted_roots_path = tmp_path / "manual_accepted_canonical_roots.csv"
+    accepted_roots_path = tmp_path / "accepted_canonical_roots.csv"
     pl.DataFrame({"item_id": item_ids, "item_label": item_ids}).write_csv(accepted_roots_path)
     return accepted_roots_path
 

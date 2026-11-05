@@ -110,7 +110,7 @@ def _check_artists(artists: pl.DataFrame) -> None:
 
 
 def export_artists(
-    genre_match_path: Path, musicbrainz_silver_dir: Path, wikidata_silver_dir: Path, output_dir: Path
+    genre_match_path: Path, musicbrainz_silver_dir: Path, artist_images_path: Path, output_dir: Path
 ) -> Path:
     logger.info("exporting artists of %s from %s", genre_match_path, musicbrainz_silver_dir)
     members = pl.scan_parquet(musicbrainz_silver_dir / "7_artist_members.parquet")
@@ -179,7 +179,7 @@ def export_artists(
         .group_by("musicbrainz_artist_id")
         .agg(aliases=pl.col("alias").unique().sort())
     )
-    images = pl.scan_parquet(wikidata_silver_dir / "11_artist_images.parquet").select(
+    images = pl.scan_parquet(artist_images_path).select(
         "musicbrainz_artist_id",
         image=pl.struct(
             url="thumb_url", page_url="page_url", author="author", license="license", license_url="license_url"

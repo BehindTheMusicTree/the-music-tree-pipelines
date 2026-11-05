@@ -19,22 +19,24 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "duplicate_genres": ("item_id", "reason"),
     "indigenous_to_exclusions": ("item_id", "reason"),
     "label_overrides": ("item_id", "display_label", "reason"),
-    "main_parent": ("item_id", "reason", "parent_item_id", "exclude_other_parents"),
+    "forced_canonical_genres": ("item_id", "reason"),
+    "canonical_parent": ("item_id", "reason", "parent_item_id", "exclude_other_parents"),
     "out_of_scope_genres": ("item_id", "reason"),
     "overview_reclassifications": ("item_id", "reason"),
-    "regional_overrides": ("item_id", "reason", "overview_item_id", "exclude_other_parents"),
+    "regional_genre_parent": ("item_id", "reason", "parent_item_id", "exclude_other_parents"),
+    "regional_overviews": ("item_id", "reason", "overview_item_id", "exclude_other_parents"),
     "regional_overview_additions": ("item_id", "label", "reason"),
     "technique_genres": ("item_id", "reason"),
     "theme_genres": ("item_id", "reason"),
-    "non_stylistic_genres": ("item_id", "reason"),
-    "umbrella_genres": ("item_id", "reason"),
+    "umbrella_non_stylistic_genres": ("item_id", "reason"),
+    "umbrella_stylistic_genres": ("item_id", "reason"),
     "accepted_non_genre_tags": ("musicbrainz_genre_name", "reason"),
     "canonical_genre_pop_side": ("root_item_id", "pop_child_item_id", "reason"),
     "genre_alias": ("musicbrainz_genre_name", "wikidata_genre_name", "reason"),
     "genre_precedence": ("item_id", "over_item_id", "reason"),
     "genre_disambiguation": ("musicbrainz_genre_name", "item_id", "is_default", "reason"),
     "genre_disambiguation_context": ("musicbrainz_genre_name", "item_id", "context_item_id", "reason"),
-    "entity_additions": ("entity_id", "reason"),
+    "entity_additions": ("entity_id", "entity_kind", "reason"),
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),
     "entity_time_span_overrides": ("entity_id", "start_year", "end_year", "reason"),
@@ -81,13 +83,13 @@ def write_curation_csvs(export: dict[str, Any], output_dir: Path) -> list[Path]:
             schema=dict.fromkeys(columns, pl.Utf8),
             orient="row",
         ).with_columns(pl.all().replace("", None))
-        path = output_dir / f"manual_{list_name}.csv"
+        path = output_dir / f"{list_name}.csv"
         df.write_csv(path)
         logger.info("wrote %d rows to %s", df.height, path)
         paths.append(path)
 
     # Gold stamps this into its tree exports so grow can tell which curation a tree was built from.
-    path = output_dir / "manual_export.json"
+    path = output_dir / "export.json"
     path.write_text(json.dumps({"exportedOn": exported_on}))
     logger.info("wrote curation export timestamp %s to %s", exported_on, path)
     paths.append(path)

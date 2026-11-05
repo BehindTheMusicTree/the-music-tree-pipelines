@@ -25,7 +25,7 @@ _UNPLAYABLE_REASONS = ("not_found", "not_embeddable", "private", "not_processed"
 
 
 def _manual_videos(manual_youtube_video_path: Path, bronze_dir: Path) -> pl.DataFrame:
-    """`manual_recording_youtube_video.csv` rules (curated in grow-the-music-tree-api) as `(recording_id,
+    """`recording_youtube_video.csv` rules (curated in grow-the-music-tree-api) as `(recording_id,
     youtube_video_id, unplayable_reason)`; a null `youtube_video_id` means the song has no video."""
     name = manual_youtube_video_path.name
     rules = pl.read_csv(manual_youtube_video_path, infer_schema=False).select(
@@ -85,8 +85,9 @@ def youtube_candidates(bronze_dir: Path, silver_dir: Path, output_dir: Path, man
 
 
 def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
-    """One row per recording with a primary artist: `(recording_id, song_id, musicbrainz_recording_id, title,
-    artist, artist_musicbrainz_id)`, `song_id` being the lowest `recording.id` of its song group."""
+    """One row per recording with a primary artist: `(recording_id, song_id, recording_count,
+    musicbrainz_recording_id, title, artist, artist_musicbrainz_id)`, `song_id` being the lowest `recording.id` of
+    its song group and `recording_count` that group's size."""
     # `position == 0` is MusicBrainz's own primary-artist slot (collaborations/features carry more rows).
     primary_artist = (
         pl.scan_parquet(bronze_dir / "artist_credit_name.parquet")
@@ -123,6 +124,7 @@ def _song_recordings(bronze_dir: Path) -> pl.LazyFrame:
     return recordings.select(
         "recording_id",
         song_id=pl.col("recording_id").min().over("artist_id", "work_id", "normalized_title"),
+        recording_count=pl.len().over("artist_id", "work_id", "normalized_title"),
         musicbrainz_recording_id="musicbrainz_recording_id",
         title="title",
         artist="artist_name",
@@ -195,6 +197,7 @@ def songs(
             "youtube_unplayable_reason",
             "youtube_view_count",
             "first_release_year",
+            "recording_count",
         )
     )
 

@@ -25,8 +25,9 @@ def prune_regional_hierarchy(canonical_parents_path: Path, output_dir: Path) -> 
     # items keep their real parent chain (e.g. morna -> "music of Cape Verde") instead of losing it.
     # An item whose parent edges all lead outside the regional set entirely (a genuine top-level seed
     # with no parent at all, e.g. a continent-level "music of X" with nothing above it) still becomes
-    # a root of the regional graph rather than vanishing. main_parent_selection.py already collapsed
-    # each item to a single parent edge upstream, so no further multi-parent collapse is needed here.
+    # a root of the regional graph rather than vanishing. parent_selection.py already collapsed each
+    # regional item to one anchor parent upstream (its regional genre parent, else its first overview),
+    # so no further multi-parent collapse is needed here.
     is_regional_edge = pl.col("parent_id").is_null() | pl.col("parent_is_regional")
     kept = regional_items.filter(is_regional_edge).select(OUTPUT_COLUMNS)
     regional = promote_orphans_to_roots(regional_items, kept)

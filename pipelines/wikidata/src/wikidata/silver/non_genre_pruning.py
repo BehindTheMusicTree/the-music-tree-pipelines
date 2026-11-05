@@ -36,7 +36,7 @@ def prune_non_genre_items(
     manual_theme_genres_path: Path,
     manual_technique_genres_path: Path,
     manual_out_of_scope_genres_path: Path,
-    manual_non_stylistic_genres_path: Path,
+    manual_umbrella_non_stylistic_genres_path: Path,
     manual_duplicate_genres_path: Path,
     output_dir: Path,
 ) -> Path:
@@ -46,13 +46,13 @@ def prune_non_genre_items(
     manual_theme_genres = pl.read_csv(manual_theme_genres_path)
     manual_technique_genres = pl.read_csv(manual_technique_genres_path)
     manual_out_of_scope_genres = pl.read_csv(manual_out_of_scope_genres_path)
-    manual_non_stylistic_genres = pl.read_csv(manual_non_stylistic_genres_path)
+    manual_umbrella_non_stylistic_genres = pl.read_csv(manual_umbrella_non_stylistic_genres_path)
     manual_duplicate_genres = pl.read_csv(manual_duplicate_genres_path)
-    theme_ids = _load_dropped_ids(df, manual_theme_genres, "manual_theme_genres.csv")
-    technique_ids = _load_dropped_ids(df, manual_technique_genres, "manual_technique_genres.csv")
-    out_of_scope_ids = _load_dropped_ids(df, manual_out_of_scope_genres, "manual_out_of_scope_genres.csv")
-    non_stylistic_ids = _load_dropped_ids(df, manual_non_stylistic_genres, "manual_non_stylistic_genres.csv")
-    duplicate_ids = _load_dropped_ids(df, manual_duplicate_genres, "manual_duplicate_genres.csv")
+    theme_ids = _load_dropped_ids(df, manual_theme_genres, "theme_genres.csv")
+    technique_ids = _load_dropped_ids(df, manual_technique_genres, "technique_genres.csv")
+    out_of_scope_ids = _load_dropped_ids(df, manual_out_of_scope_genres, "out_of_scope_genres.csv")
+    non_stylistic_ids = _load_dropped_ids(df, manual_umbrella_non_stylistic_genres, "umbrella_non_stylistic_genres.csv")
+    duplicate_ids = _load_dropped_ids(df, manual_duplicate_genres, "duplicate_genres.csv")
     dropped_ids = theme_ids | technique_ids | out_of_scope_ids | non_stylistic_ids | duplicate_ids
     df = df.filter(~pl.col("item_id").is_in(list(dropped_ids)))
 

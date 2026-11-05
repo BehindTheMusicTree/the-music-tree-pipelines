@@ -15,8 +15,9 @@ LIST_COLUMNS = {
     **dict.fromkeys(cr.QID_COLUMNS, ITEM_COLUMNS),
     "label_overrides": ("item_id", "display_label", "reason"),
     "accepted_canonical_roots": ("item_id", "item_label"),
-    "main_parent": ("item_id", "item_label", "reason", "parent_item_id", "exclude_other_parents"),
-    "regional_overrides": ("item_id", "item_label", "reason", "overview_item_id", "exclude_other_parents"),
+    "canonical_parent": ("item_id", "item_label", "reason", "parent_item_id", "exclude_other_parents"),
+    "regional_genre_parent": ("item_id", "item_label", "reason", "parent_item_id", "exclude_other_parents"),
+    "regional_overviews": ("item_id", "item_label", "reason", "overview_item_id", "exclude_other_parents"),
     "regional_overview_additions": ITEM_COLUMNS,
     "canonical_parent_additions": ITEM_COLUMNS,
 }
@@ -38,7 +39,7 @@ def _setup(
     curation_dir.mkdir()
     for name, columns in LIST_COLUMNS.items():
         df = pl.DataFrame(rows.get(name, []), schema=dict.fromkeys(columns, pl.Utf8))
-        df.write_csv(curation_dir / f"manual_{name}.csv")
+        df.write_csv(curation_dir / f"{name}.csv")
     tree = [{"item_id": i, "parent_id": None, "parent_label": None} for i in tree_ids]
     tree += [{"item_id": tree_ids[0], "parent_id": i, "parent_label": f"music of {i}"} for i in orphan_parent_ids]
     pl.DataFrame(tree, schema={"item_id": pl.Utf8, "parent_id": pl.Utf8, "parent_label": pl.Utf8}).write_parquet(
@@ -96,7 +97,7 @@ def _item(item_id: str) -> dict:
 
 
 def _read(curation_dir: Path, name: str) -> list[dict]:
-    return pl.read_csv(curation_dir / f"manual_{name}.csv", infer_schema=False).to_dicts()
+    return pl.read_csv(curation_dir / f"{name}.csv", infer_schema=False).to_dicts()
 
 
 def test_no_unknown_ids_skips_http_and_writes_empty_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,7 +105,7 @@ def test_no_unknown_ids_skips_http_and_writes_empty_report(tmp_path: Path, monke
         tmp_path,
         {
             "technique_genres": [_item("Q1")],
-            "main_parent": [{**_item("Q1"), "parent_item_id": "LOCAL:x", "exclude_other_parents": None}],
+            "canonical_parent": [{**_item("Q1"), "parent_item_id": "LOCAL:x", "exclude_other_parents": None}],
             "canonical_parent_additions": [_item("LOCAL:x")],
         },
         ["Q1"],
@@ -115,12 +116,12 @@ def test_no_unknown_ids_skips_http_and_writes_empty_report(tmp_path: Path, monke
     httpx_get.assert_not_called()
 
 
-def test_orphan_overview_parent_is_known_only_to_regional_overrides(
+def test_orphan_overview_parent_is_known_only_to_regional_overviews(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     override = {**_item("Q1"), "overview_item_id": "Q9", "exclude_other_parents": None}
     curation_dir = _setup(
-        tmp_path, {"regional_overrides": [{**override, "item_id": "Q9"}]}, ["Q1"], orphan_parent_ids=["Q9"]
+        tmp_path, {"regional_overviews": [{**override, "item_id": "Q9"}]}, ["Q1"], orphan_parent_ids=["Q9"]
     )
     httpx_get = _mock_api(monkeypatch, {})
 
@@ -140,7 +141,7 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
         tmp_path,
         {
             "technique_genres": [_item("Q126287874")],
-            "main_parent": [{**_item("Q1"), "parent_item_id": "Q7", "exclude_other_parents": "true"}],
+            "canonical_parent": [{**_item("Q1"), "parent_item_id": "Q7", "exclude_other_parents": "true"}],
         },
         ["Q1", "Q64152411", "Q8"],
     )
@@ -148,7 +149,7 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
 
     assert _resolve(tmp_path, curation_dir) == {
         "remaps": [
-            {"list": "main_parent", "key": "Q1", "column": "parent_item_id", "from": "Q7", "to": "Q8"},
+            {"list": "canonical_parent", "key": "Q1", "column": "parent_item_id", "from": "Q7", "to": "Q8"},
             {
                 "list": "technique_genres",
                 "key": "Q126287874",
@@ -162,15 +163,15 @@ def test_remaps_redirect_and_pruning_passes(tmp_path: Path, monkeypatch: pytest.
     assert _read(curation_dir, "technique_genres") == [
         {"item_id": "Q64152411", "item_label": "Q126287874", "reason": "r"}
     ]
-    assert _read(curation_dir, "main_parent")[0]["parent_item_id"] == "Q8"
+    assert _read(curation_dir, "canonical_parent")[0]["parent_item_id"] == "Q8"
 
     item_links = tmp_path / "1_item_links.parquet"
     pl.DataFrame({"item_id": ["Q1", "Q64152411", "Q8"]}).write_parquet(item_links)
     output = prune_non_genre_items(
         item_links,
-        *(curation_dir / f"manual_{name}.csv" for name in ("theme_genres", "technique_genres", "out_of_scope_genres")),
-        curation_dir / "manual_non_stylistic_genres.csv",
-        curation_dir / "manual_duplicate_genres.csv",
+        *(curation_dir / f"{name}.csv" for name in ("theme_genres", "technique_genres", "out_of_scope_genres")),
+        curation_dir / "umbrella_non_stylistic_genres.csv",
+        curation_dir / "duplicate_genres.csv",
         tmp_path / "silver",
     )
     assert pl.read_parquet(output).get_column("item_id").to_list() == ["Q1", "Q8"]
@@ -313,7 +314,7 @@ def test_non_exclusive_list_may_share_target_with_exclusive_list(
 ) -> None:
     curation_dir = _setup(
         tmp_path,
-        {"non_stylistic_genres": [_item("Q1")], "duplicate_genres": [_item("Q2")]},
+        {"umbrella_non_stylistic_genres": [_item("Q1")], "duplicate_genres": [_item("Q2")]},
         ["Q2"],
     )
     _mock_api(monkeypatch, {"Q1": _redirect("Q1", "Q2")})
@@ -321,18 +322,18 @@ def test_non_exclusive_list_may_share_target_with_exclusive_list(
     report = _resolve(tmp_path, curation_dir)
 
     assert report["review"] == []
-    assert [row["item_id"] for row in _read(curation_dir, "non_stylistic_genres")] == ["Q2"]
+    assert [row["item_id"] for row in _read(curation_dir, "umbrella_non_stylistic_genres")] == ["Q2"]
 
 
 def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     curation_dir = _setup(
         tmp_path,
         {
-            "main_parent": [
+            "canonical_parent": [
                 {**_item("Q1"), "parent_item_id": "Q2", "exclude_other_parents": None},
                 {**_item("Q3"), "parent_item_id": "Q4", "exclude_other_parents": None},
             ],
-            "non_stylistic_genres": [_item("Q5")],
+            "umbrella_non_stylistic_genres": [_item("Q5")],
         },
         ["Q1", "Q3", "Q5"],
     )
@@ -344,7 +345,36 @@ def test_parent_remap_onto_pruned_or_own_item_is_reviewed(tmp_path: Path, monkey
 
     assert report["remaps"] == []
     assert [(r["key"], r["reason"], r["target"], r["evidence"]["conflictList"]) for r in report["review"]] == [
-        ("Q1", "redirect_conflict", "Q1", "main_parent"),
-        ("Q3", "redirect_conflict", "Q5", "non_stylistic_genres"),
+        ("Q1", "redirect_conflict", "Q1", "canonical_parent"),
+        ("Q3", "redirect_conflict", "Q5", "umbrella_non_stylistic_genres"),
     ]
-    assert _read(curation_dir, "main_parent") == []
+    assert _read(curation_dir, "canonical_parent") == []
+
+
+def test_overview_rule_then_keyed_by_item_and_overview(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    overview = {"exclude_other_parents": None}
+    curation_dir = _setup(
+        tmp_path,
+        {
+            "regional_overviews": [
+                {**_item("Q1"), **overview, "overview_item_id": "Q7"},
+                {**_item("Q1"), **overview, "overview_item_id": "Q6"},
+                {**_item("Q2"), **overview, "overview_item_id": "Q6"},
+            ]
+        },
+        ["Q1", "Q2", "Q7"],
+    )
+    _mock_api(monkeypatch, {"Q6": _redirect("Q6", "Q7")})
+
+    report = _resolve(tmp_path, curation_dir)
+
+    assert [(r["key"], r["reason"], r["evidence"]["conflictList"]) for r in report["review"]] == [
+        ("Q1\tQ6", "redirect_conflict", "regional_overviews")
+    ]
+    assert report["remaps"] == [
+        {"list": "regional_overviews", "key": "Q2\tQ6", "column": "overview_item_id", "from": "Q6", "to": "Q7"}
+    ]
+    assert [(r["item_id"], r["overview_item_id"]) for r in _read(curation_dir, "regional_overviews")] == [
+        ("Q1", "Q7"),
+        ("Q2", "Q7"),
+    ]

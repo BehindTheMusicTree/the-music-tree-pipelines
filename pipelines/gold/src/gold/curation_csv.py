@@ -8,7 +8,7 @@ ITEM_ID_PATTERN = r"^(Q[1-9][0-9]*|LOCAL:.+)$"
 def read_curation_csv(
     path: Path, required: tuple[str, ...], key: tuple[str, ...], patterns: dict[str, str] | None = None
 ) -> pl.DataFrame:
-    """A `manual_<list>.csv`, every column read as a string, raising on a null/blank `required` value,
+    """A `<list>.csv`, every column read as a string, raising on a null/blank `required` value,
     a non-null value not matching its `patterns` regex, or a duplicate `key`."""
     df = pl.read_csv(path, infer_schema=False)
     for column in required:

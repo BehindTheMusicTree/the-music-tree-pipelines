@@ -42,14 +42,18 @@ _SYNCED_COLUMNS = [
     "genre_name",
     "genre_wikidata_id",
     "first_release_year",
+    "recording_count",
 ]
 _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed", "region_whitelisted"]
 
 
 def _check_songs(songs: pl.DataFrame) -> None:
     check_non_empty(songs, OUTPUT_DIRNAME)
-    for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id"):
+    for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id", "recording_count"):
         check_null_rate(songs, column, OUTPUT_DIRNAME)
+    bad_recording_count = songs.filter(pl.col("recording_count") < 1).height
+    if bad_recording_count:
+        raise ValueError(f"{OUTPUT_DIRNAME}: {bad_recording_count} row(s) with a recording_count below 1")
     check_unique_key(songs, "musicbrainz_recording_id", OUTPUT_DIRNAME)
     check_max_length(songs, "title", SONG_TITLE_LEN_MAX, OUTPUT_DIRNAME)
     check_max_length(songs, "artist", ARTIST_NAME_LEN_MAX, OUTPUT_DIRNAME)
@@ -117,7 +121,7 @@ def _drop_beaten_secondaries(songs: pl.LazyFrame, closure: pl.DataFrame) -> pl.L
 def _apply_recording_overrides(
     songs: pl.LazyFrame, names_by_id: dict[str, str], wikidata_silver_dir: Path, curation_dir: Path
 ) -> pl.LazyFrame:
-    genre_csv = "manual_song_genre.csv"
+    genre_csv = "song_genre.csv"
     genres = read_curation_csv(
         curation_dir / genre_csv,
         required=("musicbrainz_recording_id", "reason"),
@@ -135,10 +139,12 @@ def _apply_recording_overrides(
     umbrella_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & umbrella_ids)
     if umbrella_overrides:
         raise ValueError(f"{genre_csv} assigns songs to umbrella genre(s), pick a subgenre: {umbrella_overrides}")
-    overview_ids = set(hierarchy.filter(pl.col("is_overview")).get_column("item_id"))
+    overview_ids = set(hierarchy.filter(pl.col("is_leaf_overview")).get_column("item_id"))
     overview_overrides = sorted(set(genres.get_column("genre_item_id").drop_nulls()) & overview_ids)
     if overview_overrides:
-        raise ValueError(f"{genre_csv} assigns songs to regional overview(s), pick a genre: {overview_overrides}")
+        raise ValueError(
+            f"{genre_csv} assigns songs to regional overview(s) without sub-genres, pick a genre: {overview_overrides}"
+        )
     unknown_genres = sorted(set(genres.get_column("genre_item_id").drop_nulls()) - names_by_id.keys())
     if unknown_genres:
         raise ValueError(f"{genre_csv} references genre_item_id(s) not found in either genre tree: {unknown_genres}")
@@ -149,7 +155,10 @@ def _apply_recording_overrides(
         override_item_id="genre_item_id",
     )
     closure = precedence_closure(
-        hierarchy, wikidata_silver_dir / "5_secondary_parents.parquet", curation_dir / PRECEDENCE_CSV
+        hierarchy,
+        wikidata_silver_dir / "5_parent_selection.parquet",
+        wikidata_silver_dir / "5_secondary_parents.parquet",
+        curation_dir / PRECEDENCE_CSV,
     )
     return (
         _drop_beaten_secondaries(
@@ -178,6 +187,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         "youtube_unplayable_reason",
         "youtube_view_count",
         "first_release_year",
+        "recording_count",
         "secondary_genre_item_ids",
         "musicbrainz_genres",
         genre_item_id=pl.when(pl.col("match_method").is_in(RESOLVED_METHODS)).then(pl.col("wikidata_genre_item_id")),

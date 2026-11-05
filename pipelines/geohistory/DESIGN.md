@@ -65,7 +65,11 @@ for curation.
 ## 8.1 Admin units, containment and footprints
 
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
-one) plus P131 intermediates holding more than one known child. Containment edges come from P131, P361, P30 and
+one; the sole unit of an unsubdivided territory, which Natural Earth leaves without one, takes its country's
+item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`), the Natural Earth countries whose item is
+no Wikidata entity (dependencies such as Jersey `Q785`, Hong Kong `Q8646` or the US Virgin Islands `Q11703`, labelled
+with their item's label, then their NE name, and holding their admin-1 units) plus P131 intermediates holding more than
+one known child. Containment edges come from P131, P361, P30 and
 P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
 greater `(parent, child)` edge. Any longer cycle, including one that crosses `2_entity_membership`, drops its
@@ -92,7 +96,7 @@ Glottocodes or QIDs.
 
 - `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
   covers them. A curated item already covered by a bulk kind keeps that kind and is logged; a QID absent from Bronze
-  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog.
+  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog. An optional `entity_kind` (`cultural_region` or `macro_region`, anything else raises) gives the item that kind instead of `curated`, so it is drawn (from its membership children, see `entity_footprint`) and becomes a map zone; blank keeps `curated`.
 - `entity_exclusions` removes the entity from `1_cultural_entity` and the crosswalk, so its edges, successions and
   dates disappear downstream. An id out of scope is logged.
 - `entity_membership_overrides` runs after the source edges and before the cycle check, so it is the way to break a
@@ -132,7 +136,9 @@ is exactly that admin are the same place and collapse to the admin. A label stil
 ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
 An overview whose label resolves to its anchor "names" it and is ranked (`overview_rank`); several overviews can be
 anchored on one place because an overview that did not resolve its own place falls back to the country through
-`P17`/`P495`, so only the ones naming the anchor are candidates for the region's overview.
+`P17`/`P495`, so only the ones naming the anchor are candidates for the region's overview. When every place the
+label matches has no footprint ("music of China" names only the civilization), an anchor picked by an override
+or a culture claim (`P2596`/`P1269`: the People's Republic) is named too, ranked after those named by label.
 Start is the override, else `P571`/`P580`, else the anchor's start; end is `P576`/`P582`, else 1950.
 
 Links: lineage from `P155`/`P156` and the genre tree's `P279`, association from `P737`, both between two traditions.

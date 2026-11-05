@@ -27,6 +27,7 @@ MATCH_ROWS = [
         "youtube_unplayable_reason": "not_embeddable",
         "youtube_view_count": 1234,
         "first_release_year": 1977,
+        "recording_count": 7,
         "genre_name": "Jazz",
         "wikidata_genre_name": "jazz",
         "wikidata_genre_item_id": "Q4",
@@ -72,6 +73,7 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "youtube_unplayable_reason": None,
             "youtube_view_count": None,
             "first_release_year": None,
+            "recording_count": 1,
             "wikidata_genre_item_id": None,
             "secondary_genre_item_ids": [],
             "musicbrainz_genres": [],
@@ -85,6 +87,7 @@ def _write_genre_match(tmp_path: Path, rows: list[dict] | None = None) -> Path:
             "youtube_unplayable_reason": pl.Utf8,
             "youtube_view_count": pl.Int64,
             "first_release_year": pl.Int16,
+            "recording_count": pl.UInt32,
             "wikidata_genre_item_id": pl.Utf8,
             "secondary_genre_item_ids": pl.List(pl.Utf8),
             "musicbrainz_genres": pl.List(pl.Struct({"name": pl.Utf8, "weight": pl.Int64})),
@@ -110,9 +113,18 @@ def _write_silver(tmp_path: Path) -> Path:
         silver_dir / "5_secondary_parents.parquet"
     )
     pl.DataFrame(
+        schema={
+            "item_id": pl.Utf8,
+            "parent_id": pl.Utf8,
+            "canonical_parent_id": pl.Utf8,
+            "regional_genre_parent_id": pl.Utf8,
+            "regional_overview_ids": pl.List(pl.Utf8),
+        }
+    ).write_parquet(silver_dir / "5_parent_selection.parquet")
+    pl.DataFrame(
         {
             "item_id": ["Q10", "Q11", "Q12"],
-            "item_label": ["samba", "samba de roda", "music of Brazil"],
+            "item_label": ["samba", "samba de roda", "music of Nowhere"],
             "parent_id": [None, "Q10", None],
         }
     ).write_parquet(silver_dir / "8_regional_hierarchy.parquet")
@@ -159,6 +171,7 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "first_release_year": 1977,
         "genre_name": "jazz",
         "genre_wikidata_id": "Q4",
+        "recording_count": 7,
     }
     assert songs[4]["youtube_video_id"] is None
 
@@ -192,6 +205,16 @@ def test_export_songs_raises_on_bad_youtube_view_count(tmp_path: Path, curation_
     genre_match_path = _write_genre_match(tmp_path, rows=[MATCH_ROWS[1], row])
 
     with pytest.raises(ValueError, match="youtube_view_count"):
+        export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+
+
+@pytest.mark.parametrize("recording_count", [None, 0])
+def test_export_songs_raises_on_bad_recording_count(
+    tmp_path: Path, curation_dir: Path, recording_count: int | None
+) -> None:
+    genre_match_path = _write_genre_match(tmp_path, rows=[{**MATCH_ROWS[0], "recording_count": recording_count}])
+
+    with pytest.raises(ValueError, match="recording_count"):
         export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
 
 

@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 import httpx
@@ -137,7 +137,6 @@ MACRO_REGION_MIN_MEMBERS = 2
 CULTURAL_ENTITY_QUERY_TIMEOUT = 180.0
 
 CULTURAL_ENTITY_QUERY_VARIABLES = ("item", "itemLabel", "glottocode")
-CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES = ("item", "value", "precision")
 
 # Which items belong to each cultural-entity kind. An item can match several kinds (a historical
 # country with a Glottocode, say) and carry several Glottocodes (Limburgish maps to two languoids),
@@ -226,29 +225,6 @@ SELECT DISTINCT ?item ?itemLabel ?glottocode WHERE {{
 """
 
 
-# Claims are queried per (kind, property) rather than in one wide row for the same
-# cross-multiplication reason documented above INDIGENOUS_TO_QUERY, and to keep each request
-# short enough for WDQS's timeout. Dates come from the full-value node, so the raw literal (BCE
-# years such as "-2600-01-01T00:00:00Z" included) and its precision (century, millennium...) are
-# kept; deprecated statements are dropped, every other rank is kept for Silver to arbitrate.
-def cultural_entity_claim_query(
-    kind: str, pid: str, patterns: Mapping[str, str] = CULTURAL_ENTITY_KIND_PATTERNS
-) -> str:
-    if pid in CULTURAL_CLAIM_DATE_PIDS:
-        value_pattern = f"""
-  ?item p:{pid} ?statement .
-  ?statement psv:{pid} ?node ; wikibase:rank ?rank .
-  ?node wikibase:timeValue ?value ; wikibase:timePrecision ?precision .
-  FILTER(?rank != wikibase:DeprecatedRank)"""
-    else:
-        value_pattern = f"\n  ?item wdt:{pid} ?value ."
-    return f"""
-SELECT DISTINCT ?item ?value ?precision WHERE {{
-  {patterns[kind]}{value_pattern}
-}}
-"""
-
-
 CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES = ("item", "alias")
 
 
@@ -256,10 +232,37 @@ def cultural_entity_alias_query(kind: str, patterns: Mapping[str, str] = CULTURA
     return f"""
 SELECT DISTINCT ?item ?alias WHERE {{
   {patterns[kind]}
-  ?item skos:altLabel ?alias .
-  FILTER(LANG(?alias) = "en")
+  {_ENGLISH_NAMES}
 }}
 """
+
+
+# The main label is a name too: "Khakassia" is the alias of Q6543 but "Republic of Khakassia" is its label, and an
+# overview titled "music of <name>" must find the place under either.
+_ENGLISH_NAMES = '{ ?item skos:altLabel ?alias } UNION { ?item rdfs:label ?alias } FILTER(LANG(?alias) = "en")'
+
+
+# Admin units come from the P131 chains of the Natural Earth seeds, not from a cultural-entity kind, so their names
+# need their own query (same chains as `admin_hierarchy_query`).
+def admin_alias_query(seed_qids: Sequence[str]) -> str:
+    invalid = [qid for qid in seed_qids if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"admin alias seeds must be Wikidata QIDs, got {invalid[:5]}")
+    return f"""
+SELECT DISTINCT ?item ?alias WHERE {{
+  hint:Query hint:optimizer "None" .
+  VALUES ?seed {{ {" ".join(f"wd:{qid}" for qid in seed_qids)} }}
+  ?seed wdt:P131* ?item .
+  {_ENGLISH_NAMES}
+}}
+"""
+
+
+def admin_alias_queries(seed_qids: Sequence[str]) -> list[str]:
+    seeds = sorted(set(seed_qids))
+    return [
+        admin_alias_query(seeds[start : start + ADMIN_SEED_CHUNK]) for start in range(0, len(seeds), ADMIN_SEED_CHUNK)
+    ]
 
 
 ADMIN_HIERARCHY_QUERY_VARIABLES = ("item", "property", "value", "itemLabel")
@@ -299,7 +302,6 @@ def admin_hierarchy_queries(seed_qids: Sequence[str]) -> list[str]:
     ]
 
 
-MUSIC_GENRE_KIND = "music_genre"
 LABEL_PID = "label"
 SITELINKS_PID = "sitelinks"
 
@@ -325,37 +327,52 @@ TRADITION_CLAIM_PIDS = (
 )
 
 
-def tradition_candidate_patterns(extra_qids: Sequence[str]) -> dict[str, str]:
-    """Every P31 music genre item, plus (when `extra_qids` is not empty) exactly the listed items as kind `curated`.
-
-    `extra_qids` are the tradition additions, the regional overview additions and the "music of <place>" overviews
-    that the genre tree only knows as parents: none of them is necessarily a P31 music genre itself.
-    """
-    patterns = {MUSIC_GENRE_KIND: f"?item wdt:P31 wd:{MUSIC_GENRE_QID} ."}
-    if not extra_qids:
-        return patterns
-    curated = curated_entity_patterns(sorted(set(extra_qids)))[CURATED_KIND]
-    return {**patterns, CURATED_KIND: curated}
+ITEM_CLAIM_QUERY_VARIABLES = ("item", "property", "value", "precision")
+# ~1k items by a dozen properties answer in 3-5 s, well inside WDQS's 60 s limit (and too long for a GET URL).
+ITEM_CLAIM_CHUNK = 1000
 
 
-def tradition_claim_query(kind: str, pid: str, patterns: Mapping[str, str]) -> str:
-    if pid == SITELINKS_PID:
-        return f"""
-SELECT DISTINCT ?item ?value ?precision WHERE {{
-  {patterns[kind]}
-  ?item wikibase:sitelinks ?value .
-}}
-"""
-    if pid == LABEL_PID:
+# Claims are queried by item, one VALUES chunk at a time, each property a UNION branch tagged with its PID: the items
+# are already known (the cultural entity and genre tree steps wrote them), so WDQS no longer re-runs a kind's class
+# closure once per property. UNION branches never cross-multiply, each row binds a single property. Dates come from
+# the full-value node, so the raw literal (BCE years such as "-2600-01-01T00:00:00Z" included) and its precision
+# (century, millennium...) are kept; deprecated statements are dropped, every other rank is kept for Silver to arbitrate.
+def _claim_branch(pid: str) -> str:
+    if pid in CULTURAL_CLAIM_DATE_PIDS:
+        pattern = f"""?item p:{pid} ?statement .
+    ?statement psv:{pid} ?node ; wikibase:rank ?rank .
+    ?node wikibase:timeValue ?value ; wikibase:timePrecision ?precision .
+    FILTER(?rank != wikibase:DeprecatedRank)"""
+    elif pid == SITELINKS_PID:
+        pattern = "?item wikibase:sitelinks ?value ."
+    elif pid == LABEL_PID:
         # The label service only binds `?xLabel` variables named in the SELECT: aliasing `?itemLabel AS ?value`
         # leaves `?value` unbound for every row, so the label is bound explicitly through `rdfs:label`.
-        return f"""
-SELECT DISTINCT ?item ?value ?precision WHERE {{
-  {patterns[kind]}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". ?item rdfs:label ?value . }}
+        pattern = f'SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". ?item rdfs:label ?value . }}'
+    else:
+        pattern = f"?item wdt:{pid} ?value ."
+    return f"""{{
+    {pattern}
+    BIND("{pid}" AS ?property)
+  }}"""
+
+
+def item_claims_queries(qids: Iterable[str], pids: Sequence[str]) -> list[str]:
+    """One query per ITEM_CLAIM_CHUNK of the distinct `qids`, reading every `pids` claim of those items."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"claim items must be Wikidata QIDs, got {invalid[:5]}")
+    branches = "\n  UNION\n  ".join(_claim_branch(pid) for pid in pids)
+    return [
+        f"""
+SELECT DISTINCT ?item ?property ?value ?precision WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  {branches}
 }}
 """
-    return cultural_entity_claim_query(kind, pid, patterns)
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
 
 
 ARTIST_IMAGE_QUERY_VARIABLES = ("item", "mbid", "image")
@@ -411,9 +428,10 @@ def run_query(
 ) -> list[dict[str, str | None]]:
     # Under load WDQS stops a query at its 60 s limit mid-stream, behind an HTTP 200: the JSON is truncated and a Java
     # stack trace is appended. Cache-Control: no-cache keeps a retry from being served the same cached bad response.
-    response = httpx.get(
+    # POST because item-keyed claim queries list a thousand QIDs, past what a GET URL carries.
+    response = httpx.post(
         SPARQL_ENDPOINT,
-        params={"query": query},
+        data={"query": query},
         headers={
             "User-Agent": USER_AGENT,
             "Accept": "application/sparql-results+json",

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Changelog Best Practices](#changelog-best-practices)
 - [Unreleased](#unreleased)
+- [10.0.0](#1000---2026-11-05)
 - [6.7.0](#670---2026-10-20)
 - [6.6.0](#660---2026-10-20)
 - [6.5.1](#651---2026-10-20)
@@ -47,6 +48,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use ISO 8601 date format: YYYY-MM-DD.
 
 ## [Unreleased]
+
+## [10.0.0] - 2026-11-05
+
+### Added
+
+- Independent artist-image enrichment with resumable state, bounded Wikidata/Commons refreshes and immutable publications pinned once per Gold build. Requires a bootstrapped publication before catalogue cutover; scheduling remains opt-in.
+- `entity_additions` gains an optional `entity_kind` column (`cultural_region` or `macro_region`; blank keeps kind `curated`, which is not drawn): geohistory Silver gives the item that kind, so a region absent from the bulk Wikidata classes becomes a map zone whose footprint comes from `entity_membership_overrides`. Any other value raises. Needs grow-api's matching `entity_additions` column deployed first (`curation.ingest` requires the exact header). Tests in `test_silver.py`.
+- Songs carry `recording_count`, the number of recordings in their song group (live versions, remasters, re-recordings), as a popularity signal: musicbrainz Silver `5_songs`, Gold `1_genre_match.parquet` and `2_songs` (non-null, at least 1). Requires the grow-the-music-tree-api release that accepts `recording_count` on song import. The first run after deploy has new snapshot columns, so it does a full song sync.
+- Wikidata Silver reads `forced_canonical_genres.csv` (from grow's new `forced_canonical_genres` list): a genre listed there stays canonical despite a regional parent (Baroque music), and the regional cascade stops at it.
+- The regional genre tree export gains a top-level `crossTreeSecondaryParents` (`[{id, secondaryParents}]`, always present), carrying canonical genres' regional parents, which the canonical import cannot resolve. Requires grow-api with `the-music-tree-genre-kit` 0.54.0.
+- The region map index gains `inheritedOverviewItemId` per region: for an admin region without its own "music of X" genre, the overview of its nearest admin ancestor that has one (Normandie opens "Music of France"); null otherwise and on zones. The frontend's strict index schema must accept the key before this index reaches an environment; grow-api already accepts it.
+
+### Changed
+
+- Preserve complete release notes when Markdown examples contain version headings.
+- `geohistory` Silver gives the sole Natural Earth admin-1 unit of an unsubdivided territory (British Virgin Islands, Isle of Man, Cayman Islands, Guernsey, Gibraltar, Tuvalu… 24 on staging) its country's Wikidata QID instead of an unstable `ne:<adm1_code>` id, so curation lists, which accept only QIDs and Glottocodes, can name it and genre claims on that QID anchor there.
+- **Breaking** curation lists renamed to match the genre taxonomy: `umbrella_genres` → `umbrella_stylistic_genres` and `non_stylistic_genres` → `umbrella_non_stylistic_genres` (`curation.ingest` writes `<list>.csv`, every reader follows); `is_umbrella` is unchanged and now documented as "imprecise, to be refined"; `wikidata/DESIGN.md` gains the taxonomy table. Merge together with grow-the-music-tree-api and grow-the-music-tree-frontend
+- Repository releases use an explicit `VERSION` and CI-owned tags and GitHub Releases; workspace package versions remain independent.
+
+- **Breaking** curation CSVs drop the `manual_` prefix: `curation.ingest` writes `<list>.csv` and `export.json` (was `manual_<list>.csv`, `manual_export.json`), and every reader follows. The `canonical_overrides` list becomes `forced_canonical_genres` (`forced_canonical_genres.csv`), which needs grow-the-music-tree-api with the renamed list. Old `manual_*` files left in `CURATION_BRONZE_DIR` are no longer read.
+
+- Every regional overview ("music of Japan", "Latin music") with sub-genres is now a `genre_match` target and an umbrella: a tag such as `latin` resolves to it, its songs are flagged "to refine", and the regional genre tree export marks it `isUmbrella`. Overviews without sub-genres stay excluded.
+- **Breaking:** a genre's parents are now split into three axes instead of a single main parent: 0 or 1 canonical parent, 0 or 1 regional genre parent (both axes' other candidates becoming secondary parents), and 0 to n regional overviews, minus any overview that is an ancestor of another kept parent (Breton rock sits under French rock and music of Brittany, not also music of France). `5_main_parent_selection.parquet` becomes `5_parent_selection.parquet`, with `canonical_parent_id`, `regional_genre_parent_id`, `regional_overview_ids` and the tree anchor `parent_id`. The curation lists become `canonical_parent` (was `main_parent`), `regional_genre_parent` (new) and `regional_overviews` (was `regional_overrides`, keyed by item and overview), and must be migrated in grow-api in lockstep.
+- `geohistory` An overview whose label names only places without a footprint now names the anchor its override or culture claim (`P2596`/`P1269`) picks: "music of China" names only the civilization, so it becomes the People's Republic's overview (`overview_rank` 0 when no overview names that anchor by label) instead of having no rank, and the map region can open it.
+- **Breaking:** `6_canonical_parents`' `parent_is_canonical` is renamed `canonical_parent_is_genre`, and `4_regional_classification`'s `regional_reason` `manual_override` becomes `manual_regional_overview`.
+- The regional genre tree export lists a genre's other selected parents (canonical parent, other overviews) as `primaryParents` and its secondary parents as `secondaryParents` (they were `primaryParents`); parent lists are sorted by QID. The canonical export no longer raises on a curated `add` of a regional parent, which goes to `crossTreeSecondaryParents` instead.
+- Genre precedence also follows a genre's selected non-anchor parents, so a regional genre beats its canonical parent.
+- Wikidata Bronze reads cultural-entity and music-tradition claims by item, 1,000 items and every property per query, instead of once per (kind, property): 31 queries instead of 164, 122 s instead of 389–958 s on staging's data, with identical output. WDQS queries are now sent as POST.
+- Gold `genre_match` picks each distinct set of genre tags once instead of once per song, release group or artist: 5.7x faster (759 s to 134 s on staging) and 3 GB lower peak memory, with an identical `1_genre_match.parquet`.
+- Silver `music_anchor` anchors a sub-place overview ("Music of Scotland", Catalonia, Galicia, Aragon, Occitania, Khakassia, Kalmykia) on its own region instead of its country: an ambiguous label is narrowed by the places the genre claims, then to the current place over a historical state. Labels that stay ambiguous are listed in the new `5_music_anchor_ambiguous.csv`.
+- Silver `music_anchor` also prefers the current place over a historical state when the overview claims no place at all ("Music of Finland" on Finland, not the Grand Duchy), instead of leaving it without an anchor.
+- Wikidata `cultural_entity_alias` also indexes each place's English main label, and the English names of the admin units under the seed countries, so aliases like "Khakassia" resolve.
+- README lists each data source and its license; data derived from MusicBrainz tags stays under CC BY-NC-SA 3.0.
+
+### Fixed
+
+- `geohistory` Silver makes a Natural Earth country whose item is no Wikidata entity (Jersey, Hong Kong, Macau, the US Virgin Islands, Bermuda, New Caledonia… 32 on staging) an admin unit labelled with its item's label, instead of dropping its polygon and leaving its admin-1 units under no entity, so these territories, their admin-1 units and their "music of X" overviews (Hong Kong, New Caledonia) reach the map.
+- Region map: a zone member whose admin region was dissolved into a parent that was itself dissolved now resolves to the final region instead of dropping out of the zone's `childIds` (`test_export_region_map_lists_a_zone_member_dissolved_through_a_chain`).
+- geohistory Silver raises when `tradition_placement_overrides` lists the same `wikidata_id` twice, instead of silently keeping the last row.
+- Restored the canonical Apache 2.0 license text: a sentence in the "Work" definition had been altered, so GitHub did not recognize the license.
+- Wikidata Silver `4_regional_classification` no longer crashes with `ColumnNotFoundError: exclude_other_parents` when `canonical_parent_additions.csv` has rows: the synthetic nodes it adds now carry that column too.
+- Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates, and `column_region` falls back to their predecessors' and successors' regions when they have none.
 
 ## [9.2.0] - 2026-11-04
 

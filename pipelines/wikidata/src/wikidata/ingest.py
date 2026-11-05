@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -146,33 +146,36 @@ def ingest_cultural_entities(output_dir: Path, patterns: Mapping[str, str]) -> P
     return output_path
 
 
-def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str]) -> Path:
-    frames = []
-    for kind in patterns:
-        for pid in wikidata_client.CULTURAL_CLAIM_PIDS:
-            logger.info("querying Wikidata for %s claims of %s entities", pid, kind)
-            rows = wikidata_client.run_query(
-                wikidata_client.cultural_entity_claim_query(kind, pid, patterns),
-                variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
+def _ingest_item_claims(qids: Sequence[str], pids: Sequence[str], dataset: str) -> pl.DataFrame:
+    queries = wikidata_client.item_claims_queries(qids, pids)
+    rows: list[dict[str, str | None]] = []
+    for index, query in enumerate(queries, start=1):
+        logger.info("querying Wikidata for %s, item chunk %d of %d", dataset, index, len(queries))
+        rows.extend(
+            wikidata_client.run_query(
+                query,
+                variables=wikidata_client.ITEM_CLAIM_QUERY_VARIABLES,
                 timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
             )
-            frames.append(
-                pl.DataFrame(
-                    {
-                        "item_id": [_qid(row["item"]) for row in rows],
-                        "property": [pid] * len(rows),
-                        "value": [_qid(row["value"]) for row in rows],
-                        "time_precision": [row["precision"] for row in rows],
-                    },
-                    schema={
-                        "item_id": pl.String,
-                        "property": pl.String,
-                        "value": pl.String,
-                        "time_precision": pl.String,
-                    },
-                ).with_columns(pl.col("time_precision").cast(pl.Int8))
-            )
-    df = pl.concat(frames).unique().sort("property", "item_id", "value")
+        )
+    return (
+        pl.DataFrame(
+            {
+                "item_id": [_qid(row["item"]) for row in rows],
+                "property": [row["property"] for row in rows],
+                "value": [_qid(row["value"]) for row in rows],
+                "time_precision": [row["precision"] for row in rows],
+            },
+            schema=dict.fromkeys(("item_id", "property", "value", "time_precision"), pl.String),
+        )
+        .with_columns(pl.col("time_precision").cast(pl.Int8))
+        .unique()
+        .sort("property", "item_id", "value")
+    )
+
+
+def ingest_cultural_entity_claims(output_dir: Path, entity_qids: Sequence[str]) -> Path:
+    df = _ingest_item_claims(entity_qids, wikidata_client.CULTURAL_CLAIM_PIDS, "wikidata_cultural_entity_claim")
     check_non_empty(df, "wikidata_cultural_entity_claim")
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -183,15 +186,24 @@ def ingest_cultural_entity_claims(output_dir: Path, patterns: Mapping[str, str])
     return output_path
 
 
-def ingest_cultural_entity_aliases(output_dir: Path, patterns: Mapping[str, str]) -> Path:
+def ingest_cultural_entity_aliases(
+    output_dir: Path, patterns: Mapping[str, str], admin_seed_qids: Sequence[str] = ()
+) -> Path:
+    queries = {kind: [wikidata_client.cultural_entity_alias_query(kind, patterns)] for kind in patterns}
+    if admin_seed_qids:
+        queries["admin_unit"] = wikidata_client.admin_alias_queries(admin_seed_qids)
     frames = []
-    for kind in patterns:
-        logger.info("querying Wikidata for English aliases of %s entities", kind)
-        rows = wikidata_client.run_query(
-            wikidata_client.cultural_entity_alias_query(kind, patterns),
-            variables=wikidata_client.CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES,
-            timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
-        )
+    for kind, kind_queries in queries.items():
+        logger.info("querying Wikidata for English names of %s entities", kind)
+        rows = [
+            row
+            for query in kind_queries
+            for row in wikidata_client.run_query(
+                query,
+                variables=wikidata_client.CULTURAL_ENTITY_ALIAS_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        ]
         frames.append(
             pl.DataFrame(
                 {"item_id": [_qid(row["item"]) for row in rows], "alias": [row["alias"] for row in rows]},
@@ -265,46 +277,21 @@ def read_tradition_additions(path: Path) -> list[str]:
     return pl.read_csv(path, infer_schema=False)["wikidata_id"].to_list()
 
 
-def tradition_extra_qids(
+def tradition_candidate_qids(
     genre_tree_path: Path, manual_overview_additions_path: Path, tradition_additions: list[str]
 ) -> list[str]:
-    """Candidates no P31 music genre pattern reaches: overviews known only as tree parents, curated ones, additions."""
+    """Every P31 music genre (the genre tree's items), the overviews it only knows as parents, curated ones, additions."""
     tree = pl.read_parquet(genre_tree_path)
     overviews = tree.filter(
         pl.col("parent_label").str.starts_with(REGIONAL_OVERVIEW_PREFIX) & pl.col("parent_id").str.starts_with("Q")
     )["parent_id"].to_list()
     overview_additions = pl.read_csv(manual_overview_additions_path, schema_overrides={"item_id": pl.Utf8})["item_id"]
     curated = [qid for qid in overview_additions.to_list() if qid.startswith("Q")]
-    return sorted({*overviews, *curated, *tradition_additions})
+    return sorted({*tree["item_id"].to_list(), *overviews, *curated, *tradition_additions})
 
 
-def ingest_music_tradition_claims(output_dir: Path, patterns: Mapping[str, str]) -> Path:
-    frames = []
-    for kind in patterns:
-        for pid in wikidata_client.TRADITION_CLAIM_PIDS:
-            logger.info("querying Wikidata for %s claims of %s tradition candidates", pid, kind)
-            rows = wikidata_client.run_query(
-                wikidata_client.tradition_claim_query(kind, pid, patterns),
-                variables=wikidata_client.CULTURAL_ENTITY_CLAIM_QUERY_VARIABLES,
-                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
-            )
-            frames.append(
-                pl.DataFrame(
-                    {
-                        "item_id": [_qid(row["item"]) for row in rows],
-                        "property": [pid] * len(rows),
-                        "value": [_qid(row["value"]) for row in rows],
-                        "time_precision": [row["precision"] for row in rows],
-                    },
-                    schema={
-                        "item_id": pl.String,
-                        "property": pl.String,
-                        "value": pl.String,
-                        "time_precision": pl.String,
-                    },
-                ).with_columns(pl.col("time_precision").cast(pl.Int8))
-            )
-    df = pl.concat(frames).unique().sort("property", "item_id", "value")
+def ingest_music_tradition_claims(output_dir: Path, candidate_qids: Sequence[str]) -> Path:
+    df = _ingest_item_claims(candidate_qids, wikidata_client.TRADITION_CLAIM_PIDS, "wikidata_music_tradition_claims")
     check_non_empty(df, "wikidata_music_tradition_claims")
     check_null_rate(df, "value", "wikidata_music_tradition_claims")
 
@@ -466,34 +453,30 @@ def _ingest_sparql_lane(
     with step("country_of_origin"):
         ingest_country_of_origin(output_dir)
     entity_patterns = wikidata_client.curated_entity_patterns(
-        read_entity_additions(curation_dir / "manual_entity_additions.csv")
+        read_entity_additions(curation_dir / "entity_additions.csv")
     )
     with step("cultural_entities"):
-        ingest_cultural_entities(output_dir, entity_patterns)
+        entity_path = ingest_cultural_entities(output_dir, entity_patterns)
     with step("cultural_entity_claims"):
-        ingest_cultural_entity_claims(output_dir, entity_patterns)
+        ingest_cultural_entity_claims(output_dir, pl.read_parquet(entity_path)["item_id"].to_list())
     with step("music_tradition_claims"):
         ingest_music_tradition_claims(
             output_dir,
-            wikidata_client.tradition_candidate_patterns(
-                tradition_extra_qids(
-                    genre_tree_path,
-                    curation_dir / "manual_regional_overview_additions.csv",
-                    read_tradition_additions(curation_dir / "manual_tradition_additions.csv"),
-                )
+            tradition_candidate_qids(
+                genre_tree_path,
+                curation_dir / "regional_overview_additions.csv",
+                read_tradition_additions(curation_dir / "tradition_additions.csv"),
             ),
         )
-    with step("artist_images"):
-        ingest_artist_images(output_dir, datetime.now(UTC))
     with step("admin_hierarchy"):
         ingest_admin_hierarchy(output_dir, admin_seed_qids)
     with step("cultural_entity_aliases"):
-        ingest_cultural_entity_aliases(output_dir, entity_patterns)
+        ingest_cultural_entity_aliases(output_dir, entity_patterns, admin_seed_qids)
 
 
 def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path) -> None:
     with step("descriptions"):
-        ingest_descriptions(genre_tree_path, curation_dir / "manual_regional_overview_additions.csv", output_dir)
+        ingest_descriptions(genre_tree_path, curation_dir / "regional_overview_additions.csv", output_dir)
 
 
 if __name__ == "__main__":

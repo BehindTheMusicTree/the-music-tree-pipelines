@@ -5,12 +5,14 @@ from pathlib import Path
 import polars as pl
 from jsonschema import ValidationError, validate
 
+from gold.genre_targets import TREE_REGIONAL, load_genre_trees
 from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
     build_genre_tree,
     edges_to_parent_map,
     load_descriptions,
     load_extra_parent_edges,
+    load_selected_parent_edges,
     load_tree_curation,
 )
 
@@ -32,16 +34,47 @@ def export_regional_genre_tree(
 
     # Imported after the canonical tree, so a ref may resolve against either tree's rows.
     item_ids = set(hierarchy.get_column("item_id"))
-    canonical_ids = set(pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet").get_column("item_id"))
-    extra_edges = load_extra_parent_edges(
-        wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids | canonical_ids
+    canonical_hierarchy = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
+    canonical_ids = set(canonical_hierarchy.get_column("item_id"))
+    ref_ids = item_ids | canonical_ids
+    parent_selection_path = wikidata_silver_dir / "5_parent_selection.parquet"
+    # A parent picked on another axis than the anchor (the canonical parent, the other overviews) feeds
+    # tracks to it (primaryParents); a secondary parent is classification only (secondaryParents), as is
+    # a curated `add`.
+    selected_edges = load_selected_parent_edges(parent_selection_path, item_ids, ref_ids)
+    secondary_candidates = load_extra_parent_edges(
+        wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, ref_ids
     )
-    curation = load_tree_curation(curation_dir, item_ids, item_ids | canonical_ids)
-    # An extra parent edge feeds tracks to its parent by default (primaryParents); a curated `add`
-    # makes it classification only (secondaryParents).
-    primary_edges, secondary_edges = apply_secondary_parent_rules(
-        extra_edges, curation.secondary_parent_rules, hierarchy, item_ids | canonical_ids
+    curation = load_tree_curation(curation_dir, item_ids, ref_ids)
+    untouched_edges, added_edges = apply_secondary_parent_rules(
+        pl.concat([selected_edges, secondary_candidates]), curation.secondary_parent_rules, hierarchy, ref_ids
     )
+    primary_edges = untouched_edges.join(selected_edges, on=["item_id", "parent_id"], how="semi")
+    secondary_edges = pl.concat(
+        [untouched_edges.join(secondary_candidates, on=["item_id", "parent_id"], how="semi"), added_edges]
+    )
+
+    # The canonical import runs before the regional rows exist, so a canonical item's regional parents
+    # (only a forced_canonical_genres item keeps any) ride on this import as crossTreeSecondaryParents.
+    canonical_curation = load_tree_curation(curation_dir, canonical_ids, ref_ids)
+    cross_untouched, cross_added = apply_secondary_parent_rules(
+        pl.concat(
+            [
+                load_selected_parent_edges(parent_selection_path, canonical_ids, item_ids),
+                load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", canonical_ids, item_ids),
+            ]
+        ),
+        canonical_curation.secondary_parent_rules.filter(pl.col("parent_id").is_in(list(item_ids))),
+        canonical_hierarchy,
+        item_ids,
+    )
+    cross_tree_parents = edges_to_parent_map(pl.concat([cross_untouched, cross_added]))
+
+    targets = load_genre_trees(wikidata_silver_dir)
+    umbrella_ids = set(
+        targets.filter((pl.col("genre_tree") == TREE_REGIONAL) & pl.col("is_umbrella")).get_column("item_id")
+    )
+
     tree = {
         "treeName": "regional",
         "curationExportedOn": curation_exported_on,
@@ -50,11 +83,16 @@ def export_regional_genre_tree(
             primary_parents=edges_to_parent_map(primary_edges),
             secondary_parents=edges_to_parent_map(secondary_edges),
             external_ids=canonical_ids,
+            umbrella_ids=umbrella_ids,
             essential_songs=curation.essential_songs,
             summaries=curation.summaries,
             scenes=curation.scenes,
             descriptions=load_descriptions(descriptions_path),
         ),
+        "crossTreeSecondaryParents": [
+            {"id": item_id, "secondaryParents": parent_ids}
+            for item_id, parent_ids in sorted(cross_tree_parents.items())
+        ],
     }
 
     schema = json.loads(GENRE_TREE_SCHEMA_PATH.read_text())

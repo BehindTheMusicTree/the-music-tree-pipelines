@@ -10,13 +10,39 @@ ENTITIES = [
     ("mor", "historical_region", "Morbihan"),
     ("us", "country", "United States"),
     ("ge", "country", "Georgia"),
-    ("gaus", "historical_region", "Georgia"),
+    ("gaus", "admin_unit", "Georgia"),
     ("kr", "country", "South Korea"),
     ("pop", "ethnic_group", "Pop people"),
-    ("bre_z", "historical_country", "Brittany"),
+    ("bre_z", "cultural_region", "Brittany"),
     ("duchy", "historical_country", "Brittany"),
+    ("es", "country", "Spain"),
+    ("gal", "admin_unit", "Galicia"),
+    ("gal_ee", "historical_region", "Galicia"),
+    ("gal_c", "cultural_region", "Galicia"),
+    ("gal_k", "historical_country", "Galicia"),
+    ("uk", "country", "United Kingdom"),
+    ("sco", "cultural_region", "Scotland"),
+    ("sco_k", "historical_country", "Scotland"),
+    ("khk", "admin_unit", "Khakass"),
+    ("chn", "cultural_region", "China"),
+    ("prc", "country", "People's Republic of China"),
 ]
-CROSSWALK = {"fr": "Q142", "bre": "Q12130", "mor": "Q12642", "us": "Q30", "ge": "Q230", "gaus": "Q1428", "kr": "Q884"}
+CROSSWALK = {
+    "fr": "Q142",
+    "bre": "Q12130",
+    "mor": "Q12642",
+    "us": "Q30",
+    "ge": "Q230",
+    "gaus": "Q1428",
+    "kr": "Q884",
+    "es": "Q29",
+    "gal": "Q3908",
+    "uk": "Q145",
+    "sco": "Q22",
+    "khk": "Q6543",
+    "chn": "Q29520",
+    "prc": "Q148",
+}
 
 
 def claim(item_id, property_, value):
@@ -48,7 +74,7 @@ def run(
             "tradition_exclusions": [(q, "r") for q in exclusions],
         }.get(list_name, ())
         lines = [",".join(columns), *(",".join(row) for row in rows)]
-        (curation / f"manual_{list_name}.csv").write_text("\n".join(lines) + "\n")
+        (curation / f"{list_name}.csv").write_text("\n".join(lines) + "\n")
     pl.DataFrame(
         [(e, kind, name, None, None) for e, kind, name in ENTITIES],
         schema=["entity_id", "kind", "label", "latitude", "longitude"],
@@ -209,3 +235,96 @@ def test_excluded_item_gets_no_anchor(tmp_path):
     claims = [label("Q1", "Folk"), claim("Q1", "P495", "Q884")]
     anchors, _ = run(tmp_path, claims, exclusions=["Q1"])
     assert "Q1" not in anchors
+
+
+def ambiguous(tmp_path):
+    return pl.read_csv(tmp_path / "silver" / "5_music_anchor_ambiguous.csv", infer_schema=False)
+
+
+def test_ambiguous_label_resolves_to_the_place_inside_the_claimed_country(tmp_path):
+    claims = [label("Q1", "music of Galicia"), claim("Q1", "P495", "Q29")]
+    containment = [("gal", "es"), ("gal_k", "es")]
+    anchors, _ = run(tmp_path, claims, containment=containment)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"], anchors["Q1"]["overview_rank"]) == ("gal", "label", 0)
+    assert ambiguous(tmp_path).height == 0
+
+
+def test_narrowed_label_is_not_outranked_by_an_unrelated_claim(tmp_path):
+    claims = [label("Q1", "music of Galicia"), claim("Q1", "P495", "Q29"), claim("Q1", "P17", "Q142")]
+    anchors, _ = run(tmp_path, claims, containment=[("gal", "es"), ("gal_k", "es")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("gal", "label")
+
+
+def test_ambiguous_label_prefers_a_current_place_over_a_historical_state(tmp_path):
+    claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q145")]
+    anchors, _ = run(tmp_path, claims, containment=[("sco", "uk"), ("sco_k", "uk")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("sco", "label")
+
+
+def test_label_without_any_claim_prefers_a_current_place_over_historical_ones(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia"), label("Q2", "music of Scotland")])
+    assert (anchors["Q2"]["anchor_id"], anchors["Q2"]["rule"]) == ("sco", "label")
+    assert "Q1" not in anchors and unplaced.rows() == [("Q1", "music of Georgia", "gaus|ge")]
+
+
+def test_label_with_several_current_places_and_no_claimed_place_is_listed(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of Galicia"), claim("Q1", "P17", "Q29")])
+    assert anchors["Q1"]["anchor_id"] == "es"
+    assert ambiguous(tmp_path).rows() == [("Q1", "music of Galicia", "gal|gal_c|gal_ee|gal_k")]
+
+
+def test_era_only_label_does_not_discard_a_claim_outside_every_match(tmp_path):
+    claims = [label("Q1", "music of Scotland"), claim("Q1", "P17", "Q30")]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("us", "P17")
+
+
+def test_overview_naming_its_country_keeps_names_anchor(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of the United Kingdom"), claim("Q1", "P17", "Q145")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("uk", 0)
+
+
+def test_overview_label_matches_a_place_through_its_alias(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of Khakassia")], aliases=[("Q6543", "Khakassia")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("khk", "label")
+
+
+def test_overview_whose_label_names_only_placeless_entities_names_its_claimed_anchor(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"], anchors["Q1"]["overview_rank"]) == ("prc", "P1269", 0)
+    assert unplaced.height == 0
+
+
+def test_overview_naming_its_anchor_by_label_ranks_before_one_naming_it_by_claim(tmp_path):
+    claims = [
+        label("Q1", "music of China"),
+        claim("Q1", "P1269", "Q148"),
+        label("Q2", "music of the People's Republic of China"),
+    ]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q2"]["anchor_id"], anchors["Q2"]["overview_rank"]) == ("prc", 0)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("prc", 1)
+
+
+def test_overview_whose_label_names_only_placeless_entities_does_not_name_its_country_of_origin(tmp_path):
+    anchors, _ = run(tmp_path, [label("Q1", "music of China"), claim("Q1", "P495", "Q148")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("prc", None)
+
+
+def test_overviews_naming_an_anchor_by_claim_rank_by_rule_then_qid(tmp_path):
+    claims = [
+        label("Q3", "music of China"),
+        claim("Q3", "P1269", "Q148"),
+        label("Q2", "music of China"),
+        claim("Q2", "P2596", "Q148"),
+        label("Q1", "music of China"),
+        claim("Q1", "P1269", "Q148"),
+    ]
+    anchors, _ = run(tmp_path, claims)
+    assert [anchors[q]["overview_rank"] for q in ("Q2", "Q1", "Q3")] == [0, 1, 2]
+
+
+def test_claimed_anchor_does_not_take_the_name_of_a_placeable_label_match(tmp_path):
+    claims = [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")]
+    anchors, _ = run(tmp_path, claims, footprint=[("chn", "khk", "cover")])
+    assert anchors["Q1"]["overview_rank"] is None

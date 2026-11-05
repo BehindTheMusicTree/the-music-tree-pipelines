@@ -36,7 +36,7 @@ def load_curated_disambiguation(
     closure: pl.DataFrame,
     genre_key: Callable[[pl.Expr], pl.Expr],
 ) -> Disambiguation:
-    """`manual_genre_disambiguation.csv` + `manual_genre_disambiguation_context.csv`, keyed by genre key. Raises
+    """`genre_disambiguation.csv` + `genre_disambiguation_context.csv`, keyed by genre key. Raises
     on a candidate not in `item_ids` (the genres a song may get), a hint context not in `context_item_ids`, a key an earlier cascade step other than `normalized` already resolves (`taken_keys`:
     lowercase labels, alias and non-genre keys), a key with fewer than 2 candidates or several defaults, or a hint
     on an unlisted candidate."""
@@ -62,7 +62,7 @@ def load_curated_disambiguation(
     per_key = candidates.group_by("key").agg(count=pl.len(), defaults=pl.col("is_default").sum())
     single = sorted(per_key.filter(pl.col("count") < 2)["key"])
     if single:
-        raise ValueError(f"{name} has genre key(s) with fewer than 2 candidates, use manual_genre_alias.csv: {single}")
+        raise ValueError(f"{name} has genre key(s) with fewer than 2 candidates, use genre_alias.csv: {single}")
     several_defaults = sorted(per_key.filter(pl.col("defaults") > 1)["key"])
     if several_defaults:
         raise ValueError(f"{name} has genre key(s) with several defaults: {several_defaults}")

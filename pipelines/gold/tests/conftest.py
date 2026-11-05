@@ -21,7 +21,7 @@ CURATION_COLUMNS = {
 def _write(curation_dir: Path, name: str, rows: list[dict[str, str]]) -> None:
     columns = CURATION_COLUMNS[name]
     data = {column: [row.get(column) for row in rows] for column in columns}
-    pl.DataFrame(data, schema=dict.fromkeys(columns, pl.Utf8)).write_csv(curation_dir / f"manual_{name}.csv")
+    pl.DataFrame(data, schema=dict.fromkeys(columns, pl.Utf8)).write_csv(curation_dir / f"{name}.csv")
 
 
 @pytest.fixture

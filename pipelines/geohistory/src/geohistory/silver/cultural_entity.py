@@ -4,7 +4,7 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import check_non_empty, check_unique_key
 
-from geohistory.silver.curation import read_curation_list
+from geohistory.silver.curation import ADDITION_KINDS, read_curation_list
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +63,9 @@ def _admin_entities(
     """Admin-1 units and P131 intermediates as `admin_unit` entities, plus the NE polygon → entity map."""
     item_entity = dict(crosswalk.sort("entity_id", descending=True).select("wikidata_id", "entity_id").rows())
     countries = natural_earth.filter(pl.col("level") == 0)
-    country_entity = {
-        adm0: item_entity.get(qid) for adm0, qid in countries.select("adm0_a3", "wikidata_id").rows() if qid
-    }
-    country_qids = set(countries["wikidata_id"].drop_nulls())
+    country_qid = dict(countries.filter(pl.col("wikidata_id").is_not_null()).select("adm0_a3", "wikidata_id").rows())
+    admin1 = natural_earth.filter(pl.col("level") == 1)
+    single_unit = set(admin1.group_by("adm0_a3").len().filter(pl.col("len") == 1)["adm0_a3"])
 
     labels = dict(
         hierarchy.filter(pl.col("label").is_not_null())
@@ -76,17 +75,23 @@ def _admin_entities(
         .rows()
     )
     units: dict[str, str] = {}
+    # A Natural Earth country whose item is no Wikidata entity (a dependency such as Jersey, Hong Kong or the US
+    # Virgin Islands) is an admin unit of its own, so its polygon and its admin-1 units still reach the map. NE
+    # abbreviates its country names ("U.S. Virgin Is."), so the item's label wins.
+    for qid, name in countries.sort("ne_id").select("wikidata_id", "name").rows():
+        if qid is not None and qid not in item_entity:
+            units.setdefault(qid, labels.get(qid) or name)
+    entity_of = item_entity | {qid: qid for qid in units}
+    country_entity = {adm0: entity_of[qid] for adm0, qid in country_qid.items()}
+
     ne_rows = []
-    for ne_id, adm0, qid, name in (
-        natural_earth.filter(pl.col("level") == 1)
-        .sort("ne_id")
-        .select("ne_id", "adm0_a3", "wikidata_id", "name")
-        .rows()
-    ):
-        if qid in country_qids:
-            entity_id = item_entity.get(qid)
-        elif qid in item_entity:
-            entity_id = item_entity[qid]
+    for ne_id, adm0, qid, name in admin1.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id", "name").rows():
+        # NE leaves the sole unit of an unsubdivided territory (`VGB+00?`) without a QID; it is the country's extent,
+        # though its NE name can be a part of it (Guernsey's unit is named "Sark").
+        if qid is None and adm0 in single_unit and adm0 in country_qid:
+            qid = country_qid[adm0]
+        if qid in entity_of:
+            entity_id = entity_of[qid]
         elif (label := name or labels.get(qid)) is None:
             entity_id = None
         else:
@@ -94,7 +99,7 @@ def _admin_entities(
             units.setdefault(entity_id, label)
         ne_rows.append((ne_id, 1, entity_id, country_entity.get(adm0)))
     for ne_id, adm0, qid in countries.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id").rows():
-        ne_rows.append((ne_id, 0, item_entity.get(qid), country_entity.get(adm0)))
+        ne_rows.append((ne_id, 0, entity_of.get(qid), country_entity.get(adm0)))
 
     known = set(item_entity) | {qid for qid in natural_earth["wikidata_id"].drop_nulls()} | set(units)
     parents = hierarchy.filter(pl.col("property") == "P131").select("item_id", "value")
@@ -142,7 +147,16 @@ def cultural_entity(
         logger.warning("%d Wikidata Glottocode(s) are absent from Glottolog and left out", unknown.height)
     linked = item_glottocodes.join(glottolog.select(pl.col("entity_id").alias("glottocode")), on="glottocode")
 
-    additions = read_curation_list(curation_dir, "entity_additions")["entity_id"].to_list()
+    addition_rows = read_curation_list(curation_dir, "entity_additions").with_columns(
+        pl.col("entity_kind").fill_null("")
+    )
+    invalid_kinds = sorted(set(addition_rows["entity_kind"].to_list()) - {"", *ADDITION_KINDS})
+    if invalid_kinds:
+        raise ValueError(f"entity_additions entity_kind must be blank or one of {ADDITION_KINDS}, got {invalid_kinds}")
+    additions = addition_rows["entity_id"].to_list()
+    addition_kinds = addition_rows.filter(pl.col("entity_kind") != "").select(
+        pl.col("entity_id").alias("item_id"), pl.col("entity_kind")
+    )
     unfetched = sorted(set(additions) - set(wikidata["item_id"].to_list()))
     if unfetched:
         raise ValueError(
@@ -159,6 +173,13 @@ def cultural_entity(
     wikidata_entities = (
         wikidata.filter(pl.col("kind").is_in(WIKIDATA_ENTITY_KINDS))
         .join(linked.select("item_id").unique(), on="item_id", how="anti")
+        .join(addition_kinds, on="item_id", how="left")
+        .with_columns(
+            pl.when(pl.col("kind") == "curated")
+            .then(pl.coalesce("entity_kind", "kind"))
+            .otherwise("kind")
+            .alias("kind")
+        )
         .sort(
             "item_id",
             pl.col("kind").replace_strict({kind: rank for rank, kind in enumerate(WIKIDATA_ENTITY_KINDS)}),

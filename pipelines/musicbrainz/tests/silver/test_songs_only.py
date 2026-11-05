@@ -22,7 +22,7 @@ def test_main_runs_only_songs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
         (bronze_dir / f"{name}.parquet").touch()
     for name in songs_only._SILVER_INPUTS:
         (silver_dir / f"{name}.parquet").touch()
-    (curation_dir / "manual_recording_youtube_video.csv").touch()
+    (curation_dir / "recording_youtube_video.csv").touch()
     songs = MagicMock()
     monkeypatch.setattr(songs_only, "songs", songs)
 
@@ -32,7 +32,7 @@ def test_main_runs_only_songs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
         bronze_dir,
         silver_dir,
         silver_dir,
-        curation_dir / "manual_recording_youtube_video.csv",
+        curation_dir / "recording_youtube_video.csv",
     )
     assert not any(name.startswith(("recording_", "youtube_")) for name in vars(songs_only))
 

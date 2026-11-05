@@ -79,7 +79,7 @@ ALL_PLAYABLE = {
 }
 
 
-VIDEO_CSV = "manual_recording_youtube_video.csv"
+VIDEO_CSV = "recording_youtube_video.csv"
 VIDEO_COLUMNS = ("musicbrainz_recording_id", "youtube_video_id", "unplayable_reason", "reason")
 
 
@@ -294,7 +294,11 @@ def _dedup_songs(tmp_path: Path, recordings: list[dict], works: list[tuple[int, 
         schema=L_RECORDING_WORK_SCHEMA,
     ).write_parquet(bronze_dir / "l_recording_work.parquet")
     result = pl.read_parquet(_songs(bronze_dir, silver_dir, tmp_path / "output"))
-    return result.sort("musicbrainz_recording_id").select("musicbrainz_recording_id", "youtube_video_id").rows()
+    return (
+        result.sort("musicbrainz_recording_id")
+        .select("musicbrainz_recording_id", "youtube_video_id", "recording_count")
+        .rows()
+    )
 
 
 def _recording(recording_id: int, name: str, artist_credit: int = 10) -> dict:
@@ -312,9 +316,9 @@ def test_songs_groups_recordings_of_one_work_by_primary_artist(tmp_path: Path) -
 
     assert _dedup_songs(tmp_path, recordings, works) == [
         # Lowest id keys the group; 1000's video wins on rank.
-        ("gid-1000", "aaaaaaaaaaa"),
-        ("gid-1001", "bbbbbbbbbbb"),
-        ("gid-1004", "ddddddddddd"),
+        ("gid-1000", "aaaaaaaaaaa", 2),
+        ("gid-1001", "bbbbbbbbbbb", 1),
+        ("gid-1004", "ddddddddddd", 1),
     ]
 
 
@@ -327,9 +331,9 @@ def test_songs_groups_workless_recordings_by_normalized_title(tmp_path: Path) ->
     ]
 
     assert _dedup_songs(tmp_path, recordings, [(1000, 7)]) == [
-        ("gid-1000", "aaaaaaaaaaa"),
-        ("gid-1001", "bbbbbbbbbbb"),
-        ("gid-1002", "ccccccccccc"),
+        ("gid-1000", "aaaaaaaaaaa", 1),
+        ("gid-1001", "bbbbbbbbbbb", 1),
+        ("gid-1002", "ccccccccccc", 2),
     ]
 
 

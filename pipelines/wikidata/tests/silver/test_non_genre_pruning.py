@@ -7,35 +7,35 @@ from wikidata.silver import non_genre_pruning as ngp
 
 
 def _write_manual_theme_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_theme_genres.csv"
+    path = tmp_path / "theme_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_technique_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_technique_genres.csv"
+    path = tmp_path / "technique_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_out_of_scope_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_out_of_scope_genres.csv"
+    path = tmp_path / "out_of_scope_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
-def _write_manual_non_stylistic_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_non_stylistic_genres.csv"
+def _write_manual_umbrella_non_stylistic_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
+    path = tmp_path / "umbrella_non_stylistic_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
 
 
 def _write_manual_duplicate_genres(tmp_path: Path, rows: list[dict] | None = None) -> Path:
-    path = tmp_path / "manual_duplicate_genres.csv"
+    path = tmp_path / "duplicate_genres.csv"
     schema = {"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}
     pl.DataFrame(rows or [], schema=schema).write_csv(path)
     return path
@@ -99,14 +99,16 @@ def _prune_non_genre_items(
     manual_theme_genres_path = _write_manual_theme_genres(tmp_path, theme_rows)
     manual_technique_genres_path = _write_manual_technique_genres(tmp_path, technique_rows)
     manual_out_of_scope_genres_path = _write_manual_out_of_scope_genres(tmp_path, out_of_scope_rows)
-    manual_non_stylistic_genres_path = _write_manual_non_stylistic_genres(tmp_path, non_stylistic_rows)
+    manual_umbrella_non_stylistic_genres_path = _write_manual_umbrella_non_stylistic_genres(
+        tmp_path, non_stylistic_rows
+    )
     manual_duplicate_genres_path = _write_manual_duplicate_genres(tmp_path, duplicate_rows)
     return ngp.prune_non_genre_items(
         genre_classification_path,
         manual_theme_genres_path,
         manual_technique_genres_path,
         manual_out_of_scope_genres_path,
-        manual_non_stylistic_genres_path,
+        manual_umbrella_non_stylistic_genres_path,
         manual_duplicate_genres_path,
         output_dir,
     )

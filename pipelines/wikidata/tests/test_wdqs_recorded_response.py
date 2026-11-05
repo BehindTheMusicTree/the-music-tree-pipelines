@@ -24,10 +24,10 @@ def _recorded_response(*, with_genid: bool) -> dict:
 
 
 def _serve(monkeypatch: pytest.MonkeyPatch, response: dict) -> None:
-    def get(url: str, **kwargs: object) -> httpx.Response:
-        return httpx.Response(200, json=response, request=httpx.Request("GET", url))
+    def post(url: str, **kwargs: object) -> httpx.Response:
+        return httpx.Response(200, json=response, request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(wikidata_client.httpx, "get", get)
+    monkeypatch.setattr(wikidata_client.httpx, "post", post)
 
 
 def test_run_query_reads_a_recorded_wdqs_response(monkeypatch: pytest.MonkeyPatch) -> None:

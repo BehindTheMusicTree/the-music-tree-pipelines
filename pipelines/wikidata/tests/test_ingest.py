@@ -139,7 +139,7 @@ def _description_inputs(tmp_path: Path, additions: list[dict[str, str]]) -> tupl
             "parent_id": ["Q188451", None, "Q11399"],
         }
     ).write_parquet(tree_path)
-    additions_path = tmp_path / "manual_regional_overview_additions.csv"
+    additions_path = tmp_path / "regional_overview_additions.csv"
     pl.DataFrame(additions, schema={"item_id": pl.Utf8, "item_label": pl.Utf8, "reason": pl.Utf8}).write_csv(
         additions_path
     )
@@ -267,7 +267,7 @@ def test_ingest_cultural_entities_keeps_one_row_per_item_kind_and_glottocode(
 
 
 def test_read_entity_additions_returns_the_listed_qids(tmp_path: Path) -> None:
-    path = tmp_path / "manual_entity_additions.csv"
+    path = tmp_path / "entity_additions.csv"
     path.write_text("entity_id,reason\nQ123559,al-Andalus\nQ141814080,Oued Beht\n")
 
     assert bw.read_entity_additions(path) == ["Q123559", "Q141814080"]
@@ -280,46 +280,54 @@ def test_ingest_cultural_entities_raises_on_empty_results(monkeypatch: pytest.Mo
         bw.ingest_cultural_entities(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
 
 
+def _claim_row(qid: str, pid: str, value: str, precision: str | None = None) -> dict[str, str | None]:
+    return {"item": f"http://www.wikidata.org/entity/{qid}", "property": pid, "value": value, "precision": precision}
+
+
 def test_ingest_cultural_entity_claims_keeps_bce_literals_precision_and_qid_values(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    rows_by_pid = {
-        "P571": [
-            {"item": "http://www.wikidata.org/entity/Q153836", "value": "-3500-01-01T00:00:00Z", "precision": "7"}
-        ],
-        "P1366": [
-            {
-                "item": "http://www.wikidata.org/entity/Q35505",
-                "value": "http://www.wikidata.org/entity/Q294",
-                "precision": None,
-            }
-        ],
-    }
+    rows = [
+        _claim_row("Q153836", "P571", "-3500-01-01T00:00:00Z", "7"),
+        _claim_row("Q35505", "P1366", "http://www.wikidata.org/entity/Q294"),
+        _claim_row("Q35505", "P1366", "http://www.wikidata.org/entity/Q294"),
+    ]
+    run_query = MagicMock(return_value=rows)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
 
-    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
-        for pid, rows in rows_by_pid.items():
-            if f"p:{pid} " in query or f"wdt:{pid} " in query:
-                return rows
-        return []
+    result = bw.ingest_cultural_entity_claims(tmp_path, ["Q153836", "Q35505"])
 
-    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
-
-    result = bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
-
+    run_query.assert_called_once()
+    assert "VALUES ?item { wd:Q153836 wd:Q35505 }" in run_query.call_args.args[0]
     assert pl.read_parquet(result).rows() == [
         ("Q35505", "P1366", "Q294", None),
         ("Q153836", "P571", "-3500-01-01T00:00:00Z", 7),
     ]
 
 
+def test_ingest_cultural_entity_claims_queries_one_item_chunk_at_a_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bw.wikidata_client, "ITEM_CLAIM_CHUNK", 1)
+    run_query = MagicMock(side_effect=[[_claim_row("Q1", "P571", "+1900-01-01T00:00:00Z", "9")], []])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entity_claims(tmp_path, ["Q2", "Q1"])
+
+    assert run_query.call_count == 2
+    assert pl.read_parquet(result)["item_id"].to_list() == ["Q1"]
+
+
 def test_ingest_cultural_entity_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_cultural_entity_claims(tmp_path, bw.wikidata_client.CULTURAL_ENTITY_KIND_PATTERNS)
+        bw.ingest_cultural_entity_claims(tmp_path, ["Q1"])
 
 
-def test_tradition_extra_qids_covers_parent_only_overviews_curated_overviews_and_additions(tmp_path: Path) -> None:
+def test_tradition_candidate_qids_cover_tree_items_parent_only_overviews_curated_overviews_and_additions(
+    tmp_path: Path,
+) -> None:
     tree = tmp_path / "tree.parquet"
     pl.DataFrame(
         {
@@ -331,7 +339,7 @@ def test_tradition_extra_qids_covers_parent_only_overviews_curated_overviews_and
     overview_additions = tmp_path / "overviews.csv"
     overview_additions.write_text("item_id,label,reason\nQ20,music of Tuva,r\nLOCAL:y,music of Mars,r\n")
 
-    assert bw.tradition_extra_qids(tree, overview_additions, ["Q30"]) == ["Q10", "Q20", "Q30"]
+    assert bw.tradition_candidate_qids(tree, overview_additions, ["Q30"]) == ["Q1", "Q10", "Q2", "Q20", "Q3", "Q30"]
 
 
 def test_read_tradition_additions_returns_the_listed_qids(tmp_path: Path) -> None:
@@ -344,29 +352,19 @@ def test_read_tradition_additions_returns_the_listed_qids(tmp_path: Path) -> Non
 def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_values(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    rows_by_marker = {
-        "p:P571 ": [{"item": "http://www.wikidata.org/entity/Q1", "value": "+1890-01-01T00:00:00Z", "precision": "9"}],
-        "wdt:P2596 ": [
-            {
-                "item": "http://www.wikidata.org/entity/Q1",
-                "value": "http://www.wikidata.org/entity/Q2",
-                "precision": None,
-            }
-        ],
-        "wikibase:sitelinks ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "42", "precision": None}],
-        "?item rdfs:label ?value": [{"item": "http://www.wikidata.org/entity/Q1", "value": "blues", "precision": None}],
-    }
+    rows = [
+        _claim_row("Q1", "P571", "+1890-01-01T00:00:00Z", "9"),
+        _claim_row("Q1", "P2596", "http://www.wikidata.org/entity/Q2"),
+        _claim_row("Q1", "sitelinks", "42"),
+        _claim_row("Q1", "label", "blues"),
+    ]
+    run_query = MagicMock(return_value=rows)
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
 
-    def fake_run_query(query: str, **kwargs: object) -> list[dict[str, str | None]]:
-        for marker, rows in rows_by_marker.items():
-            if marker in query:
-                return rows
-        return []
+    result = bw.ingest_music_tradition_claims(tmp_path, ["Q1"])
 
-    monkeypatch.setattr(bw.wikidata_client, "run_query", fake_run_query)
-
-    result = bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
-
+    query = run_query.call_args.args[0]
+    assert all(f'BIND("{pid}" AS ?property)' in query for pid in bw.wikidata_client.TRADITION_CLAIM_PIDS)
     assert pl.read_parquet(result).rows() == [
         ("Q1", "P2596", "Q2", None),
         ("Q1", "P571", "+1890-01-01T00:00:00Z", 9),
@@ -378,18 +376,18 @@ def test_ingest_music_tradition_claims_keeps_literals_sitelinks_labels_and_qid_v
 def test_ingest_music_tradition_claims_raises_on_unbound_values(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    unbound = [{"item": "http://www.wikidata.org/entity/Q1", "value": None, "precision": None}]
+    unbound = [{"item": "http://www.wikidata.org/entity/Q1", "property": "label", "value": None, "precision": None}]
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=unbound))
 
     with pytest.raises(ValueError, match="'value' null rate"):
-        bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+        bw.ingest_music_tradition_claims(tmp_path, ["Q1"])
 
 
 def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(bw.wikidata_client, "run_query", MagicMock(return_value=[]))
 
     with pytest.raises(ValueError, match="is empty"):
-        bw.ingest_music_tradition_claims(tmp_path, bw.wikidata_client.tradition_candidate_patterns([]))
+        bw.ingest_music_tradition_claims(tmp_path, ["Q1"])
 
 
 def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
@@ -565,6 +563,23 @@ def test_ingest_cultural_entity_aliases_keeps_one_row_per_item_and_alias(
 
     assert run_query.call_count == 2
     assert pl.read_parquet(result).rows() == [("Q12130", "Bretagne")]
+
+
+def test_ingest_cultural_entity_aliases_adds_the_names_of_admin_units(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run_query = MagicMock(
+        side_effect=[
+            [{"item": "http://www.wikidata.org/entity/Q142", "alias": "France"}],
+            [{"item": "http://www.wikidata.org/entity/Q6543", "alias": "Khakassia"}],
+        ]
+    )
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_cultural_entity_aliases(tmp_path, {"country": "p1"}, ["Q6543"])
+
+    assert "VALUES ?seed { wd:Q6543 }" in run_query.call_args_list[1].args[0]
+    assert pl.read_parquet(result).rows() == [("Q142", "France"), ("Q6543", "Khakassia")]
 
 
 def test_ingest_cultural_entity_aliases_raises_on_empty_results(

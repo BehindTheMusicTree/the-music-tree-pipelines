@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 WIKIDATA_ITEM_URL_PREFIX = "https://www.wikidata.org/wiki/"
 
-# manual_label_overrides.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
+# label_overrides.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline):
 # a data expert's pick of an alternate display name for a node in the exported
 # genre tree (e.g. "pop music" -> "Mainstream Pop"), with a `reason` column explaining why. This only
 # ever affects `item_display_label`/`parent_display_label` (what gold's genre_tree_builder emits as a
 # node's "name") — `item_label`/`parent_label` (the real Wikidata label, used for genre-tag matching in
 # gold's genre_match.py and for all internal classification logic) are never touched by it.
 
-# manual_capitalized_words.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a list of nationality/ethnic/region adjectives
+# capitalized_words.csv (curated in grow-the-music-tree-api, pulled into Bronze by the curation pipeline): a list of nationality/ethnic/region adjectives
 # (e.g. "cuban" -> "Cuban") that Wikidata is inconsistent about capitalizing inside a genre label (e.g.
 # "afro-cuban jazz"). Applied word-by-word, wherever the word appears in the label — not just at the
 # start — as part of deriving the default `item_display_label` below. Gaps found later (a proper noun
@@ -25,7 +25,7 @@ _WORD_PATTERN = re.compile(r"[A-Za-z]+")
 
 
 def _load_display_labels(df: pl.DataFrame, manual_label_overrides: pl.DataFrame) -> pl.DataFrame:
-    csv_name = "manual_label_overrides.csv"
+    csv_name = "label_overrides.csv"
 
     for column in ("item_id", "display_label"):
         blank = manual_label_overrides.filter(pl.col(column).is_null() | (pl.col(column).str.strip_chars() == ""))
@@ -45,7 +45,7 @@ def _load_display_labels(df: pl.DataFrame, manual_label_overrides: pl.DataFrame)
 
 
 def _load_capitalized_words(manual_capitalized_words: pl.DataFrame) -> dict[str, str]:
-    csv_name = "manual_capitalized_words.csv"
+    csv_name = "capitalized_words.csv"
 
     for column in ("word", "capitalized"):
         blank = manual_capitalized_words.filter(pl.col(column).is_null() | (pl.col(column).str.strip_chars() == ""))

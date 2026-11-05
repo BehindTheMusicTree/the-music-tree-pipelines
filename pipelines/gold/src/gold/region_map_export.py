@@ -350,6 +350,12 @@ def export_region_map(
             chain.append(parents[chain[-1]])
         return chain
 
+    def inherited_overview(region: str) -> str | None:
+        """The overview of the nearest admin ancestor that has one, for an admin region without its own."""
+        if region in overview_by_region:
+            return None
+        return next((overview_by_region[a] for a in admin_ancestors(region)[1:] if a in overview_by_region), None)
+
     def own_items(region: str) -> set[str]:
         return {g["itemId"] for g in genres_by_region.get(region, ())}
 
@@ -365,7 +371,8 @@ def export_region_map(
     zone_members: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
     for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
-        admin_id = dissolved.get(admin_id, admin_id)
+        while admin_id in dissolved:
+            admin_id = dissolved[admin_id]
         if entity_id in zone_set and admin_id in shapes:
             zone_members[entity_id].add(admin_id)
             for ancestor in admin_ancestors(admin_id):
@@ -401,6 +408,7 @@ def export_region_map(
                 "centroid": shape["centroid"],
                 "drillable": bool(children.get(region)),
                 "overviewItemId": overview_by_region.get(region),
+                "inheritedOverviewItemId": None if region in zone_set else inherited_overview(region),
                 "genres": genres_by_region.get(region, []),
                 "songCount": sum(song_counts.get(item, 0) for item in relevant),
                 "genreCount": len(relevant),
@@ -448,7 +456,13 @@ def export_region_map(
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame.write_csv(output_dir / "5_region_map_unplaced.csv")
     without_overview = sum(1 for entry in entries if entry["overviewItemId"] is None)
-    logger.info("%d of %d region(s) have no overview genre", without_overview, len(entries))
+    inheriting = sum(1 for entry in entries if entry["inheritedOverviewItemId"] is not None)
+    logger.info(
+        "%d of %d region(s) have no overview genre, %d of them inherit one from an ancestor region",
+        without_overview,
+        len(entries),
+        inheriting,
+    )
     report = {
         "unplacedGenreCount": unplaced_frame.height,
         "regionsWithoutOverview": without_overview,

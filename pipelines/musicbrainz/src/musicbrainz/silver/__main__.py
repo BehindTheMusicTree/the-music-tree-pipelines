@@ -31,7 +31,7 @@ with step("1_recording_link"):
 with step("2_recording_genre"):
     recording_genre(bronze_dir, silver_dir)
 with step("3_youtube_candidates"):
-    youtube_candidates(bronze_dir, silver_dir, silver_dir, curation_dir / "manual_recording_youtube_video.csv")
+    youtube_candidates(bronze_dir, silver_dir, silver_dir, curation_dir / "recording_youtube_video.csv")
 with step("4_youtube_video_status"), httpx.Client() as client:
     youtube_video_status(silver_dir, silver_dir, client, youtube_api_key, datetime.now(UTC), youtube_status_max_batches)
 with step("5_songs"):
@@ -39,7 +39,7 @@ with step("5_songs"):
         bronze_dir,
         silver_dir,
         silver_dir,
-        curation_dir / "manual_recording_youtube_video.csv",
+        curation_dir / "recording_youtube_video.csv",
     )
 with step("6_artists"):
     artists(bronze_dir, silver_dir)

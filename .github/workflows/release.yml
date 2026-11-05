@@ -1,0 +1,12 @@
+name: Publish GitHub release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-github.yml@7857565a0fbbf7a4569147044d14eb7350df82c3
