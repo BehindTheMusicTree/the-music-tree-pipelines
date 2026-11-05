@@ -81,7 +81,8 @@ def _admin_entities(
     units: dict[str, str] = {}
     ne_rows = []
     for ne_id, adm0, qid, name in admin1.sort("ne_id").select("ne_id", "adm0_a3", "wikidata_id", "name").rows():
-        # NE leaves the sole unit of an unsubdivided territory (`VGB+00?`) without a QID; it is the country's extent.
+        # NE leaves the sole unit of an unsubdivided territory (`VGB+00?`) without a QID; it is the country's extent,
+        # though its NE name can be a part of it (Guernsey's unit is named "Sark"), so the QID's label wins.
         inherited = qid is None and adm0 in single_unit and adm0 in country_qid
         if inherited:
             qid = country_qid[adm0]
@@ -89,7 +90,7 @@ def _admin_entities(
             entity_id = item_entity.get(qid)
         elif qid in item_entity:
             entity_id = item_entity[qid]
-        elif (label := name or labels.get(qid)) is None:
+        elif (label := (labels.get(qid) or name) if inherited else (name or labels.get(qid))) is None:
             entity_id = None
         else:
             entity_id = qid or f"ne:{ne_id}"

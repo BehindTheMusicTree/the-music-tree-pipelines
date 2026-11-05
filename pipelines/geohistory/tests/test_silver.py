@@ -515,11 +515,17 @@ def test_cultural_entity_gives_the_sole_unit_of_an_unsubdivided_territory_its_co
             ("TUV+00?", 1, None, "TUV", "Tuvalu"),
             ("c-xxx", 0, None, "XXX", "Nowhere"),
             ("XXX+00?", 1, None, "XXX", "Nowhere"),
+            ("c-ggy", 0, "Q25230", "GGY", "Guernsey"),
+            ("GGY+00?", 1, None, "GGY", "Sark"),
         ],
+        hierarchy=[("Q25230", "label", None, "Bailiwick of Guernsey")],
     )
     cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
 
-    kinds = dict(pl.read_parquet(silver / "1_cultural_entity.parquet").select("entity_id", "kind").rows())
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
+    assert labels["Q25230"] == "Bailiwick of Guernsey" and labels["Q25305"] == "British Virgin Islands"
     assert kinds["Q25305"] == "admin_unit" and kinds["Q672"] == "country" and kinds["ne:XXX+00?"] == "admin_unit"
     assert "ne:VGB+00?" not in kinds and "ne:TUV+00?" not in kinds
     ne_map = {r["ne_id"]: r["entity_id"] for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
