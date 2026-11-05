@@ -113,6 +113,7 @@ def _add_manual_canonical_parent_items(df: pl.DataFrame, manual_additions: pl.Da
         has_parent_label=pl.lit(None, dtype=pl.Boolean),
         is_regional_overview=pl.lit(False),
         classification_reason=pl.lit(MANUAL_CANONICAL_PARENT_ADDITION_REASON),
+        exclude_other_parents=pl.lit(None, dtype=pl.Boolean),
     ).select(df.columns)
     logger.info("added %d manual synthetic canonical parent node(s)", added.height)
 
