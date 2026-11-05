@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Silver `music_anchor` also prefers the current place over a historical state when the overview claims no place at all ("Music of Finland" on Finland, not the Grand Duchy), instead of leaving it without an anchor.
 - Wikidata `cultural_entity_alias` also indexes each place's English main label, and the English names of the admin units under the seed countries, so aliases like "Khakassia" resolve.
 
+### Fixed
+
+- Silver `entity_footprint` only gives a place a successor's admin units when the place is that successor's sole predecessor (and a predecessor's when the place is its sole successor). East Germany no longer covers all 16 Länder through Germany, nor Auvergne all of Auvergne-Rhône-Alpes; such places fall back to their coordinates.
+
 ## [9.2.0] - 2026-11-04
 
 ### Added

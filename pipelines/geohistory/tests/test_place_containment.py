@@ -209,6 +209,30 @@ def test_footprint_self_cover_and_succession(tmp_path):
     assert not any(entity == "cat" for entity, _ in found)
 
 
+def test_footprint_succession_skips_a_neighbour_shared_with_another_entity(tmp_path):
+    found = footprint(
+        tmp_path,
+        containment=[("fr", "bre", "p131"), ("fr", "loi", "p131")],
+        ne_ids=["bre", "loi", "cat"],
+        succession=[("old", "fr", "P1366"), ("pen", "fr", "P1366"), ("q327", "cat", "P1366"), ("kr", "cat", "P1365")],
+        points={"old": (2.0, 2.0)},
+    )
+    assert found[("old", "bre")] == "point" and ("old", "loi") not in found
+    assert not any(entity == "pen" for entity, _ in found)
+    assert not any(entity == "kr" for entity, _ in found)
+
+
+def test_footprint_succession_takes_the_sole_predecessor_of_a_split(tmp_path):
+    found = footprint(
+        tmp_path,
+        containment=[],
+        ne_ids=["bre", "loi"],
+        succession=[("q327", "bre", "P1366"), ("q327", "loi", "P1366"), ("bre", "old", "P1366")],
+    )
+    assert found[("q327", "bre")] == found[("q327", "loi")] == "succession"
+    assert found[("old", "bre")] == "succession"
+
+
 def test_footprint_places_a_point_entity_in_the_admin_polygon_containing_it(tmp_path):
     found = footprint(
         tmp_path,

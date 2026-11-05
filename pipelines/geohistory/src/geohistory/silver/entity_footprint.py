@@ -69,17 +69,20 @@ def entity_footprint(bronze_dir: Path, silver_dir: Path) -> Path:
         if tiles:
             own[entity_id] = (tiles, "cover")
 
-    neighbours: dict[str, list[str]] = defaultdict(list)
+    successors: dict[str, list[str]] = defaultdict(list)
+    predecessors: dict[str, list[str]] = defaultdict(list)
     for predecessor, successor in succession.select("predecessor_id", "successor_id").rows():
-        neighbours[predecessor].append(successor)
-    reverse: dict[str, list[str]] = defaultdict(list)
-    for predecessor, successor in succession.select("predecessor_id", "successor_id").rows():
-        reverse[successor].append(predecessor)
+        successors[predecessor].append(successor)
+        predecessors[successor].append(predecessor)
 
+    # A neighbour's footprint is only the entity's when the neighbour came from (or went to) the entity
+    # alone: East Germany's successor Germany also covers West Germany's Länder.
     rows = [(entity_id, admin, rule) for entity_id, (ids, rule) in own.items() for admin in sorted(ids)]
     for entity_id in sorted(place_ids - set(own)):
-        for related in (neighbours, reverse):
-            ids = frozenset().union(*(own[other][0] for other in related.get(entity_id, ()) if other in own))
+        for related, back in ((successors, predecessors), (predecessors, successors)):
+            ids = frozenset().union(
+                *(own[other][0] for other in related.get(entity_id, ()) if other in own and back[other] == [entity_id])
+            )
             if ids:
                 rows.extend((entity_id, admin, "succession") for admin in sorted(ids))
                 break
