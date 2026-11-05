@@ -24,6 +24,8 @@ ENTITIES = [
     ("sco", "cultural_region", "Scotland"),
     ("sco_k", "historical_country", "Scotland"),
     ("khk", "admin_unit", "Khakass"),
+    ("chn", "cultural_region", "China"),
+    ("prc", "country", "People's Republic of China"),
 ]
 CROSSWALK = {
     "fr": "Q142",
@@ -38,6 +40,8 @@ CROSSWALK = {
     "uk": "Q145",
     "sco": "Q22",
     "khk": "Q6543",
+    "chn": "Q29520",
+    "prc": "Q148",
 }
 
 
@@ -283,3 +287,26 @@ def test_overview_naming_its_country_keeps_names_anchor(tmp_path):
 def test_overview_label_matches_a_place_through_its_alias(tmp_path):
     anchors, _ = run(tmp_path, [label("Q1", "music of Khakassia")], aliases=[("Q6543", "Khakassia")])
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("khk", "label")
+
+
+def test_overview_whose_label_names_only_placeless_entities_names_its_claimed_anchor(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"], anchors["Q1"]["overview_rank"]) == ("prc", "P1269", 0)
+    assert unplaced.height == 0
+
+
+def test_overview_naming_its_anchor_by_label_ranks_before_one_naming_it_by_claim(tmp_path):
+    claims = [
+        label("Q1", "music of China"),
+        claim("Q1", "P1269", "Q148"),
+        label("Q2", "music of the People's Republic of China"),
+    ]
+    anchors, _ = run(tmp_path, claims)
+    assert (anchors["Q2"]["anchor_id"], anchors["Q2"]["overview_rank"]) == ("prc", 0)
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("prc", 1)
+
+
+def test_claimed_anchor_does_not_take_the_name_of_a_placeable_label_match(tmp_path):
+    claims = [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")]
+    anchors, _ = run(tmp_path, claims, footprint=[("chn", "khk", "cover")])
+    assert anchors["Q1"]["overview_rank"] is None

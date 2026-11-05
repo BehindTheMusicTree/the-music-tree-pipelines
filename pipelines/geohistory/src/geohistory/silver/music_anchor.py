@@ -24,6 +24,10 @@ PLACE_KINDS = (
 )
 HISTORICAL_KINDS = ("historical_country", "historical_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
+NAMES_BY_LABEL = 0
+# Every place the label names has no geometry ("music of China" names only the civilization), so the
+# place the overview's claims pick (the People's Republic) is the one it names on the map.
+NAMES_BY_CLAIM = 1
 ANCHOR_SCHEMA = {
     "wikidata_id": pl.String,
     "anchor_id": pl.String,
@@ -55,20 +59,23 @@ def _pick(candidates: dict[str, str], parents: dict[str, list[str]]) -> tuple[st
     return min(remaining, key=lambda pair: (RULE_PRIORITY.index(pair[1]), pair[0]))
 
 
-def _rank_overviews(anchors: list[tuple[str, str, str, bool, bool]]) -> list[tuple[str, str, str, bool, int | None]]:
-    """Rank, per anchor, the overviews whose label names that anchor (0 is the best-ranked overview naming the anchor).
+def _rank_overviews(
+    anchors: list[tuple[str, str, str, bool, int | None]],
+) -> list[tuple[str, str, str, bool, int | None]]:
+    """Rank, per anchor, the overviews naming that anchor (0 is the best-ranked overview naming the anchor).
 
     An overview that merely falls back to a country (P17, P495...) because its own place did not resolve
-    ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank.
+    ("Music of Catalonia" landing on Spain) does not name the anchor and gets no rank. An overview naming
+    its anchor by label ranks before one naming it only by claim (`NAMES_BY_CLAIM`).
     """
-    naming: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    naming: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
     for qid, anchor_id, rule, _, names_anchor in anchors:
-        if names_anchor:
-            naming[anchor_id].append((RULE_PRIORITY.index(rule), qid))
+        if names_anchor is not None:
+            naming[anchor_id].append((names_anchor, RULE_PRIORITY.index(rule), qid))
     rank = {
         (anchor_id, qid): position
         for anchor_id, candidates in naming.items()
-        for position, (_, qid) in enumerate(sorted(candidates))
+        for position, (_, _, qid) in enumerate(sorted(candidates))
     }
     return [
         (qid, anchor_id, rule, is_overview, rank.get((anchor_id, qid)))
@@ -231,8 +238,12 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
             if is_overview:
                 unplaced.append((qid, label, "|".join(sorted(set(candidates) | label_matches))))
             continue
-        names_anchor = is_overview and picked[0] in label_matches
-        anchors.append((qid, picked[0], picked[1], is_overview, names_anchor))
+        naming: int | None = None
+        if is_overview and picked[0] in label_matches:
+            naming = NAMES_BY_LABEL
+        elif is_overview and label_matches and not any(footprint_admins.get(e) for e in label_matches):
+            naming = NAMES_BY_CLAIM
+        anchors.append((qid, picked[0], picked[1], is_overview, naming))
 
     frame = pl.DataFrame(_rank_overviews(anchors), schema=ANCHOR_SCHEMA, orient="row").sort("wikidata_id")
     unplaced_frame = pl.DataFrame(unplaced, schema=UNPLACED_SCHEMA, orient="row").sort("wikidata_id")
