@@ -339,6 +339,7 @@ ITEM_CLAIM_QUERY_VARIABLES = ("item", "property", "value", "precision")
 ITEM_CLAIM_CHUNK = 1000
 PLACE_STATEMENT_PIDS = ("P30", "P131", "P361", "P706")
 PLACE_STATEMENT_QUERY_VARIABLES = ("item", "property", "statement", "rank", "value", "snakType")
+PLACE_QUALIFIER_QUERY_VARIABLES = ("statement", "qualifierProperty", "value", "valueType", "snakType", "precision")
 
 
 def place_statement_queries(qids: Iterable[str]) -> list[str]:
@@ -365,6 +366,39 @@ def place_statement_queries(qids: Iterable[str]) -> list[str]:
 SELECT DISTINCT ?item ?property ?statement ?rank ?value ?snakType WHERE {{
   VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
   {branches}
+}}
+"""
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
+
+
+def place_qualifier_queries(qids: Iterable[str]) -> list[str]:
+    """Read qualifier snaks separately to retain their statement association."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"place qualifier items must be Wikidata QIDs, got {invalid[:5]}")
+    return [
+        f"""
+SELECT DISTINCT ?statement ?qualifierProperty ?value ?valueType ?snakType ?precision WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  VALUES ?claimPredicate {{ {" ".join(f"p:{pid}" for pid in PLACE_STATEMENT_PIDS)} }}
+  ?item ?claimPredicate ?statement .
+  {{
+    ?qualifierProperty wikibase:qualifier ?predicate ; wikibase:propertyType ?valueType .
+    ?statement ?predicate ?value .
+    OPTIONAL {{
+      ?qualifierProperty wikibase:qualifierValue ?fullPredicate .
+      ?statement ?fullPredicate ?node .
+      ?node wikibase:timeValue ?value ; wikibase:timePrecision ?precision .
+    }}
+    BIND(IF(isBlank(?value) || STRSTARTS(STR(?value), "http://www.wikidata.org/.well-known/genid/"),
+      "somevalue", "value") AS ?snakType)
+  }} UNION {{
+    ?qualifierProperty wikibase:novalue ?noValue ; wikibase:propertyType ?valueType .
+    ?statement a ?noValue .
+    BIND("novalue" AS ?snakType)
+  }}
 }}
 """
         for start in range(0, len(items), ITEM_CLAIM_CHUNK)
