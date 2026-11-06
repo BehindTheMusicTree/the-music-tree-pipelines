@@ -146,7 +146,7 @@ A song whose best genre is an umbrella (`is_umbrella` in `7_canonical_hierarchy`
 stays in `1_genre_match.parquet` with `is_umbrella = true`, and grow derives "to refine" from the genre.
 A `song_genre.csv` row targeting an umbrella raises, mirroring grow's refusal; one targeting a regional overview without sub-genres raises too, being no song's genre.
 `1_umbrella_candidates.csv` lists non-umbrella canonical genres with children, most direct songs first,
-as triage for the `umbrella_genres` curation list.
+as triage for the `umbrella_stylistic_genres` curation list.
 
 ## Why `unmatched` is a soft warning, not a raise
 
@@ -310,3 +310,11 @@ The nightly import into grow is a full snapshot (grow deletes whatever a run omi
 The selected video carries its country policy unchanged from Silver. Global video reasons remain separate: eligibility belongs to Grow, which knows the listener country. Legacy caches carry null (unknown); budgeted refresh enriches selected videos first after pinned IDs. Empty allow-lists block everywhere and empty block-lists allow everywhere. No songs are removed for regional restrictions.
 
 Policy values participate in song delta comparisons; cache check timestamps do not. Adding this snapshot column requires the existing full-sync path, then the sync caller promotes the snapshot only after successful import. Never delete a baseline to force enrichment. Legacy manual `region_whitelisted` rules remain global until reviewed by a curator; automatic legacy values are replaced by fresh API metadata.
+
+## Artist image snapshot consistency
+
+Each build validates and pins an immutable image snapshot before exporting anything. `ARTIST_IMAGES_PUBLISHED_DIR`
+is required; `ARTIST_IMAGES_SNAPSHOT_ID` can select a retained version explicitly. A pointer update during a build
+cannot change its image input. `_manifest.json` records `artistImagesSnapshot` with snapshot ID, image artifact
+SHA-256, producer commit, publication time, discovery provenance and source age summary. The artist join remains
+optional per artist; a missing image association produces null. An absent or damaged publication fails the build.

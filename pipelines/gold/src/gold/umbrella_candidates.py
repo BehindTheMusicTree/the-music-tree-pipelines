@@ -9,7 +9,7 @@ OUTPUT_NAME = "1_umbrella_candidates.csv"
 
 
 def export_umbrella_candidates(canonical_hierarchy_path: Path, genre_match_path: Path, output_dir: Path) -> Path:
-    """Triage aid for the `umbrella_genres` curation list: canonical genres with children that are not yet
+    """Triage aid for the `umbrella_stylistic_genres` curation list: canonical genres with children that are not yet
     umbrellas, most directly-assigned songs first (a genre with many direct songs and many children is the
     likeliest umbrella)."""
     hierarchy = pl.read_parquet(canonical_hierarchy_path)

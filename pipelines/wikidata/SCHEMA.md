@@ -460,7 +460,7 @@ first overview, when the item is regional; its canonical parent otherwise), plus
 | ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
 | canonical_parent_id      | str?      | The selected parent that is a canonical genre or lies outside the tree, or null                    |
 | regional_genre_parent_id | str?      | The selected parent that is a regional genre (not an overview), or null                            |
-| regional_overview_ids    | list[str] | The kept "music of `<place>`" parents, by ascending QID; empty when none                           |
+| regional_overview_ids    | list[str] | The kept "music of `<place>`" parents, curated ones first, then by ascending QID; empty when none  |
 
 `5_secondary_parents.parquet` — one row per candidate parent edge not selected on the canonical or
 regional-genre axis:
@@ -524,7 +524,7 @@ run earlier, in `2_non_genre_pruning` — see
 | parent_display_label | str? | Same as in `1_item_links`, for `parent_id`, or null |
 | parent_url    | str? | `https://www.wikidata.org/wiki/` + `parent_id`, or null for a root row           |
 | relation_type | str? | `"P279"`, `"P361"`, `"manual_canonical_parent"`, `"manual_regional_genre_parent"` or `"manual_regional_overview"` — which property/source produced this edge, or null for a root row |
-| is_umbrella | bool | `true` when `item_id` is in `umbrella_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
+| is_umbrella | bool | `true` when `item_id` is in `umbrella_stylistic_genres.csv`: a real node that groups sub-styles and never receives songs directly. Always has at least one child in this table. |
 
 Genre items with zero surviving rows in _either_ this output or `8_regional_hierarchy` (the silent
 vanish) are all non-regional, i.e. every one is an "opera"-shaped item, not a regional one. See
@@ -620,3 +620,36 @@ on `upload.wikimedia.org` or `thumb.wikimedia.org`. Read by Gold's `artist_expor
 | author                | str? | Null only when the license doesn't require attribution |
 | license               | str  | As in `10_commons_image_metadata`                    |
 | license_url           | str? | As in `10_commons_image_metadata`                    |
+
+
+## 4. Independent artist image state and publications
+
+The numbered image outputs above are retained legacy bootstrap inputs.
+
+`published/current.json`: `schemaVersion` (integer, 1), `snapshotId` (string).
+`published/snapshots/<id>/artist_images.parquet`: the six selected-image columns in section 3.12.
+`lineage.parquet` has one row per selected artist:
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| musicbrainz_artist_id | str | Selected artist identifier |
+| item_id | str | Source Wikidata QID |
+| image_file | str | Requested Commons file name |
+| claims_checked_at | datetime UTC? | Successful complete claims observation; unknown for some seeds |
+| metadata_checked_at | datetime UTC? | Successful Commons observation; unknown for some seeds |
+| attribution_required | bool | Whether author credit is required |
+
+`manifest.json`: `schemaVersion`, `snapshotId`, `producerCommit`, `policyVersion`, `publishedAt`,
+`sourceStateGeneration`; `artifacts` maps each Parquet filename to `sha256` and `rowCount`;
+`discovery` has `coverage` (`bootstrap_seed` or `complete`) and nullable `completedAt`;
+`selectedImageCount`, `sourceQidCount`, `sourceFileCount`; `sourceValidation` has `inputRows`, `rejectedRows`, `failed`;
+`rejectsByReason`, `removalsByReason`; `ageSummary` has claims/metadata `oldestCheckedAt` and `overdueCount`;
+`refreshCoverage` has claims/metadata `attempted`, `succeeded`, `failed`, `deferred` counts.
+`removalEvidence` entries contain `musicbrainzArtistId`, `itemId`, `imageFile`, `reason`, `checkedAt`.
+`bootstrap` maps captured legacy filenames to `sha256` and nullable `observedAt` for seeded publications.
+
+State registry rows contain `item_id`, nullable `first_seen_at`, `last_seen_in_discovery_at`, `claims_checked_at`,
+`next_check_at`, `last_attempt_at`, `retry_after_at` (UTC timestamps), `claims_status` (string), and
+`consecutive_failures` (UInt32). Claims rows contain `item_id`, `musicbrainz_artist_id`, `image_file` and nullable
+`claims_checked_at`. Commons rows extend section 3.11 with `result_status` (`legacy`, `observed`, `missing`), nullable
+`canonical_title`, `last_attempt_at`, `retry_after_at` and `consecutive_failures` (UInt32).

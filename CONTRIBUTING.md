@@ -11,6 +11,7 @@ This project is in early active development by a solo developer. Contributions, 
   - [Pull Requests](#pull-requests)
 - [Testing](#testing)
 - [Changelog](#changelog)
+- [Releases](#releases)
 - [Code Style](#code-style)
 - [License](#license)
 
@@ -104,6 +105,22 @@ See each pipeline's own `TESTING.md` (e.g. [pipelines/musicbrainz/TESTING.md](pi
 Update `CHANGELOG.md` with every PR. Add entries to the `[Unreleased]` section under the appropriate category. Be descriptive and user-focused — avoid dumping raw git logs.
 
 See [CHANGELOG.md](CHANGELOG.md) for format examples.
+
+## Releases
+
+`VERSION` is the repository release version, initialized to the existing `v9.2.0`
+tag. Individual workspace packages keep their independent versions.
+
+For a future release, create a `release/*` branch from `develop`, update `VERSION`
+and finalize a non-empty versioned section in `CHANGELOG.md`, then open a PR into
+`main`. The CI release workflow validates the merged commit and creates its
+annotated tag; the tag workflow publishes the changelog section as a GitHub
+Release. Do not create or push release tags locally. After publication, integrate
+`main` back into `develop` through a PR.
+
+This migration does not publish a release. Activate the shared App credentials
+and tag rulesets separately after the contract reaches `main`; initial activation
+does not tag the existing version. Deployment remains managed by infrastructure.
 
 ## Code Style
 

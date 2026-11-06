@@ -7,6 +7,7 @@ from pathlib import Path
 
 import polars as pl
 from common.step_timer import step
+from common.artist_image_snapshot import ArtistImageSnapshot, resolve_artist_image_snapshot
 
 from gold.artist_export import export_artists
 from gold.canonical_genre_tree_export import export_canonical_genre_tree
@@ -36,13 +37,23 @@ def read_curation_exported_on(curation_dir: Path) -> str:
     return exported_on
 
 
-def write_manifest(gold_output_dir: Path, curation_exported_on: str, commit: str) -> Path:
+def write_manifest(
+    gold_output_dir: Path, curation_exported_on: str, commit: str, image_snapshot: ArtistImageSnapshot
+) -> Path:
     path = gold_output_dir / MANIFEST_NAME
     tmp_path = path.with_name(f"{MANIFEST_NAME}.tmp")
     manifest = {
         "builtOn": datetime.now(UTC).isoformat(),
         "curationExportedOn": curation_exported_on,
         "pipelinesCommit": commit,
+        "artistImagesSnapshot": {
+            "snapshotId": image_snapshot.snapshot_id,
+            "sha256": image_snapshot.manifest["artifacts"]["artist_images.parquet"]["sha256"],
+            "producerCommit": image_snapshot.manifest["producerCommit"],
+            "publishedAt": image_snapshot.manifest["publishedAt"],
+            "discovery": image_snapshot.manifest["discovery"],
+            "ageSummary": image_snapshot.manifest["ageSummary"],
+        },
     }
     tmp_path.write_text(json.dumps(manifest, indent=2))
     os.replace(tmp_path, path)
@@ -57,9 +68,13 @@ def build_gold(
     geohistory_silver_dir: Path,
     curation_dir: Path,
     gold_output_dir: Path,
+    artist_images_published_dir: Path,
+    *,
+    artist_images_snapshot_id: str | None = None,
 ) -> Path:
     # Unlinked first so a failed run never leaves a previous manifest vouching for partial outputs.
     (gold_output_dir / MANIFEST_NAME).unlink(missing_ok=True)
+    image_snapshot = resolve_artist_image_snapshot(artist_images_published_dir, artist_images_snapshot_id)
     commit = pipelines_commit()
     curation_exported_on = read_curation_exported_on(curation_dir)
     descriptions_path = wikidata_bronze_dir / "wikidata_genre_descriptions.parquet"
@@ -112,9 +127,9 @@ def build_gold(
     with step("songs"):
         export_songs(genre_match_path, gold_output_dir, wikidata_silver_dir, curation_dir)
     with step("artists"):
-        export_artists(genre_match_path, musicbrainz_silver_dir, wikidata_silver_dir, gold_output_dir)
+        export_artists(genre_match_path, musicbrainz_silver_dir, image_snapshot.images_path, gold_output_dir)
     with step("genealogy"):
         export_genealogy(geohistory_silver_dir, wikidata_silver_dir, gold_output_dir)
     with step("region_map"):
         export_region_map(geohistory_silver_dir, wikidata_silver_dir, genre_match_path, gold_output_dir)
-    return write_manifest(gold_output_dir, curation_exported_on, commit)
+    return write_manifest(gold_output_dir, curation_exported_on, commit, image_snapshot)

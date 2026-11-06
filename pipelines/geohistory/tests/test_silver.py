@@ -405,7 +405,7 @@ def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
     entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q2", "country")]
     base_bronze(dirs, entities=entities, claims=[])
     bronze, wikidata, silver = dirs
-    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "site"), ("Q2", "dup")])
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "", "site"), ("Q2", "", "dup")])
 
     entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
 
@@ -413,10 +413,49 @@ def test_cultural_entity_adds_curated_items_after_the_bulk_kinds(dirs):
     assert dict(out.select("entity_id", "kind").rows()) == {"Q1": "curated", "Q2": "country"}
 
 
+def test_cultural_entity_gives_an_addition_its_entity_kind(dirs):
+    entities = [entity("Q1", "curated"), entity("Q2", "curated"), entity("Q3", "curated")]
+    base_bronze(dirs, entities=entities, claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(
+        silver.parent / "curation",
+        entity_additions=[("Q1", "cultural_region", "zone"), ("Q2", "macro_region", "zone"), ("Q3", "", "site")],
+    )
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    assert dict(out.select("entity_id", "kind").rows()) == {
+        "Q1": "cultural_region",
+        "Q2": "macro_region",
+        "Q3": "curated",
+    }
+
+
+def test_cultural_entity_keeps_the_bulk_kind_of_an_addition_with_an_entity_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q2", "curated"), entity("Q2", "country")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q2", "macro_region", "dup")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id") == "Q2")
+    assert out["kind"].to_list() == ["country"]
+
+
+def test_cultural_entity_raises_on_an_unknown_addition_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q1", "curated")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "country", "bad")])
+
+    with pytest.raises(ValueError, match="entity_kind"):
+        cultural_entity(bronze, wikidata, silver, curation)
+
+
 def test_cultural_entity_raises_when_an_addition_is_missing_from_the_bronze(dirs):
     base_bronze(dirs)
     bronze, wikidata, silver = dirs
-    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "gone")])
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q999", "", "gone")])
 
     with pytest.raises(ValueError, match="Q999"):
         cultural_entity(bronze, wikidata, silver, curation)
@@ -462,3 +501,67 @@ def test_cultural_entity_builds_admin_units_from_natural_earth_and_p131_intermed
     assert ne_map["a1"]["country_entity_id"] == "Q142" and ne_map["c0"]["entity_id"] == "Q142"
     crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
     assert ("Q12130", "Q12130") in crosswalk.rows() and not any(e.startswith("ne:") for e in crosswalk["entity_id"])
+
+
+def test_cultural_entity_gives_the_sole_unit_of_an_unsubdivided_territory_its_country_qid(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(dirs, entities=[entity("Q672", "country")], claims=[claim("Q672", "P625", "Point(179 -8)")])
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c-vgb", 0, "Q25305", "VGB", "British Virgin Is."),
+            ("VGB+00?", 1, None, "VGB", "British Virgin Islands"),
+            ("c-tuv", 0, "Q672", "TUV", "Tuvalu"),
+            ("TUV+00?", 1, None, "TUV", "Tuvalu"),
+            ("c-xxx", 0, None, "XXX", "Nowhere"),
+            ("XXX+00?", 1, None, "XXX", "Nowhere"),
+            ("c-ggy", 0, "Q25230", "GGY", "Guernsey"),
+            ("GGY+00?", 1, None, "GGY", "Sark"),
+        ],
+        hierarchy=[
+            ("Q25230", "label", None, "Bailiwick of Guernsey"),
+            ("Q25305", "label", None, "British Virgin Islands"),
+        ],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
+    assert labels["Q25230"] == "Bailiwick of Guernsey" and labels["Q25305"] == "British Virgin Islands"
+    assert kinds["Q25305"] == "admin_unit" and kinds["Q672"] == "country" and kinds["ne:XXX+00?"] == "admin_unit"
+    assert "ne:VGB+00?" not in kinds and "ne:TUV+00?" not in kinds
+    ne_map = {r["ne_id"]: r["entity_id"] for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
+    assert ne_map["VGB+00?"] == "Q25305" and ne_map["TUV+00?"] == "Q672"
+    crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
+    assert ("Q25305", "Q25305") in crosswalk.rows()
+
+
+def test_cultural_entity_makes_a_country_without_an_entity_an_admin_unit(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(dirs)
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c-jey", 0, "Q785", "JEY", "Jersey"),
+            ("JEY+00?", 1, "Q785", "JEY", "Jersey"),
+            ("c-vir", 0, "Q11703", "VIR", "U.S. Virgin Is."),
+            ("VIR-4868", 1, None, "VIR", "Saint Thomas"),
+            ("VIR-4869", 1, "Q548816", "VIR", "Saint John"),
+            ("c-kas", 0, "Q333946", "KAS", "Siachen Glacier"),
+        ],
+        hierarchy=[("Q11703", "P361", "Q1", "United States Virgin Islands")],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    labels = dict(entities.select("entity_id", "label").rows())
+    assert kinds["Q785"] == kinds["Q11703"] == kinds["Q333946"] == kinds["ne:VIR-4868"] == "admin_unit"
+    assert labels["Q11703"] == "United States Virgin Islands" and labels["Q333946"] == "Siachen Glacier"
+    ne_map = {r["ne_id"]: r for r in pl.read_parquet(silver / "1_entity_ne_admin.parquet").to_dicts()}
+    assert ne_map["JEY+00?"]["entity_id"] == ne_map["c-jey"]["entity_id"] == "Q785"
+    assert ne_map["c-vir"]["entity_id"] == "Q11703"
+    assert ne_map["VIR-4868"]["country_entity_id"] == ne_map["VIR-4869"]["country_entity_id"] == "Q11703"
+    crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
+    assert ("Q785", "Q785") in crosswalk.rows() and ("Q11703", "Q11703") in crosswalk.rows()

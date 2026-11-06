@@ -371,7 +371,8 @@ def export_region_map(
     zone_members: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
     for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
-        admin_id = dissolved.get(admin_id, admin_id)
+        while admin_id in dissolved:
+            admin_id = dissolved[admin_id]
         if entity_id in zone_set and admin_id in shapes:
             zone_members[entity_id].add(admin_id)
             for ancestor in admin_ancestors(admin_id):

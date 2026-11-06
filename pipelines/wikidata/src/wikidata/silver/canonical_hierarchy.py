@@ -8,25 +8,31 @@ from wikidata.silver.hierarchy_utils import OUTPUT_COLUMNS, promote_orphans_to_r
 logger = logging.getLogger(__name__)
 
 
-def _flag_umbrellas(df: pl.DataFrame, canonical: pl.DataFrame, manual_umbrella_genres: pl.DataFrame) -> pl.DataFrame:
-    ids = manual_umbrella_genres.get_column("item_id").to_list()
+def _flag_umbrellas(
+    df: pl.DataFrame, canonical: pl.DataFrame, manual_umbrella_stylistic_genres: pl.DataFrame
+) -> pl.DataFrame:
+    ids = manual_umbrella_stylistic_genres.get_column("item_id").to_list()
     regional_ids = set(df.filter(pl.col("is_regional")).get_column("item_id"))
     canonical_ids = set(canonical.get_column("item_id"))
     parent_ids = set(canonical.get_column("parent_id").drop_nulls())
     unknown = sorted(i for i in ids if i not in canonical_ids and i not in regional_ids)
     if unknown:
-        raise ValueError(f"umbrella_genres.csv rows reference item_id(s) not found in the genre tree: {unknown}")
+        raise ValueError(
+            f"umbrella_stylistic_genres.csv rows reference item_id(s) not found in the genre tree: {unknown}"
+        )
     regional = sorted(i for i in ids if i in regional_ids)
     if regional:
-        raise ValueError(f"umbrella_genres.csv rows reference regional item_id(s): {regional}")
+        raise ValueError(f"umbrella_stylistic_genres.csv rows reference regional item_id(s): {regional}")
     leaves = sorted(i for i in ids if i not in parent_ids)
     if leaves:
-        raise ValueError(f"umbrella_genres.csv rows reference leaf item_id(s), which have no sub-genre: {leaves}")
+        raise ValueError(
+            f"umbrella_stylistic_genres.csv rows reference leaf item_id(s), which have no sub-genre: {leaves}"
+        )
     return canonical.with_columns(is_umbrella=pl.col("item_id").is_in(ids))
 
 
 def prune_canonical_hierarchy(
-    canonical_parents_path: Path, manual_umbrella_genres_path: Path, output_dir: Path
+    canonical_parents_path: Path, manual_umbrella_stylistic_genres_path: Path, output_dir: Path
 ) -> Path:
     logger.info("pruning canonical hierarchy from %s", canonical_parents_path)
     df = pl.read_parquet(canonical_parents_path)
@@ -46,7 +52,7 @@ def prune_canonical_hierarchy(
     parent_is_valid_genre_or_absent = pl.col("parent_id").is_null() | pl.col("canonical_parent_is_genre")
     kept = canonical_items.filter(parent_is_valid_genre_or_absent).select(OUTPUT_COLUMNS)
     canonical = promote_orphans_to_roots(canonical_items, kept)
-    canonical = _flag_umbrellas(df, canonical, pl.read_csv(manual_umbrella_genres_path))
+    canonical = _flag_umbrellas(df, canonical, pl.read_csv(manual_umbrella_stylistic_genres_path))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     canonical_path = output_dir / "7_canonical_hierarchy.parquet"

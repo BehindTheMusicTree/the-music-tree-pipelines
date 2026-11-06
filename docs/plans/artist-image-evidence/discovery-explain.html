@@ -1,0 +1,593 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><meta http-equiv="Content-Type" content="text&#47;html;charset=UTF-8"><title>blazegraph&trade; by SYSTAP</title
+></head
+><body<h1>Query</h1
+><h2>SPARQL</h2
+><pre>PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+SELECT ?item WHERE { ?item wdt:P434 ?mbid . }
+</pre
+><h2>Parse Tree</h2
+><pre>QueryContainer
+ PrefixDecl (prefix=wdt)
+  IRI (http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;)
+ SelectQuery
+  Select
+   ProjectionElem
+    Var (item)
+  WhereClause
+   GraphPatternGroup
+    BasicGraphPattern
+     TriplesSameSubjectPath
+      Var (item)
+      PropertyListPath
+       PathAlternative
+        PathSequence
+         PathElt
+          IRI (http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P434)
+       ObjectList
+        Var (mbid)</pre
+><h2>Original AST</h2
+><pre>
+PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+PREFIX rdf: &lt;http:&#47;&#47;www.w3.org&#47;1999&#47;02&#47;22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http:&#47;&#47;www.w3.org&#47;2000&#47;01&#47;rdf-schema#&gt;
+PREFIX sesame: &lt;http:&#47;&#47;www.openrdf.org&#47;schema&#47;sesame#&gt;
+PREFIX owl: &lt;http:&#47;&#47;www.w3.org&#47;2002&#47;07&#47;owl#&gt;
+PREFIX xsd: &lt;http:&#47;&#47;www.w3.org&#47;2001&#47;XMLSchema#&gt;
+PREFIX fn: &lt;http:&#47;&#47;www.w3.org&#47;2005&#47;xpath-functions#&gt;
+PREFIX foaf: &lt;http:&#47;&#47;xmlns.com&#47;foaf&#47;0.1&#47;&gt;
+PREFIX dc: &lt;http:&#47;&#47;purl.org&#47;dc&#47;elements&#47;1.1&#47;&gt;
+PREFIX hint: &lt;http:&#47;&#47;www.bigdata.com&#47;queryHints#&gt;
+PREFIX bd: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf#&gt;
+PREFIX bds: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;search#&gt;
+PREFIX psn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value-normalized&#47;&gt;
+PREFIX pqn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value-normalized&#47;&gt;
+PREFIX prn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value-normalized&#47;&gt;
+PREFIX mwapi: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#API&#47;&gt;
+PREFIX gas: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;gas#&gt;
+PREFIX wdsubgraph: &lt;https:&#47;&#47;query.wikidata.org&#47;subgraph&#47;&gt;
+PREFIX wdtn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct-normalized&#47;&gt;
+PREFIX psv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value&#47;&gt;
+PREFIX ps: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;&gt;
+PREFIX pqv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value&#47;&gt;
+PREFIX pq: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;&gt;
+PREFIX prv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value&#47;&gt;
+PREFIX pr: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;&gt;
+PREFIX wdno: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;novalue&#47;&gt;
+PREFIX p: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;&gt;
+PREFIX wikibase: &lt;http:&#47;&#47;wikiba.se&#47;ontology#&gt;
+PREFIX wd: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;&gt;
+PREFIX wdata: &lt;http:&#47;&#47;www.wikidata.org&#47;wiki&#47;Special:EntityData&#47;&gt;
+PREFIX wds: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;statement&#47;&gt;
+PREFIX wdv: &lt;http:&#47;&#47;www.wikidata.org&#47;value&#47;&gt;
+PREFIX wdref: &lt;http:&#47;&#47;www.wikidata.org&#47;reference&#47;&gt;
+PREFIX schema: &lt;http:&#47;&#47;schema.org&#47;&gt;
+PREFIX prov: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;prov#&gt;
+PREFIX skos: &lt;http:&#47;&#47;www.w3.org&#47;2004&#47;02&#47;skos&#47;core#&gt;
+PREFIX geo: &lt;http:&#47;&#47;www.opengis.net&#47;ont&#47;geosparql#&gt;
+PREFIX geof: &lt;http:&#47;&#47;www.opengis.net&#47;def&#47;geosparql&#47;function&#47;&gt;
+PREFIX mediawiki: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#&gt;
+PREFIX ontolex: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;lemon&#47;ontolex#&gt;
+PREFIX dct: &lt;http:&#47;&#47;purl.org&#47;dc&#47;terms&#47;&gt;
+PREFIX wikibaseqs: &lt;http:&#47;&#47;wikiba.se&#47;queryService#&gt;
+QueryType: SELECT
+includeInferred=true
+timeout=60000
+SELECT VarNode(item)
+  JoinGroupNode {
+    StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434)), VarNode(mbid)) [scope=DEFAULT_CONTEXTS]
+  }</pre
+><h2>Static Analysis Statistics</h2
+><table><tr><th>object</th
+><th>category</th
+><th>elapsed [ms]</th
+><th>elapsed [us]</th
+><th>numCalls</th
+></tr
+><tr><td>ParseTime</td
+><td>Parser</td
+><td>0</td
+><td>421</td
+><td>1</td
+></tr
+><tr><td>ResolveValues</td
+><td>Resolve Values</td
+><td>0</td
+><td>158</td
+><td>1</td
+></tr
+><tr><td>Optimizers</td
+><td>Optimizers (all)</td
+><td>0</td
+><td>927</td
+><td>1</td
+></tr
+><tr><td>ASTOrderByAggregateFlatteningOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTQueryHintOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>83</td
+><td>1</td
+></tr
+><tr><td>ASTFilterNormalizationOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTStaticBindingsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>51</td
+><td>1</td
+></tr
+><tr><td>ASTSearchInSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTPropertyPathOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTSetValueExpressionsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>72</td
+><td>1</td
+></tr
+><tr><td>ASTFlattenUnionsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTUnionFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTEmptyGroupOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTWildcardProjectionOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>36</td
+><td>1</td
+></tr
+><tr><td>ASTSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>6</td
+><td>1</td
+></tr
+><tr><td>ASTFulltextSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTGeoSpatialSearchOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>AskOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>1</td
+><td>1</td
+></tr
+><tr><td>ASTDescribeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTConstructOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTExistsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTGraphGroupOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTLiftPreFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>ASTALPServiceOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTBottomUpOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>83</td
+><td>1</td
+></tr
+><tr><td>ASTSimpleOptionalOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>5</td
+><td>1</td
+></tr
+><tr><td>ASTFlattenJoinGroupsOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTServiceNodeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>LabelServiceExtractOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTJoinGroupOrderOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>139</td
+><td>2</td
+></tr
+><tr><td>ASTRunFirstRunLastOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>6</td
+><td>2</td
+></tr
+><tr><td>ASTRangeOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTRangeCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>192</td
+><td>1</td
+></tr
+><tr><td>ASTCardinalityOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTFastRangeCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>ASTSimpleGroupByAndCountOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTDistinctTermScanOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>4</td
+><td>1</td
+></tr
+><tr><td>ASTStaticJoinOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>17</td
+><td>1</td
+></tr
+><tr><td>MWApiServicePlacementOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>7</td
+><td>1</td
+></tr
+><tr><td>LabelServicePlacementOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>2</td
+></tr
+><tr><td>EmptyLabelServiceOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>19</td
+><td>1</td
+></tr
+><tr><td>ASTAttachJoinFiltersOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>21</td
+><td>1</td
+></tr
+><tr><td>ASTSparql11SubqueryOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTNamedSubqueryOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>3</td
+><td>1</td
+></tr
+><tr><td>ASTSubGroupJoinVarOptimizer</td
+><td>Optimizer</td
+><td>0</td
+><td>2</td
+><td>1</td
+></tr
+><tr><td>RangeCount</td
+><td>Range Count</td
+><td>0</td
+><td>36</td
+><td>1</td
+></tr
+></table
+><h2>Optimized AST</h2
+><pre>
+PREFIX wdt: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;&gt;
+PREFIX rdf: &lt;http:&#47;&#47;www.w3.org&#47;1999&#47;02&#47;22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http:&#47;&#47;www.w3.org&#47;2000&#47;01&#47;rdf-schema#&gt;
+PREFIX sesame: &lt;http:&#47;&#47;www.openrdf.org&#47;schema&#47;sesame#&gt;
+PREFIX owl: &lt;http:&#47;&#47;www.w3.org&#47;2002&#47;07&#47;owl#&gt;
+PREFIX xsd: &lt;http:&#47;&#47;www.w3.org&#47;2001&#47;XMLSchema#&gt;
+PREFIX fn: &lt;http:&#47;&#47;www.w3.org&#47;2005&#47;xpath-functions#&gt;
+PREFIX foaf: &lt;http:&#47;&#47;xmlns.com&#47;foaf&#47;0.1&#47;&gt;
+PREFIX dc: &lt;http:&#47;&#47;purl.org&#47;dc&#47;elements&#47;1.1&#47;&gt;
+PREFIX hint: &lt;http:&#47;&#47;www.bigdata.com&#47;queryHints#&gt;
+PREFIX bd: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf#&gt;
+PREFIX bds: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;search#&gt;
+PREFIX psn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value-normalized&#47;&gt;
+PREFIX pqn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value-normalized&#47;&gt;
+PREFIX prn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value-normalized&#47;&gt;
+PREFIX mwapi: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#API&#47;&gt;
+PREFIX gas: &lt;http:&#47;&#47;www.bigdata.com&#47;rdf&#47;gas#&gt;
+PREFIX wdsubgraph: &lt;https:&#47;&#47;query.wikidata.org&#47;subgraph&#47;&gt;
+PREFIX wdtn: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct-normalized&#47;&gt;
+PREFIX psv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;value&#47;&gt;
+PREFIX ps: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;statement&#47;&gt;
+PREFIX pqv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;value&#47;&gt;
+PREFIX pq: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;qualifier&#47;&gt;
+PREFIX prv: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;value&#47;&gt;
+PREFIX pr: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;reference&#47;&gt;
+PREFIX wdno: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;novalue&#47;&gt;
+PREFIX p: &lt;http:&#47;&#47;www.wikidata.org&#47;prop&#47;&gt;
+PREFIX wikibase: &lt;http:&#47;&#47;wikiba.se&#47;ontology#&gt;
+PREFIX wd: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;&gt;
+PREFIX wdata: &lt;http:&#47;&#47;www.wikidata.org&#47;wiki&#47;Special:EntityData&#47;&gt;
+PREFIX wds: &lt;http:&#47;&#47;www.wikidata.org&#47;entity&#47;statement&#47;&gt;
+PREFIX wdv: &lt;http:&#47;&#47;www.wikidata.org&#47;value&#47;&gt;
+PREFIX wdref: &lt;http:&#47;&#47;www.wikidata.org&#47;reference&#47;&gt;
+PREFIX schema: &lt;http:&#47;&#47;schema.org&#47;&gt;
+PREFIX prov: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;prov#&gt;
+PREFIX skos: &lt;http:&#47;&#47;www.w3.org&#47;2004&#47;02&#47;skos&#47;core#&gt;
+PREFIX geo: &lt;http:&#47;&#47;www.opengis.net&#47;ont&#47;geosparql#&gt;
+PREFIX geof: &lt;http:&#47;&#47;www.opengis.net&#47;def&#47;geosparql&#47;function&#47;&gt;
+PREFIX mediawiki: &lt;https:&#47;&#47;www.mediawiki.org&#47;ontology#&gt;
+PREFIX ontolex: &lt;http:&#47;&#47;www.w3.org&#47;ns&#47;lemon&#47;ontolex#&gt;
+PREFIX dct: &lt;http:&#47;&#47;purl.org&#47;dc&#47;terms&#47;&gt;
+PREFIX wikibaseqs: &lt;http:&#47;&#47;wikiba.se&#47;queryService#&gt;
+QueryType: SELECT
+includeInferred=true
+timeout=60000
+SELECT ( VarNode(item) AS VarNode(item) )
+  JoinGroupNode {
+    StatementPatternNode(VarNode(item), ConstantNode(Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434)), VarNode(mbid)) [scope=DEFAULT_CONTEXTS]
+      AST2BOpBase.estimatedCardinality=346486
+      AST2BOpBase.originalIndex=POS
+  } AST2BOpBase.estimatedCardinality=346486
+
+with static (exogeneous) bindings defined as follows: 
+{
+  {  }
+}
+</pre
+><h2>Query Plan</h2
+><pre>com.bigdata.bop.rdf.join.ChunkedMaterializationOp[4](ProjectionOp[3])[ ChunkedMaterializationOp.vars=[item], IPredicate.relationName=[wdq.lex], IPredicate.timestamp=1793887774567, ChunkedMaterializationOp.materializeAll=true, PipelineOp.sharedState=true, BOp.bopId=4, BOp.timeout=60000, BOp.namespace=wdq, QueryEngine.queryId=4d611bcf-3906-4c17-bd63-cc391a057670, QueryEngine.chunkHandler=com.bigdata.bop.engine.NativeHeapStandloneChunkHandler@1f3842da]
+  com.bigdata.bop.solutions.ProjectionOp[3](PipelineJoin[2])[ BOp.bopId=3, BOp.evaluationContext=CONTROLLER, PipelineOp.sharedState=true, JoinAnnotations.select=[item]]
+    com.bigdata.bop.join.PipelineJoin[2]()[ BOp.bopId=2, JoinAnnotations.constraints=null, AST2BOpBase.simpleJoin=true, BOp.evaluationContext=ANY, AccessPathJoinAnnotations.predicate=com.bigdata.rdf.spo.SPOPredicate[1](item=null, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434), mbid=null)[ IPredicate.relationName=[wdq.spo], IPredicate.timestamp=1793887774567, BOp.bopId=1, AST2BOpBase.estimatedCardinality=346486, AST2BOpBase.originalIndex=POS, IPredicate.flags=[KEYS,VALS,READONLY,PARALLEL]]]</pre
+><pre></pre><h2>Query Evaluation Statistics</h2
+><p>solutions=346486, chunks=3465, subqueries=0, elapsed=8507ms.</p
+><table border="1" summary="Query Statistics"
+><tr
+><th>queryId</th><th>beginTime</th><th>doneTime</th><th>deadline</th><th>elapsed</th><th>cause</th><th>evalOrder</th><th>controller</th><th>bopId</th><th>predId</th><th>bopSummary</th><th>predSummary</th><th>bopAnnotations</th><th>predAnnotations</th><th>staticBestKeyOrder</th><th>overriddenKeyOrder</th><th>nvars</th><th>fastRangeCount</th><th>runState</th><th>sumMillis</th><th>opCount</th><th>numRunning</th><th>queueChunks</th><th>queueSolutions</th><th>chunksIn</th><th>unitsIn</th><th>unitsInPerChunk</th><th>chunksOut</th><th>unitsOut</th><th>unitsOutPerChunk</th><th>typeErrors</th><th>joinRatio</th><th>accessPathDups</th><th>accessPathCount</th><th>accessPathRangeCount</th><th>accessPathChunksIn</th><th>accessPathUnitsIn</th><th>solutions&#47;ms</th></tr
+><tr
+><td>4d611bcf-3906-4c17-bd63-cc391a057670</td
+><td>Thursday, November 5, 2026 2:09:34 PM UTC</td
+><td>Thursday, November 5, 2026 2:09:43 PM UTC</td
+><td>Thursday, November 5, 2026 2:10:34 PM UTC</td
+><td>8507</td
+><td></td
+><td>total</td
+><td></td
+><td>total</td
+><td></td
+><td>total</td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>13384</td
+><td>6900</td
+><td>0</td
+><td></td
+><td></td
+><td>6931</td
+><td>692973</td
+><td>99.98167652575385</td
+><td>10395</td
+><td>1039458</td
+><td>99.99595959595959</td
+><td>0</td
+><td>1.499997835413501</td
+><td>0</td
+><td>1</td
+><td>346486</td
+><td>3465</td
+><td>346486</td
+><td>122</td
+></tr
+><tr
+><td>4d611bcf-3906-4c17-bd63-cc391a057670</td
+><td>Thursday, November 5, 2026 2:09:34 PM UTC</td
+><td>Thursday, November 5, 2026 2:09:43 PM UTC</td
+><td>Thursday, November 5, 2026 2:10:34 PM UTC</td
+><td>8507</td
+><td></td
+><td>0</td
+><td>false</td
+><td>2</td
+><td>1</td
+><td>PipelineJoin[2]</td
+><td>SPOPredicate[1](?item, Vocab(6)[http:&#47;&#47;www.wikidata.org&#47;prop&#47;direct&#47;P]:XSDUnsignedShort(434), ?mbid)</td
+><td><dl><dt>com.bigdata.bop.BOp.bopId</dt><dd>2</dd><dt>com.bigdata.bop.join.JoinAnnotations.constraints</dt><dd>null</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.simpleJoin</dt><dd>true</dd><dt>com.bigdata.bop.BOp.evaluationContext</dt><dd>ANY</dd><dt>com.bigdata.bop.join.AccessPathJoinAnnotations.predicate</dt><dd>SPOPredicate[1]</dd></dl></td
+><td><dl><dt>com.bigdata.bop.IPredicate.relationName</dt><dd>[wdq.spo]</dd><dt>com.bigdata.bop.IPredicate.timestamp</dt><dd>1793887774567</dd><dt>com.bigdata.bop.BOp.bopId</dt><dd>1</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.estimatedCardinality</dt><dd>346486</dd><dt>com.bigdata.rdf.sparql.ast.eval.AST2BOpBase.originalIndex</dt><dd>POS</dd><dt>com.bigdata.bop.IPredicate.flags</dt><dd>[KEYS,VALS,READONLY,PARALLEL]</dd></dl></td
+><td>POS</td
+><td></td
+><td>2</td
+><td>346486</td
+><td>AllDone</td
+><td>8506</td
+><td>1</td
+><td>0</td
+><td></td
+><td></td
+><td>1</td
+><td>1</td
+><td>1.0</td
+><td>3465</td
+><td>346486</td
+><td>99.99595959595959</td
+><td>0</td
+><td>346486.0</td
+><td>0</td
+><td>1</td
+><td>346486</td
+><td>3465</td
+><td>346486</td
+><td>40</td
+></tr
+><tr
+><td>4d611bcf-3906-4c17-bd63-cc391a057670</td
+><td>Thursday, November 5, 2026 2:09:34 PM UTC</td
+><td>Thursday, November 5, 2026 2:09:43 PM UTC</td
+><td>Thursday, November 5, 2026 2:10:34 PM UTC</td
+><td>8507</td
+><td></td
+><td>1</td
+><td>false</td
+><td>3</td
+><td></td
+><td>ProjectionOp[3]</td
+><td>[item]</td
+><td><dl><dt>com.bigdata.bop.BOp.bopId</dt><dd>3</dd><dt>com.bigdata.bop.BOp.evaluationContext</dt><dd>CONTROLLER</dd><dt>com.bigdata.bop.PipelineOp.sharedState</dt><dd>true</dd><dt>com.bigdata.bop.join.JoinAnnotations.select</dt><dd>[item]</dd></dl></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>3308</td
+><td>3464</td
+><td>0</td
+><td></td
+><td></td
+><td>3465</td
+><td>346486</td
+><td>99.99595959595959</td
+><td>3465</td
+><td>346486</td
+><td>99.99595959595959</td
+><td>0</td
+><td>1.0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>40</td
+></tr
+><tr
+><td>4d611bcf-3906-4c17-bd63-cc391a057670</td
+><td>Thursday, November 5, 2026 2:09:34 PM UTC</td
+><td>Thursday, November 5, 2026 2:09:43 PM UTC</td
+><td>Thursday, November 5, 2026 2:10:34 PM UTC</td
+><td>8507</td
+><td></td
+><td>2</td
+><td>false</td
+><td>4</td
+><td></td
+><td>ChunkedMaterializationOp[4]</td
+><td>vars=[item],materializeInlineIVs=true</td
+><td><dl><dt>com.bigdata.bop.rdf.join.ChunkedMaterializationOp.vars</dt><dd>[item]</dd><dt>com.bigdata.bop.IPredicate.relationName</dt><dd>[wdq.lex]</dd><dt>com.bigdata.bop.IPredicate.timestamp</dt><dd>1793887774567</dd><dt>com.bigdata.bop.rdf.join.ChunkedMaterializationOp.materializeAll</dt><dd>true</dd><dt>com.bigdata.bop.PipelineOp.sharedState</dt><dd>true</dd><dt>com.bigdata.bop.BOp.bopId</dt><dd>4</dd><dt>com.bigdata.bop.BOp.timeout</dt><dd>60000</dd><dt>com.bigdata.bop.BOp.namespace</dt><dd>wdq</dd><dt>com.bigdata.bop.engine.QueryEngine.queryId</dt><dd>4d611bcf-3906-4c17-bd63-cc391a057670</dd><dt>com.bigdata.bop.engine.QueryEngine.chunkHandler</dt><dd>com.bigdata.bop.engine.NativeHeapStandloneChunkHandler@1f3842da</dd></dl></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td></td
+><td>AllDone</td
+><td>1570</td
+><td>3435</td
+><td>0</td
+><td></td
+><td></td
+><td>3465</td
+><td>346486</td
+><td>99.99595959595959</td
+><td>3465</td
+><td>346486</td
+><td>99.99595959595959</td
+><td>0</td
+><td>1.0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>0</td
+><td>40</td
+></tr
+></table
+></html
+>

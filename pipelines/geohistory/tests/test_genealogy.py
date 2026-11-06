@@ -171,6 +171,10 @@ def test_tradition_curation_overrides(paths):
         ({"tradition_additions": [("Q1", "r")], "tradition_exclusions": [("Q1", "r")]}, "share"),
         ({"tradition_placement_overrides": [("Q104", "Nope", "", "", "r")]}, "unknown entity"),
         ({"tradition_placement_overrides": [("Q104", "", "", "", "r")]}, "neither"),
+        (
+            {"tradition_placement_overrides": [("Q104", "E", "", "", "r"), ("Q104", "A", "", "", "r")]},
+            "several rows for Q104",
+        ),
         ({"tradition_link_overrides": [("Q100", "Q100", "lineage", "add", "r")]}, "itself"),
         ({"tradition_link_overrides": [("Q100", "Q103", "kin", "add", "r")]}, "kind"),
         ({"tradition_link_overrides": [("Q100", "Q103", "lineage", "drop", "r")]}, "action"),
