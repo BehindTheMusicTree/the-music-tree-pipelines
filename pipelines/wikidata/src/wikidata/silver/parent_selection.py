@@ -95,8 +95,11 @@ def _reduce_overviews(
     overview_edges: pl.DataFrame, regional_genre_parents: dict[str, str], ancestors: Callable[[str], set[str]]
 ) -> dict[str, list[str]]:
     candidates: dict[str, list[str]] = {}
-    for item_id, parent_id in overview_edges.select("item_id", "parent_id").iter_rows():
+    curated: set[tuple[str, str]] = set()
+    for item_id, parent_id, is_manual in overview_edges.select("item_id", "parent_id", "is_manual").iter_rows():
         candidates.setdefault(item_id, []).append(parent_id)
+        if is_manual:
+            curated.add((item_id, parent_id))
 
     reduced: dict[str, list[str]] = {}
     removed: list[tuple[str, str, str]] = []
@@ -114,7 +117,11 @@ def _reduce_overviews(
                 removed.append((item_id, overview_id, covering[0]))
             else:
                 kept.append(overview_id)
-        reduced[item_id] = sorted(kept, key=_qid_sort_key)
+        # Curated overviews come first so the anchor (the list's first entry) is the curated one.
+        by_qid = sorted(kept, key=_qid_sort_key)
+        reduced[item_id] = [o for o in by_qid if (item_id, o) in curated] + [
+            o for o in by_qid if (item_id, o) not in curated
+        ]
     for item_id, overview_id, covering_id in removed:
         logger.debug("dropped overview %s of %s, an ancestor of its parent %s", overview_id, item_id, covering_id)
     logger.info("dropped %d overview parent(s) already reached through another parent of the same item", len(removed))
@@ -129,7 +136,7 @@ def select_parents(regional_classification_path: Path, output_dir: Path) -> tupl
     # into three axes: its canonical parent (a canonical genre, or a parent outside the tree), its regional
     # genre parent (a regional genre) and its "music of <place>" overviews. The first two keep at most one
     # parent each, the others of the same axis going to 5_secondary_parents.parquet; every overview is kept,
-    # except one already reached through another of the item's parents. A curated edge (see
+    # except one already reached through another of the item's parents, curated ones first. A curated edge (see
     # regional_classification.py) wins its axis, and its `exclude_other_parents` drops the axis' other
     # candidates. Otherwise a parent that is itself an item of the tree wins, then the lowest QID — a
     # provisional placeholder pending curation. See DESIGN.md#24-5_parent_selection.

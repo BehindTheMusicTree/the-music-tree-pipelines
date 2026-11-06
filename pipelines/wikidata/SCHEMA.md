@@ -460,7 +460,7 @@ first overview, when the item is regional; its canonical parent otherwise), plus
 | ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
 | canonical_parent_id      | str?      | The selected parent that is a canonical genre or lies outside the tree, or null                    |
 | regional_genre_parent_id | str?      | The selected parent that is a regional genre (not an overview), or null                            |
-| regional_overview_ids    | list[str] | The kept "music of `<place>`" parents, by ascending QID; empty when none                           |
+| regional_overview_ids    | list[str] | The kept "music of `<place>`" parents, curated ones first, then by ascending QID; empty when none  |
 
 `5_secondary_parents.parquet` — one row per candidate parent edge not selected on the canonical or
 regional-genre axis:
