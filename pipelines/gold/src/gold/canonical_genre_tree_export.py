@@ -7,6 +7,7 @@ from jsonschema import ValidationError, validate
 
 from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
+    write_secondary_parent_rules_report,
     build_genre_tree,
     edges_to_parent_map,
     load_descriptions,
@@ -92,11 +93,14 @@ def export_canonical_genre_tree(
     extra_edges = load_extra_parent_edges(wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, item_ids)
     regional_ids = set(pl.read_parquet(wikidata_silver_dir / "8_regional_hierarchy.parquet").get_column("item_id"))
     curation = load_tree_curation(curation_dir, item_ids, item_ids | regional_ids)
-    untouched_edges, added_edges = apply_secondary_parent_rules(
+    untouched_edges, added_edges, rule_outcomes = apply_secondary_parent_rules(
         extra_edges,
         curation.secondary_parent_rules.filter(pl.col("parent_id").is_in(list(item_ids))),
         hierarchy,
         item_ids,
+    )
+    write_secondary_parent_rules_report(
+        {"canonical": rule_outcomes}, output_dir / "1_canonical_secondary_parent_rules_report.csv"
     )
     roots = pl.read_parquet(wikidata_silver_dir / "9_canonical_roots.parquet")
     unaccepted_root_ids = set(roots.filter(~pl.col("is_accepted")).get_column("item_id"))

@@ -458,9 +458,7 @@ def test_export_canonical_genre_tree_emits_scene(
     ("name", "row", "match"),
     [
         ("secondary_parents", {"item_id": "Q4", "parent_id": "Q7", "action": "move", "reason": "x"}, "malformed"),
-        ("secondary_parents", {"item_id": "Q2", "parent_id": "Q7", "action": "remove", "reason": "x"}, "removes"),
         ("secondary_parents", {"item_id": "Q2", "parent_id": "Q2", "action": "add", "reason": "x"}, "to itself"),
-        ("secondary_parents", {"item_id": "Q2", "parent_id": "Q1", "action": "add", "reason": "x"}, "anchor parent"),
         (
             "essential_songs",
             {"item_id": "Q4", "musicbrainz_recording_id": "nope", "position": "1", "reason": "x"},
@@ -486,6 +484,32 @@ def test_export_canonical_genre_tree_raises_on_bad_curation_row(
 
     with pytest.raises(ValueError, match=match):
         _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+
+def test_export_canonical_genre_tree_reports_secondary_parent_rule_outcomes(
+    tmp_path: Path,
+    curation_dir: Path,
+    descriptions_path: Path,
+    write_curation: Callable[[str, list[dict[str, str]]], None],
+) -> None:
+    write_curation(
+        "secondary_parents",
+        [
+            {"item_id": "Q2", "parent_id": "Q7", "action": "remove", "reason": "stale"},
+            {"item_id": "Q2", "parent_id": "Q1", "action": "add", "reason": "anchor"},
+            {"item_id": "Q4", "parent_id": "Q7", "action": "remove", "reason": "wrong"},
+        ],
+    )
+
+    tree = _export_with_secondary_edges(tmp_path, curation_dir, descriptions_path)
+
+    assert "secondaryParents" not in _rock_child(tree, "pop rock")
+    report = pl.read_csv(tmp_path / "gold" / "1_canonical_secondary_parent_rules_report.csv")
+    assert report.rows() == [
+        ("canonical", "Q2", "Q1", "add", "satisfied"),
+        ("canonical", "Q2", "Q7", "remove", "satisfied"),
+        ("canonical", "Q4", "Q7", "remove", "applied"),
+    ]
 
 
 def test_export_canonical_genre_tree_raises_on_duplicate_essential_song_position(

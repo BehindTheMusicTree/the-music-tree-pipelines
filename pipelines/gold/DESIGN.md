@@ -213,16 +213,21 @@ contradictory triage data:
 
 grow-the-music-tree-api's curation lists reach Gold as `<list>.csv` (shapes in [SCHEMA.md](SCHEMA.md#3-manual-csvs)):
 
-- `secondary_parents.csv`: `add` exports `(item_id, parent_id)` as a `secondaryParents` ref. A
-  canonical item's add of a regional parent rides on the regional export's `crossTreeSecondaryParents`
-  (the canonical tree is imported first, before regional rows exist); every other add raises when
-  `parent_id` can't resolve in the tree being built (canonical or regional for the regional export),
-  equals `item_id`, or is already the item's anchor parent (`parent_id` of the hierarchy): grow would
-  reject such an edge, so the export fails instead of shipping it. `remove` drops a Wikidata extra parent
-  edge (a selected parent other than the anchor, or a `5_secondary_parents` edge); it raises when the
-  parent is resolvable but the edge is not an extra parent edge, and is logged and ignored when the
-  parent is outside the resolvable set or is the item's anchor parent (a curated parent rule made it the
-  anchor: the removal holds while it is the anchor and applies again if the anchor moves away).
+- `secondary_parents.csv`: each rule states the desired state of one edge, so applying it is idempotent
+  and a rule that cannot apply is reported, not raised. `add` exports `(item_id, parent_id)` as a
+  `secondaryParents` ref; `remove` drops a Wikidata extra parent edge (a selected parent other than the
+  anchor, or a `5_secondary_parents` edge). A canonical item's add of a regional parent rides on the
+  regional export's `crossTreeSecondaryParents` (the canonical tree is imported first, before regional
+  rows exist). Each rule gets one outcome per tree pass: `applied`; `satisfied` (an `add` of an edge
+  already present or of the item's anchor parent, a `remove` of an absent edge, nothing to do);
+  `unresolved` (`parent_id` cannot resolve in the tree being built, canonical or regional for the
+  regional export); `anchor_conflict` (a `remove` of the anchor parent, which a curated parent rule made
+  the anchor: it holds while that parent is the anchor and applies again if the anchor moves away). Only
+  an `add` of an item to itself raises. Why not raise: Wikidata drifts between runs, so an edge a rule
+  added or removed can appear or vanish upstream, and a raise there would fail the whole daily run on a
+  rule whose goal is already met. The outcomes go to `1_canonical_secondary_parent_rules_report.csv` and
+  `1_regional_secondary_parent_rules_report.csv`, with a warning counting the `unresolved` and
+  `anchor_conflict` rules.
 - `essential_songs.csv`: a genre's `essentialSongs`, ordered by `position`. Every song id
   (`musicbrainz_recording_id`) is checked against `1_genre_match.parquet` before the songs and artists are
   exported, so an essential song missing from the songs fails the build.
