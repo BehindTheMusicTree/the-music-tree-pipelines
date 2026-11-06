@@ -390,6 +390,34 @@ def test_ingest_music_tradition_claims_raises_on_empty_results(monkeypatch: pyte
         bw.ingest_music_tradition_claims(tmp_path, ["Q1"])
 
 
+def test_ingest_city_candidates_queries_claim_targets_that_are_not_cultural_entities(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    claims_path, entity_path = tmp_path / "claims.parquet", tmp_path / "entity.parquet"
+    pl.DataFrame(
+        {
+            "item_id": ["Q1", "Q1", "Q1", "Q1"],
+            "property": ["P740", "P495", "P571", "P17"],
+            "value": ["Q12439", "Q30", "+1990-01-01T00:00:00Z", "Q142"],
+        }
+    ).write_parquet(claims_path)
+    pl.DataFrame({"item_id": ["Q30"]}).write_parquet(entity_path)
+    row = {
+        "item": "http://www.wikidata.org/entity/Q12439",
+        "itemLabel": "Detroit",
+        "coordinate": "Point(-83.04 42.33)",
+    }
+    run_query = MagicMock(return_value=[row, {**row, "coordinate": "Point(-83.05 42.34)"}])
+    monkeypatch.setattr(bw.wikidata_client, "run_query", run_query)
+
+    result = bw.ingest_city_candidates(tmp_path, claims_path, entity_path)
+
+    query = run_query.call_args.args[0]
+    assert "wd:Q12439" in query and "wd:Q142" in query
+    assert "wd:Q30" not in query and "wd:Q1 " not in query
+    assert pl.read_parquet(result).rows() == [("Q12439", "Detroit", "Point(-83.04 42.33)")]
+
+
 def _image_row(qid: str, mbid: str, image: str) -> dict[str, str]:
     return {
         "item": f"http://www.wikidata.org/entity/{qid}",

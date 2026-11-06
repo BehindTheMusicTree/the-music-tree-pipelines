@@ -8,6 +8,10 @@ from geohistory.silver.curation import ADDITION_KINDS, read_curation_list
 
 logger = logging.getLogger(__name__)
 
+# No bulk query: the cities are the settlements a genre's place claim targets (wikidata_city_candidate), and a
+# settlement that is also a bulk-kind or Natural Earth entity keeps that entity. Last in WIKIDATA_ENTITY_KINDS so a
+# curated addition can still be given this kind.
+CITY_KIND = "city"
 EXCLUDED_CATEGORIES = ("Bookkeeping", "Sign_Language", "Artificial_Language")
 WIKIDATA_ENTITY_KINDS = (
     "archaeological_culture",
@@ -21,6 +25,7 @@ WIKIDATA_ENTITY_KINDS = (
     "cultural_region",
     "macro_region",
     "curated",
+    CITY_KIND,
 )
 ADMIN_KIND = "admin_unit"
 _NE_COLUMNS = ["ne_id", "level", "wikidata_id", "adm0_a3", "name"]
@@ -139,6 +144,7 @@ def cultural_entity(
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity_claim.parquet")
     natural_earth = pl.read_parquet(bronze_dir / "natural_earth_admin.parquet", columns=_NE_COLUMNS)
     hierarchy = pl.read_parquet(wikidata_bronze_dir / "wikidata_admin_hierarchy.parquet")
+    city_candidates = pl.read_parquet(wikidata_bronze_dir / "wikidata_city_candidate.parquet")
 
     glottolog = _glottolog_entities(languoids)
     item_glottocodes = wikidata.filter(pl.col("glottocode").is_not_null()).select("item_id", "glottocode").unique()
@@ -202,6 +208,21 @@ def cultural_entity(
 
     admin_entities, admin_crosswalk, ne_map = _admin_entities(natural_earth, hierarchy, crosswalk)
     crosswalk = pl.concat([crosswalk, admin_crosswalk]).sort("entity_id", "wikidata_id")
+    city_entities = city_candidates.filter(~pl.col("item_id").is_in(crosswalk["wikidata_id"].to_list())).select(
+        pl.col("item_id").alias("entity_id"), pl.lit(CITY_KIND).alias("kind"), pl.col("label")
+    )
+    crosswalk = pl.concat(
+        [crosswalk, city_entities.select("entity_id", pl.col("entity_id").alias("wikidata_id"))]
+    ).sort("entity_id", "wikidata_id")
+    claims = pl.concat(
+        [
+            claims,
+            city_candidates.filter(pl.col("item_id").is_in(city_entities["entity_id"].to_list())).select(
+                "item_id", pl.lit("P625").alias("property"), pl.col("p625").alias("value")
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
 
     entity_points = (
         crosswalk.join(wikidata_points(claims), on="wikidata_id")
@@ -216,9 +237,9 @@ def cultural_entity(
                 admin_entities.with_columns(
                     pl.lit(None, pl.Float64).alias(c) for c in ("latitude", "longitude")
                 ).with_columns(pl.lit(None, pl.String).alias("macroarea")),
-                wikidata_entities.with_columns(
-                    pl.lit(None, pl.Float64).alias(c) for c in ("latitude", "longitude")
-                ).with_columns(pl.lit(None, pl.String).alias("macroarea")),
+                pl.concat([wikidata_entities, city_entities])
+                .with_columns(pl.lit(None, pl.Float64).alias(c) for c in ("latitude", "longitude"))
+                .with_columns(pl.lit(None, pl.String).alias("macroarea")),
             ]
         )
         .join(entity_points, on="entity_id", how="left")

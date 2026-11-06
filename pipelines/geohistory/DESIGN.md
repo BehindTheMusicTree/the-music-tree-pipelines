@@ -48,6 +48,11 @@ of its own. Glottocodes absent from Glottolog are left out with a warning. Categ
 no musical tradition. Dialects are kept; the minimal cut chooses the lanes later. Glottolog coordinates win over
 Wikidata P625.
 
+A `city` entity is a Wikidata human settlement with a coordinate that a genre's place claim targets
+(`wikidata_city_candidate.parquet`; a curated `entity_additions` row may also give an item kind `city`). It ranks below every other kind, so
+an item that is already a country, region or other entity keeps that kind. Only the settlements that genres claim exist:
+there is no bulk city import, so the map never carries a city nobody anchors a genre on.
+
 ## 7. Membership and succession
 
 The parent of a languoid is the last element of its `classification`. Wikidata `P361` adds edges, except between
@@ -70,7 +75,7 @@ item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`), the 
 no Wikidata entity (dependencies such as Jersey `Q785`, Hong Kong `Q8646` or the US Virgin Islands `Q11703`, labelled
 with their item's label, then their NE name, and holding their admin-1 units) plus P131 intermediates holding more than
 one known child. Containment edges come from P131, P361, P30 and
-P706 between place entities, with the Natural Earth country as fallback for admin-1 units; when two sources
+P706 between place entities, with the Natural Earth country as fallback for admin-1 units and, for a city without any such parent, the admin unit holding its coordinate (`point`, lowest priority); when two sources
 claim opposite directions (Guayana Esequiba, the Koreas) the higher-priority source wins and a tie drops the
 greater `(parent, child)` edge. Any longer cycle, including one that crosses `2_entity_membership`, drops its
 lowest-priority containment edge (membership edges are pinned) with a warning, so the union of membership and
@@ -78,7 +83,7 @@ containment is acyclic and consumers (anchoring, lanes) can walk it without cycl
 The footprint of an entity is itself if it has a Natural Earth polygon or is an admin unit fully tiled by such polygons (`self`), else every admin unit it contains (`cover`), else
 its successors' footprint (`succession`), else the admin unit containing its coordinates (`point`, Glottolog or
 Wikidata P625, first admin polygon in `ne_id` order that intersects the point, so a point on a border still matches).
-`8_entity_geometry` is only materialized for entities Gold can draw (countries, admin units and the four zone kinds). Anchoring drops a candidate that contains another candidate, and a
+A city gets a `point` footprint like any entity with coordinates. `8_entity_geometry` is only materialized for entities Gold can draw (countries, admin units and the four zone kinds). Anchoring drops a candidate that contains another candidate, and a
 tradition without a start year inherits the earliest start of its nearest containing places. Admin-unit anchors are
 lifted to the nearest non-admin container before lanes are built, so admin units never become lanes.
 
@@ -96,7 +101,7 @@ Glottocodes or QIDs.
 
 - `entity_additions` lists QIDs that `wikidata` Bronze ingests, with their claims, as kind `curated` although no bulk class
   covers them. A curated item already covered by a bulk kind keeps that kind and is logged; a QID absent from Bronze
-  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog. An optional `entity_kind` (`cultural_region` or `macro_region`, anything else raises) gives the item that kind instead of `curated`, so it is drawn (from its membership children, see `entity_footprint`) and becomes a map zone; blank keeps `curated`.
+  (deleted or redirected) raises. Only QIDs: a Glottocode already comes from Glottolog. An optional `entity_kind` (`cultural_region`, `macro_region` or `city`, anything else raises) gives the item that kind instead of `curated`, so it is drawn (from its membership children, see `entity_footprint`) and becomes a map zone; blank keeps `curated`.
 - `entity_exclusions` removes the entity from `1_cultural_entity` and the crosswalk, so its edges, successions and
   dates disappear downstream. An id out of scope is logged.
 - `entity_membership_overrides` runs after the source edges and before the cycle check, so it is the way to break a
@@ -126,14 +131,14 @@ only filters by date.
 
 The anchor is the placement override when set; otherwise it is picked among every candidate entity: `P2596` culture, `P1269` facet of, `P495`
 country of origin lifted along `3_entity_succession` to the entity valid at the tradition's date (an old genre of
-"Greece" lands on ancient Greece), `P17`/`P276`/`P921`/`P361` when the value is a place entity, and for an overview the
+"Greece" lands on ancient Greece), `P740` location of formation and `P17`/`P276`/`P921`/`P361` when the value is a place entity (a city included, which is more specific than its admin unit and country, so Detroit wins over Michigan and the United States), and for an overview the
 label ("music of X" against entity labels and `wikidata_cultural_entity_alias`). A candidate that is a membership
 ancestor of another candidate is dropped, so the most specific place wins (Morbihan over Bretagne over France) whatever
 the property; among the remaining ones the first rule in the order above wins. A label match with no
 footprint is dropped while a placeable match remains: with no geometry it cannot be drawn, so it cannot make the label
 ambiguous (the footprint-less Duchy of Brittany no longer blocks "music of Brittany"). An admin and zones whose footprint
 is exactly that admin are the same place and collapse to the admin. A label still matching several entities is
-ambiguous: it adds no candidate and the overview is listed in `5_music_anchor_unplaced.csv`.
+ambiguous: it adds no candidate (a city is never a label match: "music of Paris" does not anchor on a city) and the overview is listed in `5_music_anchor_unplaced.csv`.
 An overview whose label resolves to its anchor "names" it and is ranked (`overview_rank`); several overviews can be
 anchored on one place because an overview that did not resolve its own place falls back to the country through
 `P17`/`P495`, so only the ones naming the anchor are candidates for the region's overview. When every place the

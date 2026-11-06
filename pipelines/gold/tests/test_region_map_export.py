@@ -32,7 +32,9 @@ def _extend(
     overviews: dict[str, int] = {},
     regional: list[tuple[str, str | None]] = [],
 ) -> None:
-    _append(geohistory / "1_cultural_entity.parquet", [(e, kind, e) for e, (kind, _, _) in entities.items()])
+    _append(
+        geohistory / "1_cultural_entity.parquet", [(e, kind, e, None, None) for e, (kind, _, _) in entities.items()]
+    )
     _append(
         geohistory / "8_entity_geometry.parquet",
         [tuple(_geometry_row(e, shape, source).values()) for e, (_, shape, source) in entities.items()],
@@ -97,14 +99,15 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     output.mkdir()
     pl.DataFrame(
         [
-            ("FR", "country", "France"),
-            ("BR", "admin_unit", "Bretagne"),
-            ("NR", "admin_unit", "Normandie"),
-            ("DE", "country", "Germany"),
-            ("CE", "cultural_region", "Celtic nations"),
-            ("LG", "language", "Breton"),
+            ("FR", "country", "France", None, None),
+            ("BR", "admin_unit", "Bretagne", None, None),
+            ("NR", "admin_unit", "Normandie", None, None),
+            ("DE", "country", "Germany", None, None),
+            ("CE", "cultural_region", "Celtic nations", None, None),
+            ("LG", "language", "Breton", None, None),
+            ("RN", "city", "Rennes", 48.11, -1.68),
         ],
-        schema=["entity_id", "kind", "label"],
+        schema=["entity_id", "kind", "label", "latitude", "longitude"],
         orient="row",
     ).write_parquet(geohistory / "1_cultural_entity.parquet")
     shapes = {
@@ -385,7 +388,7 @@ def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp
         [
             entities,
             pl.DataFrame(
-                [("EG", "ethnic_group", "Javanese"), ("CV", "civilization", "Rome")],
+                [("EG", "ethnic_group", "Javanese", None, None), ("CV", "civilization", "Rome", None, None)],
                 schema=entities.schema,
                 orient="row",
             ),
@@ -702,3 +705,61 @@ def test_export_region_map_lists_a_zone_member_dissolved_through_a_chain(tmp_pat
 
     assert {"LOW", "MID"}.isdisjoint(regions)
     assert regions["ZZ"]["childIds"] == ["TOP"]
+
+
+def _anchor_city(geohistory: Path, wikidata: Path, rows: list[tuple[str, str]]) -> None:
+    _append(geohistory / "8_entity_footprint.parquet", [("RN", "BR", "point")])
+    _append(
+        geohistory / "5_music_anchor.parquet",
+        [(item, anchor, "P740", False, None) for item, anchor in rows],
+    )
+
+
+def test_export_region_map_emits_a_city_only_when_a_genre_anchors_on_it(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "RN" not in regions
+    assert all("cityIds" not in region for region in regions.values())
+
+
+def test_export_region_map_lists_a_city_genre_on_the_city_and_its_admin_unit(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _anchor_city(geohistory, wikidata, [("Q8", "RN")])
+    _append(wikidata / "8_regional_hierarchy.parquet", [("Q8", None)])
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    city = regions["RN"]
+    assert (city["kind"], city["parentId"], city["childIds"], city["drillable"]) == ("city", "BR", [], False)
+    assert city["centroid"] == [-1.68, 48.11]
+    assert city["bbox"] == city["mainBbox"] == [-1.68, 48.11, -1.68, 48.11]
+    assert city["genres"] == [{"itemId": "Q8", "rule": "P740", "relation": "regional"}]
+    assert regions["BR"]["cityIds"] == ["RN"]
+    assert "RN" not in regions["BR"]["childIds"]
+    assert {"itemId": "Q8", "rule": "city_parent", "relation": "regional"} in regions["BR"]["genres"]
+    assert regions["FR"]["genreCount"] >= 1
+
+
+def test_export_region_map_puts_a_city_layer_in_the_tileset(
+    tmp_path: Path, fake_tippecanoe: list[list[str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _anchor_city(geohistory, wikidata, [("Q8", "RN")])
+    layers: dict[str, list[dict]] = {}
+    inner = region_map_export._run_tippecanoe
+
+    def capture(arguments: list[str]) -> None:
+        for name, path in (a.split(":", 1) for a in arguments if a.count(":") == 1 and not a.startswith("-")):
+            layers[name] = _layer(Path(path))
+        inner(arguments)
+
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", capture)
+
+    export_region_map(geohistory, wikidata, match, output)
+
+    (feature,) = layers["cities"]
+    assert feature["properties"] == {"id": "RN", "parentId": "BR", "name": "Rennes", "min_zoom": 5}
+    assert feature["geometry"] == {"type": "Point", "coordinates": [-1.68, 48.11]}
+    assert "RN" not in {f["properties"]["id"] for f in layers["region_labels"]}

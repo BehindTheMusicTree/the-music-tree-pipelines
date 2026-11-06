@@ -65,13 +65,19 @@ def write_curation(curation: Path, **rows: list[tuple[str, ...]]) -> Path:
     return curation
 
 
-def write_admin(dirs, natural_earth=(), hierarchy=()):
+CITY_SCHEMA = {"item_id": pl.String, "label": pl.String, "p625": pl.String}
+
+
+def write_admin(dirs, natural_earth=(), hierarchy=(), cities=()):
     bronze, wikidata, _ = dirs
     pl.DataFrame(list(natural_earth), schema=NE_SCHEMA, orient="row").write_parquet(
         bronze / "natural_earth_admin.parquet"
     )
     pl.DataFrame(list(hierarchy), schema=HIERARCHY_SCHEMA, orient="row").write_parquet(
         wikidata / "wikidata_admin_hierarchy.parquet"
+    )
+    pl.DataFrame(list(cities), schema=CITY_SCHEMA, orient="row").write_parquet(
+        wikidata / "wikidata_city_candidate.parquet"
     )
 
 
@@ -565,3 +571,32 @@ def test_cultural_entity_makes_a_country_without_an_entity_an_admin_unit(dirs):
     assert ne_map["VIR-4868"]["country_entity_id"] == ne_map["VIR-4869"]["country_entity_id"] == "Q11703"
     crosswalk = pl.read_parquet(silver / "1_entity_wikidata_item.parquet")
     assert ("Q785", "Q785") in crosswalk.rows() and ("Q11703", "Q11703") in crosswalk.rows()
+
+
+def test_cultural_entity_adds_a_city_with_its_point_below_every_other_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q2", "country")], claims=[])
+    bronze, wikidata, silver = dirs
+    write_admin(dirs, cities=[("Q2", "Twice", "Point(1 2)"), ("Q60", "Detroit", "Point(-83.04 42.33)")])
+    curation = silver.parent / "curation"
+
+    entity_path, crosswalk_path = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id").str.starts_with("Q"))
+    assert out.select("entity_id", "kind", "label", "latitude", "longitude", "coordinate_source").sort(
+        "entity_id"
+    ).rows() == [
+        ("Q2", "country", "label Q2", None, None, None),
+        ("Q60", "city", "Detroit", 42.33, -83.04, "wikidata"),
+    ]
+    assert ("Q60", "Q60") in pl.read_parquet(crosswalk_path).rows()
+
+
+def test_cultural_entity_accepts_city_as_an_addition_kind(dirs):
+    base_bronze(dirs, entities=[entity("Q1", "curated")], claims=[])
+    bronze, wikidata, silver = dirs
+    curation = write_curation(silver.parent / "curation", entity_additions=[("Q1", "city", "missed")])
+
+    entity_path, _ = cultural_entity(bronze, wikidata, silver, curation)
+
+    out = pl.read_parquet(entity_path).filter(pl.col("entity_id") == "Q1")
+    assert out["kind"].to_list() == ["city"]

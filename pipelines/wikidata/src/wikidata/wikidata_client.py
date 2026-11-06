@@ -306,7 +306,7 @@ LABEL_PID = "label"
 SITELINKS_PID = "sitelinks"
 
 # Claim properties that date, anchor or link a music tradition candidate. P2596 = culture, P1269 = facet of,
-# P495 = country of origin, P17 = country, P276 = location, P921 = main subject (where a "music of <place>" overview
+# P495 = country of origin, P740 = location of formation, P17 = country, P276 = location, P921 = main subject (where a "music of <place>" overview
 # names its place), P361 = part of, P155/P156 = follows/followed by, P737 = influenced by.
 # P279 (subclass of) is not listed: the genre tree already carries it. `label` and `sitelinks` are pseudo-properties
 # ingested through the same long table.
@@ -315,6 +315,7 @@ TRADITION_CLAIM_PIDS = (
     "P2596",
     "P1269",
     COUNTRY_OF_ORIGIN_PID,
+    "P740",
     "P17",
     "P276",
     "P921",
@@ -326,6 +327,12 @@ TRADITION_CLAIM_PIDS = (
     LABEL_PID,
 )
 
+
+# Place claims a genre can point a city with. A target that is a human settlement with a coordinate becomes a city
+# entity (the genre tree itself decides which cities exist, no bulk import of every settlement).
+CITY_CLAIM_PIDS = (COUNTRY_OF_ORIGIN_PID, "P740", "P17", "P276", "P921", "P361")
+HUMAN_SETTLEMENT_QID = "Q486972"
+CITY_CANDIDATE_QUERY_VARIABLES = ("item", "itemLabel", "coordinate")
 
 ITEM_CLAIM_QUERY_VARIABLES = ("item", "property", "value", "precision")
 # ~1k items by a dozen properties answer in 3-5 s, well inside WDQS's 60 s limit (and too long for a GET URL).
@@ -369,6 +376,24 @@ def item_claims_queries(qids: Iterable[str], pids: Sequence[str]) -> list[str]:
 SELECT DISTINCT ?item ?property ?value ?precision WHERE {{
   VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
   {branches}
+}}
+"""
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
+
+
+def city_candidate_queries(qids: Iterable[str]) -> list[str]:
+    """One query per ITEM_CLAIM_CHUNK of the distinct `qids`, keeping the human settlements that have a coordinate."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"city candidates must be Wikidata QIDs, got {invalid[:5]}")
+    return [
+        f"""
+SELECT DISTINCT ?item ?itemLabel ?coordinate WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  ?item wdt:P31/wdt:P279* wd:{HUMAN_SETTLEMENT_QID} ; wdt:P625 ?coordinate .
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{LABEL_LANGUAGES}". }}
 }}
 """
         for start in range(0, len(items), ITEM_CLAIM_CHUNK)
