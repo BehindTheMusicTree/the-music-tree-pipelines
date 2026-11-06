@@ -240,6 +240,7 @@ def export_region_map(
             if overview_rank is not None and relation != "tradition":
                 overview_candidates[anchor_id].append((overview_rank, item_id))
         elif anchor_id in admin_ids or anchor_id in zone_candidates:
+            genres_by_region[anchor_id] = [g for g in genres_by_region[anchor_id] if g["itemId"] != item_id]
             genres_by_region[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
             placed[item_id].append(anchor_id)
             if overview_rank is not None and relation != "tradition":

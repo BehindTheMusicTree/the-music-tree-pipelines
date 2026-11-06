@@ -309,9 +309,10 @@ def ingest_city_candidates(output_dir: Path, claims_path: Path, entity_path: Pat
     known = set(pl.read_parquet(entity_path)["item_id"])
     targets = sorted(
         set(
-            claims.filter(pl.col("property").is_in(wikidata_client.CITY_CLAIM_PIDS) & pl.col("value").is_not_null())[
-                "value"
-            ]
+            claims.filter(
+                pl.col("property").is_in(wikidata_client.CITY_CLAIM_PIDS)
+                & pl.col("value").str.contains(rf"^{wikidata_client.QID_PATTERN.pattern}$")
+            )["value"]
         )
         - known
     )
