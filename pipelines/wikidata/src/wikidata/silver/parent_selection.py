@@ -118,7 +118,10 @@ def _reduce_overviews(
             else:
                 kept.append(overview_id)
         # Curated overviews come first so the anchor (the list's first entry) is the curated one.
-        reduced[item_id] = sorted(kept, key=lambda o, i=item_id: ((i, o) not in curated, _qid_sort_key(o)))
+        by_qid = sorted(kept, key=_qid_sort_key)
+        reduced[item_id] = [o for o in by_qid if (item_id, o) in curated] + [
+            o for o in by_qid if (item_id, o) not in curated
+        ]
     for item_id, overview_id, covering_id in removed:
         logger.debug("dropped overview %s of %s, an ancestor of its parent %s", overview_id, item_id, covering_id)
     logger.info("dropped %d overview parent(s) already reached through another parent of the same item", len(removed))
