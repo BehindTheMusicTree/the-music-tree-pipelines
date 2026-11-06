@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Gold's `5_region_map` tileset is generalized per zoom (tippecanoe `--simplification=8 --visvalingam --simplify-only-low-zooms`, about one pixel): low-zoom tiles kept the unsimplified 1:10m coasts, whose sub-pixel zigzags the map's region outline drew as a hairy, spiky border. Zoom 10 keeps full detail; the index is unchanged. Tests in `test_region_map_export.py`.
 - Artist image enrichment isolates malformed Wikidata artists, preserves their previous observations and retries them across runs while publishing valid updates.
 - Wikidata Silver `5_parent_selection`: a regional item's curated overview (`regional_overviews.csv`) now comes first in `regional_overview_ids`, so it becomes the anchor `parent_id` when the item has no regional genre parent, instead of always the lowest-QID overview; the others stay secondary. Lets Latin music sit under world music as a regional umbrella. Tests in `test_parent_selection.py`.
 

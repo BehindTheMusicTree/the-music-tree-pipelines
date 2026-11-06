@@ -35,6 +35,9 @@ CONTINENT_MIN_AREA_KM2 = 5_000_000
 KM_PER_DEGREE = 111.32
 TILESET_MIN_ZOOM = 0
 TILESET_MAX_ZOOM = 10
+# In tile units: a 4096-unit tile draws on 512 px, so 8 drops detail under a pixel. Unsimplified 1:10m coasts
+# otherwise keep thousands of sub-pixel zigzags at low zoom, which a stroke turns into a hairy outline.
+TILESET_SIMPLIFICATION = 8
 # Zoom bands, Google Maps style: a region splits into its subdivisions once its main part spans SPLIT_PX on screen.
 # Kept under a phone's width so framing a region on any screen lands past its split and shows its subdivisions.
 TILE_PX = 512
@@ -240,7 +243,8 @@ def _region_tileset(
     arguments = [
         "-o", str(built), "--force",
         f"-Z{TILESET_MIN_ZOOM}", f"-z{TILESET_MAX_ZOOM}",
-        "--detect-shared-borders", "--no-progress-indicator",
+        "--detect-shared-borders", f"--simplification={TILESET_SIMPLIFICATION}", "--visvalingam",
+        "--simplify-only-low-zooms", "--no-progress-indicator",
     ]  # fmt: skip
     for layer, (features, by_min_zoom) in layers.items():
         path = work_dir / f"{layer}.geojsonl"
