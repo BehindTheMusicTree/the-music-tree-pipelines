@@ -1,5 +1,6 @@
 """Bounded QID acquisition and durable complete-observation replacement."""
 
+import logging
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
@@ -13,6 +14,9 @@ from wikidata.artist_images.state import ImageState, checkpoint_state, load_stat
 from wikidata.artist_images.transport import BudgetExhausted, QueryTimeout, RequestBudget, request_json
 from wikidata.artist_images.locks import LockDeferred
 from wikidata.wikidata_client import SPARQL_ENDPOINT
+
+
+logger = logging.getLogger(__name__)
 
 
 async def acquire_claim_batches(
@@ -84,6 +88,8 @@ def commit_claims(
                 "last_attempt_at": now,
                 "consecutive_failures": 0,
                 "retry_after_at": None,
+                "failure_reason": None,
+                "first_failure_at": None,
             }
         )
         updates.append(row)
@@ -105,6 +111,23 @@ def commit_claims(
         },
         {"registry": accepted_ids, "claims": accepted_ids},
     )
+
+
+def _quarantine_claims(root, state, reasons, now, budget):
+    from wikidata.artist_images.progress import defer_failed
+
+    rejected = set(reasons)
+    state = defer_failed(
+        root,
+        state,
+        "registry",
+        rejected,
+        now,
+        reasons={qid: f"invalid_claims: {reason}" for qid, reason in reasons.items()},
+    )
+    budget.work["claims"]["failed"].update(rejected)
+    logger.warning("Quarantined %d invalid claim QIDs; sample=%s", len(rejected), sorted(rejected)[:20])
+    return state
 
 
 async def refresh_claim_queue(
@@ -146,6 +169,15 @@ async def refresh_claim_queue(
                     for observation in batch.observations
                     if observation.status != "needs_confirmation"
                 )
+                if batch.rejected_qids:
+                    reasons = dict(batch.rejection_reasons)
+                    state = _quarantine_claims(
+                        root,
+                        state,
+                        {qid: reasons.get(qid, "Invalid claim observation") for qid in batch.rejected_qids},
+                        now,
+                        budget,
+                    )
                 unresolved = [
                     observation.item_id
                     for observation in batch.observations
@@ -166,7 +198,17 @@ async def refresh_claim_queue(
                     )
                     for source, target in confirmed.redirects:
                         async for target_batch in acquire_claim_batches(client, budget, [target]):
-                            if target_batch.rejected_qids or len(target_batch.observations) != 1:
+                            if target_batch.rejected_qids:
+                                reason = dict(target_batch.rejection_reasons).get(target, "Invalid claim observation")
+                                state = _quarantine_claims(
+                                    root,
+                                    state,
+                                    {source: f"Redirect target {target}: {reason}"},
+                                    now,
+                                    budget,
+                                )
+                                break
+                            if len(target_batch.observations) != 1:
                                 raise ValueError("Invalid redirect target claims")
                             observation = target_batch.observations[0]
                             if observation.status == "needs_confirmation":
@@ -187,18 +229,15 @@ async def refresh_claim_queue(
                                 positive_ttl_days=positive_ttl_days,
                                 negative_ttl_days=negative_ttl_days,
                             )
-                        budget.work["claims"]["succeeded"].add(source)
+                        if source not in budget.work["claims"]["failed"]:
+                            budget.work["claims"]["succeeded"].add(source)
                     redirect_targets = {target for _, target in confirmed.redirects}
                     if set(confirmed.requires_refresh) - redirect_targets:
                         raise ValueError("Entity claims changed during observation; retry next run")
-                if batch.rejected_qids:
-                    raise ValueError(
-                        f"Claims validation rejected {len(batch.rejected_qids)} QIDs; publication suppressed"
-                    )
         except (BudgetExhausted, LockDeferred):
             raise
         except Exception:
-            failed = set(qids) - budget.work["claims"]["succeeded"]
+            failed = set(qids) - budget.work["claims"]["succeeded"] - budget.work["claims"]["failed"]
             budget.work["claims"]["failed"].update(failed)
             defer_failed(root, load_state(root), "registry", failed, now)
             raise

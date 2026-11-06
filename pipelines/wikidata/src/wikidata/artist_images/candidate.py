@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import polars as pl
 
+from wikidata.artist_images.progress import quarantine_summary
 from wikidata.artist_images.state import ImageState
 from wikidata.silver.artist_images import OUTPUT_COLUMNS, select_artist_images_with_report
 
@@ -72,6 +73,7 @@ def assemble_candidate(
         "freshnessPolicy": {"claimsDays": claims_days, "metadataDays": metadata_days},
         "ageSummary": age_summary,
         "refreshCoverage": coverage,
+        "quarantine": quarantine_summary(state),
     }
     if discovery["coverage"] == "bootstrap_seed":
         provenance["bootstrap"] = state.provenance["bootstrap"]

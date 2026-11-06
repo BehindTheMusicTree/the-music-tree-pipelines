@@ -170,3 +170,123 @@ def test_complete_refresh_commits_claims_and_publishes_same_selected_image(setti
     assert status["refreshCoverage"]["claims"] == {"attempted": 1, "succeeded": 1, "failed": 0, "deferred": 0}
     assert load_state(settings.state_root).tables["registry"]["claims_status"].to_list() == ["has_image"]
     assert pl.read_parquet(current.lineage_path)["claims_checked_at"][0] is not None
+
+
+def test_quarantine_publishes_other_artists_survives_restart_and_recovers(settings):
+    import httpx
+
+    from wikidata.artist_images.discovery import commit_discovery
+
+    now = datetime.now(UTC)
+    commit_discovery(settings.state_root, load_state(settings.state_root), ["Q1", "Q2"], now)
+    old = resolve_artist_image_snapshot(settings.published_root)
+    old_claims = load_state(settings.state_root).tables["claims"].filter(pl.col("item_id") == "Q1")
+    requests = []
+    corrected = False
+
+    def binding(qid, mbid, image):
+        return {
+            "item": {"type": "uri", "value": f"http://www.wikidata.org/entity/{qid}"},
+            "mbid": {"type": "literal", "value": mbid},
+            "image": {"type": "uri", "value": f"http://commons.wikimedia.org/wiki/Special:FilePath/{image}"},
+        }
+
+    def respond(request):
+        requests.append(request)
+        if request.url.host == "query.wikidata.org":
+            rows = [binding("Q1", "00000000-0000-0000-0000-000000000001", "a.jpg")]
+            if not corrected:
+                rows += [
+                    binding("Q1", "malformed", "wrong.jpg"),
+                    binding("Q2", "00000000-0000-0000-0000-000000000002", "b.jpg"),
+                ]
+            return httpx.Response(200, json={"results": {"bindings": rows}})
+        return httpx.Response(
+            200,
+            json={
+                "query": {
+                    "pages": [
+                        {
+                            "title": "File:b.jpg",
+                            "imageinfo": [
+                                {
+                                    "thumburl": "https://upload.wikimedia.org/b.jpg",
+                                    "descriptionurl": "https://commons.wikimedia.org/b.jpg",
+                                    "extmetadata": {
+                                        "LicenseShortName": {"value": "CC0"},
+                                        "AttributionRequired": {"value": "false"},
+                                    },
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        )
+
+    def run(at=None):
+        client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+        with patch("wikidata.artist_images.worker.httpx.AsyncClient", return_value=client):
+            if at is None:
+                return asyncio.run(run_refresh(settings))
+            with patch("wikidata.artist_images.worker.datetime", wraps=datetime) as clock:
+                clock.now.return_value = at
+                return asyncio.run(run_refresh(settings))
+
+    first = run()
+    snapshot = resolve_artist_image_snapshot(settings.published_root)
+    state = load_state(settings.state_root)
+    quarantined = state.tables["registry"].filter(pl.col("item_id") == "Q1").row(0, named=True)
+    assert first["outcome"] == "degraded"
+    assert first["stages"]["claims"] == "degraded"
+    assert first["stages"]["metadata"] == "healthy"
+    assert first["refreshCoverage"]["claims"] == {"attempted": 2, "succeeded": 1, "failed": 1, "deferred": 0}
+    assert snapshot.snapshot_id != old.snapshot_id
+    assert pl.read_parquet(snapshot.images_path).height == 2
+    assert snapshot.manifest["quarantine"]["count"] == 1
+    assert first["quarantine"]["sample"][0]["reason"] == "invalid_claims: Invalid MusicBrainz artist identifier"
+    assert state.tables["claims"].filter(pl.col("item_id") == "Q1").equals(old_claims)
+    assert quarantined["claims_checked_at"] is None
+    assert quarantined["consecutive_failures"] == 1
+    assert quarantined["retry_after_at"] == quarantined["last_attempt_at"] + timedelta(minutes=15)
+    assert len(requests) == 2
+
+    second = run()
+    assert second["outcome"] == "degraded"
+    assert second["quarantine"] == first["quarantine"]
+    assert second["snapshotId"] == first["snapshotId"]
+    assert second["lastSuccessfulRunAt"] is None
+    assert len(requests) == 2
+
+    corrected = True
+    third = run(now + timedelta(hours=1))
+    recovered = load_state(settings.state_root).tables["registry"].filter(pl.col("item_id") == "Q1").row(0, named=True)
+    assert third["outcome"] == "healthy"
+    assert third["quarantine"]["count"] == 0
+    assert third["lastSuccessfulRunAt"] is not None
+    assert third["snapshotId"] != first["snapshotId"]
+    assert recovered["claims_checked_at"] is not None
+    assert recovered["consecutive_failures"] == 0
+    assert recovered["failure_reason"] is None
+    assert recovered["first_failure_at"] is None
+    assert recovered["retry_after_at"] is None
+    assert len(requests) == 3
+
+
+def test_incomplete_batch_still_blocks_publication(settings):
+    import httpx
+
+    from wikidata.artist_images.discovery import commit_discovery
+
+    commit_discovery(settings.state_root, load_state(settings.state_root), ["Q1", "Q2"], datetime.now(UTC))
+    old = resolve_artist_image_snapshot(settings.published_root)
+    payload = {"results": {"bindings": [{"item": {"type": "uri", "value": "http://www.wikidata.org/entity/Q1"}}]}}
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    with patch("wikidata.artist_images.worker.httpx.AsyncClient", return_value=client):
+        with pytest.raises(ValueError, match="Incomplete SPARQL QID coverage"):
+            asyncio.run(run_refresh(settings))
+    assert resolve_artist_image_snapshot(settings.published_root).snapshot_id == old.snapshot_id
+    assert json.loads((settings.published_root / "status.json").read_text())["outcome"] == "failed"
+    registry = load_state(settings.state_root).tables["registry"]
+    assert registry["claims_checked_at"].null_count() == 2
+    assert registry["consecutive_failures"].to_list() == [1, 1]

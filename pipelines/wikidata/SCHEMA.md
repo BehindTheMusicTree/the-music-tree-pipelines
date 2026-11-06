@@ -650,6 +650,13 @@ The numbered image outputs above are retained legacy bootstrap inputs.
 
 State registry rows contain `item_id`, nullable `first_seen_at`, `last_seen_in_discovery_at`, `claims_checked_at`,
 `next_check_at`, `last_attempt_at`, `retry_after_at` (UTC timestamps), `claims_status` (string), and
-`consecutive_failures` (UInt32). Claims rows contain `item_id`, `musicbrainz_artist_id`, `image_file` and nullable
+`consecutive_failures` (UInt32), nullable `failure_reason` (string; `invalid_claims: <reason>` or `request_failed`),
+and nullable `first_failure_at` (UTC timestamp; start of the recorded failure streak). Claims rows contain `item_id`, `musicbrainz_artist_id`, `image_file` and nullable
 `claims_checked_at`. Commons rows extend section 3.11 with `result_status` (`legacy`, `observed`, `missing`), nullable
 `canonical_title`, `last_attempt_at`, `retry_after_at` and `consecutive_failures` (UInt32).
+
+
+Worker `status.json` and incremental snapshot manifests include `quarantine`: `count` (outstanding invalid-claims
+QIDs), nullable `oldestFailureAt` (UTC ISO timestamp), and `sample` (at most 20 entries ordered by first failure and
+QID). Each sample has `itemId`, `reason`, `firstFailureAt`, `lastAttemptAt`, `retryAfterAt` (UTC ISO timestamps), and
+`consecutiveFailures` (integer). Failure diagnostics on pre-upgrade registry rows are null when unknown.

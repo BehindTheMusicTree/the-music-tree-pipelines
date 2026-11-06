@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import polars as pl
 
+from wikidata.artist_images.bootstrap import seed_registry
 from wikidata.artist_images.candidate import assemble_candidate
 from wikidata.artist_images.state import ImageState
 from wikidata.silver.commons_image_metadata import _SCHEMA
@@ -35,7 +36,7 @@ def test_candidate_keeps_selected_lineage_and_actual_freshness() -> None:
     state = ImageState(
         "generation",
         0,
-        {"claims": claims, "commons": metadata},
+        {"registry": seed_registry(claims), "claims": claims, "commons": metadata},
         {
             "discovery": {"coverage": "complete", "completedAt": now.isoformat()},
         },

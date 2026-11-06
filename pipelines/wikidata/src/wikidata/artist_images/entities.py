@@ -135,6 +135,8 @@ def merge_redirect(
             "last_attempt_at": now,
             "consecutive_failures": 0,
             "retry_after_at": None,
+            "failure_reason": None,
+            "first_failure_at": None,
         }
     )
     registry = pl.concat(
