@@ -6,12 +6,13 @@ import polars as pl
 from common.quality_checks import check_unique_key
 
 from geohistory.silver.curation import read_curation_list
+from geohistory.silver.entity_footprint import _point_footprints
 from geohistory.silver.entity_membership import GLOTTOLOG_KINDS, _assert_acyclic
 from geohistory.silver.music_anchor import PLACE_KINDS
 
 logger = logging.getLogger(__name__)
 
-SOURCE_PRIORITY = ("p131", "p361", "p30", "p706", "natural_earth")
+SOURCE_PRIORITY = ("p131", "p361", "p30", "p706", "natural_earth", "point")
 PAIR_SCHEMA = {"parent_id": pl.String, "child_id": pl.String}
 EDGE_SCHEMA = PAIR_SCHEMA | {"source": pl.String}
 CLAIM_SOURCES = {"P30": "p30", "P706": "p706"}
@@ -113,7 +114,7 @@ def _item_edges(pairs: pl.DataFrame, item_entity: dict[str, str], place_ids: set
     return edges
 
 
-def place_containment(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
+def place_containment(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path) -> Path:
     claims = pl.read_parquet(wikidata_bronze_dir / "wikidata_cultural_entity_claim.parquet")
     hierarchy = pl.read_parquet(wikidata_bronze_dir / "wikidata_admin_hierarchy.parquet")
     entities = pl.read_parquet(silver_dir / "1_cultural_entity.parquet")
@@ -194,9 +195,25 @@ def place_containment(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir:
         fallback.append((country_id, entity_id, "natural_earth"))
         parents[entity_id].add(country_id)
 
-    fallback_rank = SOURCE_PRIORITY.index("natural_earth")
-    fallback_frame = pl.DataFrame(fallback, schema=EDGE_SCHEMA, orient="row").with_columns(
-        pl.lit(fallback_rank, dtype=pl.Int8).alias("rank")
+    # A city no claim places under a unit sits under the admin-1 unit its coordinate falls in.
+    cities = entities.filter(
+        (pl.col("kind") == "city")
+        & pl.col("latitude").is_not_null()
+        & pl.col("longitude").is_not_null()
+        & ~pl.col("entity_id").is_in(list(parents))
+    ).sort("entity_id")
+    point_fallback = [
+        (admin_id, city_id, "point")
+        for city_id, admin_id in (_point_footprints(bronze_dir, ne_map, cities) if cities.height else ())
+        if admin_id in place_ids
+    ]
+    fallback_frame = pl.concat(
+        [
+            pl.DataFrame(rows, schema=EDGE_SCHEMA, orient="row").with_columns(
+                pl.lit(SOURCE_PRIORITY.index(source), dtype=pl.Int8).alias("rank")
+            )
+            for source, rows in (("natural_earth", fallback), ("point", point_fallback))
+        ]
     )
     membership_pairs = set(membership.select("child_id", "parent_id").rows())
     edges = (

@@ -37,17 +37,33 @@ def hierarchy_row(item, prop, value):
     return (item, prop, value, None)
 
 
-def build(tmp_path, hierarchy=(), claims=(), membership=(), overrides=(), ne_map=()):
+def build(tmp_path, hierarchy=(), claims=(), membership=(), overrides=(), ne_map=(), cities=None):
     wikidata, silver = tmp_path / "wikidata", tmp_path / "silver"
     wikidata.mkdir()
     silver.mkdir()
     curation = write_curation(tmp_path / "curation", entity_membership_overrides=list(overrides))
+    cities = cities or {}
     pl.DataFrame(
-        [(e, k, n) for e, k, n in ENTITIES], schema=["entity_id", "kind", "label"], orient="row"
+        [(e, k, n, None, None) for e, k, n in ENTITIES]
+        + [(city, "city", city, latitude, longitude) for city, (longitude, latitude) in cities.items()],
+        schema={
+            "entity_id": pl.String,
+            "kind": pl.String,
+            "label": pl.String,
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+        },
+        orient="row",
     ).write_parquet(silver / "1_cultural_entity.parquet")
-    pl.DataFrame(CROSSWALK, schema=["entity_id", "wikidata_id"], orient="row").write_parquet(
-        silver / "1_entity_wikidata_item.parquet"
-    )
+    if cities:
+        pl.DataFrame(
+            [(f"ne{i}", 1, shapely.box(i * 10, 0, i * 10 + 5, 5).wkb) for i in range(2)],
+            schema={"ne_id": pl.String, "level": pl.Int8, "geometry_wkb": pl.Binary},
+            orient="row",
+        ).write_parquet(tmp_path / "natural_earth_admin.parquet")
+    pl.DataFrame(
+        CROSSWALK + [(c, f"Q{c}") for c in cities], schema=["entity_id", "wikidata_id"], orient="row"
+    ).write_parquet(silver / "1_entity_wikidata_item.parquet")
     pl.DataFrame(
         list(ne_map),
         schema={"ne_id": pl.String, "level": pl.Int8, "entity_id": pl.String, "country_entity_id": pl.String},
@@ -64,7 +80,7 @@ def build(tmp_path, hierarchy=(), claims=(), membership=(), overrides=(), ne_map
     pl.DataFrame(list(claims), schema=CLAIM_SCHEMA, orient="row").write_parquet(
         wikidata / "wikidata_cultural_entity_claim.parquet"
     )
-    place_containment(wikidata, silver, curation)
+    place_containment(tmp_path, wikidata, silver, curation)
     return silver
 
 
@@ -158,6 +174,27 @@ def test_union_cycle_with_membership_drops_the_containment_edge(tmp_path):
 def test_assert_acyclic_names_the_offending_edges():
     with pytest.raises(ValueError, match="x.*y"):
         _assert_acyclic(pl.DataFrame({"parent_id": ["x", "y"], "child_id": ["y", "x"]}), "demo")
+
+
+def test_city_without_a_claim_sits_under_the_admin_unit_holding_its_coordinate(tmp_path):
+    silver = build(
+        tmp_path,
+        ne_map=[("ne0", 1, "mor", "fr"), ("ne1", 1, "cat", "es")],
+        cities={"det": (2.0, 2.0), "far": (50.0, 50.0)},
+    )
+    assert edges(silver) >= {("mor", "det", "point")}
+    assert not any(child == "far" for _, child, _ in edges(silver))
+
+
+def test_city_with_a_p131_parent_keeps_it_over_the_point_fallback(tmp_path):
+    silver = build(
+        tmp_path,
+        hierarchy=[hierarchy_row("Qdet", "P131", "Qcat")],
+        ne_map=[("ne0", 1, "mor", "fr"), ("ne1", 1, "cat", "es")],
+        cities={"det": (2.0, 2.0)},
+    )
+    assert ("cat", "det", "p131") in edges(silver)
+    assert ("mor", "det", "point") not in edges(silver)
 
 
 def footprint(tmp_path, containment, ne_ids, succession=(), points=None):

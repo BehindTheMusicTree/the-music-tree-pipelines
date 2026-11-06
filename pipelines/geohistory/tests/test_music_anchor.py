@@ -26,6 +26,7 @@ ENTITIES = [
     ("khk", "admin_unit", "Khakass"),
     ("chn", "cultural_region", "China"),
     ("prc", "country", "People's Republic of China"),
+    ("det", "city", "Detroit"),
 ]
 CROSSWALK = {
     "fr": "Q142",
@@ -42,6 +43,7 @@ CROSSWALK = {
     "khk": "Q6543",
     "chn": "Q29520",
     "prc": "Q148",
+    "det": "Q12439",
 }
 
 
@@ -135,6 +137,17 @@ def test_place_properties_ignore_non_place_entities(tmp_path):
     claims = [label("Q1", "Folk"), claim("Q1", "P17", "Q142"), claim("Q1", "P921", "Q99")]
     anchors, _ = run(tmp_path, claims)
     assert anchors["Q1"]["anchor_id"] == "fr"
+
+
+def test_city_claim_anchors_on_the_city_below_its_country(tmp_path):
+    claims = [label("Q1", "Detroit techno"), claim("Q1", "P495", "Q30"), claim("Q1", "P740", "Q12439")]
+    anchors, _ = run(tmp_path, claims, containment=[("det", "us")])
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("det", "P740")
+
+
+def test_city_is_not_matched_by_an_overview_label(tmp_path):
+    anchors, unplaced = run(tmp_path, [label("Q1", "music of Detroit")])
+    assert "Q1" not in anchors or anchors["Q1"]["anchor_id"] != "det"
 
 
 def test_override_sets_the_anchor(tmp_path):

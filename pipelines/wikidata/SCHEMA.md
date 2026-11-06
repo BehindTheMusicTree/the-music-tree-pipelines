@@ -26,6 +26,7 @@ pipeline overview.
     - [2.8 wikidata_artist_images.parquet](#28-wikidata_artist_imagesparquet)
     - [2.9 wikidata_admin_hierarchy.parquet](#29-wikidata_admin_hierarchyparquet)
     - [2.10 wikidata_cultural_entity_alias.parquet](#210-wikidata_cultural_entity_aliasparquet)
+    - [2.11 wikidata_city_candidate.parquet](#211-wikidata_city_candidateparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -284,6 +285,18 @@ One row per (item, alias): the English Wikidata names (`skos:altLabel` and the m
 | alias   | str  | One English alias of that item                |
 
 As of this writing: 32,737 rows.
+
+### 2.11 wikidata_city_candidate.parquet
+
+One row per Wikidata human settlement (`wdt:P31/wdt:P279*` `Q486972`) with a coordinate that a music-tradition claim
+(`P495`, `P740`, `P17`, `P276`, `P921`, `P361`) targets and that is not already a cultural entity. Unique on `item_id`
+(the first coordinate in `p625` order when an item has several). See `wikidata_client.city_candidate_queries`.
+
+| Column  | Type | Meaning                                                  |
+| ------- | ---- | -------------------------------------------------------- |
+| item_id | str  | Wikidata QID of the settlement                           |
+| label   | str  | Item label (QID when no label exists in the queried languages) |
+| p625    | str  | Coordinate as a WKT literal, `Point(longitude latitude)` |
 
 ## 3. Silver
 
@@ -650,6 +663,13 @@ The numbered image outputs above are retained legacy bootstrap inputs.
 
 State registry rows contain `item_id`, nullable `first_seen_at`, `last_seen_in_discovery_at`, `claims_checked_at`,
 `next_check_at`, `last_attempt_at`, `retry_after_at` (UTC timestamps), `claims_status` (string), and
-`consecutive_failures` (UInt32). Claims rows contain `item_id`, `musicbrainz_artist_id`, `image_file` and nullable
+`consecutive_failures` (UInt32), nullable `failure_reason` (string; `invalid_claims: <reason>` or `request_failed`),
+and nullable `first_failure_at` (UTC timestamp; start of the recorded failure streak). Claims rows contain `item_id`, `musicbrainz_artist_id`, `image_file` and nullable
 `claims_checked_at`. Commons rows extend section 3.11 with `result_status` (`legacy`, `observed`, `missing`), nullable
 `canonical_title`, `last_attempt_at`, `retry_after_at` and `consecutive_failures` (UInt32).
+
+
+Worker `status.json` and incremental snapshot manifests include `quarantine`: `count` (outstanding invalid-claims
+QIDs), nullable `oldestFailureAt` (UTC ISO timestamp), and `sample` (at most 20 entries ordered by first failure and
+QID). Each sample has `itemId`, `reason`, `firstFailureAt`, `lastAttemptAt`, `retryAfterAt` (UTC ISO timestamps), and
+`consecutiveFailures` (integer). Failure diagnostics on pre-upgrade registry rows are null when unknown.

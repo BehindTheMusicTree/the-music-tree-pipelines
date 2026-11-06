@@ -37,6 +37,24 @@ def _validate_state(state: ImageState) -> None:
         raise ValueError("Image claims reference unregistered QIDs")
 
 
+def upgrade_registry(frame: pl.DataFrame) -> pl.DataFrame:
+    """Read legacy bases/checkpoints with nullable, previously unrecorded diagnostics."""
+    if "consecutive_failures" not in frame.columns:
+        return frame
+    details: dict[str, pl.DataType | type[pl.DataType]] = {
+        "failure_reason": pl.String,
+        "first_failure_at": pl.Datetime("us", "UTC"),
+    }
+    present = set(details) & set(frame.columns)
+    if present and present != set(details):
+        raise ValueError("Incomplete registry failure diagnostics")
+    if not present:
+        return frame.with_columns(pl.lit(None, dtype=dtype).alias(name) for name, dtype in details.items())
+    if any(frame.schema[name] != dtype for name, dtype in details.items()):
+        raise ValueError("Invalid registry failure diagnostics schema")
+    return frame
+
+
 def _read_json(path: Path) -> dict:
     value = json.loads(path.read_text())
     if not isinstance(value, dict) or type(value.get("schemaVersion")) is not int or value["schemaVersion"] != 1:
@@ -76,7 +94,7 @@ def _read_tables(directory: Path, manifest: dict) -> dict[str, pl.DataFrame]:
         frame = pl.read_parquet(path)
         if type(metadata.get("rowCount")) is not int or frame.height != metadata["rowCount"]:
             raise ValueError("Image state row count mismatch")
-        tables[name] = frame
+        tables[name] = upgrade_registry(frame) if name == "registry" else frame
     return tables
 
 

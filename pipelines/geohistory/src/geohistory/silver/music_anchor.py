@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 OVERVIEW_PREFIX = "music of "
 CULTURE_PROPERTIES = ("P2596", "P1269")
 COUNTRY_OF_ORIGIN = "P495"
-PLACE_PROPERTIES = ("P17", "P276", "P921", "P361")
+PLACE_PROPERTIES = ("P740", "P17", "P276", "P921", "P361")
 PLACE_KINDS = (
     "country",
     "historical_country",
@@ -21,7 +21,10 @@ PLACE_KINDS = (
     "cultural_region",
     "macro_region",
     "admin_unit",
+    "city",
 )
+# A city is anchored by a claim only: its name is no overview label (Georgia, Valencia).
+LABEL_INDEX_KINDS = tuple(kind for kind in PLACE_KINDS if kind != "city")
 HISTORICAL_KINDS = ("historical_country", "historical_region")
 RULE_PRIORITY = ("override", *CULTURE_PROPERTIES, COUNTRY_OF_ORIGIN, *PLACE_PROPERTIES, "label")
 NAMES_BY_LABEL = 0
@@ -88,12 +91,14 @@ def _rank_overviews(
 
 def _label_index(entities: pl.DataFrame, crosswalk: pl.DataFrame, aliases: pl.DataFrame) -> dict[str, set[str]]:
     index: dict[str, set[str]] = defaultdict(set)
-    for entity_id, label in entities.filter(pl.col("kind").is_in(PLACE_KINDS)).select("entity_id", "label").rows():
+    for entity_id, label in (
+        entities.filter(pl.col("kind").is_in(LABEL_INDEX_KINDS)).select("entity_id", "label").rows()
+    ):
         index[label.casefold()].add(entity_id)
     item_entities: dict[str, list[str]] = defaultdict(list)
     for entity_id, wikidata_id in crosswalk.rows():
         item_entities[wikidata_id].append(entity_id)
-    place_ids = set(entities.filter(pl.col("kind").is_in(PLACE_KINDS))["entity_id"])
+    place_ids = set(entities.filter(pl.col("kind").is_in(LABEL_INDEX_KINDS))["entity_id"])
     for item, alias in aliases.select("item_id", "alias").rows():
         index[alias.casefold()].update(e for e in item_entities.get(item, ()) if e in place_ids)
     return index

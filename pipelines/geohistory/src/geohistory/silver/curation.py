@@ -13,7 +13,7 @@ LISTS: dict[str, tuple[str, ...]] = {
     "tradition_placement_overrides": ("wikidata_id", "entity_id", "start_year", "end_year", "reason"),
     "tradition_link_overrides": ("from_wikidata_id", "to_wikidata_id", "kind", "action", "reason"),
 }
-ADDITION_KINDS = ("cultural_region", "macro_region")
+ADDITION_KINDS = ("cultural_region", "macro_region", "city")
 MEMBERSHIP_ACTIONS = ("add", "remove")
 TRADITION_LINK_KINDS = ("lineage", "association")
 

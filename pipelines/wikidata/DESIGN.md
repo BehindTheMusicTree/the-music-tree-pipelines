@@ -768,7 +768,22 @@ new generation, retaining older generations. Every state mutation requires the e
 
 The six-hour worker is provisioned separately, with its timer disabled until bootstrap and validation succeed.
 Claims requests retain optional outer-QID observations, validate RDF types and full requested-QID coverage,
-and quarantine all rows of a malformed QID. Missing P434 observations require a separate entity confirmation;
+and quarantine all rows of a malformed QID. An identifiable malformed P434/P18 observation preserves that QID's
+last complete associations and success timestamps, checkpoints its error reason, first failure, attempt count and
+retry deadline, and lets other QIDs and Commons continue. The run and snapshot record a bounded quarantine summary
+(count, oldest failure and up to 20 QID/reason/retry examples); outstanding quarantines keep status degraded even
+when their retries are not yet due. Full details remain in the registry. A corrected complete observation clears
+the failure history automatically. Retry delays double from 15 minutes to a 24-hour cap; each QID is attempted at
+most once per run. When regular work is available, a 1,000-QID batch reserves up to 250 places for the oldest due
+retries; the rest retains the existing old/new-work balance. Unused places transfer to whichever queue has work.
+This bounds the retry share while allowing new work and overdue refreshes to progress. Persistent quarantine age
+is visible to operators through the degraded status and oldest-failure timestamp.
+
+Legacy registry bases and checkpoints gain nullable failure diagnostics on read, after checksum validation;
+unknown historical failure reasons and first-failure times remain unknown. Subsequent checkpoints and compaction
+persist the additive columns; original bases/checkpoints and snapshots remain available.
+
+Missing P434 observations require a separate entity confirmation;
 API failures preserve associations. Redirect sources merge only after a complete target claims observation,
 with historical aliases retargeted to the canonical registry row in one immutable base transaction.
 
@@ -799,7 +814,7 @@ the immutable image path to the artist exporter, and records its ID, digest and 
 before exports; artists without a selected image still export with a null image. Publication freshness is separate
 from source freshness, which comes only from successful claims and metadata observations.
 
-The publisher rejects source validation failures, more than one percent rejected selected rows, unexplained losses,
+The publisher rejects batch-wide source validation failures, more than one percent rejected selected rows, unexplained losses,
 and selected artist losses above five percent. A small loss needs a newer complete claims or metadata observation
 for each removed artist. A provider failure cannot switch the publication pointer. Status retains historical
 success timestamps and reports current selected-source ages even on no-op runs.

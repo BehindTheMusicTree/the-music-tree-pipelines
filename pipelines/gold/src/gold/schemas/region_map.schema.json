@@ -31,10 +31,11 @@
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "name": {"type": "string", "minLength": 1},
-          "kind": {"enum": ["country", "admin_unit", "zone"]},
+          "kind": {"enum": ["country", "admin_unit", "zone", "city"]},
           "parentId": {"type": ["string", "null"]},
           "childIds": {"$ref": "#/definitions/ids"},
           "zoneIds": {"$ref": "#/definitions/ids"},
+          "cityIds": {"$ref": "#/definitions/ids"},
           "bbox": {"$ref": "#/definitions/box"},
           "mainBbox": {"$ref": "#/definitions/box"},
           "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},

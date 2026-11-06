@@ -53,6 +53,8 @@ def commit_discovery(root: Path, state: ImageState, qids: list[str], completed_a
                 "last_attempt_at": None,
                 "consecutive_failures": 0,
                 "retry_after_at": None,
+                "failure_reason": None,
+                "first_failure_at": None,
             }
         )
     registry = registry.with_columns(

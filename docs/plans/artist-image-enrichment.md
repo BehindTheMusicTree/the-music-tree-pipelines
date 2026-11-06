@@ -305,7 +305,7 @@ This keeps successful progress without rewriting the whole cache after every 50-
 
 The publisher never replaces files inside an existing snapshot. A failure before the pointer switch leaves the previous snapshot selected. A crash after the switch exposes a complete validated version. An unreferenced complete candidate is harmless and can be inspected later.
 
-Budget exhaustion or catalogue contention is a planned partial refresh, not false source success. It may publish a valid mixture of refreshed and preserved entries with explicit coverage. An exhausted provider failure, validation failure or corrupt internal state suppresses that refresh's publication; committed progress survives for the next run. Discovery failure is its own transaction and can coexist with a successful known-QID publication.
+Budget exhaustion or catalogue contention is a planned partial refresh, not false source success. It may publish a valid mixture of refreshed and preserved entries with explicit coverage. A malformed observation attributable to a requested QID quarantines only that QID, preserving its previous complete state and success times. Persist the reason, first failure, consecutive failures and retry deadline; retry once per eligible run with exponential delays from 15 minutes to 24 hours. Reserve up to a quarter of each claims batch for due retries when regular work is available, transferring unused capacity. Outstanding quarantines produce degraded status and a bounded count/oldest-failure/sample summary in status and snapshot provenance, even during retry deferral. A clean complete observation clears the quarantine. An exhausted provider failure, batch-wide validation failure or corrupt internal state suppresses that refresh's publication; committed progress survives for the next run. Discovery failure is its own transaction and can coexist with a successful known-QID publication.
 
 ### Retention
 
@@ -373,7 +373,7 @@ Reuse `common.step_timer` with a dedicated image run ID, `PIPELINE_NAME=wikidata
 
 Persist `status.json` atomically with `lastAttemptAt`, `lastSuccessfulRunAt`, `lastDueWorkProgressAt`, `lastSuccessfulPublicationAt`, selected snapshot ID, producer commit, overall outcome (`healthy`, `deferred`, `degraded`, `failed`), per-stage outcome and queue/age metrics. A healthy no-op advances successful-run time, but not due-work progress or publication time. This is operational status, not the consumer pointer.
 
-The wrapper records `healthy` for completed work or a no-op, `deferred` for lock contention or a planned budget stop, `degraded` for a failed discovery with otherwise usable refresh progress, and `failed` for a provider circuit, invalid state or publication failure. A deferred or degraded run reports its reason and retained snapshot; a failed run exits nonzero. Notifications use the recorded outcome rather than equating an unchanged pointer with failure.
+The wrapper records `healthy` for completed work or a no-op, `deferred` for lock contention or a planned budget stop, `degraded` for a failed discovery or outstanding per-QID quarantine with otherwise usable refresh progress, and `failed` for a provider circuit, invalid state or publication failure. A deferred or degraded run reports its reason and retained snapshot; a failed run exits nonzero. Notifications use the recorded outcome rather than equating an unchanged pointer with failure.
 
 Required metrics/log summaries:
 
