@@ -46,6 +46,10 @@ def test_incomplete_circular_and_historical_boundaries_do_not_prove_extent():
     dated_child = reference(child.geometry, start_year=1700, end_year=2000)
     dated_parent = reference(parent, start_year=1700, end_year=2000)
     assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001, start_year=1800, end_year=1900) == "full"
+    assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001) == "unknown"
+    assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001, start_year=1800) == "unknown"
+    later_parent = reference(parent, start_year=2100, end_year=2200)
+    assert resolve_geometry(dated_child, later_parent, PAIR, precision=0.001) == "unknown"
 
 
 def test_precision_must_be_positive():

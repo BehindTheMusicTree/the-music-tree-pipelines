@@ -45,6 +45,10 @@ def resolve_geometry(
     if not child.complete:
         return "unknown"
     for reference in (child, parent):
+        if (reference.start_year is not None or reference.end_year is not None) and (
+            start_year is None or end_year is None
+        ):
+            return "unknown"
         if start_year is not None and (reference.start_year is None or reference.start_year > start_year):
             return "unknown"
         if end_year is not None and (reference.end_year is None or reference.end_year < end_year):
