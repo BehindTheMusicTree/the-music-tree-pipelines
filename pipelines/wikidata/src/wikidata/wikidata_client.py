@@ -337,6 +337,38 @@ CITY_CANDIDATE_QUERY_VARIABLES = ("item", "itemLabel", "coordinate")
 ITEM_CLAIM_QUERY_VARIABLES = ("item", "property", "value", "precision")
 # ~1k items by a dozen properties answer in 3-5 s, well inside WDQS's 60 s limit (and too long for a GET URL).
 ITEM_CLAIM_CHUNK = 1000
+PLACE_STATEMENT_PIDS = ("P30", "P131", "P361", "P706")
+PLACE_STATEMENT_QUERY_VARIABLES = ("item", "property", "statement", "rank", "value", "snakType")
+
+
+def place_statement_queries(qids: Iterable[str]) -> list[str]:
+    """Read all geographic statement ranks and snak types without combining qualifiers."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"place statement items must be Wikidata QIDs, got {invalid[:5]}")
+    branches = "\n  UNION\n  ".join(
+        f"""{{
+    ?item p:{pid} ?statement .
+    ?statement wikibase:rank ?rank .
+    OPTIONAL {{ ?statement ps:{pid} ?value . }}
+    BIND("{pid}" AS ?property)
+    BIND(IF(BOUND(?value),
+      IF(isBlank(?value) || STRSTARTS(STR(?value), "http://www.wikidata.org/.well-known/genid/"),
+        "somevalue", "value"),
+      IF(EXISTS {{ ?statement a wdno:{pid} }}, "novalue", "invalid")) AS ?snakType)
+  }}"""
+        for pid in PLACE_STATEMENT_PIDS
+    )
+    return [
+        f"""
+SELECT DISTINCT ?item ?property ?statement ?rank ?value ?snakType WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  {branches}
+}}
+"""
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
 
 
 # Claims are queried by item, one VALUES chunk at a time, each property a UNION branch tagged with its PID: the items
