@@ -26,6 +26,7 @@ pipeline overview.
     - [2.8 wikidata_artist_images.parquet](#28-wikidata_artist_imagesparquet)
     - [2.9 wikidata_admin_hierarchy.parquet](#29-wikidata_admin_hierarchyparquet)
     - [2.10 wikidata_cultural_entity_alias.parquet](#210-wikidata_cultural_entity_aliasparquet)
+    - [2.11 wikidata_city_candidate.parquet](#211-wikidata_city_candidateparquet)
   - [3. Silver](#3-silver)
     - [3.1 Overview](#31-overview)
     - [3.2 1_item_links](#32-1_item_links)
@@ -284,6 +285,18 @@ One row per (item, alias): the English Wikidata names (`skos:altLabel` and the m
 | alias   | str  | One English alias of that item                |
 
 As of this writing: 32,737 rows.
+
+### 2.11 wikidata_city_candidate.parquet
+
+One row per Wikidata human settlement (`wdt:P31/wdt:P279*` `Q486972`) with a coordinate that a music-tradition claim
+(`P495`, `P740`, `P17`, `P276`, `P921`, `P361`) targets and that is not already a cultural entity. Unique on `item_id`
+(the first coordinate in `p625` order when an item has several). See `wikidata_client.city_candidate_queries`.
+
+| Column  | Type | Meaning                                                  |
+| ------- | ---- | -------------------------------------------------------- |
+| item_id | str  | Wikidata QID of the settlement                           |
+| label   | str  | Item label (QID when no label exists in the queried languages) |
+| p625    | str  | Coordinate as a WKT literal, `Point(longitude latitude)` |
 
 ## 3. Silver
 

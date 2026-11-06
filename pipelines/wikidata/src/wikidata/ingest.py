@@ -303,6 +303,51 @@ def ingest_music_tradition_claims(output_dir: Path, candidate_qids: Sequence[str
     return output_path
 
 
+def ingest_city_candidates(output_dir: Path, claims_path: Path, entity_path: Path) -> Path:
+    """Settlements that a genre's place claim targets and that are no cultural entity yet, with their coordinate."""
+    claims = pl.read_parquet(claims_path)
+    known = set(pl.read_parquet(entity_path)["item_id"])
+    targets = sorted(
+        set(
+            claims.filter(pl.col("property").is_in(wikidata_client.CITY_CLAIM_PIDS) & pl.col("value").is_not_null())[
+                "value"
+            ]
+        )
+        - known
+    )
+    rows: list[dict[str, str | None]] = []
+    for index, query in enumerate(wikidata_client.city_candidate_queries(targets), start=1):
+        logger.info("querying Wikidata for city candidates, item chunk %d", index)
+        rows.extend(
+            wikidata_client.run_query(
+                query,
+                variables=wikidata_client.CITY_CANDIDATE_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        )
+    df = (
+        pl.DataFrame(
+            {
+                "item_id": [_qid(row["item"]) for row in rows],
+                "label": [row["itemLabel"] for row in rows],
+                "p625": [row["coordinate"] for row in rows],
+            },
+            schema=dict.fromkeys(("item_id", "label", "p625"), pl.String),
+        )
+        .unique()
+        .sort("item_id", "p625")
+        .unique("item_id", keep="first", maintain_order=True)
+    )
+    check_unique_key(df, "item_id", "wikidata_city_candidate")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "wikidata_city_candidate.parquet"
+    df.write_parquet(output_path)
+    logger.info("wrote %d rows to %s", df.height, output_path)
+
+    return output_path
+
+
 def _tree_qids(genre_tree_path: Path, manual_overview_additions_path: Path) -> list[str]:
     """QIDs of every node Silver can emit: Bronze tree children and parents, plus curated regional overviews."""
     tree = pl.read_parquet(genre_tree_path)
@@ -460,7 +505,7 @@ def _ingest_sparql_lane(
     with step("cultural_entity_claims"):
         ingest_cultural_entity_claims(output_dir, pl.read_parquet(entity_path)["item_id"].to_list())
     with step("music_tradition_claims"):
-        ingest_music_tradition_claims(
+        claims_path = ingest_music_tradition_claims(
             output_dir,
             tradition_candidate_qids(
                 genre_tree_path,
@@ -468,6 +513,8 @@ def _ingest_sparql_lane(
                 read_tradition_additions(curation_dir / "tradition_additions.csv"),
             ),
         )
+    with step("city_candidates"):
+        ingest_city_candidates(output_dir, claims_path, entity_path)
     with step("admin_hierarchy"):
         ingest_admin_hierarchy(output_dir, admin_seed_qids)
     with step("cultural_entity_aliases"):

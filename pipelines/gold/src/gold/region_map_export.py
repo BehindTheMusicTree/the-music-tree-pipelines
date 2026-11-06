@@ -19,6 +19,9 @@ WORLD_ID = "world"
 ADMIN_KINDS = ("country", "admin_unit")
 ZONE_KINDS = ("historical_country", "historical_region", "cultural_region", "macro_region")
 UNFOOTPRINTED_KINDS = ("civilization", "curated")
+CITY_KIND = "city"
+CITY_PARENT_RULE = "city_parent"
+CITY_TILESET_MIN_ZOOM = 5
 SIZE_WARNING_RATIO = 0.9
 # The index is fetched whole on every map load, before any geometry.
 INDEX_SIZE_LIMIT_BYTES = 2_000_000
@@ -113,13 +116,15 @@ def _region_tileset(
     regions: list[tuple[str, str, str, str, shapely.Geometry]],
     zones: list[tuple[str, str, shapely.Geometry]],
     labels: list[tuple[str, str, str, tuple[float, float]]],
+    cities: list[tuple[str, str, str, tuple[float, float]]],
     basemap: pl.DataFrame,
     work_dir: Path,
     geometry_dir: Path,
 ) -> tuple[str, int]:
     """The one vector tileset of the map, from full-resolution geometry. Layers `regions` (`id`, `parentId`, `kind`,
     `name`, same as the index), `region_labels` (`id`, `parentId`, `name`, at the pole of inaccessibility), `zones`
-    (`id`, `name`), and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Returns the index's
+    (`id`, `name`), `cities` (`id`, `parentId`, `name`, one point per city region, from zoom CITY_TILESET_MIN_ZOOM)
+    and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Returns the index's
     sha256 of the file, `regions/<sha256>.pmtiles`, and its size in bytes."""
     if shutil.which("tippecanoe") is None:
         raise RuntimeError("tippecanoe is not installed, see pipelines/gold/README.md")
@@ -137,6 +142,14 @@ def _region_tileset(
         "zones": ([({"id": z, "name": n}, shape) for z, n, shape in zones], False),
         **{layer: (features, layer != "land") for layer, features in _basemap_layers(basemap).items()},
     }
+    if cities:
+        layers["cities"] = (
+            [
+                ({"id": c, "parentId": p, "name": n, "min_zoom": CITY_TILESET_MIN_ZOOM}, shapely.Point(point))
+                for c, p, n, point in cities
+            ],
+            True,
+        )
     arguments = [
         "-o", str(built), "--force",
         f"-Z{TILESET_MIN_ZOOM}", f"-z{TILESET_MAX_ZOOM}",
@@ -168,7 +181,8 @@ def export_region_map(
     geohistory_silver_dir: Path, wikidata_silver_dir: Path, genre_match_path: Path, output_dir: Path
 ) -> Path:
     entities = pl.read_parquet(
-        geohistory_silver_dir / "1_cultural_entity.parquet", columns=["entity_id", "kind", "label"]
+        geohistory_silver_dir / "1_cultural_entity.parquet",
+        columns=["entity_id", "kind", "label", "latitude", "longitude"],
     )
     geometry = pl.read_parquet(geohistory_silver_dir / "8_entity_geometry.parquet")
     basemap = pl.read_parquet(geohistory_silver_dir / "8_basemap_feature.parquet")
@@ -184,6 +198,11 @@ def export_region_map(
 
     kinds = dict(entities.select("entity_id", "kind").rows())
     labels = dict(entities.select("entity_id", "label").rows())
+    city_points = {
+        entity_id: (longitude, latitude)
+        for entity_id, kind, latitude, longitude in entities.select("entity_id", "kind", "latitude", "longitude").rows()
+        if kind == CITY_KIND and latitude is not None and longitude is not None
+    }
     shapes = {row["entity_id"]: row for row in geometry.to_dicts()}
     admin_ids = {
         entity_id
@@ -203,6 +222,7 @@ def export_region_map(
             footprint_admins[entity_id].append(admin_id)
 
     genres_by_region: dict[str, list[dict]] = defaultdict(list)
+    genres_by_city: dict[str, list[dict]] = defaultdict(list)
     overview_candidates: dict[str, list[tuple[int, str]]] = defaultdict(list)
     placed: dict[str, list[str]] = defaultdict(list)
     unplaced = []
@@ -210,7 +230,16 @@ def export_region_map(
         "wikidata_id", "anchor_id", "rule", "overview_rank"
     ).rows():
         relation = "canonical" if item_id in canonical_ids else "regional" if item_id in regional_ids else "tradition"
-        if anchor_id in admin_ids or anchor_id in zone_candidates:
+        if anchor_id in city_points and footprint_admins.get(anchor_id):
+            # a city genre is listed on the city and on the admin unit holding it, so the admin chain rolls it up
+            admin_id = footprint_admins[anchor_id][0]
+            genres_by_city[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
+            if not any(g["itemId"] == item_id for g in genres_by_region[admin_id]):
+                genres_by_region[admin_id].append({"itemId": item_id, "rule": CITY_PARENT_RULE, "relation": relation})
+            placed[item_id].append(admin_id)
+            if overview_rank is not None and relation != "tradition":
+                overview_candidates[anchor_id].append((overview_rank, item_id))
+        elif anchor_id in admin_ids or anchor_id in zone_candidates:
             genres_by_region[anchor_id].append({"itemId": item_id, "rule": rule, "relation": relation})
             placed[item_id].append(anchor_id)
             if overview_rank is not None and relation != "tradition":
@@ -356,6 +385,18 @@ def export_region_map(
             return None
         return next((overview_by_region[a] for a in admin_ancestors(region)[1:] if a in overview_by_region), None)
 
+    def city_parent(city: str) -> str:
+        admin_id = footprint_admins[city][0]
+        while admin_id in dissolved:
+            admin_id = dissolved[admin_id]
+        return admin_id
+
+    city_regions = sorted(c for c, genres in genres_by_city.items() if genres)
+    city_parents = {city: city_parent(city) for city in city_regions}
+    cities_by_parent: dict[str, list[str]] = defaultdict(list)
+    for city, parent in city_parents.items():
+        cities_by_parent[parent].append(city)
+
     def own_items(region: str) -> set[str]:
         return {g["itemId"] for g in genres_by_region.get(region, ())}
 
@@ -414,6 +455,34 @@ def export_region_map(
                 "genreCount": len(relevant),
             }
         )
+    for city in city_regions:
+        parent, point = city_parents[city], list(city_points[city])
+        own = {g["itemId"] for g in genres_by_city[city]}
+        relevant = own.union(*(descendants.get(item, set()) for item in own))
+        entries.append(
+            {
+                "id": city,
+                "name": labels[city],
+                "kind": CITY_KIND,
+                "parentId": parent,
+                "childIds": [],
+                "zoneIds": [],
+                "bbox": point + point,
+                "mainBbox": point + point,
+                "centroid": point,
+                "drillable": False,
+                "overviewItemId": overview_by_region.get(city),
+                "inheritedOverviewItemId": None
+                if city in overview_by_region
+                else next((overview_by_region[a] for a in admin_ancestors(parent) if a in overview_by_region), None),
+                "genres": genres_by_city[city],
+                "songCount": sum(song_counts.get(item, 0) for item in relevant),
+                "genreCount": len(relevant),
+            }
+        )
+    for entry in entries:
+        if entry["id"] in cities_by_parent:
+            entry["cityIds"] = cities_by_parent[entry["id"]]
     document: dict = {
         "regions": entries,
         "worldChildIds": children.get(WORLD_ID, []),
@@ -433,8 +502,9 @@ def export_region_map(
         [
             (entry["id"], entry["parentId"], entry["name"], tuple(entry["centroid"]))
             for entry in entries
-            if entry["kind"] != "zone"
+            if entry["kind"] not in ("zone", CITY_KIND)
         ],
+        [(c, p, labels[c], city_points[c]) for c, p in city_parents.items()],
         basemap,
         output_dir / "5_region_map_tileset_work",
         geometry_dir,

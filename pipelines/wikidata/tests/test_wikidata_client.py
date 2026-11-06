@@ -473,3 +473,13 @@ def test_admin_hierarchy_queries_chunk_the_sorted_distinct_seeds(monkeypatch: py
 def test_admin_hierarchy_query_raises_on_invalid_seeds() -> None:
     with pytest.raises(ValueError, match="admin hierarchy seeds"):
         wikidata_client.admin_hierarchy_query(["ne:FRA-1"])
+
+
+def test_city_candidate_queries_keep_human_settlements_with_a_coordinate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wikidata_client, "ITEM_CLAIM_CHUNK", 2)
+
+    queries = wikidata_client.city_candidate_queries(["Q3", "Q1", "Q2", "Q1"])
+
+    assert len(queries) == 2
+    assert "VALUES ?item { wd:Q1 wd:Q2 }" in queries[0]
+    assert "?item wdt:P31/wdt:P279* wd:Q486972 ; wdt:P625 ?coordinate ." in queries[0]
