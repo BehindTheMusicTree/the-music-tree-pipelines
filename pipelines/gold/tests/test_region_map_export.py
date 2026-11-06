@@ -684,7 +684,7 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     )
     (zone_label,) = layers["zone_labels"]
     assert zone_label["properties"] == zone["properties"]
-    assert zone_label["geometry"]["type"] == "Point"
+    assert zone_label["geometry"] == {"type": "Point", "coordinates": index_regions["CE"]["centroid"]}
     assert list(layers) == [
         "regions", "region_labels", "zones", "zone_labels", "land", "lakes", "rivers", "disputed", "places",
     ]  # fmt: skip
