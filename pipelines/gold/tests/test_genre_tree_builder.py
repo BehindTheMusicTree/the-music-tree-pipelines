@@ -1,7 +1,8 @@
+from pathlib import Path
 import polars as pl
 import pytest
 
-from gold.genre_tree_builder import apply_secondary_parent_rules, build_genre_tree
+from gold.genre_tree_builder import apply_secondary_parent_rules, build_genre_tree, write_secondary_parent_rules_report
 
 TREE_ROWS = [
     {"item_id": "Q1", "item_label": "rock", "parent_id": None},
@@ -199,42 +200,77 @@ def _rule_inputs() -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     return hierarchy, edges, rules
 
 
-def test_apply_secondary_parent_rules_ignores_removal_of_anchor_parent() -> None:
+def test_apply_secondary_parent_rules_reports_removal_of_anchor_parent_as_conflict() -> None:
     hierarchy, edges, rules = _rule_inputs()
 
-    untouched, added = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3"})
+    untouched, added, outcomes = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3"})
 
     assert untouched.rows() == [("Q2", "Q3")]
     assert added.is_empty()
+    assert outcomes.rows() == [("Q2", "Q1", "remove", "anchor_conflict")]
 
 
-def test_apply_secondary_parent_rules_raises_on_removal_matching_nothing() -> None:
+def test_apply_secondary_parent_rules_raises_on_self_add() -> None:
     hierarchy, edges, _ = _rule_inputs()
-    rules = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q4"], "action": ["remove"]})
+    rules = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q2"], "action": ["add"]})
 
-    with pytest.raises(ValueError, match="not extra parent edges"):
-        apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3", "Q4"})
+    with pytest.raises(ValueError, match="of an item to itself"):
+        apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q2", "Q3"})
 
 
-def test_apply_secondary_parent_rules_with_mixed_rules(caplog: pytest.LogCaptureFixture) -> None:
+def test_apply_secondary_parent_rules_with_mixed_rules() -> None:
     hierarchy = pl.DataFrame({"item_id": ["Q2"], "parent_id": ["Q1"]})
-    edges = pl.DataFrame({"item_id": ["Q2", "Q2"], "parent_id": ["Q3", "Q5"]})
+    edges = pl.DataFrame({"item_id": ["Q2", "Q2", "Q2"], "parent_id": ["Q3", "Q5", "Q6"]})
     rules = pl.DataFrame(
         {
-            "item_id": ["Q2"] * 4,
-            "parent_id": ["Q1", "Q3", "Q9", "Q4"],
-            "action": ["remove", "remove", "remove", "add"],
+            "item_id": ["Q2"] * 8,
+            "parent_id": ["Q1", "Q3", "Q9", "Q4", "Q7", "Q1", "Q6", "Q8"],
+            "action": ["remove", "remove", "remove", "add", "remove", "add", "add", "add"],
+        }
+    )
+    ref_ids = {"Q1", "Q3", "Q4", "Q5", "Q6", "Q7"}
+
+    untouched, added, outcomes = apply_secondary_parent_rules(edges, rules, hierarchy, ref_ids)
+
+    assert untouched.rows() == [("Q2", "Q5")]
+    assert added.rows() == [("Q2", "Q4"), ("Q2", "Q6")]
+    assert outcomes.rows() == [
+        ("Q2", "Q1", "remove", "anchor_conflict"),
+        ("Q2", "Q1", "add", "satisfied"),
+        ("Q2", "Q3", "remove", "applied"),
+        ("Q2", "Q4", "add", "applied"),
+        ("Q2", "Q6", "add", "satisfied"),
+        ("Q2", "Q7", "remove", "satisfied"),
+        ("Q2", "Q8", "add", "unresolved"),
+        ("Q2", "Q9", "remove", "unresolved"),
+    ]
+
+
+def test_write_secondary_parent_rules_report_writes_empty_report(tmp_path: Path) -> None:
+    empty = pl.DataFrame(schema={c: pl.String for c in ("item_id", "parent_id", "action", "outcome")})
+
+    path = write_secondary_parent_rules_report({"canonical": empty}, tmp_path / "gold" / "report.csv")
+
+    assert path.read_text() == "tree,item_id,parent_id,action,outcome\n"
+
+
+def test_write_secondary_parent_rules_report_warns_on_unapplied_rules(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    outcomes = pl.DataFrame(
+        {
+            "item_id": ["Q2", "Q2"],
+            "parent_id": ["Q1", "Q3"],
+            "action": ["remove", "add"],
+            "outcome": ["anchor_conflict", "applied"],
         }
     )
 
-    with caplog.at_level("INFO"):
-        untouched, added = apply_secondary_parent_rules(edges, rules, hierarchy, {"Q1", "Q3", "Q4", "Q5"})
+    with caplog.at_level("WARNING"):
+        path = write_secondary_parent_rules_report({"regional": outcomes}, tmp_path / "report.csv")
 
-    assert untouched.rows() == [("Q2", "Q5")]
-    assert added.rows() == [("Q2", "Q4")]
-    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
-    assert len(warnings) == 1
-    assert "anchor parent" in warnings[0].getMessage()
+    assert pl.read_csv(path).get_column("tree").to_list() == ["regional", "regional"]
+    assert "1 secondary_parents.csv rule(s) did not apply" in caplog.text
 
 
 def test_build_genre_tree_sets_scene_on_listed_nodes_only() -> None:

@@ -8,6 +8,7 @@ from jsonschema import ValidationError, validate
 from gold.genre_targets import TREE_REGIONAL, load_genre_trees
 from gold.genre_tree_builder import (
     apply_secondary_parent_rules,
+    write_secondary_parent_rules_report,
     build_genre_tree,
     edges_to_parent_map,
     load_descriptions,
@@ -46,7 +47,7 @@ def export_regional_genre_tree(
         wikidata_silver_dir / "5_secondary_parents.parquet", item_ids, ref_ids
     )
     curation = load_tree_curation(curation_dir, item_ids, ref_ids)
-    untouched_edges, added_edges = apply_secondary_parent_rules(
+    untouched_edges, added_edges, rule_outcomes = apply_secondary_parent_rules(
         pl.concat([selected_edges, secondary_candidates]), curation.secondary_parent_rules, hierarchy, ref_ids
     )
     primary_edges = untouched_edges.join(selected_edges, on=["item_id", "parent_id"], how="semi")
@@ -57,7 +58,7 @@ def export_regional_genre_tree(
     # The canonical import runs before the regional rows exist, so a canonical item's regional parents
     # (only a forced_canonical_genres item keeps any) ride on this import as crossTreeSecondaryParents.
     canonical_curation = load_tree_curation(curation_dir, canonical_ids, ref_ids)
-    cross_untouched, cross_added = apply_secondary_parent_rules(
+    cross_untouched, cross_added, cross_rule_outcomes = apply_secondary_parent_rules(
         pl.concat(
             [
                 load_selected_parent_edges(parent_selection_path, canonical_ids, item_ids),
@@ -67,6 +68,10 @@ def export_regional_genre_tree(
         canonical_curation.secondary_parent_rules.filter(pl.col("parent_id").is_in(list(item_ids))),
         canonical_hierarchy,
         item_ids,
+    )
+    write_secondary_parent_rules_report(
+        {"regional": rule_outcomes, "cross_tree": cross_rule_outcomes},
+        output_dir / "1_regional_secondary_parent_rules_report.csv",
     )
     cross_tree_parents = edges_to_parent_map(pl.concat([cross_untouched, cross_added]))
 

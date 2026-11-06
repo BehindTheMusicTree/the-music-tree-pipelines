@@ -18,6 +18,7 @@ LIST_COLUMNS = {
     "canonical_parent": ("item_id", "item_label", "reason", "parent_item_id", "exclude_other_parents"),
     "regional_genre_parent": ("item_id", "item_label", "reason", "parent_item_id", "exclude_other_parents"),
     "regional_overviews": ("item_id", "item_label", "reason", "overview_item_id", "exclude_other_parents"),
+    "secondary_parents": ("item_id", "parent_id", "action", "reason"),
     "regional_overview_additions": ITEM_COLUMNS,
     "canonical_parent_additions": ITEM_COLUMNS,
 }
@@ -378,3 +379,26 @@ def test_overview_rule_then_keyed_by_item_and_overview(tmp_path: Path, monkeypat
         ("Q1", "Q7"),
         ("Q2", "Q7"),
     ]
+
+
+def test_secondary_parent_rule_keyed_by_item_and_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rule = {"action": "add", "reason": "x"}
+    curation_dir = _setup(
+        tmp_path,
+        {
+            "secondary_parents": [
+                {"item_id": "Q1", "parent_id": "Q6", **rule},
+                {"item_id": "Q2", "parent_id": "Q8", **rule},
+            ]
+        },
+        ["Q1", "Q2", "Q7"],
+    )
+    _mock_api(monkeypatch, {"Q6": _redirect("Q6", "Q7"), "Q8": {"id": "Q8", "missing": ""}})
+
+    report = _resolve(tmp_path, curation_dir)
+
+    assert report["remaps"] == [
+        {"list": "secondary_parents", "key": "Q1\tQ6", "column": "parent_id", "from": "Q6", "to": "Q7"}
+    ]
+    assert [(r["key"], r["reason"]) for r in report["review"]] == [("Q2\tQ8", "missing")]
+    assert [(r["item_id"], r["parent_id"]) for r in _read(curation_dir, "secondary_parents")] == [("Q1", "Q7")]

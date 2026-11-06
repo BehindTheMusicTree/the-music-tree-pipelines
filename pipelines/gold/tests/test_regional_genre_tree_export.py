@@ -216,7 +216,7 @@ def test_export_regional_genre_tree_emits_cross_tree_secondary_parents(
     ]
 
 
-def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
+def test_export_regional_genre_tree_reports_stale_secondary_parent_removal_as_satisfied(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
@@ -224,8 +224,10 @@ def test_export_regional_genre_tree_raises_on_stale_secondary_parent_removal(
 ) -> None:
     write_curation("secondary_parents", [{"item_id": "Q12", "parent_id": "Q1", "action": "remove", "reason": "x"}])
 
-    with pytest.raises(ValueError, match="not extra parent edges"):
-        _export(tmp_path, curation_dir, descriptions_path, **AXES)
+    _export(tmp_path, curation_dir, descriptions_path, **AXES)
+
+    report = pl.read_csv(tmp_path / "gold" / "1_regional_secondary_parent_rules_report.csv")
+    assert report.rows() == [("regional", "Q12", "Q1", "remove", "satisfied")]
 
 
 def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
@@ -242,24 +244,27 @@ def test_export_regional_genre_tree_ignores_removal_of_unresolvable_parent(
 
 
 @pytest.mark.parametrize(
-    ("row", "match"),
+    ("row", "outcome"),
     [
-        ({"item_id": "Q11", "parent_id": "Q99", "action": "add", "reason": "x"}, "outside"),
-        ({"item_id": "Q11", "parent_id": "Q10", "action": "add", "reason": "x"}, "anchor parent"),
+        ({"item_id": "Q11", "parent_id": "Q99", "action": "add", "reason": "x"}, "unresolved"),
+        ({"item_id": "Q11", "parent_id": "Q10", "action": "add", "reason": "x"}, "satisfied"),
     ],
 )
-def test_export_regional_genre_tree_raises_on_bad_secondary_parent_add(
+def test_export_regional_genre_tree_skips_secondary_parent_add_it_cannot_apply(
     tmp_path: Path,
     curation_dir: Path,
     descriptions_path: Path,
     write_curation: Callable[[str, list[dict[str, str]]], None],
     row: dict[str, str],
-    match: str,
+    outcome: str,
 ) -> None:
     write_curation("secondary_parents", [row])
 
-    with pytest.raises(ValueError, match=f"secondary_parents.csv adds edge.*{match}"):
-        _export(tmp_path, curation_dir, descriptions_path, **AXES)
+    tree = _export(tmp_path, curation_dir, descriptions_path, **AXES)
+
+    assert row["parent_id"] not in json.dumps(tree.get("crossTreeSecondaryParents"))
+    report = pl.read_csv(tmp_path / "gold" / "1_regional_secondary_parent_rules_report.csv")
+    assert report.rows() == [("regional", "Q11", row["parent_id"], "add", outcome)]
 
 
 def test_export_regional_genre_tree_emits_essential_songs_and_summary(
