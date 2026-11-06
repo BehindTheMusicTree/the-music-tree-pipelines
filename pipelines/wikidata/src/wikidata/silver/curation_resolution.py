@@ -85,13 +85,15 @@ def resolve_curation_qids(
         tree_ids |= _ids(pl.read_csv(_csv_path(curation_dir, name), infer_schema=False), "item_id")
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).get_column("item_id"))
 
-    # Silver promotes orphan "music of X" parents to root rows, so only regional_overviews can target them.
+    # Silver promotes orphan "music of X" parents to root rows of the regional tree, so only lists whose ids
+    # may name a regional hierarchy row can target them.
     regional_ids = tree_ids | orphan_overview_parent_ids(tree)
+    regional_lists = frozenset({"regional_overviews", "secondary_parents"})
 
     def reference(list_name: str) -> set[str]:
         if list_name == "indigenous_to_exclusions":
             return indigenous_ids
-        return regional_ids if list_name == "regional_overviews" else tree_ids
+        return regional_ids if list_name in regional_lists else tree_ids
 
     unknown = sorted(
         {

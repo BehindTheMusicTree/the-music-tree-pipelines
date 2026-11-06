@@ -402,3 +402,19 @@ def test_secondary_parent_rule_keyed_by_item_and_parent(tmp_path: Path, monkeypa
     ]
     assert [(r["key"], r["reason"]) for r in report["review"]] == [("Q2\tQ8", "missing")]
     assert [(r["item_id"], r["parent_id"]) for r in _read(curation_dir, "secondary_parents")] == [("Q1", "Q7")]
+
+
+def test_orphan_overview_parent_is_known_to_secondary_parents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    curation_dir = _setup(
+        tmp_path,
+        {"secondary_parents": [{"item_id": "Q1", "parent_id": "Q9", "action": "add", "reason": "x"}]},
+        ["Q1"],
+        orphan_parent_ids=["Q9"],
+    )
+    httpx_get = _mock_api(monkeypatch, {})
+
+    report = _resolve(tmp_path, curation_dir)
+
+    assert report["review"] == []
+    assert not httpx_get.called
+    assert [(r["item_id"], r["parent_id"]) for r in _read(curation_dir, "secondary_parents")] == [("Q1", "Q9")]

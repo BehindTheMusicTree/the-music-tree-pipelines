@@ -158,7 +158,7 @@ def apply_secondary_parent_rules(
     if not self_adds.is_empty():
         raise ValueError(f"secondary_parents.csv adds edge(s) of an item to itself: {self_adds.rows()}")
 
-    anchors = hierarchy.select(*keys).with_columns(is_anchor=pl.lit(True))
+    anchors = hierarchy.select(*keys).unique().with_columns(is_anchor=pl.lit(True))
     present = edges.select(*keys).unique().with_columns(is_present=pl.lit(True))
     is_add = pl.col("action") == "add"
     outcomes = (
