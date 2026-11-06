@@ -7,6 +7,8 @@ import polars as pl
 import shapely
 from shapely.ops import polylabel
 
+from geohistory.silver.reference_land import reference_admin_geometries
+
 DRAWN_KINDS = ("country", "admin_unit", "historical_country", "historical_region", "cultural_region", "macro_region")
 
 # Pole of inaccessibility, so a C-shaped country or an atoll ring anchors inside its own land.
@@ -44,18 +46,6 @@ def _bbox(geometry: shapely.Geometry) -> list[float]:
     return [shifted_west - 360 if shifted_west > 180 else shifted_west, south, shifted_east, north]
 
 
-def _ne_geometries(bronze_dir: Path, ne_map: pl.DataFrame) -> dict[str, shapely.Geometry]:
-    polygons = (
-        pl.read_parquet(bronze_dir / "natural_earth_admin.parquet", columns=["ne_id", "geometry_wkb"])
-        .join(ne_map.select("ne_id", "entity_id").drop_nulls(), on="ne_id")
-        .sort("ne_id")
-    )
-    grouped: dict[str, list[shapely.Geometry]] = defaultdict(list)
-    for entity_id, wkb in polygons.select("entity_id", "geometry_wkb").rows():
-        grouped[entity_id].append(shapely.make_valid(shapely.from_wkb(wkb)))
-    return {entity_id: shapely.union_all(parts) for entity_id, parts in grouped.items()}
-
-
 def _descendants(node: str, children: dict[str, list[str]]) -> set[str]:
     seen: set[str] = set()
     pending = list(children.get(node, ()))
@@ -80,7 +70,7 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
     children: dict[str, list[str]] = defaultdict(list)
     for parent, child in containment.select("parent_id", "child_id").rows():
         children[parent].append(child)
-    ne_geometry = _ne_geometries(bronze_dir, ne_map)
+    ne_geometry = reference_admin_geometries(bronze_dir, ne_map)
 
     tile_cache: dict[str, shapely.Geometry | None] = {}
 
