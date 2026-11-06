@@ -161,16 +161,14 @@ def test_export_region_map_writes_index_and_geometry(tmp_path: Path) -> None:
     index_path = export_region_map(geohistory, wikidata, match, output)
 
     regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
-    assert set(regions) == {"FR", "BR", "NR", "DE", "CE"}
-    assert regions["FR"]["childIds"] == ["BR", "NR"] and regions["FR"]["drillable"]
+    assert set(regions) == {"FR", "BR", "DE", "CE"}
+    assert regions["FR"]["childIds"] == ["BR"] and regions["FR"]["drillable"]
     assert regions["FR"]["parentId"] == "world" and regions["BR"]["parentId"] == "FR"
     assert regions["BR"]["genres"] == [{"itemId": "Q1", "rule": "P495", "relation": "canonical"}]
     assert (regions["BR"]["songCount"], regions["BR"]["genreCount"]) == (4, 3)
     assert (regions["FR"]["songCount"], regions["FR"]["genreCount"]) == (4, 3)
-    assert (regions["NR"]["songCount"], regions["NR"]["genreCount"]) == (0, 0)
     assert regions["CE"]["kind"] == "zone" and regions["CE"]["genres"][0]["relation"] == "regional"
     assert regions["BR"]["zoneIds"] == ["CE"] and regions["FR"]["zoneIds"] == ["CE"]
-    assert regions["NR"]["zoneIds"] == []
     assert not (output / "5_region_map" / "geometry").exists()
     assert not (output / "5_region_map" / "zones").exists()
     assert "files" not in json.loads(index_path.read_text())
@@ -247,14 +245,40 @@ def test_export_region_map_dissolves_a_mainland_intermediate(tmp_path: Path) -> 
         containment=[("BIG", "MAIN"), ("BIG", "ISL"), ("MAIN", "SUB")],
         anchors=[("Q20", "MAIN"), ("Q21", "SUB")],
     )
+    _write_basemap(geohistory, [*BASEMAP, ("land", None, None, 0.0, box(99, -1, 121, 11))])
 
     regions = _regions(export_region_map(geohistory, wikidata, match, output))
 
     assert "MAIN" not in regions
-    assert regions["BIG"]["childIds"] == ["ISL", "SUB"] and regions["SUB"]["parentId"] == "BIG"
+    assert regions["BIG"]["childIds"] == ["SUB"] and regions["SUB"]["parentId"] == "BIG"
     assert {g["itemId"] for g in regions["BIG"]["genres"]} == {"Q20"}
-    assert (regions["ISL"]["songCount"], regions["ISL"]["genreCount"]) == (0, 0)
+    assert "ISL" not in regions
     assert regions["BIG"]["genreCount"] == 2
+
+
+def test_export_region_map_draws_a_genreless_island_but_not_a_genreless_exclave(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "BIG": ("country", box(100, 0, 110, 10), "natural_earth"),
+            "ISL": ("admin_unit", box(112, 0, 113, 1), "x"),
+            "TINY": ("admin_unit", box(115, 0, 115.1, 0.1), "x"),
+            "EXC": ("admin_unit", box(-30, 0, -20, 10), "x"),
+        },
+        containment=[("BIG", "ISL"), ("BIG", "TINY"), ("BIG", "EXC")],
+    )
+    continent = box(-60, -40, 110, 40).difference(box(111, -1, 114, 2))
+    _write_basemap(
+        geohistory, [*BASEMAP, ("land", None, None, 0.0, continent), ("land", None, None, 0.0, box(112, 0, 113, 1))]
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert (regions["ISL"]["parentId"], regions["ISL"]["genreCount"]) == ("BIG", 0)
+    assert regions["TINY"]["parentId"] == "BIG"
+    assert "EXC" not in regions
 
 
 def _chained_mainland_regions(tmp_path: Path, big: str, main: str, sub: str) -> dict[str, dict]:
@@ -495,7 +519,7 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
         "--detect-shared-borders",
     ]
     index_regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
-    assert {f["properties"]["id"] for f in layers["regions"]} == {"FR", "BR", "NR", "DE"}
+    assert {f["properties"]["id"] for f in layers["regions"]} == {"FR", "BR", "DE"}
     assert all(
         f["properties"] == {"id": f["properties"]["id"], "parentId": index_regions[f["properties"]["id"]]["parentId"],
                             "kind": index_regions[f["properties"]["id"]]["kind"],
@@ -505,7 +529,7 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     assert [f["properties"] for f in layers["zones"]] == [{"id": "CE", "name": "Celtic nations"}]
     assert list(layers) == ["regions", "region_labels", "zones", "land", "lakes", "rivers", "disputed", "places"]
     labelled = {f["properties"]["id"]: f for f in layers["region_labels"]}
-    assert set(labelled) == {"FR", "BR", "NR", "DE"}
+    assert set(labelled) == {"FR", "BR", "DE"}
     assert labelled["BR"]["properties"] == {"id": "BR", "parentId": "FR", "name": "Bretagne"}
     assert labelled["BR"]["geometry"] == {"type": "Point", "coordinates": index_regions["BR"]["centroid"]}
     assert layers["land"][0]["properties"] == {}
@@ -658,9 +682,9 @@ def test_export_region_map_inherits_the_overview_a_dissolved_mainland_hands_its_
             "SUB": ("admin_unit", box(101, 1, 103, 3), "x"),
         },
         containment=[("BIG", "MAIN"), ("BIG", "ISL"), ("MAIN", "SUB")],
-        anchors=[("Q20", "MAIN"), ("Q21", "SUB")],
+        anchors=[("Q20", "MAIN"), ("Q21", "SUB"), ("Q22", "ISL")],
         overviews={"Q20": 0},
-        regional=[("Q20", None), ("Q21", None)],
+        regional=[("Q20", None), ("Q21", None), ("Q22", None)],
     )
 
     regions = _regions(export_region_map(geohistory, wikidata, match, output))
@@ -681,6 +705,28 @@ def test_export_region_map_makes_a_zone_drillable_through_its_member_regions(tmp
     assert "CE" in document["worldZoneIds"]
     assert set(document["worldChildIds"]) == {"FR", "DE"}
     assert set(document) >= {"regions", "worldChildIds", "worldZoneIds"}
+
+
+def test_export_region_map_draws_every_country_and_territory_but_no_genreless_subdivision(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "VU": ("country", box(40, 0, 41, 1), "natural_earth"),
+            "JE": ("admin_unit", box(42, 0, 43, 1), "natural_earth"),
+            "IN": ("country", box(1, 6, 3, 8), "natural_earth"),
+        },
+        containment=[("FR", "IN")],
+    )
+
+    document = json.loads(export_region_map(geohistory, wikidata, match, output).read_text())
+    regions = {r["id"]: r for r in document["regions"]}
+
+    assert "NR" not in regions
+    assert (regions["VU"]["parentId"], regions["VU"]["genreCount"]) == ("world", 0)
+    assert (regions["JE"]["parentId"], regions["JE"]["genreCount"]) == ("world", 0)
+    assert regions["IN"]["parentId"] == "FR" and "IN" in regions["FR"]["childIds"]
 
 
 def test_export_region_map_lists_a_zone_member_dissolved_through_a_chain(tmp_path: Path) -> None:

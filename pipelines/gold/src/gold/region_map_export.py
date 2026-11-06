@@ -2,10 +2,12 @@ import gzip
 import hashlib
 import json
 import logging
+import math
 import shutil
 import subprocess
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
 import polars as pl
@@ -28,6 +30,9 @@ INDEX_SIZE_LIMIT_BYTES = 2_000_000
 INDEX_PATH = "index.json"
 NESTED_COUNTRY_MIN_OVERLAP = 0.9
 MAINLAND_MIN_SHARE = 0.5
+# Australia, the smallest continent, is ~7.7M km2; Greenland, the largest island, ~2.1M km2
+CONTINENT_MIN_AREA_KM2 = 5_000_000
+KM_PER_DEGREE = 111.32
 TILESET_MIN_ZOOM = 0
 TILESET_MAX_ZOOM = 10
 TILESET_DIR = "regions"
@@ -169,6 +174,32 @@ def _region_tileset(
     return sha256, len(content)
 
 
+def _approximate_area_km2(shape: shapely.Geometry) -> float:
+    return shape.area * KM_PER_DEGREE**2 * math.cos(math.radians(shape.centroid.y))
+
+
+def _islands(
+    parents: dict[str, str], load: Callable[[str], shapely.Geometry], land: list[shapely.Geometry]
+) -> set[str]:
+    """The subdivisions on an island: off any continent and off their parent's main land mass (Corsica, Hokkaido,
+    Northern Ireland; not Alaska or French Guiana, which sit on a continent). A subdivision on no mapped land at all
+    is too small for the land layer, so it is an island too."""
+    continents = {i for i, mass in enumerate(land) if _approximate_area_km2(mass) >= CONTINENT_MIN_AREA_KM2}
+    tree = shapely.STRtree(land)
+
+    def mass_of(shape: shapely.Geometry) -> int | None:
+        touched = tree.query(shape, predicate="intersects")
+        return int(max(touched, key=lambda i: land[i].intersection(shape).area)) if len(touched) else None
+
+    main_mass = {parent: mass_of(load(parent)) for parent in set(parents.values())}
+    islands = set()
+    for child, parent in parents.items():
+        mass = mass_of(load(child))
+        if mass is None or (mass not in continents and mass != main_mass[parent]):
+            islands.add(child)
+    return islands
+
+
 def _write_part(index_line: dict, parts_dir: Path) -> None:
     """grow's import-run part: the index alone, as a JSON object (not a string) so grow can re-hash it. The geometry is
     the tileset, published to object storage by the runner, so no other file is uploaded."""
@@ -186,6 +217,11 @@ def export_region_map(
     )
     geometry = pl.read_parquet(geohistory_silver_dir / "8_entity_geometry.parquet")
     basemap = pl.read_parquet(geohistory_silver_dir / "8_basemap_feature.parquet")
+    land = [
+        mass
+        for wkb in basemap.filter(pl.col("layer") == "land")["geometry_wkb"]
+        for mass in shapely.get_parts(shapely.from_wkb(wkb))
+    ]
     footprint = pl.read_parquet(geohistory_silver_dir / "8_entity_footprint.parquet")
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
@@ -360,13 +396,16 @@ def export_region_map(
         admin_children[parent].append(child)
 
     included = {region for region, genres in genres_by_region.items() if genres}
+    # every country and every territory no country holds (Jersey, Antarctica) is drawn, genre-less or not, so no land
+    # goes missing at world level; a genre-less subdivision is not, its country already covers its ground
+    included.update(region for region in admin_ids if kinds[region] == "country" or region not in parents)
+    # an island is a strong cultural entity, drawn genre-less or not
+    included.update(_islands(parents, load, land))
     for region in list(included):
         node = region
         while node in parents and parents[node] not in included:
             node = parents[node]
             included.add(node)
-    for region in list(included):
-        included.update(admin_children.get(region, ()))
     admin_regions = sorted(r for r in included if r in admin_ids)
     zones = sorted(r for r in included if r in zone_candidates)
 
@@ -489,8 +528,8 @@ def export_region_map(
         "worldChildIds": children.get(WORLD_ID, []),
         "worldZoneIds": [zone for zone in zones if zone not in nested_zones],
     }
-    if not entries:
-        raise ValueError("region map has no region")
+    if not any(entry["genres"] for entry in entries):
+        raise ValueError("region map has no region with a genre")
 
     geometry_dir = output_dir / "5_region_map"
     if geometry_dir.exists():
