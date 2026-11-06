@@ -1,6 +1,8 @@
 import pytest
+import polars as pl
 
 from wikidata import wikidata_client
+from wikidata.ingest import ingest_place_statements
 from wikidata.place_statements import disambiguate_no_values, normalize_qualifiers, normalize_statements
 
 
@@ -143,3 +145,24 @@ def test_api_disambiguates_no_value_main_snak_from_qualifier():
     assert normalize_qualifiers(filtered, statements, confirmed)["snak_type"].to_list() == ["novalue"]
     with pytest.raises(ValueError, match="missing item"):
         disambiguate_no_values([row], statements, lambda _: {})
+
+
+def test_ingest_writes_distinct_statements_and_their_qualifiers(tmp_path, monkeypatch):
+    qualifier = {
+        "statement": "s1",
+        "qualifierProperty": "http://www.wikidata.org/entity/P518",
+        "value": "http://www.wikidata.org/entity/Q4",
+        "valueType": "http://wikiba.se/ontology#WikibaseItem",
+        "snakType": "value",
+        "precision": None,
+    }
+
+    def run_query(query, *, variables, timeout):
+        if variables == wikidata_client.PLACE_STATEMENT_QUERY_VARIABLES:
+            return [statement("s1"), statement("s2", value="Q3")]
+        return [qualifier]
+
+    monkeypatch.setattr(wikidata_client, "run_query", run_query)
+    statements_path, qualifiers_path = ingest_place_statements(tmp_path, ["Q1"])
+    assert pl.read_parquet(statements_path).height == 2
+    assert pl.read_parquet(qualifiers_path).select("statement_id", "value").rows() == [("s1", "Q4")]

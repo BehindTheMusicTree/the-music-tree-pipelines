@@ -585,6 +585,11 @@ def _get_batched_entities(
     return entities
 
 
+def fetch_claim_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, dict]:
+    """Fetch original claim snaks where Wikidata's RDF representation is ambiguous."""
+    return _get_batched_entities(ids, "claims", timeout)
+
+
 def _label(entity: dict) -> str | None:
     labels = entity.get("labels", {})
     return next((labels[lang]["value"] for lang in LABEL_LANGUAGES.split(",") if lang in labels), None)

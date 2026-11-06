@@ -18,6 +18,7 @@ from common.quality_checks import (
 from common.step_timer import step
 
 from wikidata import wikidata_client, wikipedia_client
+from wikidata.place_statements import disambiguate_no_values, normalize_qualifiers, normalize_statements
 from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,40 @@ def ingest_cultural_entity_claims(output_dir: Path, entity_qids: Sequence[str]) 
     logger.info("wrote %d rows to %s", df.height, output_path)
 
     return output_path
+
+
+def ingest_place_statements(output_dir: Path, entity_qids: Sequence[str]) -> tuple[Path, Path]:
+    """Write geographic statements and qualifiers separately, retaining all ranks and snaks."""
+    statement_queries = wikidata_client.place_statement_queries(entity_qids)
+    qualifier_queries = wikidata_client.place_qualifier_queries(entity_qids)
+    statement_rows = []
+    qualifier_rows = []
+    for statement_query, qualifier_query in zip(statement_queries, qualifier_queries, strict=True):
+        statement_rows.extend(
+            wikidata_client.run_query(
+                statement_query,
+                variables=wikidata_client.PLACE_STATEMENT_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        )
+        qualifier_rows.extend(
+            wikidata_client.run_query(
+                qualifier_query,
+                variables=wikidata_client.PLACE_QUALIFIER_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        )
+    statements = normalize_statements(statement_rows)
+    check_non_empty(statements, "wikidata_place_statement")
+    qualifier_rows, confirmed = disambiguate_no_values(qualifier_rows, statements, wikidata_client.fetch_claim_entities)
+    qualifiers = normalize_qualifiers(qualifier_rows, statements, confirmed)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    statements_path = output_dir / "wikidata_place_statement.parquet"
+    qualifiers_path = output_dir / "wikidata_place_qualifier.parquet"
+    statements.write_parquet(statements_path)
+    qualifiers.write_parquet(qualifiers_path)
+    logger.info("wrote %d place statements and %d qualifiers", statements.height, qualifiers.height)
+    return statements_path, qualifiers_path
 
 
 def ingest_cultural_entity_aliases(
