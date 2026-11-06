@@ -40,6 +40,7 @@ def test_valid_negative_and_unconfirmed_identity_are_distinct() -> None:
 def test_one_invalid_row_quarantines_the_whole_qid() -> None:
     batch = parse_claims(["Q1", "Q2"], payload([row("Q1"), row("Q1", mbid="invalid"), row("Q2")]))
     assert batch.rejected_qids == ("Q1",)
+    assert batch.rejection_reasons == (("Q1", "Invalid MusicBrainz artist identifier"),)
     assert [observation.item_id for observation in batch.observations] == ["Q2"]
 
 

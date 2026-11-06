@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from wikidata.artist_images.bootstrap import capture_inputs, prepare_bootstrap
+from wikidata.artist_images.bootstrap import capture_inputs, prepare_bootstrap, seed_registry
 from wikidata.silver.artist_images import select_artist_images
 
 
@@ -186,7 +186,11 @@ def test_unknown_attribution_flag_with_author_requires_credit_in_lineage():
     state = ImageState(
         "generation",
         0,
-        {"claims": claims.rename({"fetched_at": "claims_checked_at"}), "commons": metadata},
+        {
+            "registry": seed_registry(claims),
+            "claims": claims.rename({"fetched_at": "claims_checked_at"}),
+            "commons": metadata,
+        },
         {"discovery": {"coverage": "complete", "completedAt": datetime.now(UTC).isoformat()}},
     )
     _, lineage, _ = assemble_candidate(state, datetime.now(UTC), "commit", {})

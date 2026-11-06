@@ -177,6 +177,8 @@ def seed_registry(claims: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=timestamp).alias("last_attempt_at"),
             pl.lit(0, dtype=pl.UInt32).alias("consecutive_failures"),
             pl.lit(None, dtype=timestamp).alias("retry_after_at"),
+            pl.lit(None, dtype=pl.String).alias("failure_reason"),
+            pl.lit(None, dtype=timestamp).alias("first_failure_at"),
         )
     )
 

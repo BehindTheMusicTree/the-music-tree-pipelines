@@ -18,6 +18,7 @@ from wikidata.artist_images.commons import due_files, refresh_metadata_queue
 from wikidata.artist_images.config import WorkerConfig
 from wikidata.artist_images.discovery import acquire_discovery, commit_discovery
 from wikidata.artist_images.locks import LockDeferred, exclusive_lock
+from wikidata.artist_images.progress import quarantine_summary
 from wikidata.artist_images.publish import _sync_directory, _write_json, publish_snapshot
 from wikidata.artist_images.refresh import refresh_claim_queue
 from wikidata.artist_images.state import compact_state, load_state
@@ -155,6 +156,11 @@ async def _run_locked(config: WorkerConfig, *, discover_only: bool) -> dict:
                             status.update(outcome="deferred", reason=str(exc))
                         status["stages"][stage] = "deferred"
                         state = load_state(config.state_root)
+        status["quarantine"] = quarantine_summary(state)
+        if status["quarantine"]["count"]:
+            status.update(outcome="degraded", reason="Invalid claims quarantined; retries pending")
+            if not discover_only:
+                status["stages"]["claims"] = "degraded"
         stage = "publication"
         coverage = _coverage(budget, due)
         status["refreshCoverage"] = coverage

@@ -78,7 +78,8 @@ def test_successful_batch_is_yielded_before_another_request() -> None:
     asyncio.run(run())
 
 
-def test_redirect_to_confirmed_imageless_target_commits_negative(tmp_path):
+@pytest.mark.parametrize("invalid_target", [False, True])
+def test_redirect_to_confirmed_imageless_or_quarantined_target(tmp_path, invalid_target):
     from unittest.mock import patch
     from wikidata.artist_images.refresh import refresh_claim_queue
 
@@ -105,14 +106,10 @@ def test_redirect_to_confirmed_imageless_target_commits_negative(tmp_path):
         calls.append(request)
         if request.url.host == "query.wikidata.org":
             qid = "Q1" if len(calls) == 1 else "Q2"
-            return httpx.Response(
-                200,
-                json={
-                    "results": {
-                        "bindings": [{"item": {"type": "uri", "value": "http://www.wikidata.org/entity/" + qid}}]
-                    }
-                },
-            )
+            binding = {"item": {"type": "uri", "value": "http://www.wikidata.org/entity/" + qid}}
+            if invalid_target and qid == "Q2":
+                binding["mbid"] = {"type": "literal", "value": "malformed"}
+            return httpx.Response(200, json={"results": {"bindings": [binding]}})
         if len(calls) == 2:
             return httpx.Response(
                 200, json={"redirects": [{"from": "Q1", "to": "Q2"}], "entities": {"Q2": {"id": "Q2", "claims": {}}}}
@@ -134,6 +131,15 @@ def test_redirect_to_confirmed_imageless_target_commits_negative(tmp_path):
     with patch("wikidata.artist_images.transport.asyncio.sleep", return_value=None):
         asyncio.run(run())
     state = load_state(tmp_path)
+    if invalid_target:
+        assert len(calls) == 3
+        assert state.tables["claims"].equals(claims)
+        assert state.tables["registry"]["item_id"].to_list() == ["Q1"]
+        assert state.tables["registry"]["failure_reason"].to_list() == [
+            "invalid_claims: Redirect target Q2: Invalid MusicBrainz artist identifier"
+        ]
+        assert state.tables["registry"]["consecutive_failures"].to_list() == [1]
+        return
     assert len(calls) == 4
     assert state.tables["claims"].is_empty()
     assert state.tables["registry"]["item_id"].to_list() == ["Q2"]

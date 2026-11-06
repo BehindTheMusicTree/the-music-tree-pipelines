@@ -24,6 +24,7 @@ class ClaimObservation:
 class ClaimBatch:
     observations: tuple[ClaimObservation, ...]
     rejected_qids: tuple[str, ...]
+    rejection_reasons: tuple[tuple[str, str], ...] = ()
 
 
 def claims_query(qids: list[str]) -> str:
@@ -93,7 +94,7 @@ def parse_claims(qids: list[str], payload: object) -> ClaimBatch:
         raise ValueError("Invalid SPARQL bindings")
     expected = set(qids)
     seen = set()
-    rejected = set()
+    rejected: dict[str, set[str]] = {}
     mbids: dict[str, set[str]] = {qid: set() for qid in qids}
     associations: dict[str, set[tuple[str, str]]] = {qid: set() for qid in qids}
     for binding in bindings:
@@ -113,8 +114,8 @@ def parse_claims(qids: list[str], payload: object) -> ClaimBatch:
                 mbids[qid].add(mbid)
                 if image is not None:
                     associations[qid].add((mbid, image))
-        except ValueError:
-            rejected.add(qid)
+        except ValueError as exc:
+            rejected.setdefault(qid, set()).add(str(exc))
     if seen != expected:
         raise ValueError("Incomplete SPARQL QID coverage")
     observations = []
@@ -124,4 +125,8 @@ def parse_claims(qids: list[str], payload: object) -> ClaimBatch:
         pairs = tuple(sorted(associations[qid]))
         status = "has_image" if pairs else "no_image" if mbids[qid] else "needs_confirmation"
         observations.append(ClaimObservation(qid, status, pairs))
-    return ClaimBatch(tuple(observations), tuple(sorted(rejected)))
+    return ClaimBatch(
+        tuple(observations),
+        tuple(sorted(rejected)),
+        tuple((qid, "; ".join(sorted(rejected[qid]))) for qid in sorted(rejected)),
+    )

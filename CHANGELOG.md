@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Artist image enrichment isolates malformed Wikidata artists, preserves their previous observations and retries them across runs while publishing valid updates.
 - Wikidata Silver `5_parent_selection`: a regional item's curated overview (`regional_overviews.csv`) now comes first in `regional_overview_ids`, so it becomes the anchor `parent_id` when the item has no regional genre parent, instead of always the lowest-QID overview; the others stay secondary. Lets Latin music sit under world music as a regional umbrella. Tests in `test_parent_selection.py`.
 
 ## [10.0.0] - 2026-11-05
