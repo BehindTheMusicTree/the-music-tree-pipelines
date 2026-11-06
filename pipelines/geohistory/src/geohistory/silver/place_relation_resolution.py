@@ -40,8 +40,13 @@ def resolve_relations(
         if not item.source or not item.statement_id or item.extent not in {"full", "partial", "unknown"}:
             raise ValueError("invalid spatial evidence")
         groups[(item.child_id, item.parent_id)].add(item)
-    for pair, (extent, reason) in overrides.items():
-        if not all(pair) or pair[0] == pair[1] or extent not in {"full", "partial", "reject"} or not reason.strip():
+    for pair, (extent, override_reason) in overrides.items():
+        if (
+            not all(pair)
+            or pair[0] == pair[1]
+            or extent not in {"full", "partial", "reject"}
+            or not override_reason.strip()
+        ):
             raise ValueError(f"invalid place relation override: {pair}")
         groups.setdefault(pair, set())
 
@@ -50,6 +55,7 @@ def resolve_relations(
         ordered = tuple(sorted(items, key=lambda item: (item.source, item.statement_id, item.extent, item.scoped)))
         proven = {item.extent for item in ordered if item.extent != "unknown"}
         conflict = len(proven) > 1
+        reason: str | None
         if (child, parent) in overrides:
             extent, reason = overrides[(child, parent)]
         else:
