@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -10,7 +11,19 @@ import shapely
 from shapely.geometry import Point, box, mapping
 
 from gold import region_map_export
-from gold.region_map_export import _approximate_area_km2, _islands, export_region_map
+from gold.region_map_export import (
+    MIN_BAND,
+    SPLIT_PX,
+    TILE_PX,
+    TILESET_MAX_ZOOM,
+    _admin_bands,
+    _approximate_area_km2,
+    _islands,
+    _mercator_extent,
+    _zone_band,
+    _zoom_spanning,
+    export_region_map,
+)
 
 from .conftest import REAL_RUN_TIPPECANOE
 
@@ -647,17 +660,40 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     ]
     index_regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
     assert {f["properties"]["id"] for f in layers["regions"]} == {"FR", "BR", "DE"}
-    assert all(
-        f["properties"] == {"id": f["properties"]["id"], "parentId": index_regions[f["properties"]["id"]]["parentId"],
-                            "kind": index_regions[f["properties"]["id"]]["kind"],
-                            "name": index_regions[f["properties"]["id"]]["name"]}
-        for f in layers["regions"]
-    )  # fmt: skip
-    assert [f["properties"] for f in layers["zones"]] == [{"id": "CE", "name": "Celtic nations"}]
-    assert list(layers) == ["regions", "region_labels", "zones", "land", "lakes", "rivers", "disputed", "places"]
+    drawn = {f["properties"]["id"]: f for f in layers["regions"]}
+    for region_id, feature in drawn.items():
+        index_region = index_regions[region_id]
+        assert {k: feature["properties"][k] for k in ("id", "parentId", "kind", "name")} == {
+            k: index_region[k] for k in ("id", "parentId", "kind", "name")
+        }
+    france_split = drawn["FR"]["properties"]["max_zoom"]
+    assert france_split == pytest.approx(4.48, abs=0.01)
+    assert drawn["FR"]["properties"] | {"max_zoom": None} == {
+        "id": "FR", "parentId": "world", "kind": "country", "name": "France", "depth": 0, "min_zoom": 0.0,
+        "max_zoom": None,
+    }  # fmt: skip
+    assert drawn["BR"]["properties"] == {
+        "id": "BR", "parentId": "FR", "kind": "admin_unit", "name": "Bretagne", "depth": 1, "min_zoom": france_split,
+    }  # fmt: skip
+    assert "max_zoom" not in drawn["DE"]["properties"]
+    assert drawn["BR"]["tippecanoe"] == {"minzoom": 4} and drawn["FR"]["tippecanoe"] == {"minzoom": 0}
+    (zone,) = layers["zones"]
+    assert zone["properties"]["id"] == "CE" and zone["properties"]["name"] == "Celtic nations"
+    assert zone["properties"]["max_zoom"] - zone["properties"]["min_zoom"] == pytest.approx(
+        math.log2(region_map_export.ZONE_MAX_PX / region_map_export.ZONE_MIN_PX)
+    )
+    (zone_label,) = layers["zone_labels"]
+    assert zone_label["properties"] == zone["properties"]
+    assert zone_label["geometry"] == {"type": "Point", "coordinates": index_regions["CE"]["centroid"]}
+    assert list(layers) == [
+        "regions", "region_labels", "zones", "zone_labels", "land", "lakes", "rivers", "disputed", "places",
+    ]  # fmt: skip
     labelled = {f["properties"]["id"]: f for f in layers["region_labels"]}
     assert set(labelled) == {"FR", "BR", "DE"}
-    assert labelled["BR"]["properties"] == {"id": "BR", "parentId": "FR", "name": "Bretagne"}
+    assert labelled["BR"]["properties"] == {
+        "id": "BR", "parentId": "FR", "name": "Bretagne", "depth": 1, "min_zoom": france_split,
+    }  # fmt: skip
+    assert labelled["FR"]["properties"]["max_zoom"] == pytest.approx(france_split + region_map_export.LABEL_OVERLAP)
     assert labelled["BR"]["geometry"] == {"type": "Point", "coordinates": index_regions["BR"]["centroid"]}
     assert layers["land"][0]["properties"] == {}
     assert [f["properties"] for f in layers["rivers"]] == [
@@ -669,7 +705,7 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
         ("Paris", 1),
         ("Berlin", 10),
     ]
-    assert all("tippecanoe" not in f for name in ("regions", "region_labels", "zones", "land") for f in layers[name])
+    assert all("tippecanoe" not in f for f in layers["land"])
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["tileset"]["bytes"] == tile_file.stat().st_size and report["tileset"]["seconds"] >= 0
     assert not (output / "5_region_map_tileset_work").exists()
@@ -936,3 +972,55 @@ def test_export_region_map_puts_a_city_layer_in_the_tileset(
     assert feature["properties"] == {"id": "RN", "parentId": "BR", "name": "Rennes", "min_zoom": 5}
     assert feature["geometry"] == {"type": "Point", "coordinates": [-1.68, 48.11]}
     assert "RN" not in {f["properties"]["id"] for f in layers["region_labels"]}
+
+
+def test_mercator_extent_measures_the_larger_side_and_wraps_across_the_antimeridian():
+    assert _mercator_extent([-180, -10, 180, 10]) == pytest.approx(1.0)
+    assert _mercator_extent([0, 0, 36, 1]) == pytest.approx(0.1)
+    assert _mercator_extent([170, 0, -170, 1]) == pytest.approx(20 / 360)
+    assert _mercator_extent([0, -89, 1, 89]) == pytest.approx(_mercator_extent([0, -85.0511, 1, 85.0511]))
+
+
+def test_zoom_spanning_is_the_zoom_at_which_a_box_covers_the_pixels():
+    assert _zoom_spanning([-180, -10, 180, 10], TILE_PX) == pytest.approx(0.0)
+    assert _zoom_spanning([0, 0, 36, 1], TILE_PX) == pytest.approx(math.log2(10))
+    assert _zoom_spanning([1, 1, 1, 1], SPLIT_PX) == TILESET_MAX_ZOOM
+
+
+def test_admin_bands_hand_each_split_down_to_the_subdivisions():
+    children = {"world": ["RU", "LU"], "RU": ["MOW", "SIB"], "LU": ["LUX"], "SIB": ["NSK"]}
+    bboxes = {"RU": [20, 41, 190, 82], "LU": [5.7, 49.4, 6.5, 50.2], "SIB": [60, 50, 110, 75]}
+    bands, depths = _admin_bands(children, bboxes)
+
+    assert bands["RU"][0] == bands["LU"][0] == 0.0
+    assert bands["RU"][1] == pytest.approx(MIN_BAND)
+    assert bands["LU"][1] == pytest.approx(_zoom_spanning(bboxes["LU"], SPLIT_PX))
+    assert bands["LU"][1] > bands["SIB"][1] > bands["RU"][1]
+    assert bands["MOW"] == (bands["RU"][1], None) and bands["LUX"] == (bands["LU"][1], None)
+    assert bands["SIB"][0] == bands["RU"][1] and bands["NSK"][0] == bands["SIB"][1]
+    assert depths == {"RU": 0, "LU": 0, "MOW": 1, "SIB": 1, "LUX": 1, "NSK": 2}
+
+
+def test_admin_bands_keep_a_minimum_band_and_let_tiny_regions_split_past_the_tileset():
+    tiny = [0, 0, 1e-4, 1e-4]
+    world = [-180, -85, 180, 85]
+    bands, _ = _admin_bands({"world": ["A"], "A": ["B"], "B": ["C"]}, {"A": world, "B": tiny})
+    assert bands["A"] == (0.0, pytest.approx(MIN_BAND))
+    assert bands["B"][1] == pytest.approx(_zoom_spanning(tiny, SPLIT_PX)) and bands["B"][1] > TILESET_MAX_ZOOM
+    assert bands["C"] == (bands["B"][1], None)
+
+
+def test_admin_bands_reject_a_region_reached_twice():
+    with pytest.raises(ValueError, match="reached twice"):
+        _admin_bands({"world": ["A", "B"], "A": ["C"], "B": ["C"]}, {"A": [0, 0, 10, 10], "B": [0, 0, 10, 10]})
+
+
+def test_zone_band_shows_a_zone_between_its_min_and_max_spans():
+    europe = [-10, 35, 40, 70]
+    assert _zone_band(europe) == (
+        pytest.approx(_zoom_spanning(europe, region_map_export.ZONE_MIN_PX)),
+        pytest.approx(_zoom_spanning(europe, region_map_export.ZONE_MAX_PX)),
+    )
+    assert _zone_band([-180, -85, 180, 85])[0] == 0.0
+    tiny_min, tiny_max = _zone_band([0, 0, 1e-5, 1e-5])
+    assert tiny_min == TILESET_MAX_ZOOM and tiny_max >= tiny_min + MIN_BAND

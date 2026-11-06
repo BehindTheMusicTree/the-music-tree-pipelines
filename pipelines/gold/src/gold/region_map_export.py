@@ -35,6 +35,16 @@ CONTINENT_MIN_AREA_KM2 = 5_000_000
 KM_PER_DEGREE = 111.32
 TILESET_MIN_ZOOM = 0
 TILESET_MAX_ZOOM = 10
+# Zoom bands, Google Maps style: a region splits into its subdivisions once its main part spans SPLIT_PX on screen.
+# Kept under a phone's width so framing a region on any screen lands past its split and shows its subdivisions.
+TILE_PX = 512
+SPLIT_PX = 320
+MIN_BAND = 1.0
+# A parent's label outlives its fill a little, so the country name stays while its subdivisions appear.
+LABEL_OVERLAP = 1.5
+ZONE_MIN_PX = 120
+ZONE_MAX_PX = 2000
+MERCATOR_MAX_LATITUDE = 85.0511
 TILESET_DIR = "regions"
 BASEMAP_LAYER_NAMES = ("land", "lakes", "rivers", "disputed", "places")
 UNPLACED_SCHEMA = {"wikidata_id": pl.String, "anchor_id": pl.String, "reason": pl.String}
@@ -117,41 +127,113 @@ def _basemap_layers(basemap: pl.DataFrame) -> dict[str, list[tuple[dict, shapely
     return layers
 
 
+def _mercator_extent(bbox: list[float]) -> float:
+    """The larger side of a lon/lat box in Web Mercator world units, where the whole world spans 1."""
+    west, south, east, north = bbox
+
+    def y(latitude: float) -> float:
+        latitude = math.radians(max(-MERCATOR_MAX_LATITUDE, min(MERCATOR_MAX_LATITUDE, latitude)))
+        return (1 - math.log(math.tan(latitude) + 1 / math.cos(latitude)) / math.pi) / 2
+
+    width = (east - west if east >= west else east + 360 - west) / 360
+    return max(width, abs(y(south) - y(north)))
+
+
+def _zoom_spanning(bbox: list[float], px: float) -> float:
+    """The zoom from which the box spans `px` screen pixels."""
+    extent = _mercator_extent(bbox)
+    return TILESET_MAX_ZOOM if extent <= 0 else math.log2(px / (TILE_PX * extent))
+
+
+Band = tuple[float, float | None]
+
+
+def _admin_bands(
+    children: dict[str, list[str]], main_bboxes: dict[str, list[float]]
+) -> tuple[dict[str, Band], dict[str, int]]:
+    """Each admin region's zoom band `[min_zoom, max_zoom)` and depth below the world. A region shows from the zoom
+    its parent splits at, and splits itself, giving way to its subdivisions, once it spans SPLIT_PX; a region
+    without subdivisions on the map never splits (`max_zoom` None).
+
+    Splits are not capped at TILESET_MAX_ZOOM: the map overzooms the last tiles, and a region splitting past the
+    map's own max zoom is one too small to subdivide on screen."""
+    bands: dict[str, Band] = {}
+    depths: dict[str, int] = {}
+    pending = [(region, 0.0, 0) for region in children.get(WORLD_ID, [])]
+    while pending:
+        region, min_zoom, depth = pending.pop()
+        if region in bands:
+            raise ValueError(f"region {region} is reached twice in the admin tree")
+        max_zoom = None
+        if children.get(region):
+            max_zoom = max(_zoom_spanning(main_bboxes[region], SPLIT_PX), min_zoom + MIN_BAND)
+            pending.extend((child, max_zoom, depth + 1) for child in children[region])
+        bands[region] = (min_zoom, max_zoom)
+        depths[region] = depth
+    return bands, depths
+
+
+def _zone_band(main_bbox: list[float]) -> Band:
+    """A zone shows while its main part spans between ZONE_MIN_PX and ZONE_MAX_PX: smaller it is clutter, larger it
+    is no longer a place one looks at. A zone too small to span ZONE_MIN_PX still shows from the last tileset zoom,
+    as its label is the only way to select it."""
+    min_zoom = min(max(_zoom_spanning(main_bbox, ZONE_MIN_PX), 0.0), float(TILESET_MAX_ZOOM))
+    return min_zoom, max(_zoom_spanning(main_bbox, ZONE_MAX_PX), min_zoom + MIN_BAND)
+
+
+def _band_properties(band: Band) -> dict:
+    """An open band leaves `max_zoom` out, so the style tests it with `has`."""
+    min_zoom, max_zoom = band
+    return {"min_zoom": min_zoom} if max_zoom is None else {"min_zoom": min_zoom, "max_zoom": max_zoom}
+
+
 def _region_tileset(
-    regions: list[tuple[str, str, str, str, shapely.Geometry]],
-    zones: list[tuple[str, str, shapely.Geometry]],
-    labels: list[tuple[str, str, str, tuple[float, float]]],
-    cities: list[tuple[str, str, str, tuple[float, float]]],
+    regions: list[tuple[str, str, str, str, int, Band, shapely.Geometry]],
+    zones: list[tuple[str, str, Band, shapely.Geometry, tuple[float, float]]],
+    labels: list[tuple[str, str, str, int, Band, tuple[float, float]]],
+    cities: list[tuple[str, str, str, float, tuple[float, float]]],
     basemap: pl.DataFrame,
     work_dir: Path,
     geometry_dir: Path,
 ) -> tuple[str, int]:
     """The one vector tileset of the map, from full-resolution geometry. Layers `regions` (`id`, `parentId`, `kind`,
-    `name`, same as the index), `region_labels` (`id`, `parentId`, `name`, at the pole of inaccessibility), `zones`
-    (`id`, `name`), `cities` (`id`, `parentId`, `name`, one point per city region, from zoom CITY_TILESET_MIN_ZOOM)
-    and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Returns the index's
-    sha256 of the file, `regions/<sha256>.pmtiles`, and its size in bytes."""
+    `name`, same as the index, plus `depth` and the zoom band `min_zoom`/`max_zoom`), `region_labels` (`id`,
+    `parentId`, `name`, `depth`, band, at the pole of inaccessibility), `zones` (`id`, `name`, band), `zone_labels`
+    (same, at the pole of inaccessibility of the zone's main part), `cities` (`id`, `parentId`, `name`, `min_zoom`,
+    one point per city region) and Natural Earth's `land`, `lakes`, `rivers`, `disputed` and `places`. Every feature
+    with a `min_zoom` is left out of the tiles below it. Returns the index's sha256 of the file,
+    `regions/<sha256>.pmtiles`, and its size in bytes."""
     if shutil.which("tippecanoe") is None:
         raise RuntimeError("tippecanoe is not installed, see pipelines/gold/README.md")
     work_dir.mkdir(parents=True, exist_ok=True)
     built = work_dir / "built.pmtiles"
     layers: dict[str, tuple[list[tuple[dict, shapely.Geometry]], bool]] = {
         "regions": (
-            [({"id": r, "parentId": p, "kind": k, "name": n}, shape) for r, n, p, k, shape in regions],
-            False,
+            [
+                ({"id": r, "parentId": p, "kind": k, "name": n, "depth": d, **_band_properties(b)}, shape)
+                for r, n, p, k, d, b, shape in regions
+            ],
+            True,
         ),
         "region_labels": (
-            [({"id": r, "parentId": p, "name": n}, shapely.Point(point)) for r, p, n, point in labels],
-            False,
+            [
+                ({"id": r, "parentId": p, "name": n, "depth": d, **_band_properties(b)}, shapely.Point(point))
+                for r, p, n, d, b, point in labels
+            ],
+            True,
         ),
-        "zones": ([({"id": z, "name": n}, shape) for z, n, shape in zones], False),
+        "zones": ([({"id": z, "name": n, **_band_properties(b)}, shape) for z, n, b, shape, _ in zones], True),
+        "zone_labels": (
+            [({"id": z, "name": n, **_band_properties(b)}, shapely.Point(point)) for z, n, b, _, point in zones],
+            True,
+        ),
         **{layer: (features, layer != "land") for layer, features in _basemap_layers(basemap).items()},
     }
     if cities:
         layers["cities"] = (
             [
-                ({"id": c, "parentId": p, "name": n, "min_zoom": CITY_TILESET_MIN_ZOOM}, shapely.Point(point))
-                for c, p, n, point in cities
+                ({"id": c, "parentId": p, "name": n, "min_zoom": z}, shapely.Point(point))
+                for c, p, n, z, point in cities
             ],
             True,
         )
@@ -540,15 +622,36 @@ def export_region_map(
         shutil.rmtree(geometry_dir)
     geometry_dir.mkdir(parents=True)
     started = time.monotonic()
+    bands, depths = _admin_bands(
+        {region: children.get(region, []) for region in [WORLD_ID, *admin_regions]},
+        {region: shapes[region]["main_bbox"] for region in admin_regions},
+    )
+    if unbanded := set(admin_regions) - set(bands):
+        raise ValueError(f"admin regions outside the world's tree: {sorted(unbanded)}")
+
+    def label_band(region: str) -> Band:
+        min_zoom, max_zoom = bands[region]
+        return min_zoom, None if max_zoom is None else max_zoom + LABEL_OVERLAP
+
     document["tileset"], tileset_bytes = _region_tileset(
-        [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], load(r)) for r in admin_regions],
-        [(z, labels[z], load(z)) for z in zones],
+        [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], depths[r], bands[r], load(r)) for r in admin_regions],
+        [(z, labels[z], _zone_band(shapes[z]["main_bbox"]), load(z), tuple(shapes[z]["centroid"])) for z in zones],
         [
-            (entry["id"], entry["parentId"], entry["name"], tuple(entry["centroid"]))
+            (
+                entry["id"],
+                entry["parentId"],
+                entry["name"],
+                depths[entry["id"]],
+                label_band(entry["id"]),
+                tuple(entry["centroid"]),
+            )
             for entry in entries
             if entry["kind"] not in ("zone", CITY_KIND)
+        ],  # fmt: skip
+        [
+            (c, p, labels[c], max(float(CITY_TILESET_MIN_ZOOM), bands[p][0]), city_points[c])
+            for c, p in city_parents.items()
         ],
-        [(c, p, labels[c], city_points[c]) for c, p in city_parents.items()],
         basemap,
         output_dir / "5_region_map_tileset_work",
         geometry_dir,
