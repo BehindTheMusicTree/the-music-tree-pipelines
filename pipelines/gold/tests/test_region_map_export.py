@@ -490,6 +490,14 @@ def test_export_region_map_raises_without_regions(tmp_path: Path) -> None:
         export_region_map(geohistory, wikidata, match, output)
 
 
+def test_export_region_map_raises_without_a_land_layer(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _write_basemap(geohistory, [feature for feature in BASEMAP if feature[0] != "land"])
+
+    with pytest.raises(ValueError, match="no land layer"):
+        export_region_map(geohistory, wikidata, match, output)
+
+
 def _layer(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 

@@ -189,7 +189,9 @@ def _islands(
 
     def mass_of(shape: shapely.Geometry) -> int | None:
         touched = tree.query(shape, predicate="intersects")
-        return int(max(touched, key=lambda i: land[i].intersection(shape).area)) if len(touched) else None
+        if len(touched) <= 1:
+            return int(touched[0]) if len(touched) else None
+        return int(max(touched, key=lambda i: land[i].intersection(shape).area))
 
     main_mass = {parent: mass_of(load(parent)) for parent in set(parents.values())}
     islands = set()
@@ -222,6 +224,8 @@ def export_region_map(
         for wkb in basemap.filter(pl.col("layer") == "land")["geometry_wkb"]
         for mass in shapely.get_parts(shapely.from_wkb(wkb))
     ]
+    if not land:
+        raise ValueError("basemap has no land layer: islands cannot be told apart")
     footprint = pl.read_parquet(geohistory_silver_dir / "8_entity_footprint.parquet")
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
