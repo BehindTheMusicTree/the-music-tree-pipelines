@@ -10,7 +10,7 @@ import shapely
 from shapely.geometry import Point, box, mapping
 
 from gold import region_map_export
-from gold.region_map_export import export_region_map
+from gold.region_map_export import _approximate_area_km2, _islands, export_region_map
 
 from .conftest import REAL_RUN_TIPPECANOE
 
@@ -279,6 +279,125 @@ def test_export_region_map_draws_a_genreless_island_but_not_a_genreless_exclave(
     assert (regions["ISL"]["parentId"], regions["ISL"]["genreCount"]) == ("BIG", 0)
     assert regions["TINY"]["parentId"] == "BIG"
     assert "EXC" not in regions
+
+
+def test_approximate_area_km2_shrinks_a_degree_cell_with_latitude() -> None:
+    equator = _approximate_area_km2(box(0, -0.5, 1, 0.5))
+
+    assert equator == pytest.approx(111.32**2, rel=1e-4)
+    assert _approximate_area_km2(box(0, 59.5, 1, 60.5)) == pytest.approx(equator / 2, rel=1e-3)
+
+
+def _island_ids(shapes: dict[str, shapely.Geometry], parents: dict[str, str], land: list) -> set[str]:
+    return _islands(parents, shapes.__getitem__, land)
+
+
+def test_islands_flags_a_subdivision_off_its_parents_main_mass_and_off_any_continent() -> None:
+    mainland, island = box(0, 0, 4, 4), box(6, 0, 7, 1)
+    shapes = {"FR": box(0, 0, 7, 4), "IDF": box(0, 0, 2, 2), "COR": box(6, 0, 7, 1)}
+
+    assert _island_ids(shapes, {"IDF": "FR", "COR": "FR"}, [mainland, island]) == {"COR"}
+
+
+def test_islands_does_not_flag_a_subdivision_on_a_continent_off_its_parents_main_mass() -> None:
+    europe, south_america = box(0, 40, 4, 44), box(-60, -30, 0, 10)
+    shapes = {"FR": box(0, 40, 4, 44), "GF": box(-54, 2, -52, 5)}
+
+    assert _islands({"GF": "FR"}, shapes.__getitem__, [europe, south_america]) == set()
+
+
+@pytest.mark.parametrize(
+    ("half_side", "is_island"),
+    # a 13° square at the equator is Greenland-sized (~2.1M km2), a 25° one Australia-sized (~7.7M km2)
+    [(6.5, True), (12.5, False)],
+    ids=["greenland-sized-mass-is-an-island", "australia-sized-mass-is-a-continent"],
+)
+def test_islands_treats_only_masses_from_the_continent_threshold_up_as_continents(
+    half_side: float, is_island: bool
+) -> None:
+    home, mass = box(100, 0, 101, 1), box(-half_side, -half_side, half_side, half_side)
+    shapes = {"DK": box(100, 0, 101, 1), "GL": box(-1, -1, 1, 1)}
+
+    assert _islands({"GL": "DK"}, shapes.__getitem__, [home, mass]) == ({"GL"} if is_island else set())
+
+
+def test_islands_flags_a_subdivision_on_no_mapped_land() -> None:
+    shapes = {"GB": box(0, 0, 4, 4), "VG": box(10, 10, 10.1, 10.1)}
+
+    assert _islands({"VG": "GB"}, shapes.__getitem__, [box(0, 0, 4, 4)]) == {"VG"}
+
+
+@pytest.mark.parametrize(
+    ("child", "is_island"),
+    [(box(3, 0, 5.2, 1), False), (box(3.8, 0, 6, 1), True)],
+    ids=["mostly-on-the-main-mass", "mostly-on-the-other-mass"],
+)
+def test_islands_assigns_a_straddling_subdivision_to_the_mass_it_mostly_covers(
+    child: shapely.Geometry, is_island: bool
+) -> None:
+    main, other = box(0, 0, 4, 4), box(5, 0, 6, 1)
+    shapes = {"P": box(0, 0, 6, 4), "C": child}
+
+    assert _islands({"C": "P"}, shapes.__getitem__, [main, other]) == ({"C"} if is_island else set())
+
+
+def test_islands_takes_the_parents_main_mass_by_overlap_not_by_first_hit() -> None:
+    small, large = box(0, 0, 1, 1), box(2, 0, 10, 8)
+    # the parent touches both masses; its main mass is the large one, so a child on the small one is an island
+    shapes = {"P": box(0, 0, 10, 8), "ON_SMALL": box(0, 0, 1, 1), "ON_LARGE": box(3, 3, 4, 4)}
+
+    assert _islands({"ON_SMALL": "P", "ON_LARGE": "P"}, shapes.__getitem__, [small, large]) == {"ON_SMALL"}
+
+
+def test_export_region_map_brings_a_genreless_islands_genreless_ancestors_along(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "BIG": ("country", box(100, 0, 110, 10), "natural_earth"),
+            "MID": ("admin_unit", box(100, 0, 104, 4), "x"),
+            "SIB": ("admin_unit", box(105, 5, 108, 8), "x"),
+            "ISL": ("admin_unit", box(112, 0, 113, 1), "x"),
+        },
+        containment=[("BIG", "MID"), ("BIG", "SIB"), ("MID", "ISL")],
+    )
+    continent = box(-60, -40, 110, 40).difference(box(111, -1, 114, 2))
+    _write_basemap(
+        geohistory, [*BASEMAP, ("land", None, None, 0.0, continent), ("land", None, None, 0.0, box(112, 0, 113, 1))]
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert (regions["ISL"]["parentId"], regions["MID"]["parentId"]) == ("MID", "BIG")
+    assert (regions["MID"]["childIds"], regions["MID"]["genreCount"]) == (["ISL"], 0)
+    assert regions["BIG"]["childIds"] == ["MID"]
+    assert "SIB" not in regions
+
+
+def test_export_region_map_lists_only_drawn_regions_as_zone_members(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _append(geohistory / "8_entity_footprint.parquet", [("CE", "NR", "cover")])
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "NR" not in regions
+    assert regions["CE"]["childIds"] == ["BR"]
+
+
+def test_export_region_map_makes_a_country_with_only_genreless_subdivisions_not_drillable(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={"VU": ("country", box(12, 0, 16, 4), "natural_earth"), "SUB": ("admin_unit", box(12, 0, 13, 1), "x")},
+        containment=[("VU", "SUB")],
+    )
+
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+
+    assert "SUB" not in regions
+    assert (regions["VU"]["childIds"], regions["VU"]["drillable"]) == ([], False)
 
 
 def _chained_mainland_regions(tmp_path: Path, big: str, main: str, sub: str) -> dict[str, dict]:
