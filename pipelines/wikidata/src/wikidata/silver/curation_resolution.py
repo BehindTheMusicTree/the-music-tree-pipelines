@@ -21,8 +21,7 @@ CURATION_RESOLUTIONS_SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "c
 #
 # The report's `key` is the row's original grow CurationList.key: item_id alone, except for the lists in
 # KEY_COLUMNS, whose key columns grow joins with a tab. Left out: regional_overview_additions (lists items
-# absent from Bronze by design), canonical_parent_additions (LOCAL: ids) and regional_secondary_parents
-# (Gold, edge-checked).
+# absent from Bronze by design) and canonical_parent_additions (LOCAL: ids).
 QID_COLUMNS: dict[str, tuple[str, ...]] = {
     "accepted_canonical_roots": ("item_id",),
     "forced_canonical_genres": ("item_id",),
@@ -34,12 +33,16 @@ QID_COLUMNS: dict[str, tuple[str, ...]] = {
     "overview_reclassifications": ("item_id",),
     "regional_genre_parent": ("item_id", "parent_item_id"),
     "regional_overviews": ("item_id", "overview_item_id"),
+    "secondary_parents": ("item_id", "parent_id"),
     "technique_genres": ("item_id",),
     "theme_genres": ("item_id",),
     "umbrella_non_stylistic_genres": ("item_id",),
     "umbrella_stylistic_genres": ("item_id",),
 }
-KEY_COLUMNS: dict[str, tuple[str, ...]] = {"regional_overviews": ("item_id", "overview_item_id")}
+KEY_COLUMNS: dict[str, tuple[str, ...]] = {
+    "regional_overviews": ("item_id", "overview_item_id"),
+    "secondary_parents": ("item_id", "parent_id"),
+}
 KEY_SEPARATOR = "\t"
 # An item_id may sit in at most one of these (grow's EXCLUSIVE_LISTS).
 EXCLUSIVE_LISTS = frozenset({"theme_genres", "technique_genres", "out_of_scope_genres", "duplicate_genres"})
@@ -82,13 +85,15 @@ def resolve_curation_qids(
         tree_ids |= _ids(pl.read_csv(_csv_path(curation_dir, name), infer_schema=False), "item_id")
     indigenous_ids = set(pl.read_parquet(indigenous_to_path).get_column("item_id"))
 
-    # Silver promotes orphan "music of X" parents to root rows, so only regional_overviews can target them.
+    # Silver promotes orphan "music of X" parents to root rows of the regional tree, so only lists whose ids
+    # may name a regional hierarchy row can target them.
     regional_ids = tree_ids | orphan_overview_parent_ids(tree)
+    regional_lists = frozenset({"regional_overviews", "secondary_parents"})
 
     def reference(list_name: str) -> set[str]:
         if list_name == "indigenous_to_exclusions":
             return indigenous_ids
-        return regional_ids if list_name == "regional_overviews" else tree_ids
+        return regional_ids if list_name in regional_lists else tree_ids
 
     unknown = sorted(
         {

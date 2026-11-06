@@ -138,49 +138,70 @@ def load_descriptions(path: Path) -> dict[str, dict[str, str | None]]:
     return {row["item_id"]: row for row in pl.read_parquet(path).iter_rows(named=True)}
 
 
+SECONDARY_PARENT_RULE_OUTCOMES = ("applied", "satisfied", "unresolved", "anchor_conflict")
+SECONDARY_PARENT_RULES_REPORT_COLUMNS = ("tree", "item_id", "parent_id", "action", "outcome")
+
+
 def apply_secondary_parent_rules(
     edges: pl.DataFrame, rules: pl.DataFrame, hierarchy: pl.DataFrame, ref_ids: set[str]
-) -> tuple[pl.DataFrame, pl.DataFrame]:
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """Splits Wikidata's extra parent `edges` into (`edges` left untouched by a rule, curated `add` edges),
-    dropping the `remove`d ones. `ref_ids` are the parents this tree's import can resolve. An `add` to an
-    unresolvable parent, to the item itself or duplicating its anchor parent (`hierarchy`) raises; a
-    `remove` of an unresolvable parent or of the item's anchor parent is ignored (`edges` never hold either;
-    the latter is satisfied while that parent is the anchor); any other `remove` matching no edge raises as
-    stale."""
-    added = _sort_edges(rules.filter(pl.col("action") == "add").select("item_id", "parent_id"))
-    bad_adds = {
-        "to a parent outside this tree's resolvable set": added.filter(~pl.col("parent_id").is_in(list(ref_ids))),
-        "of an item to itself": added.filter(pl.col("item_id") == pl.col("parent_id")),
-        "duplicating the anchor parent": added.join(
-            hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi"
-        ),
-    }
-    for problem, bad in bad_adds.items():
-        if not bad.is_empty():
-            raise ValueError(f"secondary_parents.csv adds edge(s) {problem}: {bad.rows()}")
+    dropping the `remove`d ones, plus each rule's outcome (`item_id, parent_id, action, outcome`).
 
-    removed = rules.filter(pl.col("action") == "remove").select("item_id", "parent_id")
-    unresolvable = removed.filter(~pl.col("parent_id").is_in(list(ref_ids)))
-    if not unresolvable.is_empty():
-        logger.info(
-            "ignoring %d secondary_parents.csv removal(s) of parents outside this tree's resolvable set: %s",
-            unresolvable.height,
-            unresolvable.rows(),
+    A rule states the desired state of an edge, so it is idempotent: an `add` of a present edge or of the
+    item's anchor parent (`hierarchy`), and a `remove` of an absent edge, are `satisfied`; a rule whose
+    parent is outside `ref_ids` (the parents this tree's import can resolve) is `unresolved`; a `remove`
+    of the anchor parent is an `anchor_conflict`. Only an `add` of an item to itself raises."""
+    keys = ["item_id", "parent_id"]
+    rules = rules.select("item_id", "parent_id", "action")
+    self_adds = rules.filter((pl.col("action") == "add") & (pl.col("item_id") == pl.col("parent_id")))
+    if not self_adds.is_empty():
+        raise ValueError(f"secondary_parents.csv adds edge(s) of an item to itself: {self_adds.rows()}")
+
+    anchors = hierarchy.select(*keys).unique().with_columns(is_anchor=pl.lit(True))
+    present = edges.select(*keys).unique().with_columns(is_present=pl.lit(True))
+    is_add = pl.col("action") == "add"
+    outcomes = (
+        rules.join(anchors, on=keys, how="left")
+        .join(present, on=keys, how="left")
+        .with_columns(
+            outcome=pl.when(~pl.col("parent_id").is_in(list(ref_ids)))
+            .then(pl.lit("unresolved"))
+            .when(pl.col("is_anchor").fill_null(False))
+            .then(pl.when(is_add).then(pl.lit("satisfied")).otherwise(pl.lit("anchor_conflict")))
+            .when(pl.col("is_present").fill_null(False) == is_add)
+            .then(pl.lit("satisfied"))
+            .otherwise(pl.lit("applied"))
         )
-        removed = removed.join(unresolvable, on=["item_id", "parent_id"], how="anti")
-    of_anchor = removed.join(hierarchy.select("item_id", "parent_id"), on=["item_id", "parent_id"], how="semi")
-    if not of_anchor.is_empty():
-        logger.warning(
-            "ignoring %d secondary_parents.csv removal(s) of the item's anchor parent: %s",
-            of_anchor.height,
-            of_anchor.rows(),
-        )
-        removed = removed.join(of_anchor, on=["item_id", "parent_id"], how="anti")
-    stale = removed.join(edges, on=["item_id", "parent_id"], how="anti")
-    if not stale.is_empty():
-        raise ValueError(f"secondary_parents.csv removes edge(s) that are not extra parent edges: {stale.rows()}")
-    untouched = edges.join(pl.concat([added, removed]), on=["item_id", "parent_id"], how="anti")
-    return untouched, added
+        .select("item_id", "parent_id", "action", "outcome")
+    )
+    # A satisfied `add` of a present edge still claims it, so it stays a curated (secondary) edge.
+    added = _sort_edges(
+        outcomes.filter(is_add & pl.col("outcome").is_in(["applied", "satisfied"]))
+        .join(anchors, on=keys, how="anti")
+        .select(*keys)
+    )
+    removed = outcomes.filter(~is_add & (pl.col("outcome") == "applied")).select(*keys)
+    untouched = edges.join(pl.concat([added, removed]), on=keys, how="anti")
+    return untouched, added, _sort_edges(outcomes)
+
+
+def write_secondary_parent_rules_report(outcomes: dict[str, pl.DataFrame], path: Path) -> Path:
+    """Writes every secondary_parents.csv rule's outcome per tree pass, even when there are none, and warns
+    with the count of rules that did not apply cleanly (`unresolved`, `anchor_conflict`)."""
+    report = pl.concat(
+        [
+            df.select(pl.lit(tree).alias("tree"), "item_id", "parent_id", "action", "outcome")
+            for tree, df in outcomes.items()
+        ],
+        how="vertical",
+    ).select(SECONDARY_PARENT_RULES_REPORT_COLUMNS)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    report.write_csv(path)
+    problems = report.filter(pl.col("outcome").is_in(["unresolved", "anchor_conflict"]))
+    if not problems.is_empty():
+        logger.warning("%d secondary_parents.csv rule(s) did not apply, see %s", problems.height, path)
+    return path
 
 
 def edges_to_parent_map(edges: pl.DataFrame) -> dict[str, list[str]]:
