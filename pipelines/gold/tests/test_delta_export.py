@@ -113,3 +113,28 @@ def test_write_delta_logs_the_changed_columns(tmp_path: Path, caplog: pytest.Log
         )
 
     assert "songs delta: 2 upserted (new 1, changed: t 1), 0 deleted" in caplog.text
+
+
+def test_region_changes_sync_but_check_timestamps_do_not(tmp_path: Path) -> None:
+    from common.youtube_regions import REGION_POLICY_DTYPE
+
+    def frame(countries, checked):
+        return pl.DataFrame(
+            {
+                "id": ["a"],
+                "youtube_region_restriction": [{"mode": "allowed", "countries": countries}],
+                "checked_at": [checked],
+            },
+            schema_overrides={"youtube_region_restriction": REGION_POLICY_DTYPE},
+        )
+
+    columns = ["youtube_region_restriction"]
+    write_delta(frame(["FR"], 1), "id", "songs", tmp_path, 10, columns)
+    _promote(tmp_path)
+    write_delta(frame(["FR"], 2), "id", "songs", tmp_path, 10, columns)
+    assert not (tmp_path / "songs_delta" / "part-00000.ndjson.gz").exists()
+    write_delta(frame(["AL", "FR"], 2), "id", "songs", tmp_path, 10, columns)
+    assert _read(tmp_path / "songs_delta" / "part-00000.ndjson.gz")[0]["youtube_region_restriction"]["countries"] == [
+        "AL",
+        "FR",
+    ]

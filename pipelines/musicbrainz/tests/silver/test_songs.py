@@ -450,3 +450,42 @@ def test_youtube_candidates_raises_on_duplicate_curated_recording(tmp_path: Path
 
     with pytest.raises(ValueError, match="duplicate musicbrainz_recording_id"):
         _write_inputs(tmp_path, videos=(row, row))
+
+
+def test_selected_policy_follows_selected_video(tmp_path: Path) -> None:
+    from common.youtube_regions import REGION_POLICY_DTYPE
+
+    bronze, silver = _write_inputs(tmp_path)
+    status_path = silver / "4_youtube_video_status.parquet"
+    pl.read_parquet(status_path).with_columns(
+        youtube_region_restriction=pl.Series(
+            [{"mode": "allowed", "countries": ["FR"]}] * len(ALL_PLAYABLE), dtype=REGION_POLICY_DTYPE
+        )
+    ).write_parquet(status_path)
+    initial = pl.read_parquet(_songs(bronze, silver, tmp_path / "out"))
+    assert initial.filter(pl.col("title") == "Song A")["youtube_region_restriction"].to_list() == [
+        {"mode": "allowed", "countries": ["FR"]}
+    ]
+
+
+@pytest.mark.parametrize("video", ["zzzzzzzzzzz", None])
+def test_curated_policy_belongs_to_replacement_video(tmp_path: Path, video: str | None) -> None:
+    from common.youtube_regions import REGION_POLICY_DTYPE
+
+    bronze, silver = _write_inputs(
+        tmp_path, videos=({"musicbrainz_recording_id": _mbid(1000), "youtube_video_id": video, "reason": "x"},)
+    )
+    status_path = silver / "4_youtube_video_status.parquet"
+    status = pl.read_parquet(status_path)
+    policies = [
+        {"mode": "blocked", "countries": ["AL"]} if value == "zzzzzzzzzzz" else {"mode": "allowed", "countries": ["FR"]}
+        for value in status["youtube_video_id"]
+    ]
+    status.with_columns(youtube_region_restriction=pl.Series(policies, dtype=REGION_POLICY_DTYPE)).write_parquet(
+        status_path
+    )
+    song = (
+        pl.read_parquet(_songs(bronze, silver, tmp_path / "out")).filter(pl.col("title") == "Song A").row(0, named=True)
+    )
+    assert song["youtube_video_id"] == video
+    assert song["youtube_region_restriction"] == ({"mode": "blocked", "countries": ["AL"]} if video else None)

@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import polars as pl
 import tenacity
+from common.youtube_regions import REGION_POLICY_DTYPE, region_policy, with_region_policy
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ _SCHEMA: dict[str, pl.DataType] = {
     "youtube_video_id": pl.Utf8(),
     "youtube_unplayable_reason": pl.Utf8(),
     "youtube_view_count": pl.Int64(),
+    "youtube_region_restriction": REGION_POLICY_DTYPE,
     "checked_at": pl.Datetime("us", "UTC"),
 }
 
@@ -39,8 +41,6 @@ def unplayable_reason(item: dict[str, Any] | None) -> str | None:
         return "private"
     if status["uploadStatus"] != "processed":
         return "not_processed"
-    # Region restrictions are left to the runtime playback fallback: allow-lists are typically 100+ countries,
-    # and whether one blocks playback depends on the viewer's country, which isn't known here.
     return None
 
 
@@ -64,7 +64,7 @@ def _is_retryable(exception: BaseException) -> bool:
 )
 def _fetch_batch(
     client: httpx.Client, api_key: str, video_ids: Sequence[str]
-) -> dict[str, tuple[str | None, int | None]]:
+) -> dict[str, tuple[str | None, int | None, dict | None]]:
     # Key sent as a header, not a query param, so httpx's request logging never prints it.
     response = client.get(
         VIDEOS_ENDPOINT,
@@ -84,7 +84,12 @@ def _fetch_batch(
     response.raise_for_status()
     items = {item["id"]: item for item in response.json()["items"]}
     return {
-        video_id: (unplayable_reason(items.get(video_id)), view_count(items.get(video_id))) for video_id in video_ids
+        video_id: (
+            unplayable_reason(items.get(video_id)),
+            view_count(items.get(video_id)),
+            region_policy(items.get(video_id)),
+        )
+        for video_id in video_ids
     }
 
 
@@ -105,20 +110,39 @@ def youtube_video_status(
         # Parquets written before view counts were fetched lack the column; their rows fill in as the TTL refreshes them.
         if "youtube_view_count" not in cached.columns:
             cached = cached.with_columns(youtube_view_count=pl.lit(None, dtype=pl.Int64()))
-        cached = cached.select(list(_SCHEMA))
+        cached = with_region_policy(cached.lazy()).collect().select(list(_SCHEMA))
 
     # Stale rows stay usable until refreshed: the per-run budget can't cover every candidate of the full catalog,
-    # so curated (pinned) ids go first, then never-checked ids, then the stalest ones, and whatever's left waits for
+    # so pinned ids go first, then selected videos missing policy, never-checked ids, and the stalest ids; the rest waits for
     # the next run.
+    selected_path = silver_dir / "5_songs.parquet"
+    selected = (
+        pl.read_parquet(selected_path, columns=["youtube_video_id"]).drop_nulls().unique()
+        if selected_path.exists()
+        else pl.DataFrame(schema={"youtube_video_id": pl.String})
+    ).with_columns(selected_missing=pl.lit(True))
     to_fetch = (
         videos.join(cached, on="youtube_video_id", how="left")
-        .filter(pl.col("checked_at").is_null() | (pl.col("checked_at") < now - timedelta(days=YOUTUBE_STATUS_TTL_DAYS)))
+        .join(selected, on="youtube_video_id", how="left")
+        .with_columns(
+            selected_missing=pl.col("selected_missing").fill_null(False)
+            & pl.col("youtube_region_restriction").is_null()
+        )
+        .filter(
+            pl.col("checked_at").is_null()
+            | (pl.col("checked_at") < now - timedelta(days=YOUTUBE_STATUS_TTL_DAYS))
+            | (
+                pl.col("youtube_region_restriction").is_null()
+                & (pl.col("youtube_unplayable_reason").fill_null("") != "not_found")
+            )
+        )
         .sort(
             "pinned",
+            "selected_missing",
             "checked_at",
             "youtube_video_id",
-            descending=[True, False, False],
-            nulls_last=[False, False, False],
+            descending=[True, True, False, False],
+            nulls_last=[False, False, False, False],
         )
         .head(max_batches * BATCH_SIZE)["youtube_video_id"]
         .to_list()
@@ -133,12 +157,13 @@ def youtube_video_status(
             ]
             try:
                 for future in as_completed(futures):
-                    for video_id, (reason, count) in future.result().items():
+                    for video_id, (reason, count, policy) in future.result().items():
                         fetched_rows.append(
                             {
                                 "youtube_video_id": video_id,
                                 "youtube_unplayable_reason": reason,
                                 "youtube_view_count": count,
+                                "youtube_region_restriction": policy,
                                 "checked_at": now,
                             }
                         )
@@ -161,5 +186,10 @@ def youtube_video_status(
         video_ids.len() - result.height,
         result["youtube_unplayable_reason"].is_not_null().sum(),
         result["youtube_view_count"].is_not_null().sum(),
+    )
+    logger.info(
+        "regional policies: %d known, %d unknown",
+        result["youtube_region_restriction"].is_not_null().sum(),
+        result["youtube_region_restriction"].null_count(),
     )
     return output_path
