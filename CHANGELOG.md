@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Gold's `5_region_map` draws every country, every territory no country holds (Jersey, Antarctica) and every island subdivision with its ancestors (Corsica, Hokkaido, the British Virgin Islands: off any continent and off its parent's main land mass in the basemap `land` layer), genre-less or not; a genre-less subdivision is no longer drawn, so a drilled-in country shows only the subdivisions that carry genres. On staging silver this cuts the index from 3869 to 849 regions. Tests in `test_region_map_export.py`.
+- Gold's `5_region_map` tileset carries zoom bands so the map can show and hide subdivisions with the zoom, as web maps do: `regions`, `region_labels` and `zones` features gain `min_zoom`/`max_zoom` (absent when open) and admin features `depth`. A region splits into its subdivisions once its main part spans 320 px, so they appear from that zoom; region labels linger 1.5 zooms longer, and zones show while they span 120 to 2000 px. These features now get tippecanoe's `minzoom`, so low-zoom tiles no longer hold subdivisions. New `zone_labels` point layer; cities appear no earlier than their parent region. The index is unchanged, so no frontend or grow-api change is required; the frontend's zoom-driven map needs this tileset. Tests in `test_region_map_export.py`.
 
 ### Fixed
 
