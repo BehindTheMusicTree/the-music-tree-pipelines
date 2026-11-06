@@ -3,6 +3,7 @@ from pathlib import Path
 
 import polars as pl
 from common.quality_checks import FIRST_RELEASE_YEAR_RANGE
+from common.youtube_regions import with_region_policy
 
 logger = logging.getLogger(__name__)
 
@@ -144,14 +145,20 @@ def songs(
     # Unchecked candidates (beyond this run's YouTube quota budget) aren't eligible yet: the song goes out without
     # a video until a later run checks them. First playable candidate across the group by rank, else the best-ranked
     # checked one with its reason, so it's flagged downstream rather than dropped.
-    video_status = pl.scan_parquet(silver_dir / "4_youtube_video_status.parquet")
+    video_status = with_region_policy(pl.scan_parquet(silver_dir / "4_youtube_video_status.parquet"))
     computed_video = (
         pl.scan_parquet(silver_dir / "3_youtube_candidates.parquet")
         .join(video_status, on="youtube_video_id")
         .join(recording_song, on="recording_id")
         .sort("song_id", pl.col("youtube_unplayable_reason").is_not_null(), "rank", "recording_id")
         .unique(subset="song_id", keep="first", maintain_order=True)
-        .select("song_id", "youtube_video_id", "youtube_unplayable_reason", "youtube_view_count")
+        .select(
+            "song_id",
+            "youtube_video_id",
+            "youtube_unplayable_reason",
+            "youtube_view_count",
+            "youtube_region_restriction",
+        )
     )
     # A curated video always wins, checked or not: its reason is the rule's when set, else the checked status
     # (null, i.e. playable, while unchecked).
@@ -169,6 +176,7 @@ def songs(
                 pl.coalesce("unplayable_reason", "youtube_unplayable_reason")
             ),
             youtube_view_count="youtube_view_count",
+            youtube_region_restriction="youtube_region_restriction",
         )
     )
     youtube_video = pl.concat([manual_video, computed_video.join(manual_video, on="song_id", how="anti")])
@@ -196,6 +204,7 @@ def songs(
             "youtube_video_id",
             "youtube_unplayable_reason",
             "youtube_view_count",
+            "youtube_region_restriction",
             "first_release_year",
             "recording_count",
         )

@@ -305,6 +305,11 @@ The nightly import into grow is a full snapshot (grow deletes whatever a run omi
 
 **Unplaced genres.** A genre anchored to a `civilization`/`curated` entity, or to an entity with no footprint or no geometry, is left off the map and listed in `5_region_map_unplaced.csv`; this is a warning, not a failure, like `1_genre_match_unresolved.csv`.
 
+## Regional video metadata
+
+The selected video carries its country policy unchanged from Silver. Global video reasons remain separate: eligibility belongs to Grow, which knows the listener country. Legacy caches carry null (unknown); budgeted refresh enriches selected videos first after pinned IDs. Empty allow-lists block everywhere and empty block-lists allow everywhere. No songs are removed for regional restrictions.
+
+Policy values participate in song delta comparisons; cache check timestamps do not. Adding this snapshot column requires the existing full-sync path, then the sync caller promotes the snapshot only after successful import. Never delete a baseline to force enrichment. Legacy manual `region_whitelisted` rules remain global until reviewed by a curator; automatic legacy values are replaced by fresh API metadata.
 
 ## Artist image snapshot consistency
 

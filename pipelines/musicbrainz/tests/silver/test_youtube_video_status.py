@@ -62,6 +62,7 @@ def test_fetches_uncached_and_stale_ids_and_reuses_fresh_cache(tmp_path: Path) -
             {
                 "youtube_video_id": "fresh",
                 "youtube_unplayable_reason": "private",
+                "youtube_region_restriction": {"mode": "unrestricted", "countries": []},
                 "checked_at": NOW - timedelta(days=1),
             },
             {"youtube_video_id": "stale", "youtube_unplayable_reason": None, "checked_at": NOW - timedelta(days=8)},
@@ -93,7 +94,14 @@ def test_fetches_uncached_and_stale_ids_and_reuses_fresh_cache(tmp_path: Path) -
 def test_stores_view_counts_and_loads_a_cache_written_without_them(tmp_path: Path) -> None:
     _write_candidates(tmp_path, ["cached", "new"])
     pl.DataFrame(
-        [{"youtube_video_id": "cached", "youtube_unplayable_reason": None, "checked_at": NOW}],
+        [
+            {
+                "youtube_video_id": "cached",
+                "youtube_unplayable_reason": None,
+                "youtube_region_restriction": {"mode": "unrestricted", "countries": []},
+                "checked_at": NOW,
+            }
+        ],
         schema={k: v for k, v in yvs._SCHEMA.items() if k != "youtube_view_count"},
     ).write_parquet(tmp_path / yvs.OUTPUT_FILENAME)
     parts: list[str] = []
@@ -225,3 +233,33 @@ def test_spends_budget_on_pinned_ids_first(tmp_path: Path) -> None:
     # The stale pinned id goes before never-checked ones; the last never-checked id waits.
     assert requested[0] == "v050"
     assert "v049" not in requested
+
+
+def test_refreshes_selected_legacy_policy_within_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(yvs, "BATCH_SIZE", 1)
+    _write_candidates(tmp_path, ["never", "selected", "other"])
+    pl.DataFrame(
+        [
+            {"youtube_video_id": video, "youtube_unplayable_reason": None, "checked_at": NOW}
+            for video in ("selected", "other")
+        ],
+        schema={k: v for k, v in yvs._SCHEMA.items() if k != "youtube_region_restriction"},
+    ).write_parquet(tmp_path / yvs.OUTPUT_FILENAME)
+    pl.DataFrame({"youtube_video_id": ["selected"]}).write_parquet(tmp_path / "5_songs.parquet")
+    requested = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.extend(request.url.params["id"].split(","))
+        return httpx.Response(
+            200, json={"items": [{**_item("selected"), "contentDetails": {"regionRestriction": {"allowed": ["FR"]}}}]}
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        path = yvs.youtube_video_status(tmp_path, tmp_path, client, "k", NOW, 1)
+    assert requested == ["selected"]
+    rows = pl.read_parquet(path).to_dicts()
+    assert next(row for row in rows if row["youtube_video_id"] == "selected")["youtube_region_restriction"] == {
+        "mode": "allowed",
+        "countries": ["FR"],
+    }
+    assert next(row for row in rows if row["youtube_video_id"] == "other")["youtube_region_restriction"] is None

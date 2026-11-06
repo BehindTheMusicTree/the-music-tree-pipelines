@@ -168,6 +168,7 @@ def test_export_songs_writes_snake_case_ndjson(tmp_path: Path, curation_dir: Pat
         "youtube_video_id": "jkl012jkl01",
         "youtube_unplayable_reason": "not_embeddable",
         "youtube_view_count": 1234,
+        "youtube_region_restriction": None,
         "first_release_year": 1977,
         "genre_name": "jazz",
         "genre_wikidata_id": "Q4",
@@ -409,3 +410,10 @@ def test_export_songs_raises_on_genre_among_its_secondaries(tmp_path: Path, cura
 
     with pytest.raises(ValueError, match="among their secondary genres"):
         export_songs(genre_match_path, tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+
+
+def test_exports_selected_region_policy(tmp_path: Path, curation_dir: Path) -> None:
+    policy = {"mode": "allowed", "countries": ["FR"]}
+    rows = [{**MATCH_ROWS[0], "youtube_region_restriction": policy}]
+    parts = export_songs(_write_genre_match(tmp_path, rows), tmp_path / "gold", _write_silver(tmp_path), curation_dir)
+    assert _read_parts(parts)[0]["youtube_region_restriction"] == policy

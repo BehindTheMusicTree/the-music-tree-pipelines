@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
+from common.youtube_regions import with_region_policy
 from jsonschema import ValidationError, validate
 
 from common.quality_checks import check_non_empty, check_row_count_delta
@@ -334,10 +335,10 @@ def genre_match(
         regional_hierarchy_path,
     )
     songs = pl.scan_parquet(songs_path)
+    check_non_empty(songs.head(1).collect(), songs_path.name)
+    songs = with_region_policy(songs)
     targets = load_genre_targets(canonical_hierarchy_path, regional_hierarchy_path, regional_classification_path)
     matchable = targets.filter(~pl.col("is_leaf_overview"))
-
-    check_non_empty(songs.head(1).collect(), songs_path.name)
 
     is_malformed = ~pl.col("youtube_video_id").str.contains(_YOUTUBE_VIDEO_ID_PATTERN)
     malformed_ids = sorted(set(songs.filter(is_malformed).select("youtube_video_id").collect().to_series()))
@@ -345,7 +346,12 @@ def genre_match(
         logger.warning("malformed youtube_video_id(s), video cleared before genre matching: %s", malformed_ids)
         songs = songs.with_columns(
             pl.when(is_malformed).then(None).otherwise(pl.col(column)).alias(column)
-            for column in ("youtube_video_id", "youtube_unplayable_reason", "youtube_view_count")
+            for column in (
+                "youtube_video_id",
+                "youtube_unplayable_reason",
+                "youtube_view_count",
+                "youtube_region_restriction",
+            )
         )
 
     # A label both trees carry resolves to the canonical item.
@@ -443,6 +449,7 @@ def genre_match(
             "youtube_video_id",
             "youtube_unplayable_reason",
             "youtube_view_count",
+            "youtube_region_restriction",
             "first_release_year",
             "recording_count",
             "wikidata_genre_name",

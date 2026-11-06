@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import polars as pl
+from common.youtube_regions import check_region_policies, with_region_policy
 from common.step_timer import step
 from common.quality_checks import (
     MBID_PATTERN,
@@ -39,6 +40,7 @@ _SYNCED_COLUMNS = [
     "youtube_video_id",
     "youtube_unplayable_reason",
     "youtube_view_count",
+    "youtube_region_restriction",
     "genre_name",
     "genre_wikidata_id",
     "first_release_year",
@@ -49,6 +51,7 @@ _UNPLAYABLE_REASONS = ["not_found", "not_embeddable", "private", "not_processed"
 
 def _check_songs(songs: pl.DataFrame) -> None:
     check_non_empty(songs, OUTPUT_DIRNAME)
+    check_region_policies(songs)
     for column in ("musicbrainz_recording_id", "title", "artist", "artist_musicbrainz_id", "recording_count"):
         check_null_rate(songs, column, OUTPUT_DIRNAME)
     bad_recording_count = songs.filter(pl.col("recording_count") < 1).height
@@ -178,7 +181,7 @@ def _apply_recording_overrides(
 
 def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: Path, curation_dir: Path) -> Path:
     logger.info("exporting songs from %s", genre_match_path)
-    lazy_songs = pl.scan_parquet(genre_match_path).select(
+    lazy_songs = with_region_policy(pl.scan_parquet(genre_match_path)).select(
         "musicbrainz_recording_id",
         "title",
         "artist",
@@ -186,6 +189,7 @@ def export_songs(genre_match_path: Path, output_dir: Path, wikidata_silver_dir: 
         "youtube_video_id",
         "youtube_unplayable_reason",
         "youtube_view_count",
+        "youtube_region_restriction",
         "first_release_year",
         "recording_count",
         "secondary_genre_item_ids",
