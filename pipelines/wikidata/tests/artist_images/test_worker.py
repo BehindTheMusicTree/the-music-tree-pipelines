@@ -290,3 +290,29 @@ def test_incomplete_batch_still_blocks_publication(settings):
     registry = load_state(settings.state_root).tables["registry"]
     assert registry["claims_checked_at"].null_count() == 2
     assert registry["consecutive_failures"].to_list() == [1, 1]
+
+
+def test_discovery_only_preserves_quarantine_and_historical_success(settings):
+    from wikidata.artist_images.progress import defer_failed
+
+    now = datetime.now(UTC)
+    earlier = (now - timedelta(days=2)).isoformat()
+    path = settings.published_root / "status.json"
+    path.write_text(json.dumps({"lastSuccessfulRunAt": earlier}))
+    defer_failed(
+        settings.state_root,
+        load_state(settings.state_root),
+        "registry",
+        {"Q1"},
+        now,
+        reasons={"Q1": "invalid_claims: Invalid MusicBrainz artist identifier"},
+    )
+    with patch("wikidata.artist_images.worker.acquire_discovery", new=AsyncMock(return_value=["Q1", "Q2"])):
+        status = asyncio.run(run_refresh(settings, discover_only=True))
+    assert status["outcome"] == "degraded"
+    assert status["quarantine"]["count"] == 1
+    assert status["lastSuccessfulRunAt"] == earlier
+    assert status["stages"]["discovery"] == "healthy"
+    assert status["httpAttempts"] == {"wdqs": 0, "entities": 0, "commons": 0}
+    assert json.loads(path.read_text())["quarantine"]["count"] == 1
+    assert resolve_artist_image_snapshot(settings.published_root).manifest["quarantine"]["count"] == 1

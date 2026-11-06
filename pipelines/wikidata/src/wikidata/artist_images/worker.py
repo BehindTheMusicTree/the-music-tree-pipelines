@@ -156,11 +156,11 @@ async def _run_locked(config: WorkerConfig, *, discover_only: bool) -> dict:
                             status.update(outcome="deferred", reason=str(exc))
                         status["stages"][stage] = "deferred"
                         state = load_state(config.state_root)
-                    if stage == "claims":
-                        status["quarantine"] = quarantine_summary(state)
-                        if status["quarantine"]["count"]:
-                            status.update(outcome="degraded", reason="Invalid claims quarantined; retries pending")
-                            status["stages"]["claims"] = "degraded"
+        status["quarantine"] = quarantine_summary(state)
+        if status["quarantine"]["count"]:
+            status.update(outcome="degraded", reason="Invalid claims quarantined; retries pending")
+            if not discover_only:
+                status["stages"]["claims"] = "degraded"
         stage = "publication"
         coverage = _coverage(budget, due)
         status["refreshCoverage"] = coverage
