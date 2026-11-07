@@ -261,3 +261,32 @@ deux deltas culturels locaux, écrit ses sorties dans
 directs, un lien de curation et 577 liens transitifs ; aucun auto-lien. Hawaï conserve
 les deux parents États-Unis et Polynésie. Ce replay valide le calcul culturel sur ces
 captures ; il ne constitue pas une nouvelle ingestion ni une validation topologique.
+
+## Validation finale des composants polynésiens
+
+Le replay isolé `p706-polynesia-final-replay-20261107` reprend les entrées conservées du
+replay administratif actuel, sans écraser les captures précédentes. Il remplace uniquement
+la composition Q35942 puis recalcule relations, footprint, géométrie, couverture,
+appartenances culturelles et ancrages. Les témoins Hawaï, Rapa Nui, îles du Nord et du Sud,
+Chatham et Tahiti sont couverts ; les témoins continentaux américain et chilien, Fidji et
+Campbell sont exclus. Le contour est explicitement incomplet : il ne prétend pas couvrir
+tous les outliers polynésiens. Les classements statistiques Bronze restent inchangés.
+
+Les 2 616 ancrages sont conservés, sans changement par rapport au replay administratif
+actuel. Les appartenances comprennent 5 503 liens administratifs directs, deux liens
+curatés et 599 liens transitifs. Le replay administratif précédent confirme les liens
+Espagne → Extremadura → Badajoz/Cáceres et le retour de Q53677911 vers Extremadura.
+Ce sont des replays sur captures enrichies, pas une extraction Bronze complète actuelle.
+
+Validation locale finale du code a51c54a : 1 114 tests passent, 21 désélectionnés,
+couverture globale 93 %, Ruff et mypy passent. La revue indépendante initiale couvre
+le modèle culturel et les interactions géographiques. Sa reprise sur le dernier ajout
+polynésien a échoué sur une limite d'usage ; cet ajout a été revu dans la session principale,
+notamment les sélecteurs de composants, l'échec sur coupe de terre et la sémantique d'un
+parent incomplet. Aucun défaut concret identifié. La source et les limites du périmètre
+sont décrites dans `pipelines/geohistory/DESIGN.md`.
+
+Paraná et Daghestan restent signalés comme conflits de source et exclus du containment.
+Pacific reggae conserve ses origines et le contrat préexistant à ancrage unique ; aucune
+nouvelle décision éditoriale principale n'est introduite. Ces limites restent explicites,
+sans élargir la tolérance ni engager une migration multi-ancrage générale.
