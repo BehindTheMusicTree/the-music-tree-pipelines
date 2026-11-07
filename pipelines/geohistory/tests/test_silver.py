@@ -573,6 +573,21 @@ def test_cultural_entity_makes_a_country_without_an_entity_an_admin_unit(dirs):
     assert ("Q785", "Q785") in crosswalk.rows() and ("Q11703", "Q11703") in crosswalk.rows()
 
 
+def test_cultural_entity_makes_a_wikidata_country_that_is_a_natural_earth_admin_1_unit_an_admin_unit(dirs):
+    bronze, wikidata, silver = dirs
+    base_bronze(
+        dirs, entities=[entity("Q1", "has_glottocode", "lang1"), entity("Q668", "country"), entity("Q1168", "country")]
+    )
+    write_admin(
+        dirs,
+        natural_earth=[("c-ind", 0, "Q668", "IND", "India"), ("IND-1", 1, "Q1168", "IND", "Chhattisgarh")],
+    )
+    cultural_entity(bronze, wikidata, silver, silver.parent / "curation")
+
+    kinds = dict(pl.read_parquet(silver / "1_cultural_entity.parquet").select("entity_id", "kind").rows())
+    assert kinds["Q668"] == "country" and kinds["Q1168"] == "admin_unit"
+
+
 def test_cultural_entity_adds_a_city_with_its_point_below_every_other_kind(dirs):
     base_bronze(dirs, entities=[entity("Q2", "country")], claims=[])
     bronze, wikidata, silver = dirs

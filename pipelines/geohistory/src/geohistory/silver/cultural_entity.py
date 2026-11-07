@@ -198,6 +198,19 @@ def cultural_entity(
             pl.col("item_label").alias("label"),
         )
     )
+    # Wikidata's P279 chain makes every state of India a `country` (state of India ⊂ … ⊂ constituent country ⊂
+    # country); Natural Earth's admin level decides instead, so an admin-1 unit that is no admin-0 country is an admin
+    # unit.
+    ne_qids = natural_earth.filter(pl.col("wikidata_id").is_not_null())
+    admin1_only = set(ne_qids.filter(pl.col("level") == 1)["wikidata_id"]) - set(
+        ne_qids.filter(pl.col("level") == 0)["wikidata_id"]
+    )
+    wikidata_entities = wikidata_entities.with_columns(
+        pl.when((pl.col("kind") == "country") & pl.col("entity_id").is_in(admin1_only))
+        .then(pl.lit(ADMIN_KIND))
+        .otherwise("kind")
+        .alias("kind")
+    )
 
     crosswalk = pl.concat(
         [
