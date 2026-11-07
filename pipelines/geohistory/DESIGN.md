@@ -283,3 +283,50 @@ européenne, et reste incomplète. Les composants absents font échouer l'ingest
 `usage=display` demeure une frontière d'affichage, y compris pour une entité classée
 historique : elle ne devient jamais une référence indépendante de preuve.
 Les sources et sélecteurs sont détaillés dans `docs/validation/p706-boundary-sources.md`.
+
+
+### Découverte des relations par contours régionaux
+
+Un contour régional indépendant composé de map units Natural Earth peut découvrir une
+paire pays/région absente des déclarations Wikidata. Un index spatial sélectionne les
+pays dont les contours intersectent la région ; cette intersection ne prouve aucune
+inclusion. Chaque paire passe dans le résolveur habituel avec la source
+`reference_geometry`, les contrôles de complétude, de période et de circularité, ainsi
+que les exclusions de curation. Les contours réservés à l'affichage et les entités
+historiques sans frontière admissible ne participent pas à cette découverte. Les
+inclusions partielles restent partielles et n'entrent pas dans le graphe des inclusions
+entières. Cela permet notamment d'évaluer Corée du Sud → Corée sans inventer une
+appartenance Wikidata.
+
+## Qualification et appartenance culturelles
+
+Le type principal (`kind`) et le rôle culturel sont indépendants. `entity_cultural_roles`
+qualifie explicitement une entité avec `is_cultural`. Le type `cultural_region` fournit
+une qualification positive initiale ; ailleurs, une qualification absente reste inconnue
+(`null`). Ce rôle ne conditionne pas les liens de parenté culturelle.
+
+Après la résolution géographique, `cultural_membership` matérialise les rôles et les
+appartenances dans deux sorties Silver. Toute relation administrative actuelle retenue
+avec preuve `administrative_p131` ou `natural_earth`, entière et sans conflit, crée une
+appartenance culturelle directe. Aucun paramètre d'activation n'est requis. Les simples
+inclusions géométriques, `P361` et overviews ne créent pas ces liens.
+
+`cultural_membership_overrides` ajoute un parent culturel ou exclut une appartenance,
+avec justification. Les parents multiples sont autorisés. Le graphe direct doit être
+acyclique ; les références inconnues, doublons et auto-liens échouent. Les ancêtres sont
+calculés par transitivité sur ce graphe. Une exclusion bloque la paire sur tous les
+chemins et l'appartenance exclue n'est pas transmise aux descendants par ce parent.
+Un descendant peut toutefois avoir une appartenance indépendante via un autre parent.
+Une exclusion n'empêche pas l'accès aux autres ancêtres encore justifiés.
+
+Les liens directs gardent leur provenance administrative ou de curation. Les liens
+indirects portent `source=transitive` et un chemin JSON dans `reason` : le plus court,
+puis le premier dans l'ordre lexicographique en cas d'égalité. Un ajout explicite
+conserve sa justification même si un chemin administratif existe aussi.
+
+Exemple : Hawaï appartient aux États-Unis par administration actuelle et à la Polynésie
+par curation. Ses subdivisions héritent des deux appartenances. Ces rattachements sont
+non exclusifs et ne supposent aucune homogénéité culturelle. Ils ne composent pas de
+contours et ne propagent pas les genres musicaux ; les ancrages et consommateurs aval
+restent indépendants de ces sorties. Les CSV de `docs/validation/p706-curation/` sont
+des propositions locales ; grow-api reste la source de vérité de la curation publiée.

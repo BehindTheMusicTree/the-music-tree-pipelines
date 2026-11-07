@@ -100,3 +100,29 @@ def test_display_compositions_require_components_and_never_supply_containment():
     subdivisions["features"][0]["geometry"] = None
     with pytest.raises(ValueError, match="without geometry"):
         display_compositions(collection, subdivisions, "pinned")
+
+
+def test_current_administrative_composition_requires_exactly_both_provinces():
+    from geohistory.composed_boundaries import administrative_compositions
+
+    subdivisions = {
+        "features": [
+            {"properties": {"iso_3166_2": code}, "geometry": shapely.geometry.mapping(shapely.box(i, 0, i + 1, 1))}
+            for i, code in enumerate(("ES-BA", "ES-CC", "ES-CO"))
+        ]
+    }
+    rows = administrative_compositions(subdivisions, "pinned")
+    assert len(rows) == 1
+    qid, wkb, source, version, definition, members, complete, usage = rows[0]
+    assert qid == "Q5777"
+    assert shapely.equals(shapely.from_wkb(wkb), shapely.box(0, 0, 2, 1))
+    assert source == "natural_earth_admin_unit_union"
+    assert version == "pinned" and "boe.es" in definition
+    assert {m["value"] for m in json.loads(members)} == {"ES-BA", "ES-CC"}
+    assert complete and usage == "containment"
+    for features in (subdivisions["features"][:1], subdivisions["features"] + subdivisions["features"][:1]):
+        with pytest.raises(ValueError, match="exactly one member"):
+            administrative_compositions({"features": features}, "pinned")
+    subdivisions["features"][0]["geometry"] = None
+    with pytest.raises(ValueError, match="without geometry"):
+        administrative_compositions(subdivisions, "pinned")

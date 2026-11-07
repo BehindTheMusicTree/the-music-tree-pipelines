@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Les subdivisions administratives appartiennent culturellement à leurs parents par défaut ; les appartenances sont transitives, avec exclusions explicites prioritaires et provenance conservée.
+
+- Geohistory : qualification culturelle indépendante du type et appartenances explicites ou héritées des liens administratifs, avec curation et provenance.
+
 ### Added
 
 - Preserve anchored regions without a boundary and their genres in the map index, with explicit missing status and null coordinates; omit fabricated tile features. Requires compatible grow-api and frontend consumers before new indexes are published.
@@ -68,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Discover country containment candidates from independent regional boundaries when Wikidata supplies no direct relation.
 - Preserve an overview's name when a curated anchor matches it but lacks a geographic footprint.
 - geohistory Silver gives a Wikidata `country` that Natural Earth holds as an admin-1 unit only the kind `admin_unit`: Wikidata's subclass chain (state of India ⊂ … ⊂ constituent country ⊂ country) made the 34 states and union territories of India countries, so Gold's `5_region_map` drew them genre-less. Test in `test_silver.py`.
 - Gold's `5_region_map` tileset is generalized per zoom (tippecanoe `--simplification=8 --visvalingam --simplify-only-low-zooms`, about one pixel): low-zoom tiles kept the unsimplified 1:10m coasts, whose sub-pixel zigzags the map's region outline drew as a hairy, spiky border. Zoom 10 keeps full detail; the index is unchanged. Tests in `test_region_map_export.py`.

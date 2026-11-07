@@ -8,7 +8,7 @@ from pathlib import Path
 import polars as pl
 import shapely
 
-from geohistory.silver.curation import read_place_relation_overrides
+from geohistory.silver.curation import read_curation_list, read_place_relation_overrides
 from geohistory.silver.manual_boundaries import read_manual_boundaries
 from geohistory.silver.place_relation_geometry import ReferenceGeometry
 from geohistory.silver.place_relation_resolution import (
@@ -47,6 +47,24 @@ def _current_administrative_statement(qualifiers: list[dict], year: int) -> bool
         if prop == "P585" or (prop == "P580" and statement_year >= year) or (prop == "P582" and statement_year <= year):
             return False
     return True
+
+
+def _boundary_candidates(references: dict[str, ReferenceGeometry], kinds: dict[str, str]) -> list[tuple[str, str, str]]:
+    children = sorted(
+        entity
+        for entity, reference in references.items()
+        if kinds.get(entity) == "country" and reference.boundary_kind == "independent" and reference.complete
+    )
+    index = shapely.STRtree([references[entity].geometry for entity in children])
+    rows = []
+    for parent, reference in sorted(references.items()):
+        if reference.source != "natural_earth_map_unit_union" or reference.boundary_kind != "independent":
+            continue
+        for position in index.query(reference.geometry, predicate="intersects"):
+            child = children[position]
+            if child != parent:
+                rows.append((parent, child, "reference_geometry"))
+    return rows
 
 
 def resolve_place_candidates(
@@ -133,6 +151,10 @@ def resolve_place_candidates(
         },
         orient="row",
     ).write_parquet(silver_dir / "2_place_reference_geometry.parquet")
+    removals = read_curation_list(curation_dir, "entity_membership_overrides").filter(pl.col("action") == "remove")
+    removed = set(removals.select("child_entity_id", "parent_entity_id").rows())
+    discovered = [row for row in _boundary_candidates(references, kinds) if (row[1], row[0]) not in removed]
+    candidates = pl.concat([candidates, pl.DataFrame(discovered, schema=candidates.schema, orient="row")]).unique()
     item_entity: dict[str, str] = {}
     for entity, item in crosswalk.select("entity_id", "wikidata_id").sort("entity_id", "wikidata_id").rows():
         item_entity.setdefault(item, entity)
@@ -191,6 +213,8 @@ def resolve_place_candidates(
     evidence = []
     for parent, child, source in candidates.unique().sort("parent_id", "child_id", "source").iter_rows():
         attached_statements = by_pair.get((child, parent, source), [])
+        if source == "reference_geometry":
+            attached_statements = [PlaceStatement(child, parent, source, f"boundary:{child}:{parent}", False)]
         if attached_statements:
             evidence.extend(resolve_statement_evidence(attached_statements, references, precision=REFERENCE_PRECISION))
         else:

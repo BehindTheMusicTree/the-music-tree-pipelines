@@ -84,6 +84,9 @@ def write_admin(dirs, natural_earth=(), hierarchy=(), cities=()):
 def write_bronze(dirs, languoids, entities, claims):
     bronze, wikidata, _ = dirs
     write_admin(dirs)
+    pl.DataFrame(schema={"resolved_id": pl.String, "status": pl.String, "claims_json": pl.String}).write_parquet(
+        wikidata / "wikidata_place_metadata.parquet"
+    )
     pl.DataFrame(languoids, schema=LANGUOID_SCHEMA).write_parquet(bronze / "glottolog_languoid.parquet")
     pl.DataFrame(entities, schema=ENTITY_SCHEMA).write_parquet(wikidata / "wikidata_cultural_entity.parquet")
     pl.DataFrame(claims, schema=CLAIM_SCHEMA).write_parquet(wikidata / "wikidata_cultural_entity_claim.parquet")

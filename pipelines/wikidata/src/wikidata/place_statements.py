@@ -249,8 +249,17 @@ METADATA_SCHEMA = {
 }
 
 
-def place_metadata(ids: list[str], fetch: Callable[[list[str]], dict[str, dict]]) -> pl.DataFrame:
+def place_metadata(
+    ids: list[str],
+    fetch: Callable[[list[str]], dict[str, dict]],
+    *,
+    include_class_hierarchy: bool = False,
+    max_classes: int = 10000,
+    max_depth: int = 32,
+) -> pl.DataFrame:
     """Preserve raw classification and coordinate statements with rank and provenance."""
+    if include_class_hierarchy and (max_classes <= 0 or max_depth <= 0):
+        raise ValueError("place class discovery limits must be positive")
     requested = sorted(set(ids))
     entities = fetch(requested)
     if set(entities) != set(requested):
@@ -272,4 +281,30 @@ def place_metadata(ids: list[str], fetch: Callable[[list[str]], dict[str, dict]]
                 entity.get("labels", {}).get("en", {}).get("value"),
             )
         )
-    return pl.DataFrame(rows, schema=METADATA_SCHEMA, orient="row")
+    result = pl.DataFrame(rows, schema=METADATA_SCHEMA, orient="row")
+    if not include_class_hierarchy:
+        return result
+
+    def targets(frame: pl.DataFrame, prop: str) -> set[str]:
+        return {
+            value
+            for raw in frame["claims_json"]
+            for claim in json.loads(raw).get(prop, [])
+            if (value := claim.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id"))
+            and QID_PATTERN.fullmatch(value)
+        }
+
+    pending = targets(result, "P31")
+    visited: set[str] = set()
+    depth = 0
+    while pending:
+        if depth >= max_depth or len(visited | pending) > max_classes:
+            raise ValueError("place class discovery exceeded its depth or count limit")
+        missing_classes = pending - set(result["requested_id"])
+        if missing_classes:
+            result = pl.concat([result, place_metadata(sorted(missing_classes), fetch)])
+        classes = result.filter(pl.col("requested_id").is_in(sorted(pending)))
+        visited.update(pending)
+        pending = targets(classes, "P279") - visited
+        depth += 1
+    return result.sort("requested_id")

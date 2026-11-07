@@ -300,3 +300,31 @@ def test_place_metadata_preserves_coordinates_classification_redirects_and_missi
     assert json.loads(result["claims_json"][0]) == {key: value for key, value in claims.items() if key != "P706"}
     with pytest.raises(ValueError, match="every requested"):
         place_metadata(["Q1"], lambda _: {})
+
+
+def test_place_metadata_discovers_class_ancestry_without_following_class_instances():
+    import json
+
+    from wikidata.place_statements import place_metadata
+
+    def target(qid):
+        return {"mainsnak": {"datavalue": {"value": {"id": qid}}}}
+
+    claims = {
+        "Q1": {"P31": [target("Q2")]},
+        "Q2": {"P279": [target("Q3")], "P31": [target("Q99")]},
+        "Q3": {"P279": [target("Q2")]},
+    }
+    calls = []
+
+    def fetch(ids):
+        calls.append(ids)
+        return {qid: {"id": qid, "claims": claims[qid]} for qid in ids}
+
+    result = place_metadata(["Q1"], fetch, include_class_hierarchy=True)
+    assert calls == [["Q1"], ["Q2"], ["Q3"]]
+    assert result["requested_id"].to_list() == ["Q1", "Q2", "Q3"]
+    assert json.loads(result.filter(pl.col("requested_id") == "Q2")["claims_json"].item()) == claims["Q2"]
+    for limits in ({"max_classes": 1}, {"max_depth": 1}, {"max_classes": 0}):
+        with pytest.raises(ValueError, match="limit"):
+            place_metadata(["Q1"], fetch, include_class_hierarchy=True, **limits)

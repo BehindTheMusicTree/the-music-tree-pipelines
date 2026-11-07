@@ -7,11 +7,19 @@ import shapely
 from geohistory.silver.place_relation import resolve_place_candidates
 
 
+@pytest.fixture(autouse=True)
+def membership_curation(tmp_path):
+    (tmp_path / "curation").mkdir(exist_ok=True)
+    (tmp_path / "curation/entity_membership_overrides.csv").write_text(
+        "child_entity_id,parent_entity_id,action,reason\n"
+    )
+
+
 def test_disk_resolution_preserves_partial_scoped_evidence_and_curated_rejection(tmp_path, monkeypatch):
     from geohistory.silver import place_relation as module
 
     for name in ("bronze", "wikidata", "silver", "curation"):
-        (tmp_path / name).mkdir()
+        (tmp_path / name).mkdir(exist_ok=True)
     wikidata = tmp_path / "wikidata"
     pl.DataFrame(
         {
@@ -118,7 +126,7 @@ def test_current_admin_p131_can_resolve_without_a_parent_polygon(tmp_path, monke
     from wikidata.place_statements import QUALIFIER_SCHEMA, SCHEMA
 
     for name in ("bronze", "wikidata", "silver", "curation"):
-        (tmp_path / name).mkdir()
+        (tmp_path / name).mkdir(exist_ok=True)
     wikidata = tmp_path / "wikidata"
     pl.DataFrame([("admin", "Q1", "P131", "Q2", "normal", "value")], schema=SCHEMA, orient="row").write_parquet(
         wikidata / "wikidata_place_statement.parquet"
@@ -160,7 +168,7 @@ def test_collapsed_hierarchy_cannot_invent_unscoped_statement(tmp_path, monkeypa
     from wikidata.place_statements import QUALIFIER_SCHEMA, SCHEMA
 
     for name in ("bronze", "wikidata", "silver", "curation"):
-        (tmp_path / name).mkdir()
+        (tmp_path / name).mkdir(exist_ok=True)
     wikidata = tmp_path / "wikidata"
     pl.DataFrame(
         [("dated-intermediate", "Q1", "P131", "Q9", "normal", "value")], schema=SCHEMA, orient="row"
@@ -247,3 +255,69 @@ def test_collapsed_hierarchy_cannot_invent_unscoped_statement(tmp_path, monkeypa
         pl.DataFrame({"entity_id": ["child", "parent"]}),
     )
     assert pl.read_parquet(tmp_path / "silver/2_place_relation.parquet")["extent"].to_list() == ["unknown"]
+
+
+@pytest.mark.parametrize(
+    ("usage", "complete", "child_kind", "removed", "extent"),
+    [
+        ("containment", True, "country", False, "full"),
+        ("containment", True, "country", False, "partial"),
+        ("containment", False, "country", False, "full"),
+        ("display", True, "country", False, None),
+        ("containment", True, "historical_country", False, None),
+        ("containment", True, "country", True, None),
+    ],
+)
+def test_composed_boundary_discovers_country_without_a_place_claim(
+    tmp_path, monkeypatch, usage, complete, child_kind, removed, extent
+):
+    from geohistory.composed_boundaries import COMPOSED_BOUNDARY_SCHEMA
+    from geohistory.silver import place_relation as module
+    from wikidata.place_statements import QUALIFIER_SCHEMA, SCHEMA
+
+    for name in ("bronze", "wikidata", "silver"):
+        (tmp_path / name).mkdir()
+    wikidata = tmp_path / "wikidata"
+    pl.DataFrame(schema=SCHEMA).write_parquet(wikidata / "wikidata_place_statement.parquet")
+    pl.DataFrame(schema=QUALIFIER_SCHEMA).write_parquet(wikidata / "wikidata_place_qualifier.parquet")
+    pl.DataFrame({"requested_id": ["Q1", "Q2"]}).write_parquet(wikidata / "wikidata_place_metadata.parquet")
+    (tmp_path / "curation/place_relation_overrides.csv").write_text("child_entity_id,parent_entity_id,extent,reason\n")
+    if removed:
+        (tmp_path / "curation/entity_membership_overrides.csv").write_text(
+            "child_entity_id,parent_entity_id,action,reason\nchild,parent,remove,editorial exclusion\n"
+        )
+    monkeypatch.setattr(
+        module,
+        "reference_admin_geometries",
+        lambda *_: {"child": shapely.box(1, 1, 4 if extent == "partial" else 2, 2)},
+    )
+    monkeypatch.setattr(module, "reference_island_geometries", lambda *_: {})
+    pl.DataFrame(
+        [
+            (
+                "Q2",
+                shapely.box(0, 0, 3, 3).wkb,
+                "natural_earth_map_unit_union",
+                "test",
+                "test union",
+                "[]",
+                complete,
+                usage,
+            )
+        ],
+        schema=COMPOSED_BOUNDARY_SCHEMA,
+        orient="row",
+    ).write_parquet(tmp_path / "bronze/natural_earth_composed_boundary.parquet")
+    result = resolve_place_candidates(
+        tmp_path / "bronze",
+        wikidata,
+        tmp_path / "silver",
+        tmp_path / "curation",
+        pl.DataFrame(schema={"parent_id": pl.String, "child_id": pl.String, "source": pl.String}),
+        pl.DataFrame({"entity_id": ["child", "parent"], "kind": [child_kind, "cultural_region"]}),
+        pl.DataFrame({"entity_id": ["child", "parent"], "wikidata_id": ["Q1", "Q2"]}),
+        pl.DataFrame(),
+    )
+    assert result.rows() == ([("parent", "child", "reference_geometry")] if extent == "full" else [])
+    relations = pl.read_parquet(tmp_path / "silver/2_place_relation.parquet")
+    assert relations["extent"].to_list() == ([extent] if extent else [])

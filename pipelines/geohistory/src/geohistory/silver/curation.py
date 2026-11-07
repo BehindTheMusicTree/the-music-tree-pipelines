@@ -6,6 +6,8 @@ from geohistory.silver.place_relation_resolution import Decision
 import polars as pl
 
 LISTS: dict[str, tuple[str, ...]] = {
+    "entity_cultural_roles": ("entity_id", "is_cultural", "reason"),
+    "cultural_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),
     "entity_additions": ("entity_id", "entity_kind", "reason"),
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),

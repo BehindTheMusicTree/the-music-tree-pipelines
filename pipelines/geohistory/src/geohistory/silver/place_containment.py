@@ -13,7 +13,7 @@ from geohistory.silver.place_relation import resolve_place_candidates
 
 logger = logging.getLogger(__name__)
 
-SOURCE_PRIORITY = ("curation", "p131", "p361", "p30", "p706", "natural_earth", "city_point")
+SOURCE_PRIORITY = ("curation", "p131", "p361", "p30", "p706", "natural_earth", "reference_geometry", "city_point")
 PAIR_SCHEMA = {"parent_id": pl.String, "child_id": pl.String}
 EDGE_SCHEMA = PAIR_SCHEMA | {"source": pl.String}
 CLAIM_SOURCES = {"P30": "p30", "P706": "p706"}

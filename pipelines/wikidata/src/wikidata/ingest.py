@@ -270,7 +270,7 @@ def ingest_place_statements(output_dir: Path, entity_qids: Sequence[str]) -> tup
     qualifiers.write_parquet(qualifiers_path)
     parts.write_parquet(parts_path)
     metadata_ids = sorted(set(entity_qids) | set(parts["requested_id"]) | set(parts["resolved_id"].drop_nulls()))
-    metadata = place_metadata(metadata_ids, wikidata_client.fetch_place_metadata_entities)
+    metadata = place_metadata(metadata_ids, wikidata_client.fetch_place_metadata_entities, include_class_hierarchy=True)
     metadata.write_parquet(output_dir / "wikidata_place_metadata.parquet")
     logger.info(
         "wrote %d place statements, %d qualifiers and %d parts", statements.height, qualifiers.height, parts.height

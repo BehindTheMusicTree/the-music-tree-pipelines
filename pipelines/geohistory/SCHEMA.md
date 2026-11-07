@@ -161,7 +161,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | -------------------------------------------------------- |
 | parent_id | str  | `1_cultural_entity.entity_id`                            |
 | child_id  | str  | `1_cultural_entity.entity_id`                            |
-| source    | str  | `curation`, `p131`, `p361`, `p30`, `p706`, `natural_earth` or `city_point` |
+| source    | str  | `curation`, `p131`, `p361`, `p30`, `p706`, `natural_earth`, `reference_geometry` or `city_point` |
 
 `8_entity_footprint.parquet`: the admin units each entity covers, `(entity_id, admin_id)` unique.
 
@@ -333,3 +333,25 @@ Array of provenance objects for manual boundaries mapped to the entity catalog.
 | complete | Boolean | Whether the polygon covers the entire defined entity |
 | usage | String | `display` or `containment` |
 | start_year, end_year | Integer, nullable | Boundary validity period |
+
+### 2_entity_cultural_role.parquet
+
+Une ligne par entité de `1_cultural_entity`.
+
+| Colonne | Type | Signification |
+|---|---|---|
+| entity_id | str | Identifiant de l'entité |
+| is_cultural | bool? | Qualification culturelle ; null = non établie |
+| source | str? | `entity_kind`, `curation` ou null |
+| reason | str? | Justification de la qualification manuelle |
+
+### 2_cultural_membership.parquet
+
+Une ligne par paire `(child_id, parent_id)`.
+
+| Colonne | Type | Signification |
+|---|---|---|
+| child_id | str | Entité appartenant au regroupement |
+| parent_id | str | Entité culturelle de rattachement |
+| source | str | `curation`, `administrative_inheritance` ou `transitive` |
+| reason | str | Justification explicite, `current_administration` ou chemin JSON enfant → ancêtre |

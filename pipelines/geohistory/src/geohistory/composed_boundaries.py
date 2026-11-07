@@ -111,6 +111,7 @@ def build_composed_boundaries(
         )
     if subdivisions is not None and selected_ids is None:
         rows.extend(display_compositions(collection, subdivisions, version))
+        rows.extend(administrative_compositions(subdivisions, version))
     return (
         pl.DataFrame(rows, schema=COMPOSED_BOUNDARY_SCHEMA, orient="row")
         .with_columns(
@@ -165,6 +166,37 @@ def display_compositions(collection: dict, subdivisions: dict, version: str) -> 
                 json.dumps(sorted(identities, key=lambda row: (row["field"], row["value"]))),
                 complete,
                 "display",
+            )
+        )
+    return rows
+
+
+def administrative_compositions(subdivisions: dict, version: str) -> list[tuple]:
+    definitions = {
+        "Q5777": (
+            ("ES-BA", "ES-CC"),
+            "Current Extremadura: Badajoz and Caceres provinces; Statute of Autonomy, article 2 "
+            "(https://www.boe.es/eli/es/lo/2011/01/28/1/con)",
+        )
+    }
+    rows = []
+    for qid, (codes, definition) in definitions.items():
+        members = [f for f in subdivisions["features"] if f["properties"].get("iso_3166_2") in codes]
+        if sorted(f["properties"]["iso_3166_2"] for f in members) != sorted(codes):
+            raise ValueError(f"administrative composition {qid} requires exactly one member for each of {codes}")
+        if any(f["geometry"] is None for f in members):
+            raise ValueError(f"administrative composition {qid} has a member without geometry")
+        geometry = shapely.union_all([shapely.make_valid(shapely.geometry.shape(f["geometry"])) for f in members])
+        rows.append(
+            (
+                qid,
+                geometry.wkb,
+                "natural_earth_admin_unit_union",
+                version,
+                definition,
+                json.dumps([{"field": "iso_3166_2", "value": code} for code in sorted(codes)]),
+                True,
+                "containment",
             )
         )
     return rows

@@ -199,3 +199,52 @@ Ces observations utilisent les captures du 6 novembre et le modèle d'entité an
 la fusion : les parquets conservés n'ont pas `federated_state`. Ils ne constituent pas un
 replay complet après #358 ; les entrées Bronze nécessaires à une reconstruction complète
 ne sont pas toutes dans ces captures. Aucune curation n'a été publiée.
+
+
+## Résolutions après accord sur les suggestions
+
+Le défaut des deux ancrages coréens était la collecte des candidats : aucune déclaration
+ne proposait la paire Q884 → Q18097, bien que deux contours indépendants admissibles
+prouvent l'inclusion. La découverte spatiale des pays intersectant les contours régionaux
+composés fournit désormais cette paire au résolveur. Une intersection seule ne devient
+jamais une inclusion entière ; les exclusions éditoriales restent respectées.
+
+Le replay isolé `p706-approved-replay-20261107` conserve les captures précédentes intactes.
+Sur les 2 616 ancrages, la comparaison au résultat antérieur au correctif Micronésie montre
+exactement trois changements : rang 0 rétabli pour Micronésie, puis Corée du Sud Q884
+rétablie pour pansori Q482981 et gagok Q846219. Aucun autre ancrage ne change. Les décisions
+géographiques sont 6 038 full, 57 partial et 4 041 unknown sur 10 136 paires. Les nouveaux
+candidats expliquent l'augmentation des décisions partielles et inconnues ; ces décisions
+ne deviennent pas des arêtes d'inclusion entière.
+
+Un second replay `p706-electro-curation-20261107`, ajoutant uniquement le delta local
+`p706-curation/tradition_placement_overrides.csv`, place electro house Q627906 sur les
+Pays-Bas Q55 par la règle override et conserve les 2 616 ancrages. Il ne modifie aucune
+preuve géographique et aucune curation distante n'a été publiée.
+
+Restent ouverts : Paraná et Daghestan (cohérence des sources de frontières), Extremadura
+(classification administrative actuelle et contour des deux provinces), Pacific reggae
+(plusieurs origines face à un contrat d'ancrage unique). Le dossier `p706-curation/`
+précise les données et décisions nécessaires. Les anciens huit écarts du JSON historique
+ne doivent pas être présentés comme huit défauts encore ouverts.
+
+Ces replays utilisent toujours le catalogue d'entités capturé avant #358. Les fichiers
+musicaux manquants dans le replay géographique (notamment les périodes et la curation)
+proviennent de la capture musicale du 6 novembre, avec les mêmes limites temporelles
+qu'indiquées plus haut. Ce n'est pas une reconstruction Bronze complète du dernier modèle.
+La validation topologique et les géométries de couverture précédentes ne constituent pas
+un nouveau replay de footprint/geometry/coverage après cette découverte de candidats.
+
+## Appartenances culturelles transitives
+
+Le contrat de curation retire `includes_admin_descendants` : toute relation administrative
+actuelle entière, sans conflit et retenue dans le containment crée une appartenance
+culturelle directe, sans qualification culturelle préalable du parent. Les parents
+culturels explicites sont transitifs. Les exclusions sont appliquées avant propagation
+aux descendants et bloquent la paire sur tous les chemins ; une appartenance indépendante
+par un autre parent reste possible. Les liens indirects conservent un chemin justificatif
+déterministe. La qualification `is_cultural` reste indépendante de ces liens.
+
+Cette étape ne change ni les ancrages musicaux ni la composition des contours. En
+particulier, la correction du contour culturel de la Polynésie reste un travail distinct.
+Les deux listes API sont initialisées vides ; les CSV locaux ne sont pas publiés.
