@@ -36,6 +36,20 @@ Les exceptions `remove` priment sur tous les chemins de transitivité.
 
 La classification administrative actuelle et la composition des deux provinces
 d'Extremadura sont désormais implémentées et couvertes par des tests. Leur acceptation
-sur un replay Bronze complet reste distincte de cette validation unitaire. Le contour
-statistique de la Polynésie demeure inchangé : les liens culturels ne composent pas les
-frontières géographiques.
+sur un replay Bronze complet reste distincte de cette validation unitaire. Le replay isolé `p706-current-admin-replay-20261107` valide maintenant la classification,
+les trois inclusions Espagne → Extremadura → provinces, le contour composé et le retour
+de Q53677911 vers Q5777, sur les captures disponibles. Cela ne constitue pas une nouvelle
+extraction Bronze complète.
+
+La Polynésie dispose désormais d'une composition indépendante de terres insulaires,
+incluant Hawaï, Aotearoa/Chatham et Rapa Nui. Les classifications statistiques sources
+restent intactes. Le contour est incomplet, car les outliers culturels hors du triangle
+ne sont pas tous représentés. Les liens culturels ne composent pas les frontières.
+Le delta ajoute aussi Aotearoa → Polynésie ; Rapa Nui n'est pas dans l'ancien catalogue
+d'entités capturé, donc aucun override vers un identifiant absent n'est ajouté.
+
+Paraná/Daghestan restent des conflits de source signalés et exclus du containment :
+ce comportement prudent est conservé pour livrer le résolveur. Pacific reggae conserve
+ses origines et le contrat existant d'un ancrage ; aucun nouveau principal éditorial
+n'est inventé. Ces limites connues ne justifient ni une tolérance spatiale élargie ni la
+migration multi-ancrage générale écartée dans cette tâche.

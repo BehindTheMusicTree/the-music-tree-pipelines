@@ -126,3 +126,81 @@ def test_current_administrative_composition_requires_exactly_both_provinces():
     subdivisions["features"][0]["geometry"] = None
     with pytest.raises(ValueError, match="without geometry"):
         administrative_compositions(subdivisions, "pinned")
+
+
+@pytest.fixture
+def polynesia_sources():
+    units = ("PCN", "PYF", "COK", "TON", "WLF", "WSM", "TUV", "NIU", "ASM", "TKL")
+    collection = {
+        "features": [
+            {
+                "properties": {"GU_A3": code, "NE_ID": code},
+                "geometry": shapely.geometry.mapping(shapely.box(-170 + i, -15, -169.9 + i, -14.9)),
+            }
+            for i, code in enumerate(units)
+        ]
+    }
+    for code, parts in (
+        (
+            "NZL",
+            [shapely.box(174, -40, 175, -39), shapely.box(-177, -44, -176, -43.5), shapely.box(169, -53, 170, -52)],
+        ),
+        ("CHL", [shapely.box(-109.4, -27.2, -109.3, -27.1), shapely.box(-72, -35, -71, -34)]),
+        ("USA", [shapely.box(-120, 35, -119, 36)]),
+    ):
+        collection["features"].append(
+            {
+                "properties": {"GU_A3": code, "NE_ID": code},
+                "geometry": shapely.geometry.mapping(shapely.MultiPolygon(parts)),
+            }
+        )
+    subdivisions = {
+        "features": [
+            {
+                "properties": {"iso_3166_2": "US-HI", "ne_id": "hawaii"},
+                "geometry": shapely.geometry.mapping(shapely.box(-156, 20, -155, 21)),
+            }
+        ]
+    }
+    return collection, subdivisions
+
+
+def test_polynesia_selects_islands_without_inheriting_sovereign_mainlands(polynesia_sources):
+    collection, subdivisions = polynesia_sources
+    frame = build_composed_boundaries(collection, "pinned", subdivisions, selected_ids={"Q35942"})
+    row = frame.row(0, named=True)
+    geometry = shapely.from_wkb(row["geometry_wkb"])
+    for point in [(-155.5, 20.5), (-109.35, -27.15), (174.5, -39.5), (-176.5, -43.75), (-169.95, -14.95)]:
+        assert geometry.contains(shapely.Point(*point))
+    for point in [(-119.5, 35.5), (-71.5, -34.5), (169.5, -52.5), (-130, 0)]:
+        assert not geometry.intersects(shapely.Point(*point))
+    assert not row["complete"] and row["usage"] == "containment"
+    assert "teara.govt.nz" in row["definition"]
+    collection["features"].reverse()
+    assert frame.equals(build_composed_boundaries(collection, "pinned", subdivisions, selected_ids={"Q35942"}))
+
+
+@pytest.mark.parametrize(
+    "defect", ["unit", "duplicate_unit", "hawaii", "duplicate", "geometry", "cut", "component", "subdivisions"]
+)
+def test_polynesia_fails_on_missing_or_ambiguous_components(polynesia_sources, defect):
+    collection, subdivisions = polynesia_sources
+    if defect == "unit":
+        collection["features"].pop(0)
+    elif defect == "duplicate_unit":
+        collection["features"].append(collection["features"][0])
+    elif defect == "hawaii":
+        subdivisions["features"] = []
+    elif defect == "duplicate":
+        subdivisions["features"] *= 2
+    elif defect == "geometry":
+        subdivisions["features"][0]["geometry"] = None
+    elif defect in {"cut", "component"}:
+        chile = next(f for f in collection["features"] if f["properties"]["GU_A3"] == "CHL")
+        chile["geometry"] = shapely.geometry.mapping(
+            shapely.box(-109.5, -27.2, -108.5, -27.1) if defect == "cut" else shapely.box(-72, -35, -71, -34)
+        )
+    elif defect == "subdivisions":
+        subdivisions = None
+    with pytest.raises(ValueError, match="Polynesia"):
+        build_composed_boundaries(collection, "pinned", subdivisions, selected_ids={"Q35942"})

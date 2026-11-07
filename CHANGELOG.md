@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Compose Polynesia from explicit island land components, including Hawaii, Aotearoa/Chatham and Rapa Nui, while preserving statistical source classifications and reporting the boundary as incomplete.
+
 - Preserve anchored regions without a boundary and their genres in the map index, with explicit missing status and null coordinates; omit fabricated tile features. Requires compatible grow-api and frontend consumers before new indexes are published.
 - Add a sourced manual-boundary catalog with separate display and containment uses, strict provenance validation and a Silver provenance artifact.
 - Resolve geographic candidates before containment, retain qualified Wikidata statements and independent island boundaries, and export clipped full/partial map coverage without propagating partial overlaps into ancestry or counts. Border disagreements within one source coordinate grid no longer demote valid administrative placements. Requires fresh Wikidata/geohistory Bronze and the grow-api place relation override export.

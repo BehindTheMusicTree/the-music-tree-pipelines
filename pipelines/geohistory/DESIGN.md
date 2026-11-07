@@ -229,6 +229,17 @@ Europe classification. Korea, Scandinavia, British Isles and Nordic countries us
 explicit map-unit selections in `composed_boundaries.py`. The Nordic selection includes
 Greenland, the Faroes, Åland and Norway's northern dependencies, following the territory
 scope described by [Nordic cooperation](https://www.norden.org/en/information/official-nordic-co-operation).
+Polynesia uses a separate, explicit cultural core convention, following the
+[Polynesian triangle described by Te Ara](https://teara.govt.nz/mi/map/43839/polynesian-languages).
+It retains the ten Pacific map units independently of their `SUBREGION` values and adds
+Hawaii's US-HI subdivision, whole New Zealand main/Chatham land components and the Rapa
+Nui component of Chile. Component windows select whole polygons; a window cutting land
+fails ingestion. Mainland US/Chile, New Zealand's subantarctic/Kermadec islands and
+Polynesian outliers outside the triangle are excluded. This known subset is explicitly
+incomplete: it can prove inclusion of a fully covered child but cannot disprove inclusion
+from missing land. Raw statistical assignments remain unchanged. Cultural membership
+never constructs this geometry; the two conventions have independent provenance.
+
 Missing any configured composition fails ingestion. Source definitions are never inferred
 from existing containment or cultural membership.
 

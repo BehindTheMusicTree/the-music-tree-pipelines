@@ -302,8 +302,8 @@ inclusive), `start_year`, `end_year`.
 | Column | Type | Meaning |
 |---|---|---|
 | wikidata_id | String | Entity represented by the explicit composition |
-| geometry_wkb | Binary | Union of all selected independent map units |
-| source | String | `natural_earth_map_unit_union` or `natural_earth_display_union` |
+| geometry_wkb | Binary | Union of selected independent map units, subdivisions or whole land components |
+| source | String | `natural_earth_map_unit_union`, `natural_earth_admin_unit_union` or `natural_earth_display_union` |
 | version | String | Pinned Natural Earth source version |
 | definition | String | Membership convention and scope |
 | members_json | String | JSON array of member NE_ID/name records or source field/value selectors |

@@ -49,7 +49,6 @@ def build_composed_boundaries(
         "Q27479": "Northern Europe",
         "Q27496": "Western Europe",
         "Q27611": "Central America",
-        "Q35942": "Polynesia",
         "Q4412": "Western Africa",
         "Q771405": "Southern Asia",
     }
@@ -76,7 +75,7 @@ def build_composed_boundaries(
         "Natural Earth North and South American map units",
     )
     if selected_ids is not None:
-        if selected_ids - definitions.keys():
+        if selected_ids - (definitions.keys() | {"Q35942"}):
             raise ValueError("unknown composed boundary selection")
         definitions = {qid: definition for qid, definition in definitions.items() if qid in selected_ids}
     rows = []
@@ -109,6 +108,10 @@ def build_composed_boundaries(
                 "containment",
             )
         )
+    if selected_ids is None or "Q35942" in selected_ids:
+        if subdivisions is None:
+            raise ValueError("Polynesia composition requires Natural Earth administrative subdivisions")
+        rows.append(polynesia_composition(collection, subdivisions, version))
     if subdivisions is not None and selected_ids is None:
         rows.extend(display_compositions(collection, subdivisions, version))
         rows.extend(administrative_compositions(subdivisions, version))
@@ -200,3 +203,53 @@ def administrative_compositions(subdivisions: dict, version: str) -> list[tuple]
             )
         )
     return rows
+
+
+def polynesia_composition(collection: dict, subdivisions: dict, version: str) -> tuple:
+    """Select named map units and whole island components, never an enclosing ocean triangle."""
+    units = ("PCN", "PYF", "COK", "TON", "WLF", "WSM", "TUV", "NIU", "ASM", "TKL")
+    selected = [f for f in collection["features"] if f["properties"].get("GU_A3") in units]
+    missing = set(units) - {f["properties"]["GU_A3"] for f in selected}
+    if missing or len(selected) != len(units):
+        raise ValueError(f"Polynesia composition requires exactly one of each map unit; missing: {sorted(missing)}")
+    hawaii = [f for f in subdivisions["features"] if f["properties"].get("iso_3166_2") == "US-HI"]
+    if len(hawaii) != 1:
+        raise ValueError("Polynesia composition requires exactly one US-HI subdivision")
+    members = []
+    identities: list[dict] = []
+    for feature in [*selected, *hawaii]:
+        if feature["geometry"] is None:
+            raise ValueError("Polynesia composition has a member without geometry")
+        members.append(shapely.make_valid(shapely.geometry.shape(feature["geometry"])))
+        properties = feature["properties"]
+        identities.append(
+            {"field": "NE_ID", "value": str(properties["NE_ID"] if "NE_ID" in properties else properties["ne_id"])}
+        )
+    # Windows identify whole land components; they never clip land or create a border.
+    for unit, name, bounds in (
+        ("NZL", "Aotearoa main islands", (165, -47.5, 180, -33)),
+        ("NZL", "Chatham Islands", (-178, -45, -175, -43)),
+        ("CHL", "Rapa Nui", (-110, -28, -109, -27)),
+    ):
+        candidates = [f for f in collection["features"] if f["properties"].get("GU_A3") == unit]
+        if len(candidates) != 1 or candidates[0]["geometry"] is None:
+            raise ValueError(f"Polynesia composition requires one mapped source for {name}")
+        window = shapely.box(*bounds)
+        parts = list(shapely.get_parts(shapely.make_valid(shapely.geometry.shape(candidates[0]["geometry"]))))
+        hits = [part for part in parts if part.intersects(window)]
+        if not hits or any(not window.covers(part) for part in hits):
+            raise ValueError(f"Polynesia component selector is missing or cuts land: {name}")
+        members.extend(hits)
+        identities.append({"field": "GU_A3/component_window", "value": unit, "name": name, "bounds": bounds})
+    return (
+        "Q35942",
+        shapely.union_all(members).wkb,
+        "natural_earth_map_unit_union",
+        version,
+        "Polynesian core land convention: Pacific island map units, Hawaii, Aotearoa main and Chatham islands, "
+        "and Rapa Nui; excludes subantarctic/Kermadec islands and Polynesian outliers outside the triangle. "
+        "https://teara.govt.nz/mi/map/43839/polynesian-languages",
+        json.dumps(sorted(identities, key=lambda item: (item["field"], item["value"], item.get("name", "")))),
+        False,
+        "containment",
+    )
