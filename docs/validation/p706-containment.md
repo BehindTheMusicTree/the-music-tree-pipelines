@@ -248,3 +248,16 @@ déterministe. La qualification `is_cultural` reste indépendante de ces liens.
 Cette étape ne change ni les ancrages musicaux ni la composition des contours. En
 particulier, la correction du contour culturel de la Polynésie reste un travail distinct.
 Les deux listes API sont initialisées vides ; les CSV locaux ne sont pas publiés.
+
+Validation locale du contrat culturel le 7 novembre : 1 105 tests unitaires passent
+(21 désélectionnés), couverture globale 93 %, couverture du nouveau module culturel 98 %.
+Ruff, formatage et mypy sur 118 fichiers sources passent. Les 27 tests culturels couvrent
+notamment les cycles mixtes, les exceptions transitives, les chemins alternatifs, les
+références inconnues et la provenance.
+
+Un replay isolé sur les entrées conservées dans `cultural-membership-20261107`, avec les
+deux deltas culturels locaux, écrit ses sorties dans
+`.git/agent-evidence/cultural-membership-transitive-20261107/` : 5 503 liens administratifs
+directs, un lien de curation et 577 liens transitifs ; aucun auto-lien. Hawaï conserve
+les deux parents États-Unis et Polynésie. Ce replay valide le calcul culturel sur ces
+captures ; il ne constitue pas une nouvelle ingestion ni une validation topologique.
