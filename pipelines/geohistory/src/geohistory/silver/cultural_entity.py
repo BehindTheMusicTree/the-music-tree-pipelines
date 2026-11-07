@@ -139,6 +139,7 @@ def _admin_entities(
 
 
 def _flag_federated_states(entities: pl.DataFrame, wikidata: pl.DataFrame, overrides: pl.DataFrame) -> pl.DataFrame:
+    check_unique_key(overrides, "entity_id", "federated_state_overrides")
     flagged = set(wikidata.filter(pl.col("kind") == FEDERATED_STATE_KIND)["item_id"])
     admin_ids = set(entities.filter(pl.col("kind") == ADMIN_KIND)["entity_id"])
     invalid_actions = sorted(set(overrides["action"]) - set(MEMBERSHIP_ACTIONS))

@@ -624,6 +624,16 @@ def test_cultural_entity_flags_the_admin_units_wikidata_types_as_federated_state
     assert "federated_state" not in set(entities["kind"])
 
 
+def test_cultural_entity_rejects_two_federated_state_overrides_for_one_entity(dirs):
+    bronze, wikidata, silver = dirs
+    curation = _federated_state_setup(
+        dirs, {"federated_state_overrides": [("Q1168", "remove", "a"), ("Q1168", "add", "b")]}
+    )
+
+    with pytest.raises(ValueError, match="federated_state_overrides"):
+        cultural_entity(bronze, wikidata, silver, curation)
+
+
 def test_cultural_entity_applies_federated_state_overrides(dirs):
     bronze, wikidata, silver = dirs
     curation = _federated_state_setup(
