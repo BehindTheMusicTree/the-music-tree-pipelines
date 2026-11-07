@@ -41,6 +41,7 @@ CURATION_LISTS: dict[str, tuple[str, ...]] = {
     "entity_additions": ("entity_id", "entity_kind", "reason"),
     "entity_exclusions": ("entity_id", "reason"),
     "entity_membership_overrides": ("child_entity_id", "parent_entity_id", "action", "reason"),
+    "federated_state_overrides": ("entity_id", "action", "reason"),
     "place_relation_overrides": ("child_entity_id", "parent_entity_id", "extent", "reason"),
     "entity_time_span_overrides": ("entity_id", "start_year", "end_year", "reason"),
     "region_overrides": ("entity_id", "region_id", "reason"),

@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Curation ingestion exports federated state overrides required by geohistory.
+
 - Discover country containment candidates from independent regional boundaries when Wikidata supplies no direct relation.
 - Preserve an overview's name when a curated anchor matches it but lacks a geographic footprint.
 - geohistory Silver gives a Wikidata `country` that Natural Earth holds as an admin-1 unit only the kind `admin_unit`: Wikidata's subclass chain (state of India ⊂ … ⊂ constituent country ⊂ country) made the 34 states and union territories of India countries, so Gold's `5_region_map` drew them genre-less. Test in `test_silver.py`.

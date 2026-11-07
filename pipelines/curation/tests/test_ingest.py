@@ -134,3 +134,15 @@ def test_write_raises_on_missing_exported_on(tmp_path: Path) -> None:
         ingest.write_curation_csvs(export, tmp_path)
 
     assert not tmp_path.joinpath("export.json").exists()
+
+
+def test_federated_state_overrides_is_exported(tmp_path):
+    export = {name: [] for name in ingest.CURATION_LISTS}
+    export["exported_on"] = "2026-01-01T00:00:00Z"
+    export["federated_state_overrides"] = [{"entity_id": "Q1", "action": "add", "reason": "test"}]
+
+    ingest.write_curation_csvs(export, tmp_path)
+
+    assert pl.read_csv(tmp_path / "federated_state_overrides.csv").to_dicts() == [
+        {"entity_id": "Q1", "action": "add", "reason": "test"}
+    ]
