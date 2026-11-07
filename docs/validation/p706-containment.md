@@ -146,12 +146,20 @@ navigation conservés. Les tests d'import PostgreSQL restent à exécuter en CI.
 
 Validation locale de cette version : 1 046 tests pipelines réussis (21 exclus), couverture
 93,03 %, Ruff et formatage conformes. Le test Gold renforcé sur l'absence de géométrie
-inventée passe séparément. Frontend : 544 tests réussis, lint et typecheck conformes.
-API dans son environnement dédié : 674 tests réussis, 1 ignoré, 148 exclus, couverture
-88,14 %. La première tentative utilisait par erreur le pytest global et n'est pas retenue.
+inventée passe séparément. Frontend avant le dernier correctif du panneau : 544 tests réussis ; le test ciblé du
+panneau corrigé passe (11 tests), lint et typecheck conformes. Le dernier build local
+a échoué faute d’espace disque (`ENOSPC`) ; il reste à valider en CI.
+API après intégration du dernier `origin/develop` : 711 tests réussis, 1 ignoré,
+151 exclus, couverture 88,09 %. Mypy valide 457 fichiers API et 116 fichiers pipelines. La première tentative utilisait par erreur le pytest global et n'est pas retenue.
 
 Les huit différences de `p706-anchor-differences.json` restent non acceptées. Les conflits
 Paraná/Daghestan, le statut historique d'Extremadura, le classement Micronésie et les
 origines concurrentes Corée/Pays-Bas/Mélanésie restent des décisions ouvertes ; aucune
 correction de curation n'a été publiée. La PR pipelines reste draft. Aucun merge,
 auto-merge, déploiement ou release n'est autorisé dans cette reprise.
+
+La revue indépendante approfondie a identifié un défaut du panneau frontend : une région
+sans aperçu « Music of… » ne proposait pas ses genres conservés. Le correctif expose
+ces genres et ouvre la sélection explicite même sans aperçu ; le cas Pays basque est
+couvert. La revue incrémentale confirme la résolution sans autre défaut identifié.
+Les étapes footprint, géométrie et couverture du replay display ont également abouti.
