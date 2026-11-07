@@ -4,7 +4,7 @@ from pathlib import Path
 import polars as pl
 from common.quality_checks import check_non_empty, check_unique_key
 
-from geohistory.silver.curation import ADDITION_KINDS, read_curation_list
+from geohistory.silver.curation import ADDITION_KINDS, MEMBERSHIP_ACTIONS, read_curation_list
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ WIKIDATA_ENTITY_KINDS = (
     CITY_KIND,
 )
 ADMIN_KIND = "admin_unit"
+# Not an entity kind: the Wikidata items under "federated state" only flag the admin units that carry their QID.
+FEDERATED_STATE_KIND = "federated_state"
 _NE_COLUMNS = ["ne_id", "level", "wikidata_id", "adm0_a3", "name"]
 _NUMBER = r"-?[\d.]+(?:[eE][-+]?\d+)?"
 POINT_PATTERN = rf"^Point\(({_NUMBER}) ({_NUMBER})\)$"
@@ -136,6 +138,23 @@ def _admin_entities(
     return entities, admin_crosswalk, ne_map
 
 
+def _flag_federated_states(entities: pl.DataFrame, wikidata: pl.DataFrame, overrides: pl.DataFrame) -> pl.DataFrame:
+    check_unique_key(overrides, "entity_id", "federated_state_overrides")
+    flagged = set(wikidata.filter(pl.col("kind") == FEDERATED_STATE_KIND)["item_id"])
+    admin_ids = set(entities.filter(pl.col("kind") == ADMIN_KIND)["entity_id"])
+    invalid_actions = sorted(set(overrides["action"]) - set(MEMBERSHIP_ACTIONS))
+    if invalid_actions:
+        raise ValueError(f"federated_state_overrides action must be one of {MEMBERSHIP_ACTIONS}, got {invalid_actions}")
+    not_admin = sorted(set(overrides["entity_id"]) - admin_ids)
+    if not_admin:
+        raise ValueError(f"federated_state_overrides entity ids are not admin units: {not_admin}")
+    for entity_id, action in overrides.select("entity_id", "action").rows():
+        flagged = flagged | {entity_id} if action == "add" else flagged - {entity_id}
+    return entities.with_columns(
+        (pl.col("kind") == ADMIN_KIND).and_(pl.col("entity_id").is_in(flagged)).alias("federated_state")
+    )
+
+
 def cultural_entity(
     bronze_dir: Path, wikidata_bronze_dir: Path, output_dir: Path, curation_dir: Path
 ) -> tuple[Path, Path]:
@@ -197,6 +216,19 @@ def cultural_entity(
             pl.col("kind"),
             pl.col("item_label").alias("label"),
         )
+    )
+    # Wikidata's P279 chain makes every state of India a `country` (state of India ⊂ … ⊂ constituent country ⊂
+    # country); Natural Earth's admin level decides instead, so an admin-1 unit that is no admin-0 country is an admin
+    # unit.
+    ne_qids = natural_earth.filter(pl.col("wikidata_id").is_not_null())
+    admin1_only = set(ne_qids.filter(pl.col("level") == 1)["wikidata_id"]) - set(
+        ne_qids.filter(pl.col("level") == 0)["wikidata_id"]
+    )
+    wikidata_entities = wikidata_entities.with_columns(
+        pl.when((pl.col("kind") == "country") & pl.col("entity_id").is_in(admin1_only))
+        .then(pl.lit(ADMIN_KIND))
+        .otherwise("kind")
+        .alias("kind")
     )
 
     crosswalk = pl.concat(
@@ -263,6 +295,7 @@ def cultural_entity(
         .select("entity_id", "kind", "label", "latitude", "longitude", "coordinate_source", "macroarea")
         .sort("entity_id")
     )
+    entities = _flag_federated_states(entities, wikidata, read_curation_list(curation_dir, "federated_state_overrides"))
     excluded = read_curation_list(curation_dir, "entity_exclusions")["entity_id"].to_list()
     unknown_exclusions = sorted(set(excluded) - set(entities["entity_id"].to_list()))
     if unknown_exclusions:

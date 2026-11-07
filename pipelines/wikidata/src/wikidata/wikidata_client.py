@@ -124,6 +124,7 @@ ARCHAEOLOGICAL_CULTURE_QID = "Q465299"
 HISTORICAL_COUNTRY_QID = "Q3024240"
 COUNTRY_QID = "Q6256"
 GREAT_HOMELAND_QID = "Q3115110"
+FEDERATED_STATE_QID = "Q107390"
 CULTURAL_REGION_QID = "Q3502482"
 CIVILIZATION_QID = "Q8432"
 ETHNIC_GROUP_QID = "Q41710"
@@ -157,6 +158,7 @@ CULTURAL_ENTITY_KIND_PATTERNS = {
         f"?item wdt:P31/wdt:P279* wd:{COUNTRY_QID} . "
         f"FILTER NOT EXISTS {{ ?item wdt:P31/wdt:P279* wd:{GREAT_HOMELAND_QID} . }}"
     ),
+    "federated_state": f"?item wdt:P31/wdt:P279* wd:{FEDERATED_STATE_QID} .",
     "historical_region": (
         f"?item wdt:P31/wdt:P279* wd:{HISTORICAL_REGION_QID} ; wikibase:sitelinks ?sitelinks . "
         f"FILTER(?sitelinks >= {NOTABLE_SITELINKS})"

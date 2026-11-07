@@ -21,6 +21,21 @@
     "tileset": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "worldChildIds": {"$ref": "#/definitions/ids"},
     "worldZoneIds": {"$ref": "#/definitions/ids"},
+    "hiddenRegions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "kind", "parentId", "centroid"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["admin_unit", "country"]},
+          "parentId": {"type": "string", "minLength": 1},
+          "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+        }
+      }
+    },
     "regions": {
       "type": "array",
       "minItems": 1,
