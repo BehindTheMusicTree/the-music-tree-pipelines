@@ -163,3 +163,37 @@ sans aperçu « Music of… » ne proposait pas ses genres conservés. Le correc
 ces genres et ouvre la sélection explicite même sans aperçu ; le cas Pays basque est
 couvert. La revue incrémentale confirme la résolution sans autre défaut identifié.
 Les étapes footprint, géométrie et couverture du replay display ont également abouti.
+
+## Analyse des écarts après intégration de develop
+
+L'aperçu « music of Micronesia » révèle un défaut : la curation choisit explicitement
+la région Q3359409, dont le nom correspond au titre, mais le filtre des homonymes sans
+footprint retient seulement l'État Q702 et efface le rang de l'aperçu de la région.
+Le choix explicite conserve désormais sa correspondance de nom, sans créer de footprint
+ni de relation géographique. Un replay ciblé sur les anciennes entrées rétablit son
+rang à 0 ; les sept autres écarts restent ouverts et non acceptés.
+
+- Paraná et Daghestan : les polygones admin-1 débordent très légèrement de leurs pays
+  respectifs (rapport des aires en coordonnées sources : 2,9e-10 et 7,0e-8). Les sources
+  administratives affirment l'inclusion entière, mais le contrôle spatial actuel détecte
+  un conflit. Ces chiffres suggèrent un problème de précision, sans justifier à eux seuls
+  une tolérance ou une inclusion ; il faut examiner la distance et la provenance des écarts.
+- Extremadura : Q5777 est classé région historique dans les anciennes entrées ; son P131
+  vers l'Espagne reste inconnu sans contour historique indépendant. Déterminer si cette
+  entité représente aussi la communauté actuelle avant de modifier sa classification.
+- Pansori et gagok : Corée et Corée du Sud sont toutes deux des origines déclarées. Les
+  anciens polygones disponibles couvrent spatialement la Corée du Sud par la Corée, mais
+  aucune relation directe ne figure dans le graphe résolu ; l'égalité est départagée par
+  QID. Vérifier les règles d'admissibilité des contours et la création d'une relation
+  avant de conclure que cette couverture est une preuve exploitable.
+- Electro house : Pays-Bas et Europe sont deux origines déclarées ; le contour national
+  comprend des territoires hors d'Europe, donc l'intersection partielle ne prouve pas une
+  inclusion entière. La sélection d'une origine unique reste une décision de modèle.
+- Pacific reggae : Mélanésie, Polynésie et Nouvelle-Zélande sont des origines déclarées ;
+  les anciens éléments ne prouvent pas une inclusion complète de la Mélanésie. Choisir
+  entre plusieurs origines indépendantes reste une décision de modèle.
+
+Ces observations utilisent les captures du 6 novembre et le modèle d'entité antérieur à
+la fusion : les parquets conservés n'ont pas `federated_state`. Ils ne constituent pas un
+replay complet après #358 ; les entrées Bronze nécessaires à une reconstruction complète
+ne sont pas toutes dans ces captures. Aucune curation n'a été publiée.

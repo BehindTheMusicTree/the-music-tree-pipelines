@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve an overview's name when a curated anchor matches it but lacks a geographic footprint.
 - geohistory Silver gives a Wikidata `country` that Natural Earth holds as an admin-1 unit only the kind `admin_unit`: Wikidata's subclass chain (state of India ⊂ … ⊂ constituent country ⊂ country) made the 34 states and union territories of India countries, so Gold's `5_region_map` drew them genre-less. Test in `test_silver.py`.
 - Gold's `5_region_map` tileset is generalized per zoom (tippecanoe `--simplification=8 --visvalingam --simplify-only-low-zooms`, about one pixel): low-zoom tiles kept the unsimplified 1:10m coasts, whose sub-pixel zigzags the map's region outline drew as a hairy, spiky border. Zoom 10 keeps full detail; the index is unchanged. Tests in `test_region_map_export.py`.
 - Artist image enrichment isolates malformed Wikidata artists, preserves their previous observations and retries them across runs while publishing valid updates.

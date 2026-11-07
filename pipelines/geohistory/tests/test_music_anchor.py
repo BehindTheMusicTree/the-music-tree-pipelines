@@ -222,6 +222,16 @@ def test_overview_label_ignores_a_match_without_footprint(tmp_path):
     assert unplaced.height == 0
 
 
+def test_overview_override_names_a_matching_place_without_a_footprint(tmp_path):
+    anchors, _ = run(
+        tmp_path,
+        [label("Q1", "music of Georgia")],
+        placements=[("Q1", "ge", "", "", "r")],
+        footprint=[("gaus", "us", "cover")],
+    )
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["overview_rank"]) == ("ge", 0)
+
+
 def test_ambiguous_label_does_not_override_a_real_candidate(tmp_path):
     anchors, unplaced = run(tmp_path, [label("Q1", "music of Georgia"), claim("Q1", "P17", "Q230")])
     assert anchors["Q1"]["anchor_id"] == "ge"
