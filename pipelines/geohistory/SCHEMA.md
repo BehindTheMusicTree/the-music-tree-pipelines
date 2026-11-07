@@ -160,7 +160,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | -------------------------------------------------------- |
 | parent_id | str  | `1_cultural_entity.entity_id`                            |
 | child_id  | str  | `1_cultural_entity.entity_id`                            |
-| source    | str  | `p131`, `p361`, `p30`, `p706` or `natural_earth`         |
+| source    | str  | `curation`, `p131`, `p361`, `p30`, `p706`, `natural_earth` or `city_point` |
 
 `8_entity_footprint.parquet`: the admin units each entity covers, `(entity_id, admin_id)` unique.
 
@@ -293,3 +293,20 @@ inclusive), `start_year`, `end_year`.
 | geometry_source | String | Entity boundary provenance |
 | geometry_wkb | Binary | Positive-area intersection, clipped to both boundaries |
 | complete | Boolean | Completeness of the entity boundary |
+
+### `natural_earth_composed_boundary.parquet` (Bronze)
+
+| Column | Type | Meaning |
+|---|---|---|
+| wikidata_id | String | Entity represented by the explicit composition |
+| geometry_wkb | Binary | Union of all selected independent map units |
+| source | String | `natural_earth_map_unit_union` |
+| version | String | Pinned Natural Earth source version |
+| definition | String | Membership convention and scope |
+| members_json | String | JSON array of member NE_ID/name records |
+| complete | Boolean | Complete for the documented source convention |
+
+`2_place_relation` also records `evidence_json` (statement source, extent, scope and
+qualifiers), `child_boundary_source` and `parent_boundary_source` (nullable Strings).
+`8_entity_geometry_report.json` records drawn/materialized boundary counts and the
+entity IDs with missing or incomplete boundaries.

@@ -186,7 +186,7 @@ def test_city_without_a_claim_sits_under_the_admin_unit_holding_its_coordinate(t
         ne_map=[("ne0", 1, "mor", "fr"), ("ne1", 1, "cat", "es")],
         cities={"det": (2.0, 2.0), "far": (50.0, 50.0)},
     )
-    assert not any(child == "det" for _, child, _ in edges(silver))
+    assert ("mor", "det", "city_point") in edges(silver)
     assert not any(child == "far" for _, child, _ in edges(silver))
 
 
@@ -198,7 +198,7 @@ def test_city_with_a_p131_parent_keeps_it_over_the_point_fallback(tmp_path):
         cities={"det": (2.0, 2.0)},
     )
     assert ("cat", "det", "p131") in edges(silver)
-    assert ("mor", "det", "point") not in edges(silver)
+    assert ("mor", "det", "city_point") not in edges(silver)
 
 
 def footprint(tmp_path, containment, ne_ids, succession=(), points=None):

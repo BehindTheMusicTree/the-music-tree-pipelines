@@ -1,0 +1,90 @@
+{
+  "coordinatePrecisionDegrees": 1e-06,
+  "islands": [
+    {
+      "entity": "Q22890",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": false,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 5.568524230405418e-07,
+      "coverageSymmetricDifferenceSquareDegrees": 1.7083467187103005e-08
+    },
+    {
+      "entity": "Q23666",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": false,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 5.766603373530925e-07,
+      "coverageSymmetricDifferenceSquareDegrees": 1.253873598615873e-07
+    },
+    {
+      "entity": "Q36117",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": false,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 4.904905151988029e-07,
+      "coverageSymmetricDifferenceSquareDegrees": 2.3028999674146045e-08
+    },
+    {
+      "entity": "Q40285",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": false,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 6.199699959261737e-07,
+      "coverageSymmetricDifferenceSquareDegrees": 1.7186134606628254e-08
+    },
+    {
+      "entity": "Q3757",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": false,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 1.863682707976821e-07,
+      "coverageSymmetricDifferenceSquareDegrees": 2.6536000018867467e-08
+    },
+    {
+      "entity": "Q3492",
+      "equalsIndependentLand": true,
+      "coverageUnionEqualsBoundary": true,
+      "coverageWithinSourcePrecision": true,
+      "coverageHausdorffDegrees": 0.0,
+      "coverageSymmetricDifferenceSquareDegrees": 0.0
+    }
+  ],
+  "relations": [
+    {
+      "child": "Q145",
+      "parent": "Q22890",
+      "extent": "partial"
+    },
+    {
+      "child": "Q145",
+      "parent": "Q23666",
+      "extent": "partial"
+    },
+    {
+      "child": "Q252",
+      "parent": "Q36117",
+      "extent": "partial"
+    },
+    {
+      "child": "Q252",
+      "parent": "Q40285",
+      "extent": "partial"
+    },
+    {
+      "child": "Q252",
+      "parent": "Q3757",
+      "extent": "partial"
+    },
+    {
+      "child": "Q252",
+      "parent": "Q3492",
+      "extent": "partial"
+    },
+    {
+      "child": "Q29999",
+      "parent": "Q664609",
+      "extent": "partial"
+    }
+  ]
+}

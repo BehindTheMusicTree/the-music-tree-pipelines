@@ -257,6 +257,16 @@ def ingest_natural_earth_physical(version: str, output_dir: Path) -> Path:
     return path
 
 
+def ingest_composed_boundaries(version: str, output_dir: Path) -> Path:
+    from geohistory.composed_boundaries import build_composed_boundaries
+
+    frame = build_composed_boundaries(natural_earth_client.download_layer(version, "ne_10m_admin_0_map_units"), version)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "natural_earth_composed_boundary.parquet"
+    frame.write_parquet(path)
+    return path
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
@@ -266,3 +276,5 @@ if __name__ == "__main__":
     ingest_natural_earth_basemap(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
 
     ingest_natural_earth_physical(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
+
+    ingest_composed_boundaries(require_env("NATURAL_EARTH_VERSION"), bronze_dir)

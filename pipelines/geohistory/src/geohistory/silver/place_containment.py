@@ -6,13 +6,14 @@ import polars as pl
 from common.quality_checks import check_unique_key
 
 from geohistory.silver.curation import read_curation_list
+from geohistory.silver.entity_footprint import _point_footprints
 from geohistory.silver.entity_membership import GLOTTOLOG_KINDS, _assert_acyclic
 from geohistory.silver.music_anchor import PLACE_KINDS
 from geohistory.silver.place_relation import resolve_place_candidates
 
 logger = logging.getLogger(__name__)
 
-SOURCE_PRIORITY = ("curation", "p131", "p361", "p30", "p706", "natural_earth")
+SOURCE_PRIORITY = ("curation", "p131", "p361", "p30", "p706", "natural_earth", "city_point")
 PAIR_SCHEMA = {"parent_id": pl.String, "child_id": pl.String}
 EDGE_SCHEMA = PAIR_SCHEMA | {"source": pl.String}
 CLAIM_SOURCES = {"P30": "p30", "P706": "p706"}
@@ -159,14 +160,24 @@ def place_containment(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: P
         .rows()
         if entity != country and entity in place_ids and country in place_ids
     ]
+    cities = entities.filter(
+        (pl.col("kind") == "city") & pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
+    ).sort("entity_id")
+    city_points = [
+        (admin, city, "city_point")
+        for city, admin in (_point_footprints(bronze_dir, ne_map, cities) if cities.height else ())
+        if admin in place_ids
+    ]
     candidates = (
-        pl.concat([*sourced, pl.DataFrame(natural_earth, schema=EDGE_SCHEMA, orient="row")])
+        pl.concat([*sourced, pl.DataFrame([*natural_earth, *city_points], schema=EDGE_SCHEMA, orient="row")])
         .filter(pl.col("parent_id") != pl.col("child_id"))
         .join(removals, on=["parent_id", "child_id"], how="anti")
     )
     resolved = resolve_place_candidates(
         bronze_dir, wikidata_bronze_dir, silver_dir, curation_dir, candidates, entities, crosswalk, ne_map
     )
+    claimed_cities = resolved.filter(pl.col("source") != "city_point")["child_id"].to_list()
+    resolved = resolved.filter((pl.col("source") != "city_point") | ~pl.col("child_id").is_in(claimed_cities))
     edges = (
         resolved.with_columns(
             pl.col("source")

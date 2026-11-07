@@ -83,3 +83,14 @@ def test_composed_boundaries_keep_completeness_and_circular_dependencies():
     assert result["outer"].complete
     assert shapely.equals(result["outer"].geometry, shapely.box(0, 0, 2, 1))
     assert composed_references({}, {("a", "b"), ("b", "a")}, complete_entities=set()) == {}
+
+
+def test_antimeridian_components_cannot_certify_a_complete_island():
+    from geohistory.silver.reference_land import IslandLandIndex
+
+    land = shapely.MultiPolygon([shapely.box(179, 0, 180, 1), shapely.box(-180, 0, -179, 1)])
+    index = IslandLandIndex(land)
+    for longitude in (179.5, -179.5):
+        assert (
+            index.select(shapely.Point(longitude, 0.5), is_simple_island=True, verify_identity=lambda _: True) is None
+        )

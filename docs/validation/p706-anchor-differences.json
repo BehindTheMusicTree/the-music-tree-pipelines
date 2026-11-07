@@ -1,0 +1,582 @@
+{
+  "baselineAnchors": 2616,
+  "resolvedAnchors": 2616,
+  "changedAnchors": 14,
+  "changes": [
+    {
+      "wikidata_id": "Q106506830",
+      "before": {
+        "wikidata_id": "Q106506830",
+        "anchor_id": "Q3359409",
+        "rule": "override",
+        "is_overview": true,
+        "overview_rank": 0
+      },
+      "after": {
+        "wikidata_id": "Q106506830",
+        "anchor_id": "Q3359409",
+        "rule": "override",
+        "is_overview": true,
+        "overview_rank": null
+      },
+      "beforeLabel": "Micronesia",
+      "afterLabel": "Micronesia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q3359409",
+          "parent_id": "Q538",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q3359409",
+          "parent_id": "Q55643",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Override anchor is retained; overview ranking changes because the named region no longer has a proven footprint."
+    },
+    {
+      "wikidata_id": "Q11215782",
+      "before": {
+        "wikidata_id": "Q11215782",
+        "anchor_id": "Q3557",
+        "rule": "P276",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q11215782",
+        "anchor_id": "Q252",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Jawa Tengah",
+      "afterLabel": "Indonesia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q3557",
+          "parent_id": "Q252",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        },
+        {
+          "child_id": "Q3557",
+          "parent_id": "Q3757",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_island"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    },
+    {
+      "wikidata_id": "Q1130969",
+      "before": {
+        "wikidata_id": "Q1130969",
+        "anchor_id": "Q15499",
+        "rule": "P276",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q1130969",
+        "anchor_id": "Q155",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Paran\u00e1",
+      "afterLabel": "Brazil",
+      "outgoingRelations": [
+        {
+          "child_id": "Q15499",
+          "parent_id": "Q155",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    },
+    {
+      "wikidata_id": "Q19729536",
+      "before": {
+        "wikidata_id": "Q19729536",
+        "anchor_id": "Q3557",
+        "rule": "P276",
+        "is_overview": true,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q19729536",
+        "anchor_id": "Q252",
+        "rule": "P495",
+        "is_overview": true,
+        "overview_rank": null
+      },
+      "beforeLabel": "Jawa Tengah",
+      "afterLabel": "Indonesia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q3557",
+          "parent_id": "Q252",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        },
+        {
+          "child_id": "Q3557",
+          "parent_id": "Q3757",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_island"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    },
+    {
+      "wikidata_id": "Q3643031",
+      "before": {
+        "wikidata_id": "Q3643031",
+        "anchor_id": "Q100",
+        "rule": "P276",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q3643031",
+        "anchor_id": "Q30",
+        "rule": "P17",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Boston",
+      "afterLabel": "United States",
+      "outgoingRelations": [
+        {
+          "child_id": "Q100",
+          "parent_id": "Q771",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "City point is placed in its local admin, but an unresolved ancestor breaks the country chain; the country claim wins. Requires follow-up on the ancestor geometry conflict."
+    },
+    {
+      "wikidata_id": "Q482981",
+      "before": {
+        "wikidata_id": "Q482981",
+        "anchor_id": "Q884",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q482981",
+        "anchor_id": "Q18097",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "South Korea",
+      "afterLabel": "Korea",
+      "outgoingRelations": [
+        {
+          "child_id": "Q884",
+          "parent_id": "Q27231",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q48",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q483134",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q66458647",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q865479",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Korea now has an explicit independent map-unit union. The former unchecked membership edge between South Korea and Korea is no longer spatial proof; competing same-priority origins use the deterministic ID tie-break."
+    },
+    {
+      "wikidata_id": "Q4950496",
+      "before": {
+        "wikidata_id": "Q4950496",
+        "anchor_id": "Q36281",
+        "rule": "P740",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q4950496",
+        "anchor_id": "Q784",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Roseau",
+      "afterLabel": "Dominica",
+      "outgoingRelations": [
+        {
+          "child_id": "Q36281",
+          "parent_id": "Q617801",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "City point is placed in its local admin, but an unresolved ancestor breaks the country chain; the country claim wins. Requires follow-up on the ancestor geometry conflict."
+    },
+    {
+      "wikidata_id": "Q53677911",
+      "before": {
+        "wikidata_id": "Q53677911",
+        "anchor_id": "Q5777",
+        "rule": "P276",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q53677911",
+        "anchor_id": "Q29",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Extremadura",
+      "afterLabel": "Spain",
+      "outgoingRelations": [
+        {
+          "child_id": "Q5777",
+          "parent_id": "Q29",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Extremadura is classified historical_region in the input; present-day polygons cannot certify its historical boundary or administrative path. The country claim wins."
+    },
+    {
+      "wikidata_id": "Q627906",
+      "before": {
+        "wikidata_id": "Q627906",
+        "anchor_id": "Q55",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q627906",
+        "anchor_id": "Q46",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Netherlands",
+      "afterLabel": "Europe",
+      "outgoingRelations": [
+        {
+          "child_id": "Q55",
+          "parent_id": "Q27496",
+          "extent": "partial",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q55",
+          "parent_id": "Q29999",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q55",
+          "parent_id": "Q46",
+          "extent": "partial",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "The source admin boundary for Netherlands includes overseas land. Its Europe relation is partial; neither that edge nor scoped membership can dominate the Europe claim."
+    },
+    {
+      "wikidata_id": "Q6941917",
+      "before": {
+        "wikidata_id": "Q6941917",
+        "anchor_id": "Q5118",
+        "rule": "label",
+        "is_overview": true,
+        "overview_rank": 0
+      },
+      "after": {
+        "wikidata_id": "Q6941917",
+        "anchor_id": "Q159",
+        "rule": "P495",
+        "is_overview": true,
+        "overview_rank": null
+      },
+      "beforeLabel": "Dagestan",
+      "afterLabel": "Russia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q5118",
+          "parent_id": "Q159",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    },
+    {
+      "wikidata_id": "Q6942133",
+      "before": {
+        "wikidata_id": "Q6942133",
+        "anchor_id": "Q3953",
+        "rule": "label",
+        "is_overview": true,
+        "overview_rank": 0
+      },
+      "after": {
+        "wikidata_id": "Q6942133",
+        "anchor_id": "Q159",
+        "rule": "P495",
+        "is_overview": true,
+        "overview_rank": null
+      },
+      "beforeLabel": "Kalmyk",
+      "afterLabel": "Russia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q3953",
+          "parent_id": "Q159",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    },
+    {
+      "wikidata_id": "Q7122786",
+      "before": {
+        "wikidata_id": "Q7122786",
+        "anchor_id": "Q37394",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q7122786",
+        "anchor_id": "Q35942",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Melanesia",
+      "afterLabel": "Polynesia",
+      "outgoingRelations": [
+        {
+          "child_id": "Q37394",
+          "parent_id": "Q538",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q37394",
+          "parent_id": "Q55643",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": null,
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Melanesia lacks an independent boundary while Polynesia has an explicit statistical map-unit union. Removing unproven place membership changes competing-claim specificity."
+    },
+    {
+      "wikidata_id": "Q846219",
+      "before": {
+        "wikidata_id": "Q846219",
+        "anchor_id": "Q884",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q846219",
+        "anchor_id": "Q18097",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "South Korea",
+      "afterLabel": "Korea",
+      "outgoingRelations": [
+        {
+          "child_id": "Q884",
+          "parent_id": "Q27231",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q48",
+          "extent": "full",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_map_unit_union"
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q483134",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q66458647",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        },
+        {
+          "child_id": "Q884",
+          "parent_id": "Q865479",
+          "extent": "unknown",
+          "conflict": false,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": null
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Korea now has an explicit independent map-unit union. The former unchecked membership edge between South Korea and Korea is no longer spatial proof; competing same-priority origins use the deterministic ID tie-break."
+    },
+    {
+      "wikidata_id": "Q963061",
+      "before": {
+        "wikidata_id": "Q963061",
+        "anchor_id": "Q431729",
+        "rule": "P276",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "after": {
+        "wikidata_id": "Q963061",
+        "anchor_id": "Q117",
+        "rule": "P495",
+        "is_overview": false,
+        "overview_rank": null
+      },
+      "beforeLabel": "Greater Accra",
+      "afterLabel": "Ghana",
+      "outgoingRelations": [
+        {
+          "child_id": "Q431729",
+          "parent_id": "Q117",
+          "extent": "unknown",
+          "conflict": true,
+          "override_reason": null,
+          "child_boundary_source": "natural_earth_admin",
+          "parent_boundary_source": "natural_earth_admin"
+        }
+      ],
+      "status": "requires acceptance",
+      "explanation": "Independent admin polygons contradict full current administrative containment. Conflict is retained as unknown; the broader country claim wins."
+    }
+  ],
+  "source": "additional staging inputs materialized 2026-11-06 19:16\u201319:27 UTC; cached geographic statements observed earlier on same day"
+}

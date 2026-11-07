@@ -202,3 +202,36 @@ anchor specificity and genealogy ancestry; those consumers use the resolved grap
 Point footprints remain available to locate anchors but never define a drawn region's
 boundary. Independent reference boundaries take precedence over administrative tiling.
 Coverage is clipped for map discovery and never feeds back into containment.
+
+A city's coordinate can locate that city inside a mapped admin-1 unit when no resolved
+claim places it. This `city_point` fallback is restricted to cities and does not construct
+a boundary for any country or region.
+
+Independent composed boundaries use pinned Natural Earth `admin_0_map_units`, rather
+than sovereign country polygons: the latter merge overseas territories with their
+metropole. The Bronze composition artifact retains each map unit's NE_ID and name,
+source version, definition, geometry and completeness. Caribbean means Natural Earth's
+`SUBREGION=Caribbean`, including its island territories and excluding mainland coastal
+regions. Kingdom of the Netherlands uses `SOV_A3=NL1`; its European and Caribbean units
+remain distinct in the source and are united only for the Kingdom's own boundary.
+
+The listed continental and statistical subregional conventions use Natural Earth's
+`CONTINENT`/`SUBREGION` assignments. These are explicit administrative groupings, not
+physical watershed or tectonic boundaries; for example, Russia follows the source's
+Europe classification. Korea, Scandinavia, British Isles and Nordic countries use the
+explicit map-unit selections in `composed_boundaries.py`. The Nordic selection includes
+Greenland, the Faroes, Åland and Norway's northern dependencies, following the territory
+scope described by [Nordic cooperation](https://www.norden.org/en/information/official-nordic-co-operation).
+Missing any configured composition fails ingestion. Source definitions are never inferred
+from existing containment or cultural membership.
+
+A current city's, country's or admin unit's best-rank P131 path can supply administrative
+evidence even when a polygon is absent. Every original statement must be unscoped and
+current: an explicit start year must precede the run's year and an explicit end year must
+follow it, at year precision or better. Same-year transitions, point-in-time qualifiers,
+unsupported dates and known historical entities anywhere in the path are excluded.
+Uncatalogued intermediates are accepted only through such P131 statements; all original
+statement IDs and qualifiers remain in the evidence. The report records the evaluation year.
+Other dated geographic claims remain unknown against today's reference boundaries. Conflicting
+geometric evidence remains a conflict requiring review rather than being erased by
+source priority.

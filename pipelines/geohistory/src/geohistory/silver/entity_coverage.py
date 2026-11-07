@@ -34,12 +34,14 @@ def reference_coverage(
         geometry = shapely.set_precision(shapely.make_valid(reference.geometry), precision)
         if geometry.is_empty or geometry.area == 0:
             continue
+        shapely.prepare(geometry)
         for position in sorted(index.query(geometry, predicate="intersects")):
             admin = polygons[position]
-            clipped = shapely.intersection(geometry, admin)
+            full = shapely.covers(geometry, admin)
+            clipped = admin if full else shapely.intersection(geometry, admin)
             if clipped.is_empty or clipped.area == 0:
                 continue
-            extent = "full" if shapely.covers(geometry, admin) else "partial"
+            extent = "full" if full else "partial"
             rows.append((entity_id, admin_ids[position], extent, reference.source, clipped.wkb, reference.complete))
     return pl.DataFrame(rows, schema=COVERAGE_SCHEMA, orient="row").sort("entity_id", "admin_id")
 

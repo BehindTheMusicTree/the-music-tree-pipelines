@@ -57,6 +57,10 @@ class IslandLandIndex:
         if len(matches) != 1:
             return None
         part = self.parts[matches[0]]
+        # A planar component touching the seam may be only half of a connected island.
+        west, _, east, _ = part.bounds
+        if west <= -180 + 0.000001 or east >= 180 - 0.000001:
+            return None
         if not shapely.contains(part, point) or not verify_identity(part):
             return None
         return part

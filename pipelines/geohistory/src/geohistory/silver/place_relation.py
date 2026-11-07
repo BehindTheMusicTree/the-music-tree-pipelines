@@ -1,10 +1,12 @@
 """Resolve geographic candidates before projecting full containment."""
 
 import json
+from datetime import date
 from collections import Counter
 from pathlib import Path
 
 import polars as pl
+import shapely
 
 from geohistory.silver.curation import read_place_relation_overrides
 from geohistory.silver.place_relation_geometry import ReferenceGeometry
@@ -25,6 +27,27 @@ from geohistory.silver.reference_land import (
 REFERENCE_PRECISION = 0.000001
 
 
+def _current_administrative_statement(qualifiers: list[dict], year: int) -> bool:
+    for qualifier in qualifiers:
+        prop = qualifier["qualifier_property"]
+        if prop == "P518":
+            return False
+        if prop not in {"P580", "P582", "P585"}:
+            continue
+        value = qualifier["value"]
+        precision = qualifier["time_precision"]
+        if qualifier["value_type"] != "time" or not value or precision is None or precision < 9:
+            return False
+        try:
+            statement_year = int(value.split("-", 1)[0].lstrip("+"))
+        except ValueError:
+            return False
+        # Coarse year precision cannot establish whether a same-year transition has happened.
+        if prop == "P585" or (prop == "P580" and statement_year >= year) or (prop == "P582" and statement_year <= year):
+            return False
+    return True
+
+
 def resolve_place_candidates(
     bronze_dir: Path,
     wikidata_dir: Path,
@@ -42,6 +65,7 @@ def resolve_place_candidates(
         pl.read_parquet(wikidata_dir / "wikidata_place_statement.parquet"),
         pl.read_parquet(wikidata_dir / "wikidata_place_qualifier.parquet"),
     )
+    metadata = pl.read_parquet(wikidata_dir / "wikidata_place_metadata.parquet")
     overrides = read_place_relation_overrides(curation_dir)
     entity_ids = set(entities["entity_id"])
     if any(child not in entity_ids or parent not in entity_ids for child, parent in overrides):
@@ -57,6 +81,14 @@ def resolve_place_candidates(
         for entity, geometry in geometries.items()
         if kinds.get(entity) not in {"historical_country", "historical_region"}
     }
+    composed = pl.read_parquet(bronze_dir / "natural_earth_composed_boundary.parquet")
+    for row in composed.iter_rows(named=True):
+        owners = crosswalk.filter(pl.col("wikidata_id") == row["wikidata_id"])["entity_id"]
+        for owner in owners:
+            if kinds.get(owner) not in {"historical_country", "historical_region"}:
+                references[owner] = ReferenceGeometry(
+                    shapely.from_wkb(row["geometry_wkb"]), row["complete"], row["source"], "independent"
+                )
     references = composed_references(
         references,
         {(child, parent) for (child, parent), (extent, _) in overrides.items() if extent == "full"},
@@ -90,21 +122,53 @@ def resolve_place_candidates(
         by_pair.setdefault((child, parent, statement.source), []).append(statement)
         if dated:
             dated_ids.add(statement.statement_id)
+    as_of_year = date.today().year
+    entity_items: dict[str, set[str]] = {}
+    for item, entity in item_entity.items():
+        entity_items.setdefault(entity, set()).add(item)
+    administrative_graph: dict[str, list[tuple[str, str]]] = {}
+    for row in statements.filter((pl.col("property") == "P131") & (pl.col("snak_type") == "value")).iter_rows(
+        named=True
+    ):
+        historical_leg = any(
+            kinds.get(item_entity.get(row[column], "")) in {"historical_country", "historical_region"}
+            for column in ("subject_item_id", "object_item_id")
+        )
+        if not historical_leg and _current_administrative_statement(
+            qualifier_rows.get(row["statement_id"], []), as_of_year
+        ):
+            administrative_graph.setdefault(row["subject_item_id"], []).append(
+                (row["object_item_id"], row["statement_id"])
+            )
+
+    def administrative_path(child: str, parent: str) -> list[str]:
+        targets = entity_items.get(parent, set())
+        pending: list[tuple[str, list[str]]] = [(item, []) for item in sorted(entity_items.get(child, set()))]
+        visited: set[str] = set()
+        while pending:
+            item, path = pending.pop()
+            if item in targets:
+                return path
+            if item in visited:
+                continue
+            visited.add(item)
+            pending.extend(
+                (target, [*path, statement_id]) for target, statement_id in sorted(administrative_graph.get(item, ()))
+            )
+        return []
+
     evidence = []
     for parent, child, source in candidates.unique().sort("parent_id", "child_id", "source").iter_rows():
         attached_statements = by_pair.get((child, parent, source), [])
         if attached_statements:
             evidence.extend(resolve_statement_evidence(attached_statements, references, precision=REFERENCE_PRECISION))
         else:
-            evidence.extend(
-                resolve_statement_evidence(
-                    [PlaceStatement(child, parent, source, f"{source}:{child}:{parent}", False)],
-                    references,
-                    precision=REFERENCE_PRECISION,
-                )
-            )
+            # Flattened hierarchy paths do not preserve the scope or dates of their intermediate statements.
+            evidence.append(SpatialEvidence(child, parent, source, f"unresolved:{source}:{child}:{parent}", "unknown"))
         if source == "natural_earth":
             evidence.append(SpatialEvidence(child, parent, source, f"ne-admin:{child}:{parent}", "full"))
+        if source == "city_point" and kinds.get(child) == "city" and kinds.get(parent) == "admin_unit":
+            evidence.append(SpatialEvidence(child, parent, source, f"city-point:{child}:{parent}", "full"))
     evidence = [
         SpatialEvidence(
             e.child_id,
@@ -116,6 +180,27 @@ def resolve_place_candidates(
         )
         for e in evidence
     ]
+    candidate_pairs = set(candidates.select("child_id", "parent_id").rows())
+    administrative_statements: set[str] = set()
+    for child, parent in sorted(candidate_pairs):
+        if kinds.get(child) not in {"country", "admin_unit", "city"} or kinds.get(parent) not in {
+            "country",
+            "admin_unit",
+        }:
+            continue
+        path = administrative_path(child, parent)
+        administrative_statements.update(path)
+        evidence.extend(
+            SpatialEvidence(child, parent, "administrative_p131", statement_id, "full") for statement_id in path
+        )
+        if path:
+            evidence.extend(
+                resolve_statement_evidence(
+                    [PlaceStatement(child, parent, "administrative_geometry", path[0], False)],
+                    references,
+                    precision=REFERENCE_PRECISION,
+                )
+            )
     decisions = resolve_relations(evidence, overrides)
     rows = [
         (
@@ -162,6 +247,12 @@ def resolve_place_candidates(
     frame.filter(pl.col("extent").is_in(["unknown", "reject"]) | pl.col("conflict")).write_csv(
         silver_dir / "2_place_relation_review.csv"
     )
+    referenced_parts = set(
+        qualifiers.filter((pl.col("qualifier_property") == "P518") & (pl.col("value_type") == "wikibase-item"))[
+            "value"
+        ].drop_nulls()
+    )
+    known_parts = referenced_parts & set(crosswalk["wikidata_id"])
     report = {
         "decisions": dict(Counter(d.extent for d in decisions)),
         "candidateRows": candidates.height,
@@ -173,7 +264,14 @@ def resolve_place_candidates(
         "conflicts": sum(d.conflict for d in decisions),
         "statements": statements.height,
         "qualifiers": qualifiers.height,
+        "metadataItems": metadata.height,
+        "administrativeAsOfYear": as_of_year,
+        "referencedParts": len(referenced_parts),
+        "knownEntityParts": len(known_parts),
+        "partsOutsideEntityCatalog": sorted(referenced_parts - known_parts),
+        "partsMissingMetadata": sorted(referenced_parts - set(metadata["requested_id"])),
         "scopedStatements": qualifiers.filter(pl.col("qualifier_property") == "P518")["statement_id"].n_unique(),
+        "administrativeStatements": len(administrative_statements),
         "referenceBoundaries": len(references),
         "islandBoundaries": len(islands),
         "incompleteBoundaries": sorted(entity for entity, reference in references.items() if not reference.complete),
