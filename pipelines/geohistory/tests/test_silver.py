@@ -588,6 +588,77 @@ def test_cultural_entity_makes_a_wikidata_country_that_is_a_natural_earth_admin_
     assert kinds["Q668"] == "country" and kinds["Q1168"] == "admin_unit"
 
 
+def _federated_state_setup(dirs, curation_rows=None):
+    bronze, wikidata, silver = dirs
+    base_bronze(
+        dirs,
+        entities=[
+            entity("Q668", "country"),
+            entity("Q1168", "country"),
+            entity("Q1168", "federated_state"),
+            entity("Q1169", "country"),
+        ],
+    )
+    write_admin(
+        dirs,
+        natural_earth=[
+            ("c-ind", 0, "Q668", "IND", "India"),
+            ("IND-1", 1, "Q1168", "IND", "Chhattisgarh"),
+            ("IND-2", 1, "Q1169", "IND", "Goa"),
+            ("IND-3", 1, None, "IND", "Ladakh"),
+        ],
+    )
+    return write_curation(silver.parent / "curation", **(curation_rows or {}))
+
+
+def test_cultural_entity_flags_the_admin_units_wikidata_types_as_federated_states(dirs):
+    bronze, wikidata, silver = dirs
+    curation = _federated_state_setup(dirs)
+
+    cultural_entity(bronze, wikidata, silver, curation)
+
+    entities = pl.read_parquet(silver / "1_cultural_entity.parquet")
+    flags = dict(entities.select("entity_id", "federated_state").rows())
+    assert flags["Q1168"] is True
+    assert flags["Q1169"] is flags["Q668"] is flags["ne:IND-3"] is False
+    assert "federated_state" not in set(entities["kind"])
+
+
+def test_cultural_entity_applies_federated_state_overrides(dirs):
+    bronze, wikidata, silver = dirs
+    curation = _federated_state_setup(
+        dirs,
+        {
+            "federated_state_overrides": [
+                ("Q1168", "remove", "not a state"),
+                ("Q1169", "add", "a state"),
+                ("ne:IND-3", "add", "a state"),
+            ]
+        },
+    )
+
+    cultural_entity(bronze, wikidata, silver, curation)
+
+    flags = dict(pl.read_parquet(silver / "1_cultural_entity.parquet").select("entity_id", "federated_state").rows())
+    assert flags["Q1168"] is False and flags["Q1169"] is True and flags["ne:IND-3"] is True
+
+
+@pytest.mark.parametrize(
+    ("row", "message"),
+    [
+        (("Q999", "add", "unknown"), "not admin units"),
+        (("Q668", "add", "a country"), "not admin units"),
+        (("Q1168", "toggle", "bad"), "action must be one of"),
+    ],
+)
+def test_cultural_entity_rejects_invalid_federated_state_overrides(dirs, row, message):
+    bronze, wikidata, silver = dirs
+    curation = _federated_state_setup(dirs, {"federated_state_overrides": [row]})
+
+    with pytest.raises(ValueError, match=message):
+        cultural_entity(bronze, wikidata, silver, curation)
+
+
 def test_cultural_entity_adds_a_city_with_its_point_below_every_other_kind(dirs):
     base_bronze(dirs, entities=[entity("Q2", "country")], claims=[])
     bronze, wikidata, silver = dirs

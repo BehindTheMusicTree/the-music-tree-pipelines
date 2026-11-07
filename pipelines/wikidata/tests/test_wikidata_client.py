@@ -349,6 +349,12 @@ def test_cultural_entity_query_keeps_only_notable_ethnic_groups_and_historical_r
         assert f"FILTER(?sitelinks >= {wikidata_client.NOTABLE_SITELINKS})" in query
 
 
+def test_cultural_entity_query_selects_federated_states_by_their_own_class() -> None:
+    query = wikidata_client.cultural_entity_query("federated_state")
+
+    assert f"wdt:P31/wdt:P279* wd:{wikidata_client.FEDERATED_STATE_QID}" in query
+
+
 def test_cultural_entity_query_selects_items_that_several_countries_belong_to_as_macro_regions() -> None:
     query = wikidata_client.cultural_entity_query("macro_region")
 
