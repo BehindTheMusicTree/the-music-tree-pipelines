@@ -9,6 +9,7 @@ import polars as pl
 import shapely
 
 from geohistory.silver.curation import read_place_relation_overrides
+from geohistory.silver.manual_boundaries import read_manual_boundaries
 from geohistory.silver.place_relation_geometry import ReferenceGeometry
 from geohistory.silver.place_relation_resolution import (
     PlaceStatement,
@@ -85,10 +86,24 @@ def resolve_place_candidates(
     for row in composed.iter_rows(named=True):
         owners = crosswalk.filter(pl.col("wikidata_id") == row["wikidata_id"])["entity_id"]
         for owner in owners:
-            if kinds.get(owner) not in {"historical_country", "historical_region"}:
+            if row["usage"] == "display" or kinds.get(owner) not in {"historical_country", "historical_region"}:
                 references[owner] = ReferenceGeometry(
-                    shapely.from_wkb(row["geometry_wkb"]), row["complete"], row["source"], "independent"
+                    shapely.from_wkb(row["geometry_wkb"]),
+                    row["complete"],
+                    row["source"],
+                    "display" if row["usage"] == "display" else "independent",
                 )
+    manual_provenance = []
+    for qid, boundary in read_manual_boundaries().items():
+        owners = crosswalk.filter(pl.col("wikidata_id") == qid)["entity_id"]
+        for owner in owners:
+            if owner in references:
+                raise ValueError(f"manual boundary {qid} conflicts with an existing reference for {owner}")
+            references[owner] = boundary.reference
+            manual_provenance.append({"entity_id": owner, **boundary.provenance})
+    (silver_dir / "2_manual_boundary_provenance.json").write_text(
+        json.dumps(manual_provenance, indent=2, sort_keys=True) + "\n"
+    )
     references = composed_references(
         references,
         {(child, parent) for (child, parent), (extent, _) in overrides.items() if extent == "full"},
@@ -96,10 +111,26 @@ def resolve_place_candidates(
     )
     pl.DataFrame(
         [
-            (entity, reference.geometry.wkb, reference.source, reference.complete)
+            (
+                entity,
+                reference.geometry.wkb,
+                reference.source,
+                reference.complete,
+                reference.boundary_kind,
+                reference.start_year,
+                reference.end_year,
+            )
             for entity, reference in sorted(references.items())
         ],
-        schema={"entity_id": pl.String, "geometry_wkb": pl.Binary, "source": pl.String, "complete": pl.Boolean},
+        schema={
+            "entity_id": pl.String,
+            "geometry_wkb": pl.Binary,
+            "source": pl.String,
+            "complete": pl.Boolean,
+            "boundary_kind": pl.String,
+            "start_year": pl.Int64,
+            "end_year": pl.Int64,
+        },
         orient="row",
     ).write_parquet(silver_dir / "2_place_reference_geometry.parquet")
     item_entity: dict[str, str] = {}

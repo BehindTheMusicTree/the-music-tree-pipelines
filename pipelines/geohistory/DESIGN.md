@@ -235,3 +235,44 @@ statement IDs and qualifiers remain in the evidence. The report records the eval
 Other dated geographic claims remain unknown against today's reference boundaries. Conflicting
 geometric evidence remains a conflict requiring review rather than being erased by
 source priority.
+
+Independent borders are compared on the source coordinate grid. When polygons overlap,
+an excursion entirely within one grid unit of the parent is treated as rounding uncertainty;
+no overlap-area percentage is used. Anything farther outside remains partial. The parent is
+clipped around the child's bounds before buffering, so this tolerance does not offset an
+entire country's detailed coast for each subdivision. Disjoint polygons and boundary-only
+contact cannot establish full containment through this tolerance.
+
+### Contours manuels sourcés
+
+Le catalogue versionné `silver/manual_boundaries.geojson` contient des `Feature` GeoJSON
+WGS84 de type Polygon ou MultiPolygon. Chaque entrée exige `wikidata_id`, `source_url`
+(HTTPS), `license`, `version`, `definition`, `components` (identifiants des composants de la
+source, liste vide pour un contour direct), `complete`, `usage`, `start_year` et `end_year`.
+Les années nulles indiquent une frontière sans période historique déclarée. Le chargeur
+rejette les doublons, les polygones invalides, les périodes inversées et les métadonnées
+manquantes. Une entrée ne remplace jamais implicitement une référence existante.
+
+`usage: display` autorise la matérialisation cartographique mais conserve
+`boundary_kind: display` : le résolveur et les compositions de preuves l'excluent, même si
+`complete` vaut true. `usage: containment` exige un contour complet ; les contrôles de
+période et de circularité s'appliquent ensuite comme aux autres références indépendantes.
+Les géométries dessinées peuvent servir au découpage cartographique, dont les intersections
+ne remontent jamais dans le graphe d'inclusion. La provenance des entrées effectivement
+rattachées est conservée dans `2_manual_boundary_provenance.json`.
+
+Le catalogue est initialement vide : les pistes documentaires n'établissent pas encore des
+contours réutilisables ni des conventions culturelles acceptées. Les régions concernées
+restent dans les rapports de frontières manquantes. Ce contrat ne résout pas à lui seul leur
+absence dans l'index Gold ; ce dernier et ses consommateurs doivent encore représenter une
+région sans géométrie, avec ses genres attachés à leur région d'origine.
+
+### Compositions d'affichage celtiques et balkaniques
+
+Bronze charge les unités cartographiques et subdivisions Natural Earth à la même version.
+La convention celtique compose les six nations, avec toute l'Irlande et les cinq départements
+bretons historiques ; la convention balkanique compose onze pays entiers, sans la Turquie
+européenne, et reste incomplète. Les composants absents font échouer l'ingestion.
+`usage=display` demeure une frontière d'affichage, y compris pour une entité classée
+historique : elle ne devient jamais une référence indépendante de preuve.
+Les sources et sélecteurs sont détaillés dans `docs/validation/p706-boundary-sources.md`.

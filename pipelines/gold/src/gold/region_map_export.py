@@ -343,7 +343,7 @@ def export_region_map(
     zone_candidates = {
         entity_id
         for entity_id, kind in kinds.items()
-        if entity_id in shapes and entity_id not in admin_ids and kind in ZONE_KINDS + ("country",)
+        if entity_id not in admin_ids and kind in ZONE_KINDS + ("country", "admin_unit")
     }
 
     footprint_admins: dict[str, list[str]] = defaultdict(list)
@@ -582,7 +582,7 @@ def export_region_map(
     for region in [*admin_regions, *zones]:
         own = own_items(region) if region in zone_set else rolled_up_items(region)
         relevant = own.union(*(descendants.get(item, set()) for item in own))
-        shape = shapes[region]
+        shape = shapes.get(region)
         entries.append(
             {
                 "id": region,
@@ -591,9 +591,10 @@ def export_region_map(
                 "parentId": None if region in zone_set else parents.get(region, WORLD_ID),
                 "childIds": children.get(region, []),
                 "zoneIds": sorted(zone_ids_by_region.get(region, ())),
-                "bbox": shape["bbox"],
-                "mainBbox": shape["main_bbox"],
-                "centroid": shape["centroid"],
+                "boundaryStatus": "available" if shape is not None else "missing",
+                "bbox": shape["bbox"] if shape is not None else None,
+                "mainBbox": shape["main_bbox"] if shape is not None else None,
+                "centroid": shape["centroid"] if shape is not None else None,
                 "drillable": bool(children.get(region)),
                 "overviewItemId": overview_by_region.get(region),
                 "inheritedOverviewItemId": None if region in zone_set else inherited_overview(region),
@@ -614,6 +615,7 @@ def export_region_map(
                 "parentId": parent,
                 "childIds": [],
                 "zoneIds": [],
+                "boundaryStatus": "available",
                 "bbox": point + point,
                 "mainBbox": point + point,
                 "centroid": point,
@@ -656,7 +658,11 @@ def export_region_map(
 
     document["tileset"], tileset_bytes = _region_tileset(
         [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], depths[r], bands[r], load(r)) for r in admin_regions],
-        [(z, labels[z], _zone_band(shapes[z]["main_bbox"]), load(z), tuple(shapes[z]["centroid"])) for z in zones],
+        [
+            (z, labels[z], _zone_band(shapes[z]["main_bbox"]), load(z), tuple(shapes[z]["centroid"]))
+            for z in zones
+            if z in shapes
+        ],
         [
             (
                 entry["id"],
@@ -703,6 +709,7 @@ def export_region_map(
     )
     report = {
         "unplacedGenreCount": unplaced_frame.height,
+        "missingBoundaryRegionIds": sorted(entry["id"] for entry in entries if entry["boundaryStatus"] == "missing"),
         "regionsWithoutOverview": without_overview,
         "tileset": {"bytes": tileset_bytes, "seconds": tileset_seconds},
     }

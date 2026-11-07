@@ -557,7 +557,7 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     ]
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["unplacedGenreCount"] == 2
-    assert set(report) == {"unplacedGenreCount", "regionsWithoutOverview", "tileset"}
+    assert set(report) == {"unplacedGenreCount", "regionsWithoutOverview", "tileset", "missingBoundaryRegionIds"}
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -1067,3 +1067,33 @@ def test_partial_zone_coverage_does_not_inherit_admin_counts(tmp_path: Path) -> 
     assert regions["PART"]["songCount"] == 0
     assert regions["PART"]["genreCount"] == 1
     assert regions["BR"]["songCount"] == 4
+
+
+def test_missing_boundary_keeps_genres_on_their_region_without_parent_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _append(geohistory / "1_cultural_entity.parquet", [("JO", "historical_country", "Joseon", None, None)])
+    _extend(geohistory, wikidata, anchors=[("Q99", "JO")], overviews={"Q99": 0}, regional=[("Q99", "Q1")])
+
+    layers: dict[str, list[dict]] = {}
+    inner = region_map_export._run_tippecanoe
+
+    def capture(arguments: list[str]) -> None:
+        for name, path in (a.split(":", 1) for a in arguments if a.count(":") == 1 and not a.startswith("-")):
+            layers[name] = _layer(Path(path))
+        inner(arguments)
+
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", capture)
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    assert all(feature["properties"].get("id") != "JO" for features in layers.values() for feature in features)
+    regions = _regions(index_path)
+    joseon = regions["JO"]
+    assert joseon["boundaryStatus"] == "missing"
+    assert all(joseon[key] is None for key in ("bbox", "mainBbox", "centroid"))
+    assert joseon["overviewItemId"] == "Q99"
+    assert [g["itemId"] for g in joseon["genres"]] == ["Q99"]
+    assert all(g["itemId"] != "Q99" for region in regions.values() if region["id"] != "JO" for g in region["genres"])
+    assert "JO" in json.loads(index_path.read_text())["worldZoneIds"]
+    assert json.loads((output / "5_region_map_report.json").read_text())["missingBoundaryRegionIds"] == ["JO"]

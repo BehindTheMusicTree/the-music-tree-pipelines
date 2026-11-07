@@ -68,3 +68,35 @@ def test_explicit_country_composition_requires_every_member():
         build_composed_boundaries({"features": members[:1]}, "v", selected_ids={"Q18097"})
     with pytest.raises(ValueError, match="unknown composed"):
         build_composed_boundaries({"features": members}, "v", selected_ids={"unknown"})
+
+
+def test_display_compositions_require_components_and_never_supply_containment():
+    from geohistory.composed_boundaries import display_compositions
+
+    units = ("IRL", "NIR", "SCT", "WLS", "IMN")
+    countries = ("ALB", "BIH", "BGR", "HRV", "GRC", "KOS", "MNE", "MKD", "ROU", "SRB", "SVN")
+    collection = {
+        "features": [
+            {
+                "properties": {"GU_A3": code, "ADM0_A3": code},
+                "geometry": shapely.geometry.mapping(shapely.box(i, 0, i + 1, 1)),
+            }
+            for i, code in enumerate((*units, *countries))
+        ]
+    }
+    subdivisions = {
+        "features": [
+            {"properties": {"iso_3166_2": code}, "geometry": shapely.geometry.mapping(shapely.box(i, 2, i + 1, 3))}
+            for i, code in enumerate(("GB-CON", "FR-22", "FR-29", "FR-35", "FR-44", "FR-56"))
+        ]
+    }
+    rows = display_compositions(collection, subdivisions, "pinned")
+    assert {row[0]: (row[-2], row[-1]) for row in rows} == {"Q236626": (True, "display"), "Q23522": (False, "display")}
+    celtic = shapely.from_wkb(rows[0][1])
+    assert celtic.covers(shapely.box(1, 0, 2, 1))  # Northern Ireland
+    assert not celtic.intersects(shapely.box(15, 0, 16, 1))
+    with pytest.raises(ValueError, match="missing members"):
+        display_compositions(collection, {"features": []}, "pinned")
+    subdivisions["features"][0]["geometry"] = None
+    with pytest.raises(ValueError, match="without geometry"):
+        display_compositions(collection, subdivisions, "pinned")

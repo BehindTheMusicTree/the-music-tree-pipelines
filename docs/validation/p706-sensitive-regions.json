@@ -13,7 +13,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Southeast Asia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q12837",
@@ -27,7 +29,9 @@
       "Q54929"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Iberian Peninsula: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q15",
@@ -75,7 +79,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q18097",
@@ -85,7 +91,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Korea: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q18869",
@@ -98,7 +106,9 @@
       "Q5237"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Caucasus: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q21195",
@@ -110,7 +120,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Scandinavia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q23522",
@@ -131,7 +143,9 @@
       "Q1992716"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Balkans: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q236626",
@@ -217,7 +231,9 @@
     ],
     "added_admins": [],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Celtic nations: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q27231",
@@ -227,7 +243,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "East Asia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27275",
@@ -235,7 +253,9 @@
     "removed_admins": [],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "no logical footprint difference"
+    "explanation": "Central Asia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27381",
@@ -246,7 +266,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "North Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27394",
@@ -259,7 +281,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Southern Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27407",
@@ -267,7 +291,9 @@
     "removed_admins": [],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "no logical footprint difference"
+    "explanation": "East Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27433",
@@ -277,7 +303,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Central Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27449",
@@ -287,7 +315,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Southern Europe: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27468",
@@ -298,7 +328,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Eastern Europe: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27479",
@@ -310,7 +342,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Northern Europe: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27496",
@@ -326,7 +360,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Western Europe: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q27509",
@@ -345,7 +381,9 @@
       "Q1199"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Central Europe: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q27611",
@@ -393,7 +431,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Central America: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q28179",
@@ -407,7 +447,9 @@
       "Q8684"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Joseon: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q35942",
@@ -418,7 +460,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Polynesia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q36117",
@@ -430,7 +474,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_island",
-    "explanation": "independent physical island boundary replaces country tiling"
+    "explanation": "Borneo: independent connected land component supplies the island contour; country-wide and neighbouring-island polygons are not inherited through partial relations. Logical footprint lists only fully contained admin units.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q3757",
@@ -445,7 +491,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_island",
-    "explanation": "independent physical island boundary replaces country tiling"
+    "explanation": "Java: independent connected land component supplies the island contour; country-wide and neighbouring-island polygons are not inherited through partial relations. Logical footprint lists only fully contained admin units.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q38272",
@@ -511,7 +559,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "British Isles: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q4412",
@@ -521,7 +571,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "West Africa: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q46",
@@ -740,7 +792,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Europe: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q48",
@@ -866,7 +920,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Asia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q52062",
@@ -877,7 +933,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Nordic countries: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q55643",
@@ -891,7 +949,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Oceania: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q664609",
@@ -914,7 +974,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Caribbean: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q7204",
@@ -946,7 +1008,9 @@
       "Q201781"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Middle East: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q72499",
@@ -957,7 +1021,9 @@
     ],
     "added_admins": [],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Mediterranean Basin: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q771405",
@@ -965,7 +1031,9 @@
     "removed_admins": [],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "no logical footprint difference"
+    "explanation": "South Asia: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q828",
@@ -1005,7 +1073,9 @@
     ],
     "added_admins": [],
     "geometry_source": "natural_earth_map_unit_union",
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Americas: the explicit pinned map-unit definition supplies a complete reference contour independently of the logical footprint. Removed admin IDs no longer have a proven full containment path; map coverage is computed separately by clipping, rather than inferred from this list. See composed_boundaries.py for the exact membership convention.",
+    "reference_boundary_complete": true,
+    "boundary_status": "complete"
   },
   {
     "entity_id": "Q844857",
@@ -1032,7 +1102,9 @@
     ],
     "added_admins": [],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Pacific Islands: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   },
   {
     "entity_id": "Q93259",
@@ -1067,6 +1139,8 @@
       "Q1049867"
     ],
     "geometry_source": null,
-    "explanation": "full-only resolution removes unproven containment; boundary incomplete"
+    "explanation": "Lesser Antilles: no independent reference contour is available; full-only resolution removes unproven ancestry. Any remaining point footprint locates the entity but supplies no drawn boundary. Retain the entity and its genres and report the missing boundary; source research is recorded in p706-boundary-sources.md.",
+    "reference_boundary_complete": null,
+    "boundary_status": "missing"
   }
 ]

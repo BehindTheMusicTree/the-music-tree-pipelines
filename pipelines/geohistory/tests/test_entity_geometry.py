@@ -150,3 +150,28 @@ def test_point_location_does_not_define_a_region_boundary(tmp_path):
     assert "b" not in rows
     report = json.loads((tmp_path / "silver/8_entity_geometry_report.json").read_text())
     assert "b" in report["missingBoundaries"]
+
+
+def test_manual_display_boundary_draws_without_an_admin_footprint(tmp_path):
+    build(tmp_path, [("reg", "a", "point")])
+    boundary = shapely.box(20, 20, 22, 22)
+    pl.DataFrame(
+        [("reg", boundary.wkb, "manual_boundary", False, "display", None, None)],
+        schema={
+            "entity_id": pl.String,
+            "geometry_wkb": pl.Binary,
+            "source": pl.String,
+            "complete": pl.Boolean,
+            "boundary_kind": pl.String,
+            "start_year": pl.Int64,
+            "end_year": pl.Int64,
+        },
+        orient="row",
+    ).write_parquet(tmp_path / "silver/2_place_reference_geometry.parquet")
+    entity_geometry(tmp_path / "bronze", tmp_path / "silver")
+    rows = pl.read_parquet(tmp_path / "silver/8_entity_geometry.parquet")
+    manual = rows.filter(pl.col("entity_id") == "reg").row(0, named=True)
+    assert shapely.from_wkb(manual["geometry_wkb"]).equals(boundary)
+    assert manual["source"] == "manual_boundary"
+    report = json.loads((tmp_path / "silver/8_entity_geometry_report.json").read_text())
+    assert "reg" in report["incompleteBoundaries"]

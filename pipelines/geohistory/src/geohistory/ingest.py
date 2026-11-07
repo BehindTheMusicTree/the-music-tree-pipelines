@@ -260,7 +260,11 @@ def ingest_natural_earth_physical(version: str, output_dir: Path) -> Path:
 def ingest_composed_boundaries(version: str, output_dir: Path) -> Path:
     from geohistory.composed_boundaries import build_composed_boundaries
 
-    frame = build_composed_boundaries(natural_earth_client.download_layer(version, "ne_10m_admin_0_map_units"), version)
+    frame = build_composed_boundaries(
+        natural_earth_client.download_layer(version, "ne_10m_admin_0_map_units"),
+        version,
+        natural_earth_client.download_layer(version, "ne_10m_admin_1_states_provinces"),
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / "natural_earth_composed_boundary.parquet"
     frame.write_parquet(path)

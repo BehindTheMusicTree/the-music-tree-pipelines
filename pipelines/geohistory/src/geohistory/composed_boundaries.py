@@ -13,10 +13,13 @@ COMPOSED_BOUNDARY_SCHEMA = {
     "definition": pl.String,
     "members_json": pl.String,
     "complete": pl.Boolean,
+    "usage": pl.String,
 }
 
 
-def build_composed_boundaries(collection: dict, version: str, *, selected_ids: set[str] | None = None) -> pl.DataFrame:
+def build_composed_boundaries(
+    collection: dict, version: str, subdivisions: dict | None = None, *, selected_ids: set[str] | None = None
+) -> pl.DataFrame:
     definitions: dict[str, tuple[str, str | tuple[str, ...], str]] = {
         "Q664609": ("SUBREGION", "Caribbean", "Natural Earth Caribbean map units; excludes mainland coastal regions"),
         "Q29999": ("SOV_A3", "NL1", "All Natural Earth map units under Netherlands sovereignty"),
@@ -95,6 +98,73 @@ def build_composed_boundaries(collection: dict, version: str, *, selected_ids: s
             key=lambda member: (member["ne_id"], member["name"]),
         )
         rows.append(
-            (qid, geometry.wkb, "natural_earth_map_unit_union", version, definition, json.dumps(identities), True)
+            (
+                qid,
+                geometry.wkb,
+                "natural_earth_map_unit_union",
+                version,
+                definition,
+                json.dumps(identities),
+                True,
+                "containment",
+            )
         )
-    return pl.DataFrame(rows, schema=COMPOSED_BOUNDARY_SCHEMA, orient="row").sort("wikidata_id")
+    if subdivisions is not None and selected_ids is None:
+        rows.extend(display_compositions(collection, subdivisions, version))
+    return (
+        pl.DataFrame(rows, schema=COMPOSED_BOUNDARY_SCHEMA, orient="row")
+        .with_columns(
+            pl.lit(f"https://github.com/nvkelso/natural-earth-vector/tree/{version}/geojson").alias("source_url"),
+            pl.lit("Public domain (Natural Earth)").alias("license"),
+        )
+        .sort("wikidata_id")
+    )
+
+
+def display_compositions(collection: dict, subdivisions: dict, version: str) -> list[tuple]:
+    definitions = {
+        "Q236626": (
+            "GU_A3",
+            ("IRL", "NIR", "SCT", "WLS", "IMN"),
+            ("GB-CON", "FR-22", "FR-29", "FR-35", "FR-44", "FR-56"),
+            "Six Celtic nations; Ireland includes Northern Ireland; Brittany uses the five historic departments",
+            True,
+        ),
+        "Q23522": (
+            "ADM0_A3",
+            ("ALB", "BIH", "BGR", "HRV", "GRC", "KOS", "MNE", "MKD", "ROU", "SRB", "SVN"),
+            (),
+            "Broad Balkan display convention: eleven whole countries; excludes European Turkey; not a historical border",
+            False,
+        ),
+    }
+    rows = []
+    for qid, (unit_field, units, departments, definition, complete) in definitions.items():
+        members = []
+        identities = []
+        for source, field, names in (
+            (collection, unit_field, units),
+            (subdivisions, "iso_3166_2", departments),
+        ):
+            selected = [f for f in source["features"] if f["properties"].get(field) in names]
+            missing = set(names) - {f["properties"][field] for f in selected}
+            if missing:
+                raise ValueError(f"display composition {qid} is missing members: {sorted(missing)}")
+            for feature in selected:
+                if feature["geometry"] is None:
+                    raise ValueError(f"display composition {qid} has a member without geometry")
+                members.append(shapely.make_valid(shapely.geometry.shape(feature["geometry"])))
+                identities.append({"field": field, "value": feature["properties"][field]})
+        rows.append(
+            (
+                qid,
+                shapely.union_all(members).wkb,
+                "natural_earth_display_union",
+                version,
+                definition,
+                json.dumps(sorted(identities, key=lambda row: (row["field"], row["value"]))),
+                complete,
+                "display",
+            )
+        )
+    return rows

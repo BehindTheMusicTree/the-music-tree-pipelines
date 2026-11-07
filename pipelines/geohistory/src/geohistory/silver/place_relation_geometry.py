@@ -16,7 +16,7 @@ class ReferenceGeometry:
     geometry: BaseGeometry
     complete: bool
     source: str
-    boundary_kind: Literal["independent", "point", "succession"]
+    boundary_kind: Literal["independent", "point", "succession", "display"]
     derived_from: frozenset[tuple[str, str]] = frozenset()
     start_year: int | None = None
     end_year: int | None = None
@@ -75,10 +75,18 @@ def resolve_geometry(
         return "unknown"
     if shapely.covers(parent_geom, child_geom):
         return "full"
-    if (
-        parent.complete
-        and shapely.intersection(child_geom, parent_geom).area > 0
-        and shapely.difference(child_geom, parent_geom).area > 0
-    ):
+    overlap = shapely.intersection(child_geom, parent_geom).area
+    if overlap > 0:
+        # Independently rounded borders can disagree within one source coordinate grid.
+        # Clip before buffering to avoid offsetting an entire country's detailed coast.
+        west, south, east, north = child_geom.bounds
+        nearby_parent = shapely.make_valid(
+            shapely.clip_by_rect(
+                parent_geom, west - precision * 2, south - precision * 2, east + precision * 2, north + precision * 2
+            )
+        )
+        if shapely.covers(shapely.buffer(nearby_parent, precision), child_geom):
+            return "full"
+    if parent.complete and overlap > 0 and shapely.difference(child_geom, parent_geom).area > 0:
         return "partial"
     return "unknown"

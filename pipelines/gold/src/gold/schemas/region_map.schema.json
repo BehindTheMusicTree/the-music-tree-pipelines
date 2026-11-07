@@ -2,62 +2,254 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["regions", "tileset", "worldChildIds", "worldZoneIds"],
+  "required": [
+    "regions",
+    "tileset",
+    "worldChildIds",
+    "worldZoneIds"
+  ],
   "definitions": {
     "box": {
       "type": "array",
       "items": [
-        {"type": "number", "minimum": -180, "maximum": 180},
-        {"type": "number", "minimum": -90, "maximum": 90},
-        {"type": "number", "minimum": -180, "maximum": 360},
-        {"type": "number", "minimum": -90, "maximum": 90}
+        {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 360
+        },
+        {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        }
       ],
       "minItems": 4,
       "maxItems": 4
     },
-    "ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    "ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   },
   "properties": {
-    "tileset": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "worldChildIds": {"$ref": "#/definitions/ids"},
-    "worldZoneIds": {"$ref": "#/definitions/ids"},
+    "tileset": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "worldChildIds": {
+      "$ref": "#/definitions/ids"
+    },
+    "worldZoneIds": {
+      "$ref": "#/definitions/ids"
+    },
     "regions": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "kind", "parentId", "childIds", "zoneIds", "bbox", "mainBbox", "centroid", "drillable", "overviewItemId", "inheritedOverviewItemId", "genres", "songCount", "genreCount"],
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "parentId",
+          "childIds",
+          "zoneIds",
+          "bbox",
+          "mainBbox",
+          "centroid",
+          "drillable",
+          "overviewItemId",
+          "inheritedOverviewItemId",
+          "genres",
+          "songCount",
+          "genreCount",
+          "boundaryStatus"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "name": {"type": "string", "minLength": 1},
-          "kind": {"enum": ["country", "admin_unit", "zone", "city"]},
-          "parentId": {"type": ["string", "null"]},
-          "childIds": {"$ref": "#/definitions/ids"},
-          "zoneIds": {"$ref": "#/definitions/ids"},
-          "cityIds": {"$ref": "#/definitions/ids"},
-          "bbox": {"$ref": "#/definitions/box"},
-          "mainBbox": {"$ref": "#/definitions/box"},
-          "centroid": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
-          "drillable": {"type": "boolean"},
-          "overviewItemId": {"type": ["string", "null"], "minLength": 1},
-          "inheritedOverviewItemId": {"type": ["string", "null"], "minLength": 1},
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "country",
+              "admin_unit",
+              "zone",
+              "city"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "childIds": {
+            "$ref": "#/definitions/ids"
+          },
+          "zoneIds": {
+            "$ref": "#/definitions/ids"
+          },
+          "cityIds": {
+            "$ref": "#/definitions/ids"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/box"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mainBbox": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/box"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "centroid": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drillable": {
+            "type": "boolean"
+          },
+          "overviewItemId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "inheritedOverviewItemId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
           "genres": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["itemId", "rule", "relation"],
+              "required": [
+                "itemId",
+                "rule",
+                "relation"
+              ],
               "properties": {
-                "itemId": {"type": "string", "minLength": 1},
-                "rule": {"type": "string", "minLength": 1},
-                "relation": {"enum": ["canonical", "regional", "tradition"]}
+                "itemId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "rule": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "relation": {
+                  "enum": [
+                    "canonical",
+                    "regional",
+                    "tradition"
+                  ]
+                }
               }
             }
           },
-          "songCount": {"type": "integer", "minimum": 0},
-          "genreCount": {"type": "integer", "minimum": 0}
-        }
+          "songCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "genreCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "boundaryStatus": {
+            "enum": [
+              "available",
+              "missing"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "boundaryStatus": {
+                  "const": "missing"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "bbox": {
+                  "type": "null"
+                },
+                "mainBbox": {
+                  "type": "null"
+                },
+                "centroid": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "bbox": {
+                  "not": {
+                    "type": "null"
+                  }
+                },
+                "mainBbox": {
+                  "not": {
+                    "type": "null"
+                  }
+                },
+                "centroid": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }

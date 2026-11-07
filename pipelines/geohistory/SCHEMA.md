@@ -270,9 +270,11 @@ inclusive), `start_year`, `end_year`.
 | Column | Type | Meaning |
 |---|---|---|
 | entity_id | String | Boundary owner |
-| geometry_wkb | Binary | Independent or explicitly composed land boundary |
+| geometry_wkb | Binary | Independent, explicitly composed or display-only land boundary |
 | source | String | Boundary provenance |
 | complete | Boolean | Whether the boundary covers the whole entity |
+| boundary_kind | String | `independent`, `display`, `point` or `succession`; display boundaries cannot prove inclusion |
+| start_year, end_year | Integer, nullable | Boundary validity period |
 
 ### `2_place_relation.parquet`
 
@@ -300,13 +302,33 @@ inclusive), `start_year`, `end_year`.
 |---|---|---|
 | wikidata_id | String | Entity represented by the explicit composition |
 | geometry_wkb | Binary | Union of all selected independent map units |
-| source | String | `natural_earth_map_unit_union` |
+| source | String | `natural_earth_map_unit_union` or `natural_earth_display_union` |
 | version | String | Pinned Natural Earth source version |
 | definition | String | Membership convention and scope |
-| members_json | String | JSON array of member NE_ID/name records |
+| members_json | String | JSON array of member NE_ID/name records or source field/value selectors |
 | complete | Boolean | Complete for the documented source convention |
+| usage | String | `containment` or `display`; display unions cannot prove inclusion |
+| source_url | String | Versioned Natural Earth source directory |
+| license | String | Natural Earth public-domain status |
 
 `2_place_relation` also records `evidence_json` (statement source, extent, scope and
 qualifiers), `child_boundary_source` and `parent_boundary_source` (nullable Strings).
 `8_entity_geometry_report.json` records drawn/materialized boundary counts and the
 entity IDs with missing or incomplete boundaries.
+
+### `2_manual_boundary_provenance.json`
+
+Array of provenance objects for manual boundaries mapped to the entity catalog.
+
+| Field | Type | Meaning |
+|---|---|---|
+| entity_id | String | Boundary owner in the entity catalog |
+| wikidata_id | String | Source entity QID |
+| source_url | String | HTTPS provenance URL |
+| license | String | Source license identifier or text |
+| version | String | Source revision |
+| definition | String | Geographic definition represented by the polygon |
+| components | Array of Strings | Source component identifiers; empty for a direct boundary |
+| complete | Boolean | Whether the polygon covers the entire defined entity |
+| usage | String | `display` or `containment` |
+| start_year, end_year | Integer, nullable | Boundary validity period |

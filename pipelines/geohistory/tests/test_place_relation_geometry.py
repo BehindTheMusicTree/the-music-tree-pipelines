@@ -1,5 +1,5 @@
 import pytest
-from shapely.geometry import box
+from shapely.geometry import Polygon, box
 
 from geohistory.silver.place_relation_geometry import ReferenceGeometry, resolve_geometry
 
@@ -22,6 +22,20 @@ def test_full_partial_contact_and_disjoint():
     assert resolve_geometry(reference(box(1, 0, 3, 1)), parent, PAIR, precision=0.001) == "partial"
     assert resolve_geometry(reference(box(2, 0, 3, 1)), parent, PAIR, precision=0.001) == "unknown"
     assert resolve_geometry(reference(box(3, 0, 4, 1)), parent, PAIR, precision=0.001) == "unknown"
+
+
+def test_rounded_border_sliver_is_bounded_by_source_precision():
+    parent = reference(Polygon([(0, 0), (2, 0), (0, 2)]))
+    # Rounding two diagonal borders independently leaves a sub-grid sliver.
+    child = reference(Polygon([(0, 0), (1.001, 1), (0, 2)]))
+    assert resolve_geometry(child, parent, PAIR, precision=0.001) == "full"
+    crossing = reference(Polygon([(0, 0), (1.003, 1), (0, 2)]))
+    assert resolve_geometry(crossing, parent, PAIR, precision=0.001) == "partial"
+    # A small detached component beyond source precision cannot be hidden by overlap ratios.
+    from shapely import union_all
+
+    detached = reference(union_all([box(0, 0, 0.1, 0.1), box(3, 3, 3.001, 3.001)]))
+    assert resolve_geometry(detached, parent, PAIR, precision=0.001) == "partial"
 
 
 def test_incomplete_circular_and_historical_boundaries_do_not_prove_extent():
