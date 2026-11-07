@@ -146,8 +146,8 @@ navigation conservés. Les tests d'import PostgreSQL restent à exécuter en CI.
 
 Validation locale de cette version : 1 046 tests pipelines réussis (21 exclus), couverture
 93,03 %, Ruff et formatage conformes. Le test Gold renforcé sur l'absence de géométrie
-inventée passe séparément. Frontend avant le dernier correctif du panneau : 544 tests réussis ; le test ciblé du
-panneau corrigé passe (11 tests), lint et typecheck conformes. Le dernier build local
+inventée passe séparément. Frontend après le correctif du panneau : 545 tests réussis (86 fichiers), lint et
+typecheck conformes. Le dernier build local
 a échoué faute d’espace disque (`ENOSPC`) ; il reste à valider en CI.
 API après intégration du dernier `origin/develop` : 711 tests réussis, 1 ignoré,
 151 exclus, couverture 88,09 %. Mypy valide 457 fichiers API et 116 fichiers pipelines. La première tentative utilisait par erreur le pytest global et n'est pas retenue.
