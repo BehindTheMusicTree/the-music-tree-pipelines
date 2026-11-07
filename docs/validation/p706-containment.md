@@ -176,8 +176,10 @@ rang à 0 ; les sept autres écarts restent ouverts et non acceptés.
 - Paraná et Daghestan : les polygones admin-1 débordent très légèrement de leurs pays
   respectifs (rapport des aires en coordonnées sources : 2,9e-10 et 7,0e-8). Les sources
   administratives affirment l'inclusion entière, mais le contrôle spatial actuel détecte
-  un conflit. Ces chiffres suggèrent un problème de précision, sans justifier à eux seuls
-  une tolérance ou une inclusion ; il faut examiner la distance et la provenance des écarts.
+  un conflit. La distance maximale des sommets extérieurs au polygone parent est d'environ
+  3,18e-6 degré pour Paraná et 6,01e-5 degré pour Daghestan, contre une grille source de
+  1e-6 degré. Ces mesures descriptives ne justifient pas à elles seules une tolérance ou une
+  inclusion ; la provenance et la précision des frontières doivent être examinées.
 - Extremadura : Q5777 est classé région historique dans les anciennes entrées ; son P131
   vers l'Espagne reste inconnu sans contour historique indépendant. Déterminer si cette
   entité représente aussi la communauté actuelle avant de modifier sa classification.
