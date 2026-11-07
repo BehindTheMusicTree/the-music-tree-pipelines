@@ -5,6 +5,7 @@ import polars as pl
 from common.quality_checks import check_non_empty, check_unique_key
 
 from geohistory.silver.curation import ADDITION_KINDS, MEMBERSHIP_ACTIONS, read_curation_list
+from geohistory.silver.place_classification import current_administrative_kinds
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,9 @@ def cultural_entity(
             pl.col("kind"),
             pl.col("item_label").alias("label"),
         )
+    )
+    wikidata_entities = current_administrative_kinds(
+        wikidata_entities, pl.read_parquet(wikidata_bronze_dir / "wikidata_place_metadata.parquet")
     )
     # Wikidata's P279 chain makes every state of India a `country` (state of India ⊂ … ⊂ constituent country ⊂
     # country); Natural Earth's admin level decides instead, so an admin-1 unit that is no admin-0 country is an admin

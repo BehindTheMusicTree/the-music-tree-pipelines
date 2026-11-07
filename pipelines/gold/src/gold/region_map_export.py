@@ -313,6 +313,7 @@ def export_region_map(
     if not land:
         raise ValueError("basemap has no land layer: islands cannot be told apart")
     footprint = pl.read_parquet(geohistory_silver_dir / "8_entity_footprint.parquet")
+    coverage = pl.read_parquet(geohistory_silver_dir / "8_entity_coverage.parquet")
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
     canonical = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -335,12 +336,15 @@ def export_region_map(
         entity_id
         for entity_id, kind in kinds.items()
         if entity_id in shapes
-        and (kind == "admin_unit" or (kind == "country" and shapes[entity_id]["source"] == "natural_earth"))
+        and (
+            kind == "admin_unit"
+            or (kind == "country" and shapes[entity_id]["source"] in {"natural_earth", "natural_earth_admin"})
+        )
     }
     zone_candidates = {
         entity_id
         for entity_id, kind in kinds.items()
-        if entity_id in shapes and entity_id not in admin_ids and kind in ZONE_KINDS + ("country",)
+        if entity_id not in admin_ids and kind in ZONE_KINDS + ("country", "admin_unit")
     }
 
     footprint_admins: dict[str, list[str]] = defaultdict(list)
@@ -546,11 +550,13 @@ def export_region_map(
     zone_ids_by_region: dict[str, set[str]] = defaultdict(set)
     zone_members: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
-    for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
+    fully_covered = set(coverage.filter(pl.col("extent") == "full").select("entity_id", "admin_id").rows())
+    for entity_id, admin_id, extent in coverage.select("entity_id", "admin_id", "extent").rows():
         while admin_id in dissolved:
             admin_id = dissolved[admin_id]
         if entity_id in zone_set and admin_id in shapes:
-            zone_members[entity_id].add(admin_id)
+            if extent == "full" and (entity_id, admin_id) in fully_covered:
+                zone_members[entity_id].add(admin_id)
             for ancestor in admin_ancestors(admin_id):
                 zone_ids_by_region[ancestor].add(entity_id)
 
@@ -558,10 +564,21 @@ def export_region_map(
     for zone, members in zone_members.items():
         listed = members & admin_region_set
         children[zone] = sorted(m for m in listed if not any(a in listed for a in admin_ancestors(m)[1:]))
-    zone_inside: dict[str, list[str]] = {
-        zone: sorted(other for other in zones if zone_members[other] < zone_members[zone] and zone_members[other])
-        for zone in zones
-    }
+    full_children: dict[str, list[str]] = defaultdict(list)
+    for parent, child in containment.select("parent_id", "child_id").rows():
+        full_children[parent].append(child)
+
+    def contained_zones(zone: str) -> list[str]:
+        seen: set[str] = set()
+        pending = list(full_children.get(zone, ()))
+        while pending:
+            child = pending.pop()
+            if child not in seen:
+                seen.add(child)
+                pending.extend(full_children.get(child, ()))
+        return sorted(seen & zone_set)
+
+    zone_inside = {zone: contained_zones(zone) for zone in zones}
     for zone, inside in zone_inside.items():
         zone_ids_by_region[zone].update(inside)
     nested_zones = {other for inside in zone_inside.values() for other in inside}
@@ -570,7 +587,7 @@ def export_region_map(
     for region in [*admin_regions, *zones]:
         own = own_items(region) if region in zone_set else rolled_up_items(region)
         relevant = own.union(*(descendants.get(item, set()) for item in own))
-        shape = shapes[region]
+        shape = shapes.get(region)
         entries.append(
             {
                 "id": region,
@@ -579,9 +596,10 @@ def export_region_map(
                 "parentId": None if region in zone_set else parents.get(region, WORLD_ID),
                 "childIds": children.get(region, []),
                 "zoneIds": sorted(zone_ids_by_region.get(region, ())),
-                "bbox": shape["bbox"],
-                "mainBbox": shape["main_bbox"],
-                "centroid": shape["centroid"],
+                "boundaryStatus": "available" if shape is not None else "missing",
+                "bbox": shape["bbox"] if shape is not None else None,
+                "mainBbox": shape["main_bbox"] if shape is not None else None,
+                "centroid": shape["centroid"] if shape is not None else None,
                 "drillable": bool(children.get(region)),
                 "overviewItemId": overview_by_region.get(region),
                 "inheritedOverviewItemId": None if region in zone_set else inherited_overview(region),
@@ -602,6 +620,7 @@ def export_region_map(
                 "parentId": parent,
                 "childIds": [],
                 "zoneIds": [],
+                "boundaryStatus": "available",
                 "bbox": point + point,
                 "mainBbox": point + point,
                 "centroid": point,
@@ -655,7 +674,11 @@ def export_region_map(
 
     document["tileset"], tileset_bytes = _region_tileset(
         [(r, labels[r], parents.get(r, WORLD_ID), kinds[r], depths[r], bands[r], load(r)) for r in admin_regions],
-        [(z, labels[z], _zone_band(shapes[z]["main_bbox"]), load(z), tuple(shapes[z]["centroid"])) for z in zones],
+        [
+            (z, labels[z], _zone_band(shapes[z]["main_bbox"]), load(z), tuple(shapes[z]["centroid"]))
+            for z in zones
+            if z in shapes
+        ],
         [
             (
                 entry["id"],
@@ -702,6 +725,7 @@ def export_region_map(
     )
     report = {
         "unplacedGenreCount": unplaced_frame.height,
+        "missingBoundaryRegionIds": sorted(entry["id"] for entry in entries if entry["boundaryStatus"] == "missing"),
         "regionsWithoutOverview": without_overview,
         "hiddenRegionCount": len(hidden_regions),
         "tileset": {"bytes": tileset_bytes, "seconds": tileset_seconds},

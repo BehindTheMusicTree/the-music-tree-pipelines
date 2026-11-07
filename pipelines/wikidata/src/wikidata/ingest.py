@@ -18,6 +18,13 @@ from common.quality_checks import (
 from common.step_timer import step
 
 from wikidata import wikidata_client, wikipedia_client
+from wikidata.place_statements import (
+    discover_place_parts,
+    disambiguate_no_values,
+    normalize_qualifiers,
+    normalize_statements,
+    place_metadata,
+)
 from wikidata.silver.regional_overview_classification import REGIONAL_OVERVIEW_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -29,6 +36,8 @@ ARTIST_IMAGE_MAX_REJECT_RATIO = 0.01
 ARTIST_IMAGE_MAX_STALENESS_DAYS = 7
 ARTIST_IMAGE_FILENAME = "wikidata_artist_images.parquet"
 NATURAL_EARTH_ADMIN_FILE = "natural_earth_admin.parquet"
+PLACE_PART_MAX_COUNT = 5000
+PLACE_PART_MAX_DEPTH = 4
 
 
 def _qid(uri: str | None) -> str | None:
@@ -184,6 +193,89 @@ def ingest_cultural_entity_claims(output_dir: Path, entity_qids: Sequence[str]) 
     logger.info("wrote %d rows to %s", df.height, output_path)
 
     return output_path
+
+
+def _fetch_place_statements(entity_qids: Sequence[str]) -> tuple[pl.DataFrame, pl.DataFrame]:
+    statement_queries = wikidata_client.place_statement_queries(entity_qids)
+    qualifier_queries = wikidata_client.place_qualifier_queries(entity_qids)
+    statement_rows = []
+    qualifier_rows = []
+    for statement_query, qualifier_query in zip(statement_queries, qualifier_queries, strict=True):
+        statement_rows.extend(
+            wikidata_client.run_query(
+                statement_query,
+                variables=wikidata_client.PLACE_STATEMENT_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        )
+        qualifier_rows.extend(
+            wikidata_client.run_query(
+                qualifier_query,
+                variables=wikidata_client.PLACE_QUALIFIER_QUERY_VARIABLES,
+                timeout=wikidata_client.CULTURAL_ENTITY_QUERY_TIMEOUT,
+            )
+        )
+    statements = normalize_statements(statement_rows)
+    qualifier_rows, confirmed = disambiguate_no_values(qualifier_rows, statements, wikidata_client.fetch_claim_entities)
+    qualifiers = normalize_qualifiers(qualifier_rows, statements, confirmed)
+    return statements, qualifiers
+
+
+def ingest_place_statements(output_dir: Path, entity_qids: Sequence[str]) -> tuple[Path, Path, Path]:
+    """Write geographic statements, qualifiers and explicitly referenced parts."""
+    statement_frames: list[pl.DataFrame] = []
+    qualifier_frames: list[pl.DataFrame] = []
+    seen_ids: set[str] = set()
+
+    def load_qualifiers(qids: list[str]) -> pl.DataFrame:
+        statements, qualifiers = _fetch_place_statements(qids)
+        repeated = seen_ids.intersection(statements["statement_id"].to_list())
+        if repeated:
+            earlier_statements = pl.concat(statement_frames).filter(pl.col("statement_id").is_in(list(repeated)))
+            repeated_statements = statements.filter(pl.col("statement_id").is_in(list(repeated)))
+            if not earlier_statements.sort(earlier_statements.columns).equals(
+                repeated_statements.sort(repeated_statements.columns)
+            ):
+                raise ValueError("conflicting geographic statement id across discovery batches")
+            earlier_qualifiers = pl.concat(qualifier_frames).filter(pl.col("statement_id").is_in(list(repeated)))
+            repeated_qualifiers = qualifiers.filter(pl.col("statement_id").is_in(list(repeated)))
+            if not earlier_qualifiers.sort(earlier_qualifiers.columns).equals(
+                repeated_qualifiers.sort(repeated_qualifiers.columns)
+            ):
+                raise ValueError("conflicting geographic qualifiers across discovery batches")
+        seen_ids.update(statements["statement_id"].to_list())
+        statement_frames.append(statements.filter(~pl.col("statement_id").is_in(list(repeated))))
+        qualifier_frames.append(qualifiers.filter(~pl.col("statement_id").is_in(list(repeated))))
+        return qualifiers
+
+    parts = discover_place_parts(
+        list(entity_qids),
+        load_qualifiers,
+        wikidata_client.fetch_entities,
+        max_parts=PLACE_PART_MAX_COUNT,
+        max_depth=PLACE_PART_MAX_DEPTH,
+    )
+    if not statement_frames:
+        raise ValueError("wikidata_place_statement requires at least one subject")
+    statements = pl.concat(statement_frames).unique().sort("subject_item_id", "property", "statement_id")
+    if statements["statement_id"].n_unique() != statements.height:
+        raise ValueError("conflicting geographic statement id across discovery batches")
+    qualifiers = pl.concat(qualifier_frames).sort("statement_id", "qualifier_property", "value")
+    check_non_empty(statements, "wikidata_place_statement")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    statements_path = output_dir / "wikidata_place_statement.parquet"
+    qualifiers_path = output_dir / "wikidata_place_qualifier.parquet"
+    parts_path = output_dir / "wikidata_place_part.parquet"
+    statements.write_parquet(statements_path)
+    qualifiers.write_parquet(qualifiers_path)
+    parts.write_parquet(parts_path)
+    metadata_ids = sorted(set(entity_qids) | set(parts["requested_id"]) | set(parts["resolved_id"].drop_nulls()))
+    metadata = place_metadata(metadata_ids, wikidata_client.fetch_place_metadata_entities, include_class_hierarchy=True)
+    metadata.write_parquet(output_dir / "wikidata_place_metadata.parquet")
+    logger.info(
+        "wrote %d place statements, %d qualifiers and %d parts", statements.height, qualifiers.height, parts.height
+    )
+    return statements_path, qualifiers_path, parts_path
 
 
 def ingest_cultural_entity_aliases(
@@ -527,8 +619,7 @@ def _ingest_api_lane(output_dir: Path, curation_dir: Path, genre_tree_path: Path
         ingest_descriptions(genre_tree_path, curation_dir / "regional_overview_additions.csv", output_dir)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+def main() -> None:
     load_pipeline_env(__file__)
     output_dir = resolve_pipeline_path(__file__, require_env("BRONZE_OUTPUT_DIR"))
     curation_dir = resolve_pipeline_path(__file__, require_env("CURATION_BRONZE_DIR"))
@@ -544,3 +635,18 @@ if __name__ == "__main__":
         ]
         for lane in lanes:
             lane.result()
+    with step("place_statements"):
+        cultural_ids = pl.read_parquet(output_dir / "wikidata_cultural_entity.parquet")["item_id"]
+        hierarchy = pl.read_parquet(output_dir / "wikidata_admin_hierarchy.parquet")
+        place_subjects = sorted(
+            set(cultural_ids.drop_nulls())
+            | set(hierarchy["item_id"].drop_nulls())
+            | set(hierarchy["value"].drop_nulls())
+            | set(admin_seed_qids)
+        )
+        ingest_place_statements(output_dir, place_subjects)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    main()

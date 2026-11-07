@@ -9,24 +9,14 @@ from geohistory.silver.curation import read_curation_list
 from geohistory.silver.entity_footprint import _point_footprints
 from geohistory.silver.entity_membership import GLOTTOLOG_KINDS, _assert_acyclic
 from geohistory.silver.music_anchor import PLACE_KINDS
+from geohistory.silver.place_relation import resolve_place_candidates
 
 logger = logging.getLogger(__name__)
 
-SOURCE_PRIORITY = ("p131", "p361", "p30", "p706", "natural_earth", "point")
+SOURCE_PRIORITY = ("curation", "p131", "p361", "p30", "p706", "natural_earth", "reference_geometry", "city_point")
 PAIR_SCHEMA = {"parent_id": pl.String, "child_id": pl.String}
 EDGE_SCHEMA = PAIR_SCHEMA | {"source": pl.String}
 CLAIM_SOURCES = {"P30": "p30", "P706": "p706"}
-
-
-def _ancestors(entity: str, parents: dict[str, set[str]]) -> set[str]:
-    seen: set[str] = set()
-    pending = list(parents.get(entity, ()))
-    while pending:
-        node = pending.pop()
-        if node not in seen:
-            seen.add(node)
-            pending.extend(parents.get(node, ()))
-    return seen
 
 
 def _find_cycle(parents: dict[str, set[str]]) -> list[tuple[str, str]] | None:
@@ -161,64 +151,45 @@ def place_containment(bronze_dir: Path, wikidata_bronze_dir: Path, silver_dir: P
         ),
     ]
 
-    ranked = (
-        pl.concat(sourced)
+    natural_earth = [
+        (country, entity, "natural_earth")
+        for entity, country in ne_map.filter(pl.col("level") == 1)
+        .select("entity_id", "country_entity_id")
+        .drop_nulls()
+        .unique()
+        .rows()
+        if entity != country and entity in place_ids and country in place_ids
+    ]
+    cities = entities.filter(
+        (pl.col("kind") == "city") & pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
+    ).sort("entity_id")
+    city_points = [
+        (admin, city, "city_point")
+        for city, admin in (_point_footprints(bronze_dir, ne_map, cities) if cities.height else ())
+        if admin in place_ids
+    ]
+    candidates = (
+        pl.concat([*sourced, pl.DataFrame([*natural_earth, *city_points], schema=EDGE_SCHEMA, orient="row")])
         .filter(pl.col("parent_id") != pl.col("child_id"))
-        .with_columns(
+        .join(removals, on=["parent_id", "child_id"], how="anti")
+    )
+    resolved = resolve_place_candidates(
+        bronze_dir, wikidata_bronze_dir, silver_dir, curation_dir, candidates, entities, crosswalk, ne_map
+    )
+    claimed_cities = resolved.filter(pl.col("source") != "city_point")["child_id"].to_list()
+    resolved = resolved.filter((pl.col("source") != "city_point") | ~pl.col("child_id").is_in(claimed_cities))
+    edges = (
+        resolved.with_columns(
             pl.col("source")
             .replace_strict({source: rank for rank, source in enumerate(SOURCE_PRIORITY)}, return_dtype=pl.Int8)
             .alias("rank")
         )
         .sort("rank", "parent_id", "child_id")
         .unique(["parent_id", "child_id"], keep="first", maintain_order=True)
-        .join(removals, on=["parent_id", "child_id"], how="anti")
     )
-    edges = ranked
-
-    parents: dict[str, set[str]] = defaultdict(set)
-    for parent, child in edges.select("parent_id", "child_id").rows():
-        parents[child].add(parent)
-    fallback = []
-    for entity_id, country_id in (
-        ne_map.filter(
-            (pl.col("level") == 1) & pl.col("entity_id").is_not_null() & pl.col("country_entity_id").is_not_null()
-        )
-        .select("entity_id", "country_entity_id")
-        .unique()
-        .sort("entity_id", "country_entity_id")
-        .rows()
-    ):
-        if entity_id == country_id or entity_id not in place_ids or country_id not in place_ids:
-            continue
-        if country_id in _ancestors(entity_id, parents) or entity_id in _ancestors(country_id, parents):
-            continue
-        fallback.append((country_id, entity_id, "natural_earth"))
-        parents[entity_id].add(country_id)
-
-    # A city no claim places under a unit sits under the admin-1 unit its coordinate falls in.
-    cities = entities.filter(
-        (pl.col("kind") == "city")
-        & pl.col("latitude").is_not_null()
-        & pl.col("longitude").is_not_null()
-        & ~pl.col("entity_id").is_in(list(parents))
-    ).sort("entity_id")
-    point_fallback = [
-        (admin_id, city_id, "point")
-        for city_id, admin_id in (_point_footprints(bronze_dir, ne_map, cities) if cities.height else ())
-        if admin_id in place_ids
-    ]
-    fallback_frame = pl.concat(
-        [
-            pl.DataFrame(rows, schema=EDGE_SCHEMA, orient="row").with_columns(
-                pl.lit(SOURCE_PRIORITY.index(source), dtype=pl.Int8).alias("rank")
-            )
-            for source, rows in (("natural_earth", fallback), ("point", point_fallback))
-        ]
-    )
+    membership = membership.filter(~(pl.col("child_id").is_in(place_ids) & pl.col("parent_id").is_in(place_ids)))
     membership_pairs = set(membership.select("child_id", "parent_id").rows())
-    edges = (
-        _break_cycles(pl.concat([edges, fallback_frame]), membership_pairs).drop("rank").sort("parent_id", "child_id")
-    )
+    edges = _break_cycles(edges, membership_pairs).drop("rank").sort("parent_id", "child_id")
     _assert_acyclic(
         pl.concat([edges.select("child_id", "parent_id"), membership.select("child_id", "parent_id")]),
         "2_place_containment + 2_entity_membership",

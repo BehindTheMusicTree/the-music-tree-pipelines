@@ -165,7 +165,8 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         successors[predecessor].append(successor)
     parents: dict[str, list[str]] = defaultdict(list)
     for child, parent in membership.select("child_id", "parent_id").rows():
-        parents[child].append(parent)
+        if child not in place_ids or parent not in place_ids:
+            parents[child].append(parent)
     for child, parent in containment.select("child_id", "parent_id").rows():
         parents[child].append(parent)
     values: dict[tuple[str, str], list[str]] = defaultdict(list)
@@ -222,9 +223,13 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
                 if entity in place_ids:
                     add(entity, prop)
         label_matches: set[str] = set()
+        raw_label_matches: set[str] = set()
         if is_overview:
+            raw_label_matches = label_index.get(
+                label.removeprefix(OVERVIEW_PREFIX).removeprefix("the ").casefold(), set()
+            )
             label_matches = _collapse_equivalent(
-                label_index.get(label.removeprefix(OVERVIEW_PREFIX).removeprefix("the ").casefold(), set()),
+                raw_label_matches,
                 kinds,
                 footprint_admins,
             )
@@ -247,7 +252,7 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
                 unplaced.append((qid, label, "|".join(sorted(set(candidates) | label_matches))))
             continue
         naming: int | None = None
-        if is_overview and picked[0] in label_matches:
+        if is_overview and (picked[0] in label_matches or (override_entity and picked[0] in raw_label_matches)):
             naming = NAMES_BY_LABEL
         elif (
             is_overview

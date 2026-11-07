@@ -187,3 +187,157 @@ A column no rule places raises and names the column: add a `region_overrides` ro
 Known limitation: the nearest-country fallback searches within a fixed tolerance in degrees and does not wrap across the
 antimeridian, so a point just across ±180° (Fiji, Chukotka) finds no country on the other side. The area vote covers
 such entities whenever they have a footprint; add a `region_overrides` row for the rest.
+
+### Independent island identity
+
+The physical-region layer (`ne_10m_geography_regions_polys`) supplies source-linked QIDs and explicitly distinguishes
+simple islands from island groups. Simple islands can identify a land component only when the Wikidata coordinate
+and the physical-label polygon's interior representative point lie inside the same unique component. Coastline
+geometry comes from the union of Natural Earth administrative land, not the label polygon. Island groups are not
+reduced to a single component. Missing identity, missing coordinates or inconsistent identity leave the boundary
+unresolved. The pinned v5.1.2 source splits Flores into two features sharing one identity; ingestion unions shards
+only when their source identity metadata agrees, and rejects conflicting metadata.
+
+Explicit full member decisions can construct composed reference boundaries. These unions remain incomplete unless
+exhaustiveness is independently declared; absence from an incomplete union supplies no negative evidence. Every
+union retains its relation dependencies, preventing it from proving the relation used to build it. Members with
+incompatible temporal reference periods cannot form a shared reference boundary.
+
+Geographic candidates are resolved before source priority and cycle handling. Only
+full decisions enter containment. Place-to-place cultural membership is excluded from
+anchor specificity and genealogy ancestry; those consumers use the resolved graph.
+Point footprints remain available to locate anchors but never define a drawn region's
+boundary. Independent reference boundaries take precedence over administrative tiling.
+Coverage is clipped for map discovery and never feeds back into containment.
+
+A city's coordinate can locate that city inside a mapped admin-1 unit when no resolved
+claim places it. This `city_point` fallback is restricted to cities and does not construct
+a boundary for any country or region.
+
+Independent composed boundaries use pinned Natural Earth `admin_0_map_units`, rather
+than sovereign country polygons: the latter merge overseas territories with their
+metropole. The Bronze composition artifact retains each map unit's NE_ID and name,
+source version, definition, geometry and completeness. Caribbean means Natural Earth's
+`SUBREGION=Caribbean`, including its island territories and excluding mainland coastal
+regions. Kingdom of the Netherlands uses `SOV_A3=NL1`; its European and Caribbean units
+remain distinct in the source and are united only for the Kingdom's own boundary.
+
+The listed continental and statistical subregional conventions use Natural Earth's
+`CONTINENT`/`SUBREGION` assignments. These are explicit administrative groupings, not
+physical watershed or tectonic boundaries; for example, Russia follows the source's
+Europe classification. Korea, Scandinavia, British Isles and Nordic countries use the
+explicit map-unit selections in `composed_boundaries.py`. The Nordic selection includes
+Greenland, the Faroes, Åland and Norway's northern dependencies, following the territory
+scope described by [Nordic cooperation](https://www.norden.org/en/information/official-nordic-co-operation).
+Polynesia uses a separate, explicit cultural core convention, following the
+[Polynesian triangle described by Te Ara](https://teara.govt.nz/mi/map/43839/polynesian-languages).
+It retains the ten Pacific map units independently of their `SUBREGION` values and adds
+Hawaii's US-HI subdivision, whole New Zealand main/Chatham land components and the Rapa
+Nui component of Chile. Component windows select whole polygons; a window cutting land
+fails ingestion. Mainland US/Chile, New Zealand's subantarctic/Kermadec islands and
+Polynesian outliers outside the triangle are excluded. This known subset is explicitly
+incomplete: it can prove inclusion of a fully covered child but cannot disprove inclusion
+from missing land. Raw statistical assignments remain unchanged. Cultural membership
+never constructs this geometry; the two conventions have independent provenance.
+
+Missing any configured composition fails ingestion. Source definitions are never inferred
+from existing containment or cultural membership.
+
+A current city's, country's or admin unit's best-rank P131 path can supply administrative
+evidence even when a polygon is absent. Every original statement must be unscoped and
+current: an explicit start year must precede the run's year and an explicit end year must
+follow it, at year precision or better. Same-year transitions, point-in-time qualifiers,
+unsupported dates and known historical entities anywhere in the path are excluded.
+Uncatalogued intermediates are accepted only through such P131 statements; all original
+statement IDs and qualifiers remain in the evidence. The report records the evaluation year.
+Other dated geographic claims remain unknown against today's reference boundaries. Conflicting
+geometric evidence remains a conflict requiring review rather than being erased by
+source priority.
+
+Independent borders are compared on the source coordinate grid. When polygons overlap,
+an excursion entirely within one grid unit of the parent is treated as rounding uncertainty;
+no overlap-area percentage is used. Anything farther outside remains partial. The parent is
+clipped around the child's bounds before buffering, so this tolerance does not offset an
+entire country's detailed coast for each subdivision. Disjoint polygons and boundary-only
+contact cannot establish full containment through this tolerance.
+
+### Contours manuels sourcés
+
+Le catalogue versionné `silver/manual_boundaries.geojson` contient des `Feature` GeoJSON
+WGS84 de type Polygon ou MultiPolygon. Chaque entrée exige `wikidata_id`, `source_url`
+(HTTPS), `license`, `version`, `definition`, `components` (identifiants des composants de la
+source, liste vide pour un contour direct), `complete`, `usage`, `start_year` et `end_year`.
+Les années nulles indiquent une frontière sans période historique déclarée. Le chargeur
+rejette les doublons, les polygones invalides, les périodes inversées et les métadonnées
+manquantes. Une entrée ne remplace jamais implicitement une référence existante.
+
+`usage: display` autorise la matérialisation cartographique mais conserve
+`boundary_kind: display` : le résolveur et les compositions de preuves l'excluent, même si
+`complete` vaut true. `usage: containment` exige un contour complet ; les contrôles de
+période et de circularité s'appliquent ensuite comme aux autres références indépendantes.
+Les géométries dessinées peuvent servir au découpage cartographique, dont les intersections
+ne remontent jamais dans le graphe d'inclusion. La provenance des entrées effectivement
+rattachées est conservée dans `2_manual_boundary_provenance.json`.
+
+Le catalogue est initialement vide : les pistes documentaires n'établissent pas encore des
+contours réutilisables ni des conventions culturelles acceptées. Les régions concernées
+restent dans les rapports de frontières manquantes. Ce contrat ne résout pas à lui seul leur
+absence dans l'index Gold ; ce dernier et ses consommateurs doivent encore représenter une
+région sans géométrie, avec ses genres attachés à leur région d'origine.
+
+### Compositions d'affichage celtiques et balkaniques
+
+Bronze charge les unités cartographiques et subdivisions Natural Earth à la même version.
+La convention celtique compose les six nations, avec toute l'Irlande et les cinq départements
+bretons historiques ; la convention balkanique compose onze pays entiers, sans la Turquie
+européenne, et reste incomplète. Les composants absents font échouer l'ingestion.
+`usage=display` demeure une frontière d'affichage, y compris pour une entité classée
+historique : elle ne devient jamais une référence indépendante de preuve.
+Les sources et sélecteurs sont détaillés dans `docs/validation/p706-boundary-sources.md`.
+
+
+### Découverte des relations par contours régionaux
+
+Un contour régional indépendant composé de map units Natural Earth peut découvrir une
+paire pays/région absente des déclarations Wikidata. Un index spatial sélectionne les
+pays dont les contours intersectent la région ; cette intersection ne prouve aucune
+inclusion. Chaque paire passe dans le résolveur habituel avec la source
+`reference_geometry`, les contrôles de complétude, de période et de circularité, ainsi
+que les exclusions de curation. Les contours réservés à l'affichage et les entités
+historiques sans frontière admissible ne participent pas à cette découverte. Les
+inclusions partielles restent partielles et n'entrent pas dans le graphe des inclusions
+entières. Cela permet notamment d'évaluer Corée du Sud → Corée sans inventer une
+appartenance Wikidata.
+
+## Qualification et appartenance culturelles
+
+Le type principal (`kind`) et le rôle culturel sont indépendants. `entity_cultural_roles`
+qualifie explicitement une entité avec `is_cultural`. Le type `cultural_region` fournit
+une qualification positive initiale ; ailleurs, une qualification absente reste inconnue
+(`null`). Ce rôle ne conditionne pas les liens de parenté culturelle.
+
+Après la résolution géographique, `cultural_membership` matérialise les rôles et les
+appartenances dans deux sorties Silver. Toute relation administrative actuelle retenue
+avec preuve `administrative_p131` ou `natural_earth`, entière et sans conflit, crée une
+appartenance culturelle directe. Aucun paramètre d'activation n'est requis. Les simples
+inclusions géométriques, `P361` et overviews ne créent pas ces liens.
+
+`cultural_membership_overrides` ajoute un parent culturel ou exclut une appartenance,
+avec justification. Les parents multiples sont autorisés. Le graphe direct doit être
+acyclique ; les références inconnues, doublons et auto-liens échouent. Les ancêtres sont
+calculés par transitivité sur ce graphe. Une exclusion bloque la paire sur tous les
+chemins et l'appartenance exclue n'est pas transmise aux descendants par ce parent.
+Un descendant peut toutefois avoir une appartenance indépendante via un autre parent.
+Une exclusion n'empêche pas l'accès aux autres ancêtres encore justifiés.
+
+Les liens directs gardent leur provenance administrative ou de curation. Les liens
+indirects portent `source=transitive` et un chemin JSON dans `reason` : le plus court,
+puis le premier dans l'ordre lexicographique en cas d'égalité. Un ajout explicite
+conserve sa justification même si un chemin administratif existe aussi.
+
+Exemple : Hawaï appartient aux États-Unis par administration actuelle et à la Polynésie
+par curation. Ses subdivisions héritent des deux appartenances. Ces rattachements sont
+non exclusifs et ne supposent aucune homogénéité culturelle. Ils ne composent pas de
+contours et ne propagent pas les genres musicaux ; les ancrages et consommateurs aval
+restent indépendants de ces sorties. Les CSV de `docs/validation/p706-curation/` sont
+des propositions locales ; grow-api reste la source de vérité de la curation publiée.

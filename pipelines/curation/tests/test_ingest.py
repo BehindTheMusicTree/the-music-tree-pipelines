@@ -83,6 +83,19 @@ def test_write_raises_on_missing_list(tmp_path: Path) -> None:
         ingest.write_curation_csvs(export, tmp_path)
 
 
+def test_place_relation_overrides_export_to_csv_and_are_required(tmp_path: Path) -> None:
+    export = _export()
+    row = {"child_entity_id": "Q145", "parent_entity_id": "Q161885", "extent": "partial", "reason": "overlap"}
+    export["place_relation_overrides"] = [row]
+
+    ingest.write_curation_csvs(export, tmp_path)
+
+    assert pl.read_csv(tmp_path / "place_relation_overrides.csv").to_dicts() == [row]
+    del export["place_relation_overrides"]
+    with pytest.raises(ValueError, match="missing list.*place_relation_overrides"):
+        ingest.write_curation_csvs(export, tmp_path)
+
+
 def test_write_raises_on_column_mismatch(tmp_path: Path) -> None:
     export = _export()
     export["genre_alias"] = [{"wikidata_genre_name": "rock", "musicbrainz_genre_name": "rock"}]

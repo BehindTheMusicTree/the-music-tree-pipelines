@@ -339,6 +339,72 @@ CITY_CANDIDATE_QUERY_VARIABLES = ("item", "itemLabel", "coordinate")
 ITEM_CLAIM_QUERY_VARIABLES = ("item", "property", "value", "precision")
 # ~1k items by a dozen properties answer in 3-5 s, well inside WDQS's 60 s limit (and too long for a GET URL).
 ITEM_CLAIM_CHUNK = 1000
+PLACE_STATEMENT_PIDS = ("P30", "P131", "P361", "P706")
+PLACE_STATEMENT_QUERY_VARIABLES = ("item", "property", "statement", "rank", "value", "snakType")
+PLACE_QUALIFIER_QUERY_VARIABLES = ("statement", "qualifierProperty", "value", "valueType", "snakType", "precision")
+
+
+def place_statement_queries(qids: Iterable[str]) -> list[str]:
+    """Read all geographic statement ranks and snak types without combining qualifiers."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"place statement items must be Wikidata QIDs, got {invalid[:5]}")
+    branches = "\n  UNION\n  ".join(
+        f"""{{
+    ?item p:{pid} ?statement .
+    ?statement wikibase:rank ?rank .
+    OPTIONAL {{ ?statement ps:{pid} ?value . }}
+    BIND("{pid}" AS ?property)
+    BIND(IF(BOUND(?value),
+      IF(isBlank(?value) || STRSTARTS(STR(?value), "http://www.wikidata.org/.well-known/genid/"),
+        "somevalue", "value"),
+      IF(EXISTS {{ ?statement a wdno:{pid} }}, "novalue", "invalid")) AS ?snakType)
+  }}"""
+        for pid in PLACE_STATEMENT_PIDS
+    )
+    return [
+        f"""
+SELECT DISTINCT ?item ?property ?statement ?rank ?value ?snakType WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  {branches}
+}}
+"""
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
+
+
+def place_qualifier_queries(qids: Iterable[str]) -> list[str]:
+    """Read qualifier snaks separately to retain their statement association."""
+    items = sorted(set(qids))
+    invalid = [qid for qid in items if not QID_PATTERN.fullmatch(qid)]
+    if invalid:
+        raise ValueError(f"place qualifier items must be Wikidata QIDs, got {invalid[:5]}")
+    return [
+        f"""
+SELECT DISTINCT ?statement ?qualifierProperty ?value ?valueType ?snakType ?precision WHERE {{
+  VALUES ?item {{ {" ".join(f"wd:{qid}" for qid in items[start : start + ITEM_CLAIM_CHUNK])} }}
+  VALUES ?claimPredicate {{ {" ".join(f"p:{pid}" for pid in PLACE_STATEMENT_PIDS)} }}
+  ?item ?claimPredicate ?statement .
+  {{
+    ?qualifierProperty wikibase:qualifier ?predicate ; wikibase:propertyType ?valueType .
+    ?statement ?predicate ?value .
+    OPTIONAL {{
+      ?qualifierProperty wikibase:qualifierValue ?fullPredicate .
+      ?statement ?fullPredicate ?node .
+      ?node wikibase:timeValue ?value ; wikibase:timePrecision ?precision .
+    }}
+    BIND(IF(isBlank(?value) || STRSTARTS(STR(?value), "http://www.wikidata.org/.well-known/genid/"),
+      "somevalue", "value") AS ?snakType)
+  }} UNION {{
+    ?qualifierProperty wikibase:novalue ?noValue ; wikibase:propertyType ?valueType .
+    ?statement a ?noValue .
+    BIND("novalue" AS ?snakType)
+  }}
+}}
+"""
+        for start in range(0, len(items), ITEM_CLAIM_CHUNK)
+    ]
 
 
 # Claims are queried by item, one VALUES chunk at a time, each property a UNION branch tagged with its PID: the items
@@ -519,6 +585,16 @@ def _get_batched_entities(
             raise ValueError(f"wbgetentities returned no entity for {absent}")
         entities.update({qid: batch_entities[qid] for qid in batch})
     return entities
+
+
+def fetch_claim_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, dict]:
+    """Fetch original claim snaks where Wikidata's RDF representation is ambiguous."""
+    return _get_batched_entities(ids, "claims", timeout)
+
+
+def fetch_place_metadata_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, dict]:
+    """Fetch geographic metadata including revision information and English labels."""
+    return _get_batched_entities(ids, "info|labels|claims", timeout)
 
 
 def _label(entity: dict) -> str | None:

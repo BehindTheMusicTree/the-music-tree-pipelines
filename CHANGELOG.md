@@ -49,8 +49,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Les subdivisions administratives appartiennent culturellement à leurs parents par défaut ; les appartenances sont transitives, avec exclusions explicites prioritaires et provenance conservée.
+
+- Geohistory : qualification culturelle indépendante du type et appartenances explicites ou héritées des liens administratifs, avec curation et provenance.
+
 ### Added
 
+- Compose Polynesia from explicit island land components, including Hawaii, Aotearoa/Chatham and Rapa Nui, while preserving statistical source classifications and reporting the boundary as incomplete.
+
+- Preserve anchored regions without a boundary and their genres in the map index, with explicit missing status and null coordinates; omit fabricated tile features. Requires compatible grow-api and frontend consumers before new indexes are published.
+- Add a sourced manual-boundary catalog with separate display and containment uses, strict provenance validation and a Silver provenance artifact.
+- Resolve geographic candidates before containment, retain qualified Wikidata statements and independent island boundaries, and export clipped full/partial map coverage without propagating partial overlaps into ancestry or counts. Border disagreements within one source coordinate grid no longer demote valid administrative placements. Requires fresh Wikidata/geohistory Bronze and the grow-api place relation override export.
 - Preserve selected YouTube country restrictions from budgeted Silver cache enrichment through Gold song exports and deltas, keeping unknown metadata and global playback reasons separate.
 - City-level region map: a settlement a genre claims through `P740` (location of formation, also `P495`/`P17`/`P276`/`P921`/`P361` targets that are human settlements) becomes a `city` entity in geohistory Silver, with its point footprint and containment edge under the admin unit holding its coordinate. Gold's `5_region_map` emits a `city` region (`parentId` = that admin unit, degenerate `bbox`/`mainBbox`, `drillable` false) only when at least one genre anchors on it; its genres are also listed on the admin unit with rule `city_parent`, the admin unit gets `cityIds` (not in `childIds`), and the tileset has a `cities` point layer from zoom 5. New Bronze file `wikidata_city_candidate.parquet`; `P740` joins the music-tradition claims; `entity_additions` accepts kind `city`. **Deploy order:** `grow-the-music-tree-frontend` (strict region-map schema: kind `city`, `cityIds`) must be live before the first index containing a city, and grow-api's `COLUMN_CHOICES["entity_additions"]` must accept `city` before any city is curated. Tests in `test_ingest.py`, `test_wikidata_client.py`, `test_silver.py`, `test_music_anchor.py`, `test_place_containment.py`, `test_region_map_export.py`.
 
@@ -65,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Discover country containment candidates from independent regional boundaries when Wikidata supplies no direct relation.
+- Preserve an overview's name when a curated anchor matches it but lacks a geographic footprint.
 - geohistory Silver gives a Wikidata `country` that Natural Earth holds as an admin-1 unit only the kind `admin_unit`: Wikidata's subclass chain (state of India ⊂ … ⊂ constituent country ⊂ country) made the 34 states and union territories of India countries, so Gold's `5_region_map` drew them genre-less. Test in `test_silver.py`.
 - Gold's `5_region_map` tileset is generalized per zoom (tippecanoe `--simplification=8 --visvalingam --simplify-only-low-zooms`, about one pixel): low-zoom tiles kept the unsimplified 1:10m coasts, whose sub-pixel zigzags the map's region outline drew as a hairy, spiky border. Zoom 10 keeps full detail; the index is unchanged. Tests in `test_region_map_export.py`.
 - Artist image enrichment isolates malformed Wikidata artists, preserves their previous observations and retries them across runs while publishing valid updates.

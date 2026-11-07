@@ -708,3 +708,48 @@ def test_religion_pattern_selects_every_religion_class():
     for qid in ("Q9174", "Q71966963", "Q123129246", "Q6957341"):
         assert f"wd:{qid}" in pattern
     assert "wdt:P31 ?religionClass" in pattern
+
+
+@pytest.mark.parametrize("failed_lane", [None, "sparql", "api"])
+def test_main_collects_place_subjects_only_after_both_lanes_finish(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failed_lane: str | None
+) -> None:
+    from threading import Barrier
+
+    barrier = Barrier(2, timeout=10)
+    completed: set[str] = set()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(bw, "load_pipeline_env", lambda _: None)
+    monkeypatch.setattr(bw, "require_env", lambda name: name)
+    monkeypatch.setattr(bw, "resolve_pipeline_path", lambda *_: tmp_path)
+    monkeypatch.setattr(bw, "read_natural_earth_qids", lambda _: ["Q4"])
+    monkeypatch.setattr(bw, "ingest_genre_tree", lambda _: tmp_path / "tree.parquet")
+
+    def sparql(*_: object) -> None:
+        pl.DataFrame({"item_id": ["Q1", "Q1"]}).write_parquet(tmp_path / "wikidata_cultural_entity.parquet")
+        pl.DataFrame({"item_id": ["Q2"], "value": ["Q3"]}).write_parquet(tmp_path / "wikidata_admin_hierarchy.parquet")
+        barrier.wait()
+        if failed_lane == "sparql":
+            raise ValueError("failed sparql")
+        completed.add("sparql")
+
+    def api(*_: object) -> None:
+        barrier.wait()
+        if failed_lane == "api":
+            raise ValueError("failed api")
+        completed.add("api")
+
+    def statements(_: Path, subjects: list[str]) -> None:
+        assert completed == {"sparql", "api"}
+        calls.append(subjects)
+
+    monkeypatch.setattr(bw, "_ingest_sparql_lane", sparql)
+    monkeypatch.setattr(bw, "_ingest_api_lane", api)
+    monkeypatch.setattr(bw, "ingest_place_statements", statements)
+    if failed_lane:
+        with pytest.raises(ValueError, match=f"failed {failed_lane}"):
+            bw.main()
+        assert calls == []
+    else:
+        bw.main()
+        assert calls == [["Q1", "Q2", "Q3", "Q4"]]

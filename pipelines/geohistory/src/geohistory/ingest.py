@@ -206,6 +206,71 @@ def ingest_natural_earth_basemap(version: str, output_dir: Path) -> Path:
     return output_path
 
 
+def ingest_natural_earth_physical(version: str, output_dir: Path) -> Path:
+    collection = natural_earth_client.download_layer(version, "ne_10m_geography_regions_polys")
+    rows = []
+    for feature in collection["features"]:
+        properties = feature["properties"]
+        if properties["FEATURECLA"] not in {"Island", "Island group"}:
+            continue
+        if feature["geometry"] is None:
+            raise ValueError(f"Natural Earth physical feature {properties['NE_ID']} has no geometry")
+        rows.append(
+            (
+                str(properties["NE_ID"]),
+                properties["WIKIDATAID"],
+                properties["NAME"],
+                properties["FEATURECLA"],
+                version,
+                shapely.geometry.shape(feature["geometry"]).wkb,
+            )
+        )
+    frame = pl.DataFrame(
+        rows,
+        schema={
+            "ne_id": pl.String,
+            "wikidata_id": pl.String,
+            "name": pl.String,
+            "kind": pl.String,
+            "version": pl.String,
+            "geometry_wkb": pl.Binary,
+        },
+        orient="row",
+    )
+    metadata_columns = ["ne_id", "wikidata_id", "name", "kind", "version"]
+    if frame.select(metadata_columns).unique()["ne_id"].n_unique() != frame.select(metadata_columns).unique().height:
+        raise ValueError("Natural Earth physical features have conflicting metadata for one NE_ID")
+    # Natural Earth splits some features (Flores in v5.1.2) into multiple rows with the same identity.
+    frame = pl.DataFrame(
+        [
+            (*key, shapely.union_all(shapely.make_valid(shapely.from_wkb(group["geometry_wkb"].to_list()))).wkb)
+            for key, group in frame.group_by(metadata_columns, maintain_order=True)
+        ],
+        schema=frame.schema,
+        orient="row",
+    )
+    check_non_empty(frame, "natural_earth_physical")
+    check_unique_key(frame, "ne_id", "natural_earth_physical")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "natural_earth_physical.parquet"
+    frame.sort("ne_id").write_parquet(path)
+    return path
+
+
+def ingest_composed_boundaries(version: str, output_dir: Path) -> Path:
+    from geohistory.composed_boundaries import build_composed_boundaries
+
+    frame = build_composed_boundaries(
+        natural_earth_client.download_layer(version, "ne_10m_admin_0_map_units"),
+        version,
+        natural_earth_client.download_layer(version, "ne_10m_admin_1_states_provinces"),
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "natural_earth_composed_boundary.parquet"
+    frame.write_parquet(path)
+    return path
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     load_pipeline_env(__file__)
@@ -213,3 +278,7 @@ if __name__ == "__main__":
     ingest_glottolog_languoids(require_env("GLOTTOLOG_CLDF_VERSION"), bronze_dir)
     ingest_natural_earth_admin(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
     ingest_natural_earth_basemap(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
+
+    ingest_natural_earth_physical(require_env("NATURAL_EARTH_VERSION"), bronze_dir)
+
+    ingest_composed_boundaries(require_env("NATURAL_EARTH_VERSION"), bronze_dir)

@@ -1,0 +1,82 @@
+import pytest
+from shapely.geometry import Polygon, box
+
+from geohistory.silver.place_relation_geometry import ReferenceGeometry, resolve_geometry
+
+PAIR = ("child", "parent")
+
+
+def reference(geometry, **kwargs):
+    return ReferenceGeometry(
+        geometry,
+        source="test",
+        complete=kwargs.pop("complete", True),
+        boundary_kind=kwargs.pop("boundary_kind", "independent"),
+        **kwargs,
+    )
+
+
+def test_full_partial_contact_and_disjoint():
+    parent = reference(box(0, 0, 2, 2))
+    assert resolve_geometry(reference(box(0, 0, 1, 1)), parent, PAIR, precision=0.001) == "full"
+    assert resolve_geometry(reference(box(1, 0, 3, 1)), parent, PAIR, precision=0.001) == "partial"
+    assert resolve_geometry(reference(box(2, 0, 3, 1)), parent, PAIR, precision=0.001) == "unknown"
+    assert resolve_geometry(reference(box(3, 0, 4, 1)), parent, PAIR, precision=0.001) == "unknown"
+
+
+def test_rounded_border_sliver_is_bounded_by_source_precision():
+    parent = reference(Polygon([(0, 0), (2, 0), (0, 2)]))
+    # Rounding two diagonal borders independently leaves a sub-grid sliver.
+    child = reference(Polygon([(0, 0), (1.001, 1), (0, 2)]))
+    assert resolve_geometry(child, parent, PAIR, precision=0.001) == "full"
+    crossing = reference(Polygon([(0, 0), (1.003, 1), (0, 2)]))
+    assert resolve_geometry(crossing, parent, PAIR, precision=0.001) == "partial"
+    # A small detached component beyond source precision cannot be hidden by overlap ratios.
+    from shapely import union_all
+
+    detached = reference(union_all([box(0, 0, 0.1, 0.1), box(3, 3, 3.001, 3.001)]))
+    assert resolve_geometry(detached, parent, PAIR, precision=0.001) == "partial"
+
+
+def test_incomplete_circular_and_historical_boundaries_do_not_prove_extent():
+    child = reference(box(0, 0, 1, 1))
+    parent = box(0, 0, 2, 2)
+    assert resolve_geometry(child, reference(parent, complete=False), PAIR, precision=0.001) == "full"
+    assert (
+        resolve_geometry(reference(box(1, 0, 3, 1)), reference(parent, complete=False), PAIR, precision=0.001)
+        == "unknown"
+    )
+    assert (
+        resolve_geometry(reference(child.geometry, complete=False), reference(parent), PAIR, precision=0.001)
+        == "unknown"
+    )
+    assert resolve_geometry(child, reference(parent, boundary_kind="point"), PAIR, precision=0.001) == "unknown"
+    assert (
+        resolve_geometry(child, reference(parent, derived_from=frozenset({PAIR})), PAIR, precision=0.001) == "unknown"
+    )
+    assert (
+        resolve_geometry(child, reference(parent), PAIR, precision=0.001, start_year=1800, end_year=1900) == "unknown"
+    )
+    dated_child = reference(child.geometry, start_year=1700, end_year=2000)
+    dated_parent = reference(parent, start_year=1700, end_year=2000)
+    assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001, start_year=1800, end_year=1900) == "full"
+    assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001) == "unknown"
+    assert resolve_geometry(dated_child, dated_parent, PAIR, precision=0.001, start_year=1800) == "unknown"
+    later_parent = reference(parent, start_year=2100, end_year=2200)
+    assert resolve_geometry(dated_child, later_parent, PAIR, precision=0.001) == "unknown"
+
+
+@pytest.mark.parametrize("precision", [0, -1, float("nan"), float("inf")])
+def test_precision_must_be_finite_and_positive(precision):
+    geom = reference(box(0, 0, 1, 1))
+    with pytest.raises(ValueError, match="precision"):
+        resolve_geometry(geom, geom, PAIR, precision=precision)
+
+
+def test_inverted_periods_fail_before_geometry_comparison():
+    geom = reference(box(0, 0, 1, 1))
+    with pytest.raises(ValueError, match="relation start year"):
+        resolve_geometry(geom, geom, PAIR, precision=0.001, start_year=1900, end_year=1800)
+    inverted = reference(geom.geometry, start_year=1900, end_year=1800)
+    with pytest.raises(ValueError, match="reference start year"):
+        resolve_geometry(inverted, geom, PAIR, precision=0.001)

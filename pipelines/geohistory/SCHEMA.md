@@ -161,7 +161,7 @@ Profile: 32,812 rows; `start_source` is null for 28,568, `P571` 3,497, `P580` 43
 | --------- | ---- | -------------------------------------------------------- |
 | parent_id | str  | `1_cultural_entity.entity_id`                            |
 | child_id  | str  | `1_cultural_entity.entity_id`                            |
-| source    | str  | `p131`, `p361`, `p30`, `p706` or `natural_earth`         |
+| source    | str  | `curation`, `p131`, `p361`, `p30`, `p706`, `natural_earth`, `reference_geometry` or `city_point` |
 
 `8_entity_footprint.parquet`: the admin units each entity covers, `(entity_id, admin_id)` unique.
 
@@ -254,3 +254,104 @@ raises otherwise.
 of one region are contiguous (seriation never swaps across regions). `7_band_fragment.parquet`: one row per
 contiguous run of a band's columns: `entity_id`, `label`, `fragment` (i32), `start_position`, `end_position` (i32,
 inclusive), `start_year`, `end_year`.
+
+### `natural_earth_physical.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| ne_id | String | Natural Earth physical-feature identifier; feature shards are united |
+| wikidata_id | String, nullable | Source-linked Wikidata QID |
+| name | String | Physical-feature name |
+| kind | String | `Island` or `Island group` |
+| version | String | Pinned Natural Earth source version |
+| geometry_wkb | Binary | Physical-label polygon, distinct from the coastline geometry |
+
+### `2_place_reference_geometry.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| entity_id | String | Boundary owner |
+| geometry_wkb | Binary | Independent, explicitly composed or display-only land boundary |
+| source | String | Boundary provenance |
+| complete | Boolean | Whether the boundary covers the whole entity |
+| boundary_kind | String | `independent`, `display`, `point` or `succession`; display boundaries cannot prove inclusion |
+| start_year, end_year | Integer, nullable | Boundary validity period |
+
+### `2_place_relation.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| child_id, parent_id | String | Directed geographic relation |
+| extent | String | `full`, `partial`, or `unknown` |
+| conflict | Boolean | Contradictory evidence before an override |
+| override_reason | String, nullable | Curated decision rationale |
+| statement_ids | String | JSON array of supporting statement identifiers |
+
+### `8_entity_coverage.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| entity_id, admin_id | String | Entity boundary and intersecting administrative unit |
+| extent | String | `full` when the entity covers the entire admin polygon, otherwise `partial` |
+| geometry_source | String | Entity boundary provenance |
+| geometry_wkb | Binary | Positive-area intersection, clipped to both boundaries |
+| complete | Boolean | Completeness of the entity boundary |
+
+### `natural_earth_composed_boundary.parquet` (Bronze)
+
+| Column | Type | Meaning |
+|---|---|---|
+| wikidata_id | String | Entity represented by the explicit composition |
+| geometry_wkb | Binary | Union of selected independent map units, subdivisions or whole land components |
+| source | String | `natural_earth_map_unit_union`, `natural_earth_admin_unit_union` or `natural_earth_display_union` |
+| version | String | Pinned Natural Earth source version |
+| definition | String | Membership convention and scope |
+| members_json | String | JSON array of member NE_ID/name records or source field/value selectors |
+| complete | Boolean | Complete for the documented source convention |
+| usage | String | `containment` or `display`; display unions cannot prove inclusion |
+| source_url | String | Versioned Natural Earth source directory |
+| license | String | Natural Earth public-domain status |
+
+`2_place_relation` also records `evidence_json` (statement source, extent, scope and
+qualifiers), `child_boundary_source` and `parent_boundary_source` (nullable Strings).
+`8_entity_geometry_report.json` records drawn/materialized boundary counts and the
+entity IDs with missing or incomplete boundaries.
+
+### `2_manual_boundary_provenance.json`
+
+Array of provenance objects for manual boundaries mapped to the entity catalog.
+
+| Field | Type | Meaning |
+|---|---|---|
+| entity_id | String | Boundary owner in the entity catalog |
+| wikidata_id | String | Source entity QID |
+| source_url | String | HTTPS provenance URL |
+| license | String | Source license identifier or text |
+| version | String | Source revision |
+| definition | String | Geographic definition represented by the polygon |
+| components | Array of Strings | Source component identifiers; empty for a direct boundary |
+| complete | Boolean | Whether the polygon covers the entire defined entity |
+| usage | String | `display` or `containment` |
+| start_year, end_year | Integer, nullable | Boundary validity period |
+
+### 2_entity_cultural_role.parquet
+
+Une ligne par entité de `1_cultural_entity`.
+
+| Colonne | Type | Signification |
+|---|---|---|
+| entity_id | str | Identifiant de l'entité |
+| is_cultural | bool? | Qualification culturelle ; null = non établie |
+| source | str? | `entity_kind`, `curation` ou null |
+| reason | str? | Justification de la qualification manuelle |
+
+### 2_cultural_membership.parquet
+
+Une ligne par paire `(child_id, parent_id)`.
+
+| Colonne | Type | Signification |
+|---|---|---|
+| child_id | str | Entité appartenant au regroupement |
+| parent_id | str | Entité culturelle de rattachement |
+| source | str | `curation`, `administrative_inheritance` ou `transitive` |
+| reason | str | Justification explicite, `current_administration` ou chemin JSON enfant → ancêtre |

@@ -36,6 +36,27 @@ def _append(path: Path, rows: list[tuple]) -> None:
     pl.concat([frame, pl.DataFrame(rows, schema=frame.schema, orient="row")]).write_parquet(path)
 
 
+def _write_coverage(geohistory: Path) -> None:
+    entities = pl.read_parquet(geohistory / "1_cultural_entity.parquet")
+    kinds = dict(entities.select("entity_id", "kind").rows())
+    geometry = pl.read_parquet(geohistory / "8_entity_geometry.parquet")
+    admins = {
+        row["entity_id"]: shapely.from_wkb(row["geometry_wkb"])
+        for row in geometry.iter_rows(named=True)
+        if kinds[row["entity_id"]] in {"country", "admin_unit"} and row["source"] == "natural_earth"
+    }
+    rows = []
+    for row in geometry.iter_rows(named=True):
+        shape = shapely.from_wkb(row["geometry_wkb"])
+        for admin_id, admin in admins.items():
+            clipped = shape.intersection(admin)
+            if clipped.area > 0:
+                rows.append((row["entity_id"], admin_id, "full" if shape.covers(admin) else "partial"))
+    pl.DataFrame(
+        rows, schema={"entity_id": pl.String, "admin_id": pl.String, "extent": pl.String}, orient="row"
+    ).write_parquet(geohistory / "8_entity_coverage.parquet")
+
+
 def _extend(
     geohistory: Path,
     wikidata: Path,
@@ -60,6 +81,7 @@ def _extend(
         [(item, anchor, "P495", item in overviews, overviews.get(item)) for item, anchor in anchors],
     )
     _append(wikidata / "8_regional_hierarchy.parquet", regional)
+    _write_coverage(geohistory)
 
 
 def _regions(index_path: Path) -> dict[str, dict]:
@@ -136,6 +158,7 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         [_geometry_row(e, s, "natural_earth" if e != "CE" else "wikidata") for e, s in shapes.items()]
     ).write_parquet(geohistory / "8_entity_geometry.parquet")
     _write_basemap(geohistory)
+    _write_coverage(geohistory)
     pl.DataFrame([("CE", "BR", "point")], schema=["entity_id", "admin_id", "rule"], orient="row").write_parquet(
         geohistory / "8_entity_footprint.parquet"
     )
@@ -599,7 +622,13 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     ]
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["unplacedGenreCount"] == 2
-    assert set(report) == {"unplacedGenreCount", "regionsWithoutOverview", "hiddenRegionCount", "tileset"}
+    assert set(report) == {
+        "unplacedGenreCount",
+        "regionsWithoutOverview",
+        "hiddenRegionCount",
+        "tileset",
+        "missingBoundaryRegionIds",
+    }
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -963,7 +992,7 @@ def test_export_region_map_draws_every_country_and_territory_but_no_genreless_su
     assert regions["IN"]["parentId"] == "FR" and "IN" in regions["FR"]["childIds"]
 
 
-def test_export_region_map_lists_a_zone_member_dissolved_through_a_chain(tmp_path: Path) -> None:
+def test_export_region_map_does_not_promote_dissolved_partial_coverage(tmp_path: Path) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
     _extend(
         geohistory,
@@ -984,7 +1013,8 @@ def test_export_region_map_lists_a_zone_member_dissolved_through_a_chain(tmp_pat
     regions = _regions(export_region_map(geohistory, wikidata, match, output))
 
     assert {"LOW", "MID"}.isdisjoint(regions)
-    assert regions["ZZ"]["childIds"] == ["TOP"]
+    assert regions["ZZ"]["childIds"] == []
+    assert "ZZ" in regions["TOP"]["zoneIds"]
 
 
 def _anchor_city(geohistory: Path, wikidata: Path, rows: list[tuple[str, str]]) -> None:
@@ -1095,3 +1125,49 @@ def test_zone_band_shows_a_zone_between_its_min_and_max_spans():
     assert _zone_band([-180, -85, 180, 85])[0] == 0.0
     tiny_min, tiny_max = _zone_band([0, 0, 1e-5, 1e-5])
     assert tiny_min == TILESET_MAX_ZOOM and tiny_max >= tiny_min + MIN_BAND
+
+
+def test_partial_zone_coverage_does_not_inherit_admin_counts(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={"PART": ("macro_region", box(0, 0, 2, 2), "independent")},
+        anchors=[("Q30", "PART")],
+    )
+    regions = _regions(export_region_map(geohistory, wikidata, match, output))
+    assert "PART" in regions["BR"]["zoneIds"]
+    assert regions["PART"]["childIds"] == []
+    assert regions["PART"]["songCount"] == 0
+    assert regions["PART"]["genreCount"] == 1
+    assert regions["BR"]["songCount"] == 4
+
+
+def test_missing_boundary_keeps_genres_on_their_region_without_parent_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _append(geohistory / "1_cultural_entity.parquet", [("JO", "historical_country", "Joseon", None, None, False)])
+    _extend(geohistory, wikidata, anchors=[("Q99", "JO")], overviews={"Q99": 0}, regional=[("Q99", "Q1")])
+
+    layers: dict[str, list[dict]] = {}
+    inner = region_map_export._run_tippecanoe
+
+    def capture(arguments: list[str]) -> None:
+        for name, path in (a.split(":", 1) for a in arguments if a.count(":") == 1 and not a.startswith("-")):
+            layers[name] = _layer(Path(path))
+        inner(arguments)
+
+    monkeypatch.setattr(region_map_export, "_run_tippecanoe", capture)
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    assert all(feature["properties"].get("id") != "JO" for features in layers.values() for feature in features)
+    regions = _regions(index_path)
+    joseon = regions["JO"]
+    assert joseon["boundaryStatus"] == "missing"
+    assert all(joseon[key] is None for key in ("bbox", "mainBbox", "centroid"))
+    assert joseon["overviewItemId"] == "Q99"
+    assert [g["itemId"] for g in joseon["genres"]] == ["Q99"]
+    assert all(g["itemId"] != "Q99" for region in regions.values() if region["id"] != "JO" for g in region["genres"])
+    assert "JO" in json.loads(index_path.read_text())["worldZoneIds"]
+    assert json.loads((output / "5_region_map_report.json").read_text())["missingBoundaryRegionIds"] == ["JO"]
