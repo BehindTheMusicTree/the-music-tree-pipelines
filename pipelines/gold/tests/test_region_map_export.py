@@ -65,9 +65,11 @@ def _extend(
     anchors: list[tuple[str, str]] = [],
     overviews: dict[str, int] = {},
     regional: list[tuple[str, str | None]] = [],
+    federated: set[str] = set(),
 ) -> None:
     _append(
-        geohistory / "1_cultural_entity.parquet", [(e, kind, e, None, None) for e, (kind, _, _) in entities.items()]
+        geohistory / "1_cultural_entity.parquet",
+        [(e, kind, e, None, None, e in federated) for e, (kind, _, _) in entities.items()],
     )
     _append(
         geohistory / "8_entity_geometry.parquet",
@@ -134,15 +136,15 @@ def _write(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     output.mkdir()
     pl.DataFrame(
         [
-            ("FR", "country", "France", None, None),
-            ("BR", "admin_unit", "Bretagne", None, None),
-            ("NR", "admin_unit", "Normandie", None, None),
-            ("DE", "country", "Germany", None, None),
-            ("CE", "cultural_region", "Celtic nations", None, None),
-            ("LG", "language", "Breton", None, None),
-            ("RN", "city", "Rennes", 48.11, -1.68),
+            ("FR", "country", "France", None, None, False),
+            ("BR", "admin_unit", "Bretagne", None, None, False),
+            ("NR", "admin_unit", "Normandie", None, None, False),
+            ("DE", "country", "Germany", None, None, False),
+            ("CE", "cultural_region", "Celtic nations", None, None, False),
+            ("LG", "language", "Breton", None, None, False),
+            ("RN", "city", "Rennes", 48.11, -1.68, False),
         ],
-        schema=["entity_id", "kind", "label", "latitude", "longitude"],
+        schema=["entity_id", "kind", "label", "latitude", "longitude", "federated_state"],
         orient="row",
     ).write_parquet(geohistory / "1_cultural_entity.parquet")
     shapes = {
@@ -315,6 +317,69 @@ def test_export_region_map_draws_a_genreless_island_but_not_a_genreless_exclave(
     assert (regions["ISL"]["parentId"], regions["ISL"]["genreCount"]) == ("BIG", 0)
     assert regions["TINY"]["parentId"] == "BIG"
     assert "EXC" not in regions
+
+
+def _write_federation(tmp_path: Path, anchors: list[tuple[str, str]] = []):
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(
+        geohistory,
+        wikidata,
+        entities={
+            "FED": ("admin_unit", box(100, 0, 110, 10), "x"),
+            "STATE": ("admin_unit", box(101, 1, 105, 5), "x"),
+            "DEP": ("admin_unit", box(106, 1, 109, 5), "x"),
+        },
+        containment=[("FED", "STATE"), ("FED", "DEP")],
+        anchors=anchors,
+        federated={"STATE"},
+    )
+    _write_basemap(geohistory, [*BASEMAP, ("land", None, None, 0.0, box(100, 0, 110, 10))])
+    return geohistory, wikidata, match, output
+
+
+def test_export_region_map_draws_a_genreless_federated_state_and_hides_other_genreless_subdivisions(
+    tmp_path: Path,
+) -> None:
+    geohistory, wikidata, match, output = _write_federation(tmp_path)
+
+    index_path = export_region_map(geohistory, wikidata, match, output)
+
+    document = json.loads(index_path.read_text())
+    regions = {r["id"]: r for r in document["regions"]}
+    assert regions["STATE"]["kind"] == "admin_unit" and regions["STATE"]["genreCount"] == 0
+    assert regions["STATE"]["parentId"] == "FED" and regions["FED"]["parentId"] == "world"
+    assert {"DEP", "NR"}.isdisjoint(regions)
+    hidden = {r["id"]: r for r in document["hiddenRegions"]}
+    assert set(hidden) == {"DEP", "NR"}
+    assert (hidden["DEP"]["kind"], hidden["DEP"]["parentId"], hidden["DEP"]["name"]) == ("admin_unit", "FED", "DEP")
+    assert hidden["NR"]["parentId"] == "FR"
+    assert hidden["DEP"]["centroid"] == pytest.approx([107.5, 3.0])
+    report = json.loads((output / "5_region_map_report.json").read_text())
+    assert report["hiddenRegionCount"] == 2
+
+
+def test_export_region_map_draws_a_hidden_subdivision_once_a_genre_is_placed_on_it(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write_federation(tmp_path, anchors=[("Q3", "DEP")])
+
+    document = json.loads(export_region_map(geohistory, wikidata, match, output).read_text())
+
+    regions = {r["id"]: r for r in document["regions"]}
+    assert regions["DEP"]["genres"][0]["itemId"] == "Q3"
+    assert {r["id"] for r in document["hiddenRegions"]} == {"NR"}
+
+
+def test_export_region_map_omits_hidden_regions_when_every_subdivision_is_drawn(tmp_path: Path) -> None:
+    geohistory, wikidata, match, output = _write(tmp_path)
+    _extend(geohistory, wikidata, federated={"NR"})
+    entities = pl.read_parquet(geohistory / "1_cultural_entity.parquet").with_columns(
+        (pl.col("entity_id") == "NR").alias("federated_state")
+    )
+    entities.write_parquet(geohistory / "1_cultural_entity.parquet")
+
+    document = json.loads(export_region_map(geohistory, wikidata, match, output).read_text())
+
+    assert "hiddenRegions" not in document
+    assert (output / "5_region_map_report.json").exists()
 
 
 def test_approximate_area_km2_shrinks_a_degree_cell_with_latitude() -> None:
@@ -557,7 +622,13 @@ def test_export_region_map_reports_unplaced_genres(tmp_path: Path) -> None:
     ]
     report = json.loads((output / "5_region_map_report.json").read_text())
     assert report["unplacedGenreCount"] == 2
-    assert set(report) == {"unplacedGenreCount", "regionsWithoutOverview", "tileset", "missingBoundaryRegionIds"}
+    assert set(report) == {
+        "unplacedGenreCount",
+        "regionsWithoutOverview",
+        "hiddenRegionCount",
+        "tileset",
+        "missingBoundaryRegionIds",
+    }
 
 
 def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp_path: Path) -> None:
@@ -567,7 +638,10 @@ def test_export_region_map_places_footprinted_anchors_on_their_admin_regions(tmp
         [
             entities,
             pl.DataFrame(
-                [("EG", "ethnic_group", "Javanese", None, None), ("CV", "civilization", "Rome", None, None)],
+                [
+                    ("EG", "ethnic_group", "Javanese", None, None, False),
+                    ("CV", "civilization", "Rome", None, None, False),
+                ],
                 schema=entities.schema,
                 orient="row",
             ),
@@ -1073,7 +1147,7 @@ def test_missing_boundary_keeps_genres_on_their_region_without_parent_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     geohistory, wikidata, match, output = _write(tmp_path)
-    _append(geohistory / "1_cultural_entity.parquet", [("JO", "historical_country", "Joseon", None, None)])
+    _append(geohistory / "1_cultural_entity.parquet", [("JO", "historical_country", "Joseon", None, None, False)])
     _extend(geohistory, wikidata, anchors=[("Q99", "JO")], overviews={"Q99": 0}, regional=[("Q99", "Q1")])
 
     layers: dict[str, list[dict]] = {}

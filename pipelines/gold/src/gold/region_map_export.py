@@ -301,7 +301,7 @@ def export_region_map(
 ) -> Path:
     entities = pl.read_parquet(
         geohistory_silver_dir / "1_cultural_entity.parquet",
-        columns=["entity_id", "kind", "label", "latitude", "longitude"],
+        columns=["entity_id", "kind", "label", "latitude", "longitude", "federated_state"],
     )
     geometry = pl.read_parquet(geohistory_silver_dir / "8_entity_geometry.parquet")
     basemap = pl.read_parquet(geohistory_silver_dir / "8_basemap_feature.parquet")
@@ -324,6 +324,7 @@ def export_region_map(
     descendants = _canonical_descendants(canonical)
 
     kinds = dict(entities.select("entity_id", "kind").rows())
+    federated_states = set(entities.filter(pl.col("federated_state"))["entity_id"])
     labels = dict(entities.select("entity_id", "label").rows())
     city_points = {
         entity_id: (longitude, latitude)
@@ -493,6 +494,9 @@ def export_region_map(
     # every country and every territory no country holds (Jersey, Antarctica) is drawn, genre-less or not, so no land
     # goes missing at world level; a genre-less subdivision is not, its country already covers its ground
     included.update(region for region in admin_ids if kinds[region] == "country" or region not in parents)
+    # a state of a federation is drawn even without a genre, like a country; every other genre-less subdivision stays
+    # out of the map (hidden) until a placement override gives it one
+    included.update(region for region in admin_ids if region in federated_states)
     # an island is a strong cultural entity, drawn genre-less or not
     included.update(_islands(parents, load, land))
     for region in list(included):
@@ -503,6 +507,7 @@ def export_region_map(
     admin_regions = sorted(r for r in included if r in admin_ids)
     zones = sorted(r for r in included if r in zone_candidates)
 
+    hidden_regions = sorted(admin_ids - set(admin_regions))
     children: dict[str, list[str]] = defaultdict(list)
     for region in admin_regions:
         children[parents.get(region, WORLD_ID)].append(region)
@@ -637,6 +642,17 @@ def export_region_map(
         "worldChildIds": children.get(WORLD_ID, []),
         "worldZoneIds": [zone for zone in zones if zone not in nested_zones],
     }
+    if hidden_regions:
+        document["hiddenRegions"] = [
+            {
+                "id": region,
+                "name": labels[region],
+                "kind": kinds[region],
+                "parentId": parents.get(region, WORLD_ID),
+                "centroid": shapes[region]["centroid"],
+            }
+            for region in hidden_regions
+        ]
     if not any(entry["genres"] for entry in entries):
         raise ValueError("region map has no region with a genre")
 
@@ -711,6 +727,7 @@ def export_region_map(
         "unplacedGenreCount": unplaced_frame.height,
         "missingBoundaryRegionIds": sorted(entry["id"] for entry in entries if entry["boundaryStatus"] == "missing"),
         "regionsWithoutOverview": without_overview,
+        "hiddenRegionCount": len(hidden_regions),
         "tileset": {"bytes": tileset_bytes, "seconds": tileset_seconds},
     }
     (output_dir / "5_region_map_report.json").write_text(json.dumps(report, indent=2) + "\n")

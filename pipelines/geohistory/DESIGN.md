@@ -69,6 +69,13 @@ for curation.
 
 ## 8.1 Admin units, containment and footprints
 
+Whether an admin unit is a federated state (`federated_state`, what gold always draws on the region map, genre or not)
+is read from the unit itself: its Wikidata item is `P31/P279*` of federated state (`Q107390`). The country-level
+`P122` (basic form of government) was rejected as the signal because it is missing for the United States and Russia.
+The bulk `federated_state` rows are no entity kind (they would compete with the admin unit of the same QID); they only
+set the flag, and the `federated_state_overrides` curation list (`add`/`remove`) corrects the few misses and false
+positives, such as a French or Spanish unit typed as a federated state.
+
 Admin units are the Natural Earth admin-1 polygons (reusing the entity of their Wikidata item when it already is
 one; the sole unit of an unsubdivided territory, which Natural Earth leaves without one, takes its country's
 item, so the British Virgin Islands are `Q25305` rather than `ne:VGB+00?`), the Natural Earth countries whose item is

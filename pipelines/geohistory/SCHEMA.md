@@ -97,6 +97,7 @@ One row per cultural entity. `entity_id` is unique. Profile on the real Bronze: 
 | longitude         | f64? | Longitude                                                                                                   |
 | coordinate_source | str? | `glottolog` or `wikidata`; null when no coordinates                                                         |
 | macroarea         | str? | Glottolog macroarea; null for Wikidata-only entities                                                        |
+| federated_state   | bool | True for an `admin_unit` that is a state of a federation (the item is `P31/P279*` `Q107390`, after `federated_state_overrides`); false for every other row |
 
 ### 2.2 1_entity_wikidata_item.parquet
 
