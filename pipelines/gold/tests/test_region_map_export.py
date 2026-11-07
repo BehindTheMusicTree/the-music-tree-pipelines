@@ -676,10 +676,13 @@ def test_export_region_map_builds_a_content_addressed_tileset_referenced_by_the_
     tileset = json.loads(index_path.read_text())["tileset"]
     tile_file = output / "5_region_map" / "regions" / f"{tileset}.pmtiles"
     assert hashlib.sha256(tile_file.read_bytes()).hexdigest() == tileset
-    assert [a for a in fake_tippecanoe[0] if a.startswith(("-Z", "-z", "--detect"))] == [
+    assert [a for a in fake_tippecanoe[0] if a.startswith(("-Z", "-z", "--detect", "--simpl", "--visval"))] == [
         "-Z0",
         "-z10",
         "--detect-shared-borders",
+        "--simplification=8",
+        "--visvalingam",
+        "--simplify-only-low-zooms",
     ]
     index_regions = {r["id"]: r for r in json.loads(index_path.read_text())["regions"]}
     assert {f["properties"]["id"] for f in layers["regions"]} == {"FR", "BR", "DE"}
