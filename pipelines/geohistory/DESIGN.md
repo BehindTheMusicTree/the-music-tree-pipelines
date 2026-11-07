@@ -180,3 +180,25 @@ A column no rule places raises and names the column: add a `region_overrides` ro
 Known limitation: the nearest-country fallback searches within a fixed tolerance in degrees and does not wrap across the
 antimeridian, so a point just across ±180° (Fiji, Chukotka) finds no country on the other side. The area vote covers
 such entities whenever they have a footprint; add a `region_overrides` row for the rest.
+
+### Independent island identity
+
+The physical-region layer (`ne_10m_geography_regions_polys`) supplies source-linked QIDs and explicitly distinguishes
+simple islands from island groups. Simple islands can identify a land component only when the Wikidata coordinate
+and the physical-label polygon's interior representative point lie inside the same unique component. Coastline
+geometry comes from the union of Natural Earth administrative land, not the label polygon. Island groups are not
+reduced to a single component. Missing identity, missing coordinates or inconsistent identity leave the boundary
+unresolved. The pinned v5.1.2 source splits Flores into two features sharing one identity; ingestion unions shards
+only when their source identity metadata agrees, and rejects conflicting metadata.
+
+Explicit full member decisions can construct composed reference boundaries. These unions remain incomplete unless
+exhaustiveness is independently declared; absence from an incomplete union supplies no negative evidence. Every
+union retains its relation dependencies, preventing it from proving the relation used to build it. Members with
+incompatible temporal reference periods cannot form a shared reference boundary.
+
+Geographic candidates are resolved before source priority and cycle handling. Only
+full decisions enter containment. Place-to-place cultural membership is excluded from
+anchor specificity and genealogy ancestry; those consumers use the resolved graph.
+Point footprints remain available to locate anchors but never define a drawn region's
+boundary. Independent reference boundaries take precedence over administrative tiling.
+Coverage is clipped for map discovery and never feeds back into containment.

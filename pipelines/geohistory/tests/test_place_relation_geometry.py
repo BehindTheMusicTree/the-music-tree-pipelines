@@ -52,7 +52,17 @@ def test_incomplete_circular_and_historical_boundaries_do_not_prove_extent():
     assert resolve_geometry(dated_child, later_parent, PAIR, precision=0.001) == "unknown"
 
 
-def test_precision_must_be_positive():
+@pytest.mark.parametrize("precision", [0, -1, float("nan"), float("inf")])
+def test_precision_must_be_finite_and_positive(precision):
     geom = reference(box(0, 0, 1, 1))
     with pytest.raises(ValueError, match="precision"):
-        resolve_geometry(geom, geom, PAIR, precision=0)
+        resolve_geometry(geom, geom, PAIR, precision=precision)
+
+
+def test_inverted_periods_fail_before_geometry_comparison():
+    geom = reference(box(0, 0, 1, 1))
+    with pytest.raises(ValueError, match="relation start year"):
+        resolve_geometry(geom, geom, PAIR, precision=0.001, start_year=1900, end_year=1800)
+    inverted = reference(geom.geometry, start_year=1900, end_year=1800)
+    with pytest.raises(ValueError, match="reference start year"):
+        resolve_geometry(inverted, geom, PAIR, precision=0.001)

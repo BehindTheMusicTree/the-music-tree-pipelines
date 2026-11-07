@@ -123,7 +123,7 @@ def test_most_specific_candidate_beats_its_ancestors(tmp_path):
         claim("Q1", "P276", "Q12642"),
         claim("Q1", "P2596", "Q12130"),
     ]
-    anchors, _ = run(tmp_path, claims)
+    anchors, _ = run(tmp_path, claims, containment=(("mor", "bre"), ("bre", "fr")))
     assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("mor", "P276")
 
 
@@ -341,3 +341,9 @@ def test_claimed_anchor_does_not_take_the_name_of_a_placeable_label_match(tmp_pa
     claims = [label("Q1", "music of China"), claim("Q1", "P1269", "Q148")]
     anchors, _ = run(tmp_path, claims, footprint=[("chn", "khk", "cover")])
     assert anchors["Q1"]["overview_rank"] is None
+
+
+def test_place_membership_alone_does_not_narrow_an_anchor(tmp_path):
+    claims = [label("Q1", "Breton folk"), claim("Q1", "P276", "Q12642"), claim("Q1", "P2596", "Q12130")]
+    anchors, _ = run(tmp_path, claims, membership=(("mor", "bre"),), containment=())
+    assert (anchors["Q1"]["anchor_id"], anchors["Q1"]["rule"]) == ("bre", "P2596")

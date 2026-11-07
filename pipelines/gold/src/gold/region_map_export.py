@@ -309,6 +309,7 @@ def export_region_map(
     if not land:
         raise ValueError("basemap has no land layer: islands cannot be told apart")
     footprint = pl.read_parquet(geohistory_silver_dir / "8_entity_footprint.parquet")
+    coverage = pl.read_parquet(geohistory_silver_dir / "8_entity_coverage.parquet")
     containment = pl.read_parquet(geohistory_silver_dir / "2_place_containment.parquet").sort("parent_id", "child_id")
     anchors = pl.read_parquet(geohistory_silver_dir / "5_music_anchor.parquet").sort("wikidata_id")
     canonical = pl.read_parquet(wikidata_silver_dir / "7_canonical_hierarchy.parquet")
@@ -330,7 +331,10 @@ def export_region_map(
         entity_id
         for entity_id, kind in kinds.items()
         if entity_id in shapes
-        and (kind == "admin_unit" or (kind == "country" and shapes[entity_id]["source"] == "natural_earth"))
+        and (
+            kind == "admin_unit"
+            or (kind == "country" and shapes[entity_id]["source"] in {"natural_earth", "natural_earth_admin"})
+        )
     }
     zone_candidates = {
         entity_id
@@ -537,11 +541,13 @@ def export_region_map(
     zone_ids_by_region: dict[str, set[str]] = defaultdict(set)
     zone_members: dict[str, set[str]] = defaultdict(set)
     zone_set = set(zones)
-    for entity_id, admin_id in footprint.select("entity_id", "admin_id").rows():
+    fully_covered = set(coverage.filter(pl.col("extent") == "full").select("entity_id", "admin_id").rows())
+    for entity_id, admin_id, extent in coverage.select("entity_id", "admin_id", "extent").rows():
         while admin_id in dissolved:
             admin_id = dissolved[admin_id]
         if entity_id in zone_set and admin_id in shapes:
-            zone_members[entity_id].add(admin_id)
+            if extent == "full" and (entity_id, admin_id) in fully_covered:
+                zone_members[entity_id].add(admin_id)
             for ancestor in admin_ancestors(admin_id):
                 zone_ids_by_region[ancestor].add(entity_id)
 
@@ -549,10 +555,21 @@ def export_region_map(
     for zone, members in zone_members.items():
         listed = members & admin_region_set
         children[zone] = sorted(m for m in listed if not any(a in listed for a in admin_ancestors(m)[1:]))
-    zone_inside: dict[str, list[str]] = {
-        zone: sorted(other for other in zones if zone_members[other] < zone_members[zone] and zone_members[other])
-        for zone in zones
-    }
+    full_children: dict[str, list[str]] = defaultdict(list)
+    for parent, child in containment.select("parent_id", "child_id").rows():
+        full_children[parent].append(child)
+
+    def contained_zones(zone: str) -> list[str]:
+        seen: set[str] = set()
+        pending = list(full_children.get(zone, ()))
+        while pending:
+            child = pending.pop()
+            if child not in seen:
+                seen.add(child)
+                pending.extend(full_children.get(child, ()))
+        return sorted(seen & zone_set)
+
+    zone_inside = {zone: contained_zones(zone) for zone in zones}
     for zone, inside in zone_inside.items():
         zone_ids_by_region[zone].update(inside)
     nested_zones = {other for inside in zone_inside.values() for other in inside}

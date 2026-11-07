@@ -673,3 +673,17 @@ Worker `status.json` and incremental snapshot manifests include `quarantine`: `c
 QIDs), nullable `oldestFailureAt` (UTC ISO timestamp), and `sample` (at most 20 entries ordered by first failure and
 QID). Each sample has `itemId`, `reason`, `firstFailureAt`, `lastAttemptAt`, `retryAfterAt` (UTC ISO timestamps), and
 `consecutiveFailures` (integer). Failure diagnostics on pre-upgrade registry rows are null when unknown.
+
+### Geographic statement metadata
+
+`wikidata_place_metadata.parquet` contains one row per requested geographic subject or discovered P518 part.
+
+| Column | Type | Meaning |
+|---|---|---|
+| requested_id | String | Requested Wikidata QID |
+| resolved_id | String, nullable | Resolved QID; null for missing items |
+| status | String | `found`, `redirect`, or `missing` |
+| revision_id | Int64, nullable | Wikidata entity revision identifier |
+| modified | String, nullable | Entity modification timestamp |
+| claims_json | String | Raw P31, P279 and P625 statements, retaining rank, qualifiers and references |
+| label | String, nullable | English label |

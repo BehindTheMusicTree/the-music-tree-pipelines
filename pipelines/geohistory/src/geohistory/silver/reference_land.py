@@ -4,6 +4,8 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 
+from geohistory.silver.place_relation_geometry import ReferenceGeometry
+
 import polars as pl
 import shapely
 
@@ -58,3 +60,74 @@ class IslandLandIndex:
         if not shapely.contains(part, point) or not verify_identity(part):
             return None
         return part
+
+
+def reference_island_geometries(
+    bronze_dir: Path, crosswalk: pl.DataFrame, entities: pl.DataFrame
+) -> dict[str, shapely.Geometry]:
+    """Identify simple islands against QID-linked physical labels before selecting land."""
+    physical = pl.read_parquet(bronze_dir / "natural_earth_physical.parquet").filter(pl.col("kind") == "Island")
+    physical = (
+        physical.join(crosswalk, left_on="wikidata_id", right_on="wikidata_id")
+        .join(entities.select("entity_id", "latitude", "longitude"), on="entity_id")
+        .drop_nulls(["latitude", "longitude"])
+    )
+    index = IslandLandIndex(reference_land(bronze_dir))
+    result: dict[str, shapely.Geometry] = {}
+    for row in physical.iter_rows(named=True):
+        label_polygon = shapely.make_valid(shapely.from_wkb(row["geometry_wkb"]))
+        identity_point = label_polygon.representative_point()
+        selected = index.select(
+            shapely.Point(row["longitude"], row["latitude"]),
+            is_simple_island=True,
+            verify_identity=lambda part: shapely.contains(part, identity_point),
+        )
+        if selected is not None:
+            if row["entity_id"] in result and not shapely.equals(result[row["entity_id"]], selected):
+                raise ValueError(f"conflicting physical island identity for {row['entity_id']}")
+            result[row["entity_id"]] = selected
+    return result
+
+
+def composed_references(
+    references: dict[str, ReferenceGeometry],
+    full_members: set[tuple[str, str]],
+    *,
+    complete_entities: set[str],
+) -> dict[str, ReferenceGeometry]:
+    """Build explicit member unions, retaining dependencies to prevent circular proof."""
+    if any(child == parent for child, parent in full_members):
+        raise ValueError("composed boundary cannot contain itself")
+    members: dict[str, set[str]] = defaultdict(set)
+    for child, parent in full_members:
+        members[parent].add(child)
+    result = dict(references)
+    pending = set(members) - set(result)
+    while pending:
+        ready = sorted(parent for parent in pending if members[parent] <= result.keys())
+        if not ready:
+            break
+        for parent in ready:
+            children = [result[child] for child in sorted(members[parent])]
+            if any(child.boundary_kind != "independent" for child in children):
+                pending.remove(parent)
+                continue
+            periods = {(child.start_year, child.end_year) for child in children}
+            if len(periods) != 1:
+                pending.remove(parent)
+                continue
+            start_year, end_year = next(iter(periods))
+            dependencies = frozenset((child, parent) for child in members[parent]).union(
+                *(child.derived_from for child in children)
+            )
+            result[parent] = ReferenceGeometry(
+                shapely.union_all([child.geometry for child in children]),
+                parent in complete_entities and all(child.complete for child in children),
+                "explicit_member_union",
+                "independent",
+                dependencies,
+                start_year,
+                end_year,
+            )
+            pending.remove(parent)
+    return result

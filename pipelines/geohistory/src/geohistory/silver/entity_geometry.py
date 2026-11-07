@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import defaultdict
 from pathlib import Path
@@ -65,7 +66,11 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
             pl.col("kind").is_in(DRAWN_KINDS)
         )["entity_id"]
     )
-    footprint = pl.read_parquet(silver_dir / "8_entity_footprint.parquet").filter(pl.col("entity_id").is_in(drawn))
+    references = pl.read_parquet(silver_dir / "2_place_reference_geometry.parquet")
+    reference_ids = set(references["entity_id"])
+    footprint = pl.read_parquet(silver_dir / "8_entity_footprint.parquet").filter(
+        pl.col("entity_id").is_in(drawn) & (pl.col("rule") != "point")
+    )
 
     children: dict[str, list[str]] = defaultdict(list)
     for parent, child in containment.select("parent_id", "child_id").rows():
@@ -90,7 +95,7 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
 
     rows = []
     missing = 0
-    for entity_id in sorted(admins_by_entity):
+    for entity_id in sorted(set(admins_by_entity) - reference_ids):
         admins = admins_by_entity[entity_id]
         nested = set().union(*(_descendants(admin, children) for admin in admins)) & admins
         tiles = [geometry for admin in sorted(admins - nested) if (geometry := tile(admin)) is not None]
@@ -116,8 +121,26 @@ def entity_geometry(bronze_dir: Path, silver_dir: Path) -> Path:
 
     if missing:
         logger.warning("%d footprint admin unit(s) have no polygon and are left out of their geometry", missing)
+    for entity_id, wkb, source in references.select("entity_id", "geometry_wkb", "source").rows():
+        if entity_id not in drawn:
+            continue
+        geometry = shapely.make_valid(shapely.from_wkb(wkb))
+        if geometry.is_empty or geometry.area == 0:
+            raise ValueError(f"{entity_id} has an empty reference boundary")
+        main = max(_polygons(geometry), key=shapely.area)
+        centroid = polylabel(main, tolerance=CENTROID_TOLERANCE)
+        rows.append((entity_id, geometry.wkb, source, _bbox(geometry), _bbox(main), [centroid.x, centroid.y]))
     frame = pl.DataFrame(rows, schema=GEOMETRY_SCHEMA, orient="row").sort("entity_id")
     output_path = silver_dir / "8_entity_geometry.parquet"
     frame.write_parquet(output_path)
+    incomplete = set(references.filter(~pl.col("complete"))["entity_id"])
+    incomplete.update(set(frame["entity_id"]) - reference_ids)
+    report = {
+        "drawnEntities": len(drawn),
+        "materializedBoundaries": frame.height,
+        "missingBoundaries": sorted(drawn - set(frame["entity_id"])),
+        "incompleteBoundaries": sorted(incomplete & drawn),
+    }
+    (silver_dir / "8_entity_geometry_report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     logger.info("wrote %d rows to %s", frame.height, output_path)
     return output_path

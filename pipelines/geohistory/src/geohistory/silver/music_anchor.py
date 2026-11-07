@@ -165,7 +165,8 @@ def music_anchor(wikidata_bronze_dir: Path, silver_dir: Path, curation_dir: Path
         successors[predecessor].append(successor)
     parents: dict[str, list[str]] = defaultdict(list)
     for child, parent in membership.select("child_id", "parent_id").rows():
-        parents[child].append(parent)
+        if child not in place_ids or parent not in place_ids:
+            parents[child].append(parent)
     for child, parent in containment.select("child_id", "parent_id").rows():
         parents[child].append(parent)
     values: dict[tuple[str, str], list[str]] = defaultdict(list)

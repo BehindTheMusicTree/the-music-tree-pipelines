@@ -823,3 +823,12 @@ success timestamps and reports current selected-source ages even on no-op runs.
 An absent Commons attribution flag is treated conservatively as requiring credit when an author is present;
 selection still excludes unknown attribution with no author. Redirect targets without P434 receive an independent
 entity confirmation before their associations are replaced with a negative observation and aliases are merged.
+
+### Geographic metadata collection
+
+Geographic statements run after both ingestion request lanes complete. Their subjects include cultural entities,
+Natural Earth administrative seeds and both endpoints of the administrative hierarchy. P518 discovery follows only
+explicit item references, deduplicates requests and fails when its count or depth limit is exceeded. Metadata covers
+all initial subjects and all requested and resolved parts, including redirects and missing items. Raw P31, P279 and
+P625 statements retain their original rank, qualifiers and references: classification and coordinates are evidence
+for later resolution, not automatic containment decisions. This dataset does not change the cultural claim contract.

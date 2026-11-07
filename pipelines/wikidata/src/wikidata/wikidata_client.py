@@ -590,6 +590,11 @@ def fetch_claim_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str,
     return _get_batched_entities(ids, "claims", timeout)
 
 
+def fetch_place_metadata_entities(ids: Sequence[str], timeout: float = 60.0) -> dict[str, dict]:
+    """Fetch geographic metadata including revision information and English labels."""
+    return _get_batched_entities(ids, "info|labels|claims", timeout)
+
+
 def _label(entity: dict) -> str | None:
     labels = entity.get("labels", {})
     return next((labels[lang]["value"] for lang in LABEL_LANGUAGES.split(",") if lang in labels), None)

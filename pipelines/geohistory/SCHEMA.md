@@ -253,3 +253,43 @@ raises otherwise.
 of one region are contiguous (seriation never swaps across regions). `7_band_fragment.parquet`: one row per
 contiguous run of a band's columns: `entity_id`, `label`, `fragment` (i32), `start_position`, `end_position` (i32,
 inclusive), `start_year`, `end_year`.
+
+### `natural_earth_physical.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| ne_id | String | Natural Earth physical-feature identifier; feature shards are united |
+| wikidata_id | String, nullable | Source-linked Wikidata QID |
+| name | String | Physical-feature name |
+| kind | String | `Island` or `Island group` |
+| version | String | Pinned Natural Earth source version |
+| geometry_wkb | Binary | Physical-label polygon, distinct from the coastline geometry |
+
+### `2_place_reference_geometry.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| entity_id | String | Boundary owner |
+| geometry_wkb | Binary | Independent or explicitly composed land boundary |
+| source | String | Boundary provenance |
+| complete | Boolean | Whether the boundary covers the whole entity |
+
+### `2_place_relation.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| child_id, parent_id | String | Directed geographic relation |
+| extent | String | `full`, `partial`, or `unknown` |
+| conflict | Boolean | Contradictory evidence before an override |
+| override_reason | String, nullable | Curated decision rationale |
+| statement_ids | String | JSON array of supporting statement identifiers |
+
+### `8_entity_coverage.parquet`
+
+| Column | Type | Meaning |
+|---|---|---|
+| entity_id, admin_id | String | Entity boundary and intersecting administrative unit |
+| extent | String | `full` when the entity covers the entire admin polygon, otherwise `partial` |
+| geometry_source | String | Entity boundary provenance |
+| geometry_wkb | Binary | Positive-area intersection, clipped to both boundaries |
+| complete | Boolean | Completeness of the entity boundary |

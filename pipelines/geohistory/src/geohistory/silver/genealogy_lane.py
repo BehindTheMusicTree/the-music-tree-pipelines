@@ -6,6 +6,7 @@ import polars as pl
 
 from geohistory.silver.cultural_entity import ADMIN_KIND
 from geohistory.silver.tradition import CUTOFF_YEAR
+from geohistory.silver.music_anchor import PLACE_KINDS
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,12 @@ def genealogy_lane(silver_dir: Path) -> tuple[Path, Path]:
 
     anchored = set(traditions["anchor_id"])
     parents: dict[str, list[str]] = defaultdict(list)
+    place_ids = set(entities.filter(pl.col("kind").is_in(PLACE_KINDS))["entity_id"])
     for child, parent in membership.select("child_id", "parent_id").rows():
+        if child not in place_ids or parent not in place_ids:
+            parents[child].append(parent)
+    containment = pl.read_parquet(silver_dir / "2_place_containment.parquet")
+    for child, parent in containment.select("child_id", "parent_id").rows():
         parents[child].append(parent)
     ancestors = {entity: _ancestors(parents, entity) for entity in anchored}
     has_descendant = {a for entity in anchored for a in ancestors[entity] if a in anchored}

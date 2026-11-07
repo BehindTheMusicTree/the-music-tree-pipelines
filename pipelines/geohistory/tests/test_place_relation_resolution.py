@@ -30,3 +30,37 @@ def test_override_can_reject_without_a_statement_and_requires_reason():
     assert not decision.evidence
     with pytest.raises(ValueError, match="invalid place relation override"):
         resolve_relations([], {("child", "parent"): ("full", " ")})
+
+
+def test_scoped_subdivision_does_not_replace_subject_boundary():
+    import shapely
+
+    from geohistory.silver.place_relation_geometry import ReferenceGeometry
+    from geohistory.silver.place_relation_resolution import PlaceStatement, resolve_statement_evidence
+
+    island = shapely.box(0, 0, 10, 10)
+    other_island = shapely.box(20, 0, 30, 10)
+    references = {
+        "country": ReferenceGeometry(shapely.union_all([island, other_island]), True, "admin", "independent"),
+        "island": ReferenceGeometry(island, True, "land", "independent"),
+        "subdivision": ReferenceGeometry(
+            shapely.union_all([shapely.box(0, 0, 5, 10), other_island]), True, "admin", "independent"
+        ),
+    }
+    statements = [
+        PlaceStatement("country", "island", "p706", "scoped", True),
+        PlaceStatement("country", "island", "p361", "unscoped", False),
+    ]
+    rows = resolve_statement_evidence(statements, references, precision=0.001)
+    decision = resolve_relations(rows, {})[0]
+    assert decision.extent == "partial"
+    assert {item.statement_id for item in decision.evidence} == {"scoped", "unscoped"}
+    assert (
+        resolve_statement_evidence(
+            [PlaceStatement("subdivision", "island", "p706", "part", True)], references, precision=0.001
+        )[0].extent
+        == "partial"
+    )
+    assert resolve_statement_evidence(statements, {}, precision=0.001)[0].extent == "unknown"
+    historical = [PlaceStatement("country", "island", "p706", "historical", False, 1700, 1800)]
+    assert resolve_statement_evidence(historical, references, precision=0.001)[0].extent == "unknown"

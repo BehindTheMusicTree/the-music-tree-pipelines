@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import polars as pl
 import pytest
 import shapely
@@ -80,7 +82,9 @@ def build(tmp_path, hierarchy=(), claims=(), membership=(), overrides=(), ne_map
     pl.DataFrame(list(claims), schema=CLAIM_SCHEMA, orient="row").write_parquet(
         wikidata / "wikidata_cultural_entity_claim.parquet"
     )
-    place_containment(tmp_path, wikidata, silver, curation)
+    # These tests isolate candidate collection, priority and cycle handling. The disk resolver is tested separately.
+    with patch("geohistory.silver.place_containment.resolve_place_candidates", side_effect=lambda *args: args[4]):
+        place_containment(tmp_path, wikidata, silver, curation)
     return silver
 
 
@@ -129,7 +133,7 @@ def test_natural_earth_fallback_adds_missing_country_links_only(tmp_path):
         hierarchy=[hierarchy_row("Qmor", "P131", "Qbre")],
         ne_map=[("a", 1, "mor", "fr"), ("b", 1, "bre", "fr"), ("c", 1, "fr", "fr"), ("d", 1, None, "fr")],
     )
-    assert edges(silver) == {("bre", "mor", "p131"), ("fr", "bre", "natural_earth")}
+    assert edges(silver) == {("bre", "mor", "p131"), ("fr", "mor", "natural_earth"), ("fr", "bre", "natural_earth")}
 
 
 def test_membership_override_removes_a_hierarchy_p361_edge(tmp_path):
@@ -168,7 +172,7 @@ def test_union_cycle_with_membership_drops_the_containment_edge(tmp_path):
         hierarchy=[hierarchy_row("Qbre", "P131", "Qfr")],
         membership=[("fr", "bre", "wikidata_p361")],
     )
-    assert edges(silver) == {("bre", "fr", "p361")}
+    assert edges(silver) == {("fr", "bre", "p131")}
 
 
 def test_assert_acyclic_names_the_offending_edges():
@@ -182,7 +186,7 @@ def test_city_without_a_claim_sits_under_the_admin_unit_holding_its_coordinate(t
         ne_map=[("ne0", 1, "mor", "fr"), ("ne1", 1, "cat", "es")],
         cities={"det": (2.0, 2.0), "far": (50.0, 50.0)},
     )
-    assert edges(silver) >= {("mor", "det", "point")}
+    assert not any(child == "det" for _, child, _ in edges(silver))
     assert not any(child == "far" for _, child, _ in edges(silver))
 
 

@@ -1,3 +1,5 @@
+import json
+
 import polars as pl
 import pytest
 import shapely
@@ -48,6 +50,9 @@ def build(tmp_path, footprint, containment=()):
         schema={"entity_id": pl.String, "kind": pl.String},
         orient="row",
     ).write_parquet(silver / "1_cultural_entity.parquet")
+    pl.DataFrame(
+        schema={"entity_id": pl.String, "geometry_wkb": pl.Binary, "source": pl.String, "complete": pl.Boolean}
+    ).write_parquet(silver / "2_place_reference_geometry.parquet")
     entity_geometry(bronze, silver)
     return {r["entity_id"]: r for r in pl.read_parquet(silver / "8_entity_geometry.parquet").to_dicts()}
 
@@ -138,3 +143,10 @@ def test_western_hemisphere_only_bbox_is_returned_unshifted():
     for west in (-125.71262367719233, -100.1234567891, -3.3333333333, -179.9999999):
         box = shapely.box(west, 10, west + 0.5, 20)
         assert _bbox(box) == list(shapely.bounds(box))
+
+
+def test_point_location_does_not_define_a_region_boundary(tmp_path):
+    rows = build(tmp_path, [("a", "a", "self"), ("b", "a", "point")])
+    assert "b" not in rows
+    report = json.loads((tmp_path / "silver/8_entity_geometry_report.json").read_text())
+    assert "b" in report["missingBoundaries"]

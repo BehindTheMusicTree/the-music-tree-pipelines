@@ -1,6 +1,8 @@
 """Compare independent reference boundaries without promoting overlaps to containment."""
 
 from dataclasses import dataclass
+from math import isfinite
+from functools import lru_cache
 from typing import Literal
 
 import shapely
@@ -20,6 +22,11 @@ class ReferenceGeometry:
     end_year: int | None = None
 
 
+@lru_cache(maxsize=512)
+def _normalized_geometry(geometry: BaseGeometry, precision: float) -> BaseGeometry:
+    return shapely.set_precision(shapely.make_valid(geometry), precision)
+
+
 def resolve_geometry(
     child: ReferenceGeometry,
     parent: ReferenceGeometry,
@@ -36,8 +43,17 @@ def resolve_geometry(
     a known subset of its parent is fully contained, but an incomplete parent cannot prove
     that any part of the child lies outside it.
     """
-    if precision <= 0:
-        raise ValueError("precision must be positive")
+    if not isfinite(precision) or precision <= 0:
+        raise ValueError("precision must be finite and positive")
+    if start_year is not None and end_year is not None and start_year > end_year:
+        raise ValueError("relation start year must not exceed end year")
+    for reference in (child, parent):
+        if (
+            reference.start_year is not None
+            and reference.end_year is not None
+            and reference.start_year > reference.end_year
+        ):
+            raise ValueError("reference start year must not exceed end year")
     if child.boundary_kind != "independent" or parent.boundary_kind != "independent":
         return "unknown"
     if pair in child.derived_from or pair in parent.derived_from:
@@ -53,8 +69,8 @@ def resolve_geometry(
             return "unknown"
         if end_year is not None and (reference.end_year is None or reference.end_year < end_year):
             return "unknown"
-    child_geom = shapely.set_precision(shapely.make_valid(child.geometry), precision)
-    parent_geom = shapely.set_precision(shapely.make_valid(parent.geometry), precision)
+    child_geom = _normalized_geometry(child.geometry, precision)
+    parent_geom = _normalized_geometry(parent.geometry, precision)
     if child_geom.is_empty or parent_geom.is_empty or child_geom.area == 0 or parent_geom.area == 0:
         return "unknown"
     if shapely.covers(parent_geom, child_geom):

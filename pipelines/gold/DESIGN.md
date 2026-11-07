@@ -325,3 +325,10 @@ is required; `ARTIST_IMAGES_SNAPSHOT_ID` can select a retained version explicitl
 cannot change its image input. `_manifest.json` records `artistImagesSnapshot` with snapshot ID, image artifact
 SHA-256, producer commit, publication time, discovery provenance and source age summary. The artist join remains
 optional per artist; a missing image association produces null. An absent or damaged publication fails the build.
+
+Map overlays read geohistory's clipped `8_entity_coverage` independently of logical
+footprints. Both full and partial intersections make a zone discoverable from an
+administrative region. Only full coverage permits an administrative child, including
+after display dissolution: coverage of a dissolved subdivision does not certify its
+parent. Zone nesting follows resolved full containment, rather than comparing sets of
+administrative identifiers. Partial overlap contributes no inherited genres or counts.

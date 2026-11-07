@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal
 
-from geohistory.silver.place_relation_geometry import Extent
+from geohistory.silver.place_relation_geometry import Extent, ReferenceGeometry, resolve_geometry
 
 Decision = Literal["full", "partial", "unknown", "reject"]
 
@@ -63,3 +63,48 @@ def resolve_relations(
             reason = None
         decisions.append(RelationDecision(child, parent, extent, ordered, conflict, reason))
     return decisions
+
+
+@dataclass(frozen=True)
+class PlaceStatement:
+    child_id: str
+    parent_id: str
+    source: str
+    statement_id: str
+    scoped: bool
+    start_year: int | None = None
+    end_year: int | None = None
+
+
+def resolve_statement_evidence(
+    statements: list[PlaceStatement],
+    references: dict[str, ReferenceGeometry],
+    *,
+    precision: float,
+) -> list[SpatialEvidence]:
+    """Resolve subject boundaries, never the unrestricted boundary of a P518 part."""
+    result = []
+    for statement in statements:
+        child = references.get(statement.child_id)
+        parent = references.get(statement.parent_id)
+        extent: Extent = "unknown"
+        if child is not None and parent is not None:
+            extent = resolve_geometry(
+                child,
+                parent,
+                (statement.child_id, statement.parent_id),
+                precision=precision,
+                start_year=statement.start_year,
+                end_year=statement.end_year,
+            )
+        result.append(
+            SpatialEvidence(
+                statement.child_id,
+                statement.parent_id,
+                statement.source,
+                statement.statement_id,
+                extent,
+                statement.scoped,
+            )
+        )
+    return result
